@@ -3,6 +3,17 @@ package-lock.json
 yarn.lock
 .pnpm-store
 
+# Local logs / debug artifacts (avoid committing secrets)
+*.log
+*-log.txt
+*logs*.txt
+app_logs*.txt
+tmp_app_logs*.txt
+vinxi-*.log
+vinxi-trace.txt
+server-debug.log
+error-log.txt
+
 .DS_Store
 .cache
 .env
