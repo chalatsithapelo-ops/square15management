@@ -1,0 +1,247 @@
+# Preview Deployment Docker Compose Configuration
+# This file is optimized for deploying preview instances of the application
+# Usage: docker compose -f compose.preview.yaml up -d
+
+services:
+  redis:
+    image: redis:7
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:16
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${LISTEN_IP:-0.0.0.0}:5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: app
+    shm_size: 512MB
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: ${ADMIN_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    # Expose MinIO ports for direct access (optional)
+    # ports:
+    #   - "9000:9000"
+    #   - "9001:9001"
+
+  app:
+    # Use the pre-built image from GitHub Container Registry
+    # Override this with: PREVIEW_IMAGE=ghcr.io/your-org/your-repo:pr-123
+    image: ${PREVIEW_IMAGE:-app:latest}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # Don't expose app port directly - nginx will handle all traffic
+    # ports:
+    #   - "${PREVIEW_PORT:-8000}:3000"
+    env_file:
+      - ../.env
+    environment:
+      # Production mode for previews
+      NODE_ENV: production
+      # Override database connection
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app
+      # Override Redis connection
+      REDIS_URL: redis://redis:6379
+      # Port configuration
+      PORT: 3000
+      HOST: 0.0.0.0
+      CI: "true"
+      # CRITICAL: BASE_URL must be set to the actual external URL for the preview
+      # For local testing: http://localhost:8000
+      # For VM deployment: http://YOUR_VM_IP:8000
+      # For cloud deployment: https://your-preview-url.com
+      # If not set, it will use the value from .env (which defaults to localhost)
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  htpasswd-generator:
+    image: httpd:alpine
+    command: >
+      sh -c "htpasswd -bc /htpasswd/htpasswd admin ${ADMIN_PASSWORD:-admin} &&
+             chmod 644 /htpasswd/htpasswd &&
+             echo 'Generated htpasswd file with username: admin'"
+    volumes:
+      - htpasswd-cache:/htpasswd
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+
+  # Nginx reverse proxy for proper error handling and request routing
+  nginx:
+    image: nginx:latest
+    command: >
+      sh -c '
+        # Install required packages
+        apt-get update -qq && apt-get install -y -qq netcat-openbsd wget > /dev/null 2>&1
+        
+        # Create nginx configuration inline
+        cat > /etc/nginx/conf.d/default.conf << "NGINX_EOF"
+      upstream app_backend {
+        server app:3000 max_fails=3 fail_timeout=30s;
+      }
+
+      server {
+        listen 8000;
+        server_name localhost;
+
+        client_max_body_size 1G;
+
+        # Server-level error handling - catches ALL errors including connection failures
+        error_page 502 503 504 /50x.html;
+
+        location = /50x.html {
+          internal;
+          default_type application/json;
+          return 503 "{\"error\": {\"message\": \"Service temporarily unavailable. The application server may be starting up or experiencing issues. Please try again in a moment.\", \"code\": \"SERVICE_UNAVAILABLE\"}}";
+        }
+
+        location / {
+          proxy_pass http://app_backend/;
+
+          absolute_redirect off;
+
+          chunked_transfer_encoding off;
+
+          proxy_http_version 1.1;
+          proxy_buffering off;
+          proxy_cache off;
+
+          # Connection and timeout settings
+          proxy_connect_timeout 90s;
+          proxy_send_timeout 90s;
+          proxy_read_timeout 90s;
+
+          # Retry logic
+          proxy_next_upstream error timeout http_502 http_503 http_504;
+          proxy_next_upstream_tries 3;
+          proxy_next_upstream_timeout 90s;
+
+          proxy_set_header Host $$http_host;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection upgrade;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+
+          # Intercept errors from upstream
+          proxy_intercept_errors on;
+        }
+
+        location /health {
+          proxy_pass http://app_backend/health;
+          proxy_connect_timeout 5s;
+          proxy_send_timeout 5s;
+          proxy_read_timeout 5s;
+          access_log off;
+          
+          # Don't intercept errors for health check endpoint
+          proxy_intercept_errors off;
+        }
+
+        location /codapt/db/ {
+          proxy_pass http://adminer:8080/;
+
+          absolute_redirect off;
+
+          chunked_transfer_encoding off;
+
+          proxy_http_version 1.1;
+          proxy_buffering off;
+          proxy_cache off;
+
+          proxy_set_header Host $$http_host;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection upgrade;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+
+          auth_basic "admin";
+          auth_basic_user_file /etc/nginx/.htpasswd/htpasswd;
+        }
+      }
+      NGINX_EOF
+        
+        echo "Waiting for app server to be healthy..."
+        max_attempts=60
+        attempt=0
+        
+        while [ $$attempt -lt $$max_attempts ]; do
+          if wget --no-verbose --tries=1 --spider http://app:3000/health 2>/dev/null; then
+            echo "App is healthy, starting nginx..."
+            exec nginx -g "daemon off;"
+          fi
+          attempt=$$((attempt + 1))
+          echo "App not healthy yet (attempt $$attempt/$$max_attempts), waiting..."
+          sleep 2
+        done
+        
+        echo "ERROR: App failed to become healthy after $$max_attempts attempts"
+        exit 1
+      '
+    volumes:
+      - htpasswd-cache:/etc/nginx/.htpasswd
+    ports:
+      - "${PREVIEW_PORT:-8000}:8000"
+    depends_on:
+      app:
+        condition: service_healthy
+      htpasswd-generator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  htpasswd-cache:
+
+# Networks configuration (optional)
+# Uncomment to use custom networks
+# networks:
+#   default:
+#     name: preview-${PREVIEW_NAME:-default}

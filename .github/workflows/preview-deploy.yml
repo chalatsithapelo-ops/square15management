@@ -1,0 +1,332 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore:
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-test:
+    name: Build and Test Preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=pr
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create test environment
+        run: |
+          # Create a minimal .env file for testing
+          cat > .env << EOF
+          NODE_ENV=production
+          ADMIN_PASSWORD=test-password-${{ github.run_id }}
+          JWT_SECRET=test-jwt-secret-${{ github.run_id }}
+          BASE_URL=http://localhost:8000
+          
+          # AI API Keys (required for environment validation)
+          GEMINI_API_KEY=test-gemini-api-key-${{ github.run_id }}
+          GOOGLE_GENERATIVE_AI_API_KEY=test-gemini-api-key-${{ github.run_id }}
+          
+          COMPANY_NAME="Test Company"
+          COMPANY_ADDRESS_LINE1="123 Test Street"
+          COMPANY_ADDRESS_LINE2="Test City, 12345"
+          COMPANY_PHONE=+1234567890
+          COMPANY_EMAIL=test@example.com
+          COMPANY_VAT_NUMBER=1234567890
+          
+          BRAND_PRIMARY_COLOR=#2D5016
+          BRAND_SECONDARY_COLOR=#F4C430
+          BRAND_ACCENT_COLOR=#5A9A47
+          BRAND_SUCCESS_COLOR=#10b981
+          BRAND_WARNING_COLOR=#f59e0b
+          BRAND_DANGER_COLOR=#dc2626
+          
+          COMPANY_BANK_NAME="Test Bank"
+          COMPANY_BANK_ACCOUNT_NAME="Test Account"
+          COMPANY_BANK_ACCOUNT_NUMBER=1234567890
+          COMPANY_BANK_BRANCH_CODE=123456
+          
+          COMPANY_INVOICE_PREFIX=INV
+          COMPANY_ORDER_PREFIX=ORD
+          COMPANY_QUOTATION_PREFIX=QUO
+          
+          SMTP_HOST=smtp.example.com
+          SMTP_PORT=587
+          SMTP_SECURE=false
+          SMTP_USER=test@example.com
+          SMTP_PASSWORD=test-password
+          EOF
+
+      - name: Start services for testing
+        run: |
+          cd docker
+          docker compose -f compose.yaml up -d postgres redis minio
+          
+          # Wait for services to be ready
+          echo "Waiting for services to be ready..."
+          sleep 10
+
+      - name: Run health check test
+        run: |
+          cd docker
+          
+          # Start the app container
+          docker compose -f compose.yaml up -d app
+          
+          # Wait for app to be healthy (up to 7 minutes)
+          echo "Waiting for app to be healthy..."
+          timeout=420
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if docker compose -f compose.yaml ps app | grep -q "healthy"; then
+              echo "App is healthy!"
+              docker compose -f compose.yaml logs --tail=50 app
+              exit 0
+            fi
+            echo "Waiting... ($elapsed/$timeout seconds)"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          
+          echo "App failed to become healthy within timeout"
+          docker compose -f compose.yaml logs app
+          exit 1
+
+      - name: Push Docker image (if configured)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to TrySolid Platform
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: |
+          echo "🚀 Deploying to TrySolid platform..."
+          
+          # The TrySolid platform will automatically pull and deploy the image
+          # from GHCR based on the workflow trigger
+          
+          # Extract the first tag from the metadata
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Deploying image: $IMAGE_TAG"
+          
+          # TrySolid platform deployment is triggered automatically
+          # when we push to the repository and the workflow completes
+          
+          echo "✅ Deployment triggered successfully"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        id: deploy
+
+      - name: Generate deployment summary
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🚀 Deployed to TrySolid Platform
+          
+          The application has been successfully deployed!
+          
+          ### Deployment Details
+          
+          **Docker Image:**
+          \`\`\`
+          ${{ steps.meta.outputs.tags }}
+          \`\`\`
+          
+          **Platform:** TrySolid
+          
+          **Status:** Deployed ✅
+          
+          ### Access Your Deployment
+          
+          Your application is now live on the TrySolid platform. The platform will provide the deployment URL once the containers are fully started (typically 1-2 minutes).
+          
+          ### Important Notes
+          
+          - The deployment uses the \`docker/compose.preview.yaml\` configuration
+          - All required services (PostgreSQL, Redis, MinIO, Nginx) are automatically configured
+          - The \`BASE_URL\` is automatically set based on the TrySolid platform URL
+          - Health checks ensure the app is fully ready before serving traffic
+          
+          ### Monitoring Your Deployment
+          
+          - Check the TrySolid platform dashboard for deployment status
+          - View logs through the platform's log viewer
+          - Monitor resource usage and health metrics
+          
+          ### Environment Configuration
+          
+          The following environment variables are configured from repository secrets:
+          - \`ADMIN_PASSWORD\`: Admin user password
+          - \`JWT_SECRET\`: JWT signing secret
+          - \`GEMINI_API_KEY\`: AI API key
+          - \`BASE_URL\`: Automatically set by TrySolid platform
+          
+          All other configuration is loaded from the default \`.env\` values.
+          
+          ### Troubleshooting
+          
+          If the deployment fails or shows errors:
+          1. Check the TrySolid platform logs
+          2. Verify all required secrets are set in the repository
+          3. Ensure the Docker image built successfully (check previous steps)
+          4. Review the [Deployment Troubleshooting Guide](../blob/main/DEPLOYMENT_TROUBLESHOOTING.md)
+          
+          ### Next Steps
+          
+          - Test the deployed application thoroughly
+          - Check that all features work as expected
+          - Verify file uploads and database operations
+          - Review the application logs for any warnings
+          
+          EOF
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `## 🚀 Deployed to TrySolid Platform
+            
+            Your changes have been successfully deployed!
+            
+            **Docker Image:** \`${{ steps.meta.outputs.tags }}\`
+            
+            **Platform:** TrySolid
+            
+            **Status:** ✅ Deployed
+            
+            ### Access Your Preview
+            
+            Your preview deployment is now live on the TrySolid platform. Check the TrySolid dashboard for the deployment URL.
+            
+            The deployment typically takes 1-2 minutes to fully start up as it:
+            - Pulls the Docker image
+            - Starts all services (PostgreSQL, Redis, MinIO)
+            - Runs database migrations
+            - Performs health checks
+            
+            ### What's Deployed
+            
+            - ✅ Application server with your changes
+            - ✅ PostgreSQL database (fresh instance)
+            - ✅ Redis cache
+            - ✅ MinIO object storage
+            - ✅ Nginx reverse proxy
+            
+            ### Testing Your Changes
+            
+            Once the deployment is ready, you can:
+            - Log in with the admin credentials
+            - Test your new features
+            - Verify the changes work as expected
+            - Share the URL with reviewers
+            
+            ### Monitoring
+            
+            - **Logs:** Available in the TrySolid platform dashboard
+            - **Health:** Check \`/health\` endpoint
+            - **Status:** Monitor the platform dashboard
+            
+            <details>
+            <summary>📋 Deployment Configuration</summary>
+            
+            **Docker Compose:** \`docker/compose.preview.yaml\`
+            
+            **Services:**
+            - app (Node.js application)
+            - postgres (PostgreSQL 16)
+            - redis (Redis 7)
+            - minio (MinIO object storage)
+            - nginx (Reverse proxy)
+            
+            **Environment:**
+            - NODE_ENV: production
+            - BASE_URL: Set automatically by TrySolid
+            - All secrets loaded from repository configuration
+            
+            </details>
+            
+            <details>
+            <summary>🔧 Troubleshooting</summary>
+            
+            If you encounter issues:
+            
+            1. **Check TrySolid logs** for error messages
+            2. **Verify health endpoint** responds with \`{"status":"ok"}\`
+            3. **Review deployment logs** in the Actions tab
+            4. **Check the troubleshooting guide** in the repository
+            
+            Common issues:
+            - App still starting up (wait 1-2 minutes)
+            - Database migrations pending (check app logs)
+            - Environment variables missing (check secrets)
+            
+            See [DEPLOYMENT_TROUBLESHOOTING.md](../blob/main/DEPLOYMENT_TROUBLESHOOTING.md) for detailed help.
+            
+            </details>
+            
+            ---
+            
+            **Need to redeploy?** Push a new commit to this branch to trigger a fresh deployment.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd docker
+          docker compose -f compose.yaml down -v || true

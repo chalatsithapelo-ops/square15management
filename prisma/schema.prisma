@@ -1,0 +1,2568 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum QuotationStatus {
+  DRAFT
+  PENDING_ARTISAN_REVIEW
+  IN_PROGRESS
+  PENDING_JUNIOR_MANAGER_REVIEW
+  PENDING_SENIOR_MANAGER_REVIEW
+  APPROVED
+  SENT_TO_CUSTOMER
+  REJECTED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING_REVIEW
+  PENDING_APPROVAL
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum SlipCategory {
+  MATERIALS
+  TOOLS
+  TRANSPORTATION
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  PLANNING
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum FinancialReportType {
+  MONTHLY_PL
+  QUARTERLY_PL
+  MONTHLY_BALANCE_SHEET
+  QUARTERLY_BALANCE_SHEET
+  ANNUAL_PL
+  ANNUAL_BALANCE_SHEET
+  MONTHLY_BUSINESS_INSIGHTS
+  MONTHLY_CFS
+  QUARTERLY_CFS
+  ANNUAL_CFS
+  PROPERTY_INCOME_STATEMENT
+  PROPERTY_EXPENSE_REPORT
+  PROPERTY_CASH_FLOW
+  PM_INCOME_STATEMENT
+  PM_EXPENSE_REPORT
+  PM_CASH_FLOW
+}
+
+enum ContractorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum ContractorPerformanceRating {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  POOR
+  CRITICAL
+}
+
+enum FinancialReportStatus {
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum StatementStatus {
+  generated
+  sent
+  viewed
+  paid
+  overdue
+}
+
+enum NotificationType {
+  ORDER_ASSIGNED
+  ORDER_STATUS_UPDATED
+  ORDER_COMPLETED
+  QUOTATION_ASSIGNED
+  QUOTATION_STATUS_UPDATED
+  QUOTATION_READY_FOR_REVIEW
+  INVOICE_CREATED
+  INVOICE_STATUS_UPDATED
+  PAYMENT_REQUEST_CREATED
+  PAYMENT_REQUEST_APPROVED
+  PAYMENT_REQUEST_REJECTED
+  PAYMENT_REQUEST_PAID
+  PROJECT_ASSIGNED
+  PROJECT_STATUS_UPDATED
+  MILESTONE_ASSIGNED
+  MILESTONE_STATUS_UPDATED
+  STATEMENT_GENERATED
+  SYSTEM_ALERT
+  MESSAGE_RECEIVED
+  LEAD_FOLLOW_UP_REMINDER
+  RFQ_SUBMITTED
+  RFQ_QUOTED
+  RFQ_APPROVED
+  RFQ_REJECTED
+  PM_ORDER_SUBMITTED
+  PM_ORDER_ACCEPTED
+  PM_ORDER_STATUS_UPDATED
+  PM_ORDER_COMPLETED
+  PM_INVOICE_SENT
+  PM_INVOICE_APPROVED
+  PM_INVOICE_REJECTED
+  PM_INVOICE_OVERDUE
+  MAINTENANCE_REQUEST_SUBMITTED
+  MAINTENANCE_REQUEST_APPROVED
+  MAINTENANCE_REQUEST_COMPLETED
+  BUDGET_THRESHOLD_REACHED
+  SCHEDULED_MAINTENANCE_DUE
+  CUSTOMER_PAYMENT_SUBMITTED
+  CUSTOMER_PAYMENT_APPROVED
+  CUSTOMER_PAYMENT_REJECTED
+  OPERATIONAL_EXPENSE_ADDED
+  ALTERNATIVE_REVENUE_ADDED
+}
+
+enum ExpenseCategory {
+  PETROL
+  OFFICE_SUPPLIES
+  RENT
+  UTILITIES
+  INSURANCE
+  SALARIES
+  MARKETING
+  MAINTENANCE
+  TRAVEL
+  PROFESSIONAL_FEES
+  TELECOMMUNICATIONS
+  SOFTWARE_SUBSCRIPTIONS
+  OTHER
+}
+
+enum RevenueCategory {
+  CONSULTING
+  RENTAL_INCOME
+  INTEREST
+  INVESTMENTS
+  GRANTS
+  DONATIONS
+  OTHER
+}
+
+enum KPIFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum KPIStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  MATERNITY
+  PATERNITY
+  STUDY
+  FAMILY_RESPONSIBILITY
+  OTHER
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum DocumentType {
+  CONTRACT
+  ID_DOCUMENT
+  QUALIFICATION
+  CERTIFICATE
+  PERFORMANCE_REVIEW
+  WARNING
+  OTHER
+}
+
+enum ReviewStatus {
+  DRAFT
+  PENDING_EMPLOYEE_ACKNOWLEDGMENT
+  COMPLETED
+  ARCHIVED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum LiabilityCategory {
+  LOAN
+  ACCOUNTS_PAYABLE
+  CREDIT_LINE
+  OTHER
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  phone             String?
+  role              String
+  hourlyRate        Float?
+  dailyRate         Float?
+  monthlySalary     Float?
+  monthlyPaymentDay Int? // Day of month (1-31) when monthly salary is paid
+
+  // Personal email configuration for sending emails through user's own account
+  userEmailSmtpHost         String?
+  userEmailSmtpPort         Int?
+  userEmailSmtpSecure       Boolean?
+  userEmailSmtpUser         String?
+  userEmailSmtpPassword     String?
+  userEmailConfiguredAt     DateTime?
+  userEmailLastTestedAt     DateTime?
+  disabledNotificationTypes String[]  @default([])
+
+  // Property Manager company details (for PDFs and documents)
+  pmCompanyName              String?
+  pmCompanyAddressLine1      String?
+  pmCompanyAddressLine2      String?
+  pmCompanyPhone             String?
+  pmCompanyEmail             String?
+  pmCompanyVatNumber         String?
+  pmCompanyBankName          String?
+  pmCompanyBankAccountName   String?
+  pmCompanyBankAccountNumber String?
+  pmCompanyBankBranchCode    String?
+
+  // Property Manager branding (for PDFs)
+  pmBrandPrimaryColor   String? @default("#2D5016")
+  pmBrandSecondaryColor String? @default("#F4C430")
+  pmBrandAccentColor    String? @default("#5A9A47")
+
+  // Contractor branding (for PDFs)
+  contractorBrandPrimaryColor   String? @default("#2D5016")
+  contractorBrandSecondaryColor String? @default("#F4C430")
+  contractorBrandAccentColor    String? @default("#5A9A47")
+
+  // Contractor company details (for PDFs and documents)
+  contractorCompanyName              String?
+  contractorCompanyAddressLine1      String?
+  contractorCompanyAddressLine2      String?
+  contractorCompanyPhone             String?
+  contractorCompanyEmail             String?
+  contractorCompanyVatNumber         String?
+  contractorCompanyBankName          String?
+  contractorCompanyBankAccountName   String?
+  contractorCompanyBankAccountNumber String?
+  contractorCompanyBankBranchCode    String?
+
+  // Relations
+  leadsCreated             Lead[]                            @relation("LeadCreator")
+  leadsAssignedForFollowUp Lead[]                            @relation("LeadFollowUpAssignee")
+  ordersAssigned           Order[]                           @relation("AssignedArtisan")
+  quotationsAssigned       Quotation[]                       @relation("AssignedArtisan")
+  quotationsCreated        Quotation[]                       @relation("QuotationCreatedBy")
+  projectsAssigned         Project[]                         @relation("AssignedArtisan")
+  milestonesAssigned       Milestone[]                       @relation("MilestoneAssignedTo")
+  paymentRequests          PaymentRequest[]
+  payslips                 Payslip[]                         @relation("EmployeePayslips")
+  jobActivities            JobActivity[]
+  pmOrderJobActivities     PropertyManagerOrderJobActivity[] @relation("PMOrderJobActivities")
+  invoicesCreated          Invoice[]                         @relation("InvoiceCreator")
+
+  // Messaging relations
+  conversations Conversation[]
+  messagesSent  Message[]      @relation("MessageSender")
+
+  // Review relations
+  reviewsGiven    Review[] @relation("CustomerReviews")
+  reviewsReceived Review[] @relation("ArtisanReviews")
+
+  // Notification relations
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+
+  // HR relations
+  hrDocuments        HRDocument[]        @relation("EmployeeDocuments")
+  uploadedDocuments  HRDocument[]        @relation("DocumentUploader")
+  kpis               EmployeeKPI[]       @relation("EmployeeKPIs")
+  reviewedKPIs       EmployeeKPI[]       @relation("KPIReviewer")
+  leaveRequests      LeaveRequest[]      @relation("EmployeeLeaveRequests")
+  approvedLeaves     LeaveRequest[]      @relation("LeaveApprover")
+  performanceReviews PerformanceReview[] @relation("EmployeePerformanceReviews")
+  reviewsConducted   PerformanceReview[] @relation("ReviewerPerformanceReviews")
+  campaignsCreated   Campaign[]          @relation("CampaignCreator")
+
+  // Property Manager relations
+  propertyManagerRFQs               PropertyManagerRFQ[]              @relation("PropertyManagerRFQs")
+  propertyManagerOrders             PropertyManagerOrder[]            @relation("PropertyManagerOrders")
+  contractorOrders                  PropertyManagerOrder[]            @relation("ContractorPropertyManagerOrders")
+  assignedPropertyManagerOrders     PropertyManagerOrder[]            @relation("PropertyManagerOrderAssignedTo")
+  propertyManagerInvoices           PropertyManagerInvoice[]          @relation("PropertyManagerInvoices")
+  propertyManagerQuotationPdfCopies PropertyManagerQuotationPdfCopy[] @relation("PMQuotationPdfCopies")
+  propertyManagerCustomers          PropertyManagerCustomer[]         @relation("PropertyManagerCustomers")
+  propertyManagerBuildings          Building[]                        @relation("PropertyManagerBuildings")
+  customerProfile                   PropertyManagerCustomer?          @relation("CustomerUser")
+  rentPayments                      RentPayment[]                     @relation("PropertyManagerRentPayments")
+  utilityReadings                   UtilityReading[]                  @relation("PropertyManagerUtilityReadings")
+
+  // Customer Payment relations
+  customerPaymentsMade    CustomerPayment[] @relation("CustomerPayments")
+  customerPaymentsManaged CustomerPayment[] @relation("PropertyManagerCustomerPayments")
+
+  // Contractor Management relations
+  managedContractors Contractor[]                      @relation("PropertyManagerContractors")
+  financialMetrics   PropertyManagerFinancialMetrics[] @relation("ManagerFinancialMetrics")
+
+  // Financial operations relations
+  operationalExpenses OperationalExpense[] @relation("UserOperationalExpenses")
+  approvedExpenses    OperationalExpense[] @relation("ExpenseApprover")
+  alternativeRevenues AlternativeRevenue[] @relation("UserAlternativeRevenues")
+  approvedRevenues    AlternativeRevenue[] @relation("RevenueApprover")
+}
+
+model Lead {
+  id             Int        @id @default(autoincrement())
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  customerName   String
+  companyName    String?
+  customerEmail  String
+  customerPhone  String
+  address        String?
+  serviceType    String
+  description    String
+  estimatedValue Float?
+  status         LeadStatus @default(NEW)
+  notes          String?
+
+  // Follow-up tracking
+  nextFollowUpDate     DateTime?
+  followUpAssignedToId Int?
+  followUpAssignedTo   User?     @relation("LeadFollowUpAssignee", fields: [followUpAssignedToId], references: [id])
+
+  createdById Int
+  createdBy   User @relation("LeadCreator", fields: [createdById], references: [id])
+
+  // Relations
+  orders     Order[]
+  quotations Quotation[]
+}
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  orderNumber   String      @unique
+  customerName  String
+  customerEmail String
+  customerPhone String
+  address       String
+  serviceType   String
+  description   String
+  notes         String?
+  status        OrderStatus @default(PENDING)
+  isPaused      Boolean     @default(false)
+  pausedAt      DateTime?
+
+  assignedToId Int?
+  assignedTo   User? @relation("AssignedArtisan", fields: [assignedToId], references: [id])
+
+  leadId Int?
+  lead   Lead? @relation(fields: [leadId], references: [id])
+
+  startTime             DateTime?
+  endTime               DateTime?
+  materialCost          Float     @default(0)
+  labourCost            Float     @default(0)
+  labourRate            Float?
+  callOutFee            Float     @default(0)
+  totalCost             Float     @default(0)
+  totalMaterialBudget   Float?
+  numLabourersNeeded    Int?
+  totalLabourCostBudget Float?
+
+  beforePictures     String[]
+  afterPictures      String[]
+  contractorSlipUrls String[]  @default([])
+  signedJobCardUrl   String?
+  clientRepName      String?
+  clientRepSignDate  DateTime?
+  documents          String[]  @default([])
+
+  // Relations
+  materials     Material[]
+  jobActivities JobActivity[]
+  expenseSlips  ExpenseSlip[]
+  invoice       Invoice?
+  reviews       Review[]
+}
+
+model Project {
+  id            Int           @id @default(autoincrement())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  projectNumber String        @unique
+  name          String
+  description   String
+  customerName  String
+  customerEmail String
+  customerPhone String
+  address       String
+  projectType   String
+  status        ProjectStatus @default(PLANNING)
+
+  startDate       DateTime?
+  endDate         DateTime?
+  estimatedBudget Float?
+  actualCost      Float     @default(0)
+
+  assignedToId Int?
+  assignedTo   User? @relation("AssignedArtisan", fields: [assignedToId], references: [id])
+
+  notes     String?
+  documents String[]
+
+  // Relations
+  quotations   Quotation[]
+  invoices     Invoice[]
+  reviews      Review[]
+  milestones   Milestone[]
+  changeOrders ChangeOrder[]
+}
+
+model Milestone {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name          String
+  description   String
+  sequenceOrder Int // Order in the project plan
+  status        MilestoneStatus @default(PLANNING)
+
+  // Financial tracking
+  labourCost      Float @default(0)
+  materialCost    Float @default(0)
+  expectedProfit  Float @default(0)
+  budgetAllocated Float @default(0)
+  actualCost      Float @default(0)
+
+  // Operational costs
+  dieselCost           Float @default(0)
+  rentCost             Float @default(0)
+  adminCost            Float @default(0)
+  otherOperationalCost Float @default(0)
+
+  // Timeline
+  startDate       DateTime?
+  endDate         DateTime?
+  actualStartDate DateTime?
+  actualEndDate   DateTime?
+
+  // Progress tracking
+  progressPercentage Float @default(0)
+
+  // Resource allocation
+  assignedToId Int?
+  assignedTo   User? @relation("MilestoneAssignedTo", fields: [assignedToId], references: [id])
+
+  notes String?
+
+  // Relations
+  supplierQuotations MilestoneSupplierQuotation[]
+  weeklyUpdates      WeeklyBudgetUpdate[]
+  paymentRequests    PaymentRequest[]
+  dependenciesFrom   MilestoneDependency[]        @relation("DependencyFrom")
+  dependenciesTo     MilestoneDependency[]        @relation("DependencyTo")
+  risks              MilestoneRisk[]
+  qualityCheckpoints MilestoneQualityCheckpoint[]
+  changeOrders       ChangeOrder[]
+  expenseSlips       MilestoneExpenseSlip[]
+  materials          MilestoneMaterial[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model MilestoneSupplierQuotation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  url          String
+  supplierName String?
+  amount       Float?
+  description  String?
+  category     String  @default("MATERIALS") // MATERIALS, LABOUR, EQUIPMENT, etc.
+
+  @@index([milestoneId])
+}
+
+model WeeklyBudgetUpdate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  weekStartDate DateTime
+  weekEndDate   DateTime
+
+  // Expenditure tracking
+  labourExpenditure   Float @default(0)
+  materialExpenditure Float @default(0)
+  otherExpenditure    Float @default(0)
+  totalExpenditure    Float @default(0)
+
+  // Progress
+  progressPercentage Float @default(0)
+
+  notes       String?
+  createdById Int?
+
+  // Detailed reporting fields
+  workDone         String? // What work was completed this week
+  challenges       String? // Challenges faced during the week
+  successes        String? // Successes achieved during the week
+  imagesDone       String[] @default([]) // Images showing work completed
+  itemizedExpenses Json? // Detailed expense breakdown: [{ itemDescription, quotedAmount, actualSpent, supplierInvoiceUrl, reasonForOverspend }]
+  nextWeekPlan     String? // Plan for the following week
+  pdfUrl           String? // URL of the generated PDF report
+
+  @@index([milestoneId, weekStartDate])
+}
+
+model MilestoneDependency {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  fromMilestoneId Int
+  fromMilestone   Milestone @relation("DependencyFrom", fields: [fromMilestoneId], references: [id], onDelete: Cascade)
+
+  toMilestoneId Int
+  toMilestone   Milestone @relation("DependencyTo", fields: [toMilestoneId], references: [id], onDelete: Cascade)
+
+  dependencyType String @default("FINISH_TO_START") // FINISH_TO_START, START_TO_START, FINISH_TO_FINISH, START_TO_FINISH
+  lagDays        Int    @default(0) // Lag time in days
+
+  @@unique([fromMilestoneId, toMilestoneId])
+  @@index([fromMilestoneId])
+  @@index([toMilestoneId])
+}
+
+model MilestoneRisk {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  riskDescription    String
+  riskCategory       String // TECHNICAL, FINANCIAL, SCHEDULE, RESOURCE, EXTERNAL
+  probability        String // LOW, MEDIUM, HIGH
+  impact             String // LOW, MEDIUM, HIGH
+  mitigationStrategy String?
+  status             String  @default("OPEN") // OPEN, MITIGATED, CLOSED
+
+  identifiedById Int?
+  identifiedDate DateTime @default(now())
+
+  @@index([milestoneId])
+}
+
+model ChangeOrder {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  changeOrderNumber String @unique
+
+  milestoneId Int?
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id])
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  reason      String
+
+  // Cost impact
+  costImpact Float @default(0)
+  timeImpact Int   @default(0) // Days
+
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED, IMPLEMENTED
+  requestedById Int?
+  approvedById  Int?
+  approvedDate  DateTime?
+
+  notes String?
+
+  @@index([projectId])
+  @@index([milestoneId])
+}
+
+model MilestoneQualityCheckpoint {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  checkpointName String
+  description    String?
+  status         String  @default("PENDING") // PENDING, PASSED, FAILED, WAIVED
+
+  inspectedById Int?
+  inspectedDate DateTime?
+
+  notes  String?
+  photos String[] @default([])
+
+  @@index([milestoneId])
+}
+
+model Quotation {
+  id                         Int      @id @default(autoincrement())
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  quoteNumber                String   @unique
+  clientReferenceQuoteNumber String?
+  customerName               String
+  customerEmail              String
+  customerPhone              String
+  address                    String
+
+  items               Json // Array of { description, quantity, unitPrice, total }
+  subtotal            Float
+  tax                 Float   @default(0)
+  total               Float
+  companyMaterialCost Float   @default(0)
+  companyLabourCost   Float   @default(0)
+  estimatedProfit     Float   @default(0)
+  labourRate          Float?
+  numPeopleNeeded     Int?
+  estimatedDuration   Float?
+  durationUnit        String? // 'HOURLY' or 'DAILY'
+  quotationLineItems  Json? // Artisan's breakdown of scope and materials
+
+  status          QuotationStatus @default(DRAFT)
+  validUntil      DateTime?
+  notes           String?
+  rejectionReason String?
+
+  // Workflow fields (similar to Order)
+  startTime      DateTime?
+  endTime        DateTime?
+  materialCost   Float     @default(0)
+  beforePictures String[]  @default([])
+
+  assignedToId Int?
+  assignedTo   User? @relation("AssignedArtisan", fields: [assignedToId], references: [id])
+
+  createdById Int?
+  createdBy   User? @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+
+  leadId Int?
+  lead   Lead? @relation(fields: [leadId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  pictures     String[]
+  measurements String?
+
+  // Relations
+  expenseSlips             QuotationExpenseSlip[]
+  lineItems                QuotationLineItem[]
+  propertyManagerPdfCopies PropertyManagerQuotationPdfCopy[] @relation("QuotationPdfCopies")
+}
+
+model QuotationLineItem {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  description   String
+  quantity      Float
+  unitPrice     Float
+  total         Float
+  unitOfMeasure String   @default("Sum")
+
+  quotationId Int
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoiceNumber String   @unique
+  customerName  String
+  customerEmail String
+  customerPhone String
+  address       String
+
+  items               Json // Array of { description, quantity, unitPrice, total }
+  subtotal            Float
+  tax                 Float @default(0)
+  total               Float
+  companyMaterialCost Float @default(0)
+  companyLabourCost   Float @default(0)
+  estimatedProfit     Float @default(0)
+
+  status          InvoiceStatus @default(DRAFT)
+  dueDate         DateTime?
+  paidDate        DateTime?
+  rejectionReason String?
+  pmApproved      Boolean       @default(false)
+  pmApprovedDate  DateTime?
+
+  orderId Int?   @unique
+  order   Order? @relation(fields: [orderId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  notes String?
+
+  // Track who created this invoice (essential for portal separation)
+  createdById Int?
+  createdBy   User? @relation("InvoiceCreator", fields: [createdById], references: [id])
+
+  // Relations
+  lineItems InvoiceLineItem[]
+}
+
+model InvoiceLineItem {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  description   String
+  quantity      Float
+  unitPrice     Float
+  total         Float
+  unitOfMeasure String   @default("Sum")
+
+  invoiceId Int
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Asset {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  description   String?
+  category      String
+  serialNumber  String?
+  purchaseDate  DateTime
+  purchasePrice Float
+  currentValue  Float
+  condition     String
+  location      String?
+  notes         String?
+  images        String[]
+}
+
+model Liability {
+  id              Int                @id @default(autoincrement())
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  name            String
+  description     String?
+  category        LiabilityCategory? // Changed to optional to allow destructive schema change
+  amount          Float
+  dueDate         DateTime?
+  isPaid          Boolean            @default(false)
+  paidDate        DateTime?
+  creditor        String? // Name of creditor/lender
+  referenceNumber String?
+  notes           String?
+
+  @@index([category])
+  @@index([isPaid])
+}
+
+model PaymentRequest {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  requestNumber String   @unique
+
+  artisanId Int
+  artisan   User @relation(fields: [artisanId], references: [id])
+
+  orderIds         Int[]
+  milestoneId      Int?
+  milestone        Milestone? @relation(fields: [milestoneId], references: [id])
+  hoursWorked      Float?
+  daysWorked       Float?
+  hourlyRate       Float?
+  dailyRate        Float?
+  calculatedAmount Float
+
+  status          PaymentRequestStatus @default(PENDING)
+  approvedDate    DateTime?
+  paidDate        DateTime?
+  rejectionReason String?
+
+  notes String?
+
+  payslip Payslip?
+}
+
+model Payslip {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  payslipNumber String   @unique
+
+  employeeId Int
+  employee   User @relation("EmployeePayslips", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  paymentRequestId Int?            @unique
+  paymentRequest   PaymentRequest? @relation(fields: [paymentRequestId], references: [id])
+
+  // Pay Period
+  payPeriodStart DateTime
+  payPeriodEnd   DateTime
+  paymentDate    DateTime
+
+  // Earnings Breakdown
+  basicSalary   Float @default(0)
+  overtime      Float @default(0)
+  bonus         Float @default(0)
+  allowances    Float @default(0)
+  commission    Float @default(0)
+  otherEarnings Float @default(0)
+  grossPay      Float @default(0)
+
+  // Deductions Breakdown
+  incomeTax       Float @default(0)
+  uif             Float @default(0) // Unemployment Insurance Fund
+  pensionFund     Float @default(0)
+  medicalAid      Float @default(0)
+  otherDeductions Float @default(0)
+  totalDeductions Float @default(0)
+
+  // Net Pay
+  netPay Float @default(0)
+
+  // Additional Details
+  hoursWorked Float?
+  daysWorked  Float?
+  hourlyRate  Float?
+  dailyRate   Float?
+
+  // Tax Information
+  taxReferenceNumber String?
+  uifReferenceNumber String?
+
+  // Notes
+  notes String?
+
+  // Status tracking
+  status     String    @default("GENERATED") // GENERATED, SENT, VIEWED
+  sentDate   DateTime?
+  viewedDate DateTime?
+
+  @@index([employeeId])
+  @@index([paymentDate])
+  @@index([status])
+}
+
+model Material {
+  id                      Int      @id @default(autoincrement())
+  createdAt               DateTime @default(now())
+  name                    String
+  description             String?
+  quantity                Float
+  unitPrice               Float
+  totalCost               Float
+  supplier                String?
+  supplierQuotationUrl    String?
+  supplierQuotationAmount Float?
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
+}
+
+model JobActivity {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  description     String?
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
+
+  artisanId Int
+  artisan   User @relation(fields: [artisanId], references: [id])
+}
+
+model ExpenseSlip {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  url         String
+  category    SlipCategory
+  description String?
+  amount      Float?
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
+}
+
+model QuotationExpenseSlip {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  url         String
+  category    SlipCategory
+  description String?
+  amount      Float?
+
+  quotationId Int
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+}
+
+model MilestoneExpenseSlip {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  url         String
+  category    SlipCategory
+  description String?
+  amount      Float?
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+}
+
+model MilestoneMaterial {
+  id                      Int      @id @default(autoincrement())
+  createdAt               DateTime @default(now())
+  name                    String
+  description             String?
+  quantity                Float
+  unitPrice               Float
+  totalCost               Float
+  supplier                String?
+  supplierQuotationUrl    String?
+  supplierQuotationAmount Float?
+
+  milestoneId Int
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  participants User[]
+  messages     Message[]
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  content     String
+  attachments String[] @default([])
+
+  senderId Int
+  sender   User @relation("MessageSender", fields: [senderId], references: [id])
+
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  readBy Int[]
+}
+
+model Review {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  rating          Float // 1-5 stars
+  comment         String?
+  serviceQuality  Int? // 1-5 rating for service quality
+  professionalism Int? // 1-5 rating for professionalism
+  timeliness      Int? // 1-5 rating for timeliness
+
+  customerId Int
+  customer   User @relation("CustomerReviews", fields: [customerId], references: [id])
+
+  artisanId Int
+  artisan   User @relation("ArtisanReviews", fields: [artisanId], references: [id])
+
+  orderId Int?
+  order   Order? @relation(fields: [orderId], references: [id])
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  @@index([artisanId])
+  @@index([customerId])
+}
+
+model FinancialReport {
+  id               Int                   @id @default(autoincrement())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  reportType       FinancialReportType
+  reportPeriod     String // e.g., "2024-01", "2024-Q1"
+  startDate        DateTime
+  endDate          DateTime
+  status           FinancialReportStatus @default(GENERATING)
+  pdfUrl           String?
+  csvUrl           String?
+  aiInsights       String? // AI-generated summary and insights
+  totalRevenue     Float                 @default(0)
+  totalExpenses    Float                 @default(0)
+  netProfit        Float                 @default(0)
+  totalAssets      Float                 @default(0)
+  totalLiabilities Float                 @default(0)
+  equity           Float                 @default(0)
+  errorMessage     String?
+
+  @@index([reportType, reportPeriod])
+}
+
+model MetricSnapshot {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  snapshotDate DateTime
+  metricType   String // e.g., "DAILY", "MONTHLY"
+
+  // Revenue metrics
+  totalRevenue    Float @default(0)
+  completedOrders Int   @default(0)
+  paidInvoices    Int   @default(0)
+
+  // Expense metrics
+  totalExpenses   Float @default(0)
+  materialCosts   Float @default(0)
+  labourCosts     Float @default(0)
+  artisanPayments Float @default(0)
+
+  // Profit metrics
+  netProfit    Float @default(0)
+  profitMargin Float @default(0)
+
+  // Order metrics
+  activeOrders Int @default(0)
+  newLeads     Int @default(0)
+
+  // Asset metrics
+  totalAssets      Float @default(0)
+  totalLiabilities Float @default(0)
+
+  // Budget utilization metrics
+  totalProjectBudget          Float @default(0)
+  totalProjectActualCost      Float @default(0)
+  budgetUtilizationPercentage Float @default(0)
+  projectsOverBudget          Int   @default(0)
+
+  // Milestone completion metrics
+  totalMilestones         Int   @default(0)
+  completedMilestones     Int   @default(0)
+  inProgressMilestones    Int   @default(0)
+  milestoneCompletionRate Float @default(0)
+  delayedMilestones       Int   @default(0)
+
+  // Project health metrics
+  totalProjects             Int   @default(0)
+  activeProjects            Int   @default(0)
+  projectsAtRisk            Int   @default(0)
+  averageProjectHealthScore Float @default(0)
+
+  @@index([snapshotDate, metricType])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  recipientId   Int
+  recipient     User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  recipientRole String
+
+  message String
+  type    NotificationType
+  isRead  Boolean          @default(false)
+
+  // Optional fields to link notification to specific entities
+  relatedEntityId   Int?
+  relatedEntityType String? // e.g., "ORDER", "PROJECT", "INVOICE", "PAYMENT_REQUEST", "QUOTATION"
+
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt])
+  @@index([type])
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  // To track which browser/device the subscription belongs to (optional)
+  deviceIdentifier String?
+
+  @@index([userId])
+}
+
+model SystemSettings {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  key       String   @unique
+  value     String?
+
+  @@index([key])
+}
+
+model Statement {
+  id                Int             @id @default(autoincrement())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  statement_number  String          @unique
+  client_email      String
+  client_name       String
+  customerPhone     String?
+  address           String?
+  statement_date    DateTime
+  period_start      DateTime
+  period_end        DateTime
+  invoice_ids       String[]        @default([])
+  invoice_details   Json // Array of invoice detail objects with order_number, building, description, etc.
+  age_analysis      Json // Object with current, days_31_60, days_61_90, days_91_120, over_120
+  subtotal          Float           @default(0)
+  total_interest    Float           @default(0)
+  total_amount_due  Float           @default(0)
+  payments_received Float           @default(0)
+  previous_balance  Float           @default(0)
+  status            StatementStatus @default(generated)
+  sent_date         DateTime?
+  pdfUrl            String?
+  notes             String?
+  errorMessage      String?
+
+  @@index([client_email])
+  @@index([status])
+  @@index([statement_date])
+}
+
+model HRDocument {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeId Int
+  employee   User @relation("EmployeeDocuments", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  documentType DocumentType
+  title        String
+  description  String?
+  fileUrl      String
+  fileName     String
+
+  uploadedById Int?
+  uploadedBy   User? @relation("DocumentUploader", fields: [uploadedById], references: [id])
+
+  expiryDate DateTime? // For contracts and certificates
+  notes      String?
+
+  @@index([employeeId])
+  @@index([documentType])
+}
+
+model EmployeeKPI {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeId Int
+  employee   User @relation("EmployeeKPIs", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  kpiName     String
+  description String?
+  targetValue Float
+  actualValue Float   @default(0)
+  unit        String // e.g., "jobs", "hours", "R", "%"
+
+  frequency KPIFrequency
+  status    KPIStatus    @default(ACTIVE)
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  achievementRate Float @default(0) // Percentage of target achieved
+
+  notes        String?
+  reviewedById Int?
+  reviewedBy   User?     @relation("KPIReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+}
+
+model LeaveRequest {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeId Int
+  employee   User @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  totalDays Float // Can be fractional for half-days
+
+  reason String
+  status LeaveRequestStatus @default(PENDING)
+
+  approvedById Int?
+  approvedBy   User?     @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  rejectionReason String?
+
+  supportingDocumentUrl String? // For sick leave, etc.
+  notes                 String?
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model PerformanceReview {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeId Int
+  employee   User @relation("EmployeePerformanceReviews", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reviewerId Int
+  reviewer   User @relation("ReviewerPerformanceReviews", fields: [reviewerId], references: [id])
+
+  reviewPeriodStart DateTime
+  reviewPeriodEnd   DateTime
+  reviewDate        DateTime @default(now())
+
+  status ReviewStatus @default(DRAFT)
+
+  // Overall Performance Rating (1-5 scale)
+  overallRating Float? // Average of all category ratings
+
+  // Category Ratings (1-5 scale)
+  qualityOfWork   Int?
+  productivity    Int?
+  communication   Int?
+  teamwork        Int?
+  initiative      Int?
+  problemSolving  Int?
+  reliability     Int?
+  customerService Int?
+  technicalSkills Int?
+  leadership      Int?
+
+  // Achievements and Strengths
+  keyAchievements String? // Major accomplishments during the period
+  strengths       String? // Employee's key strengths
+
+  // Areas for Improvement
+  areasForImprovement String? // Specific areas needing development
+  improvementActions  String? // Concrete actions for improvement
+
+  // Goals and Development
+  goalsForNextPeriod String? // Goals for the next review period
+  trainingNeeds      String? // Identified training or development needs
+  careerDevelopment  String? // Career development discussions
+
+  // Feedback
+  reviewerComments String? // Manager's overall feedback
+  employeeComments String? // Employee's self-assessment or response
+
+  // Acknowledgment
+  employeeAcknowledgedAt DateTime? // When employee acknowledged the review
+
+  notes String?
+
+  @@index([employeeId])
+  @@index([reviewerId])
+  @@index([status])
+  @@index([reviewDate])
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  description String?
+
+  // Email content
+  subject  String
+  htmlBody String @db.Text // Rich HTML content for the email
+
+  // Target audience criteria (stored as JSON)
+  targetCriteria Json? // { statuses: [], serviceTypes: [], estimatedValueMin: 0, estimatedValueMax: 1000000 }
+
+  // Scheduling
+  status       CampaignStatus @default(DRAFT)
+  scheduledFor DateTime?
+  sentAt       DateTime?
+
+  // Tracking
+  totalRecipients Int @default(0)
+  totalSent       Int @default(0)
+  totalFailed     Int @default(0)
+
+  // Metadata
+  createdById Int
+  createdBy   User @relation("CampaignCreator", fields: [createdById], references: [id])
+
+  notes String?
+
+  @@index([status])
+  @@index([createdById])
+  @@index([scheduledFor])
+}
+
+model PropertyManagerRFQ {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rfqNumber String   @unique
+
+  // Property Manager Details
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerRFQs", fields: [propertyManagerId], references: [id])
+
+  // RFQ Details
+  title           String
+  description     String  @db.Text
+  scopeOfWork     String  @db.Text
+  buildingName    String?
+  buildingAddress String
+  urgency         String  @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+
+  // Budget
+  estimatedBudget Float?
+
+  // Status workflow: DRAFT -> SUBMITTED -> UNDER_REVIEW -> QUOTED -> APPROVED -> REJECTED -> CONVERTED_TO_ORDER
+  status String @default("DRAFT")
+
+  // Response from admin
+  adminQuoteId Int?                  @unique
+  adminQuote   PropertyManagerQuote? @relation("RFQAdminQuote")
+
+  // Dates
+  requiredByDate DateTime?
+  submittedDate  DateTime?
+  quotedDate     DateTime?
+  approvedDate   DateTime?
+  rejectedDate   DateTime?
+
+  // Order generation
+  generatedOrderId Int?                  @unique
+  generatedOrder   PropertyManagerOrder? @relation("RFQGeneratedOrder")
+
+  // Relation for orders that reference this RFQ as source
+  ordersFromThisRFQ PropertyManagerOrder[] @relation("OrderSourceRFQ")
+
+  // Record-keeping contractor quotation PDF copies (approved/rejected)
+  quotationPdfCopies PropertyManagerQuotationPdfCopy[] @relation("RFQQuotationPdfCopies")
+
+  // Attachments and notes
+  attachments     String[] @default([])
+  notes           String?  @db.Text
+  rejectionReason String?
+
+  // Selected contractors to receive this RFQ
+  selectedContractorIds Int[] @default([])
+
+  @@index([propertyManagerId])
+  @@index([status])
+}
+
+model PropertyManagerQuote {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  quoteNumber String   @unique
+
+  // Related RFQ - back-relation to PropertyManagerRFQ.adminQuote
+  rfqId Int                @unique
+  rfq   PropertyManagerRFQ @relation("RFQAdminQuote", fields: [rfqId], references: [id])
+
+  // Quote Details
+  items    Json // Array of { description, quantity, unitPrice, total, unitOfMeasure }
+  subtotal Float
+  tax      Float @default(0)
+  total    Float
+
+  // Internal costs (admin only)
+  companyMaterialCost Float @default(0)
+  companyLabourCost   Float @default(0)
+  estimatedProfit     Float @default(0)
+
+  // Timeline
+  estimatedStartDate      DateTime?
+  estimatedCompletionDate DateTime?
+  estimatedDuration       String? // e.g., "2 weeks", "3 days"
+
+  // Status: DRAFT -> SENT -> APPROVED -> REJECTED
+  status   String    @default("DRAFT")
+  sentDate DateTime?
+
+  // PM Response
+  approvedByPMDate  DateTime?
+  rejectedByPMDate  DateTime?
+  pmRejectionReason String?
+
+  // Validity
+  validUntil DateTime?
+
+  // Attachments and notes
+  attachments        String[] @default([])
+  notes              String?  @db.Text
+  termsAndConditions String?  @db.Text
+
+  @@index([rfqId])
+  @@index([status])
+}
+
+model PropertyManagerOrder {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orderNumber String   @unique
+
+  // Property Manager Details
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerOrders", fields: [propertyManagerId], references: [id])
+
+  // Contractor Details
+  contractorId Int?
+  contractor   User? @relation("ContractorPropertyManagerOrders", fields: [contractorId], references: [id])
+
+  // Assigned Artisan/Employee
+  assignedToId Int?
+  assignedTo   User? @relation("PropertyManagerOrderAssignedTo", fields: [assignedToId], references: [id])
+
+  // Order Details
+  title           String
+  description     String  @db.Text
+  scopeOfWork     String  @db.Text
+  buildingName    String?
+  buildingAddress String
+
+  // If generated from RFQ/Quote - relation to PropertyManagerRFQ.generatedOrder
+  generatedFromRFQId Int?                @unique
+  generatedFromRFQ   PropertyManagerRFQ? @relation("RFQGeneratedOrder", fields: [generatedFromRFQId], references: [id])
+
+  // If referencing an RFQ as source (different from generated)
+  sourceRFQId Int?
+  sourceRFQ   PropertyManagerRFQ? @relation("OrderSourceRFQ", fields: [sourceRFQId], references: [id])
+
+  // Financial
+  totalAmount Float
+  paidAmount  Float @default(0)
+
+  // Status: DRAFT -> SUBMITTED -> ACCEPTED -> IN_PROGRESS -> COMPLETED -> CANCELLED
+  status String @default("DRAFT")
+
+  // Dates
+  submittedDate DateTime?
+  acceptedDate  DateTime?
+  startDate     DateTime?
+  completedDate DateTime?
+
+  // Progress tracking
+  progressPercentage Float @default(0)
+
+  // Job execution fields (for artisan workflow)
+  startTime         DateTime?
+  endTime           DateTime?
+  beforePictures    String[]  @default([])
+  afterPictures     String[]  @default([])
+  materialCost      Float     @default(0)
+  labourCost        Float     @default(0)
+  signedJobCardUrl  String?
+  clientRepName     String?
+  clientRepSignDate DateTime?
+
+  // Rating fields (added for work rating functionality)
+  qualityRating         Float?
+  timelinessRating      Float?
+  professionalismRating Float?
+  communicationRating   Float?
+  overallRating         Float?
+  ratingComments        String?   @db.Text
+  ratedAt               DateTime?
+
+  // Attachments and notes
+  attachments String[] @default([])
+  notes       String?  @db.Text
+
+  // Relations
+  invoices        PropertyManagerInvoice[]
+  progressUpdates PropertyManagerOrderUpdate[]
+  materials       PropertyManagerOrderMaterial[]
+  jobActivities   PropertyManagerOrderJobActivity[]
+  expenseSlips    PropertyManagerOrderExpenseSlip[]
+
+  @@index([propertyManagerId])
+  @@index([contractorId])
+  @@index([status])
+  @@index([sourceRFQId])
+}
+
+// Record-keeping copies of contractor quotation PDFs for Property Manager RFQs.
+// Deleting a copy should not delete the original Quotation.
+model PropertyManagerQuotationPdfCopy {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // Ownership / access control
+  propertyManagerId Int
+  propertyManager   User @relation("PMQuotationPdfCopies", fields: [propertyManagerId], references: [id], onDelete: Cascade)
+
+  // RFQ this copy belongs to
+  rfqId     Int
+  rfq       PropertyManagerRFQ @relation("RFQQuotationPdfCopies", fields: [rfqId], references: [id], onDelete: Cascade)
+  rfqNumber String
+
+  // Original quotation reference (kept intact)
+  quotationId Int
+  quotation   Quotation @relation("QuotationPdfCopies", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  // APPROVED or REJECTED (decision outcome for this RFQ)
+  decision String
+
+  filename String
+  pdfData  Bytes
+
+  @@unique([propertyManagerId, quotationId, decision])
+  @@index([propertyManagerId])
+  @@index([rfqId])
+  @@index([quotationId])
+}
+
+model PropertyManagerOrderUpdate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   PropertyManagerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Update details
+  status             String // STARTED, IN_PROGRESS, PAUSED, RESUMED, COMPLETED
+  message            String @db.Text
+  progressPercentage Float?
+
+  // Attachments (photos, documents)
+  photos    String[] @default([])
+  documents String[] @default([])
+
+  // Created by (admin/artisan)
+  createdById Int?
+
+  @@index([orderId])
+}
+
+model PropertyManagerInvoice {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoiceNumber String   @unique
+
+  // Property Manager Details
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerInvoices", fields: [propertyManagerId], references: [id])
+
+  // Related Order
+  orderId Int?
+  order   PropertyManagerOrder? @relation(fields: [orderId], references: [id])
+
+  // Invoice Details
+  items    Json // Array of { description, quantity, unitPrice, total }
+  subtotal Float
+  tax      Float @default(0)
+  total    Float
+
+  // Status: DRAFT -> ADMIN_APPROVED -> SENT_TO_PM -> PM_APPROVED -> PM_REJECTED -> PAID -> OVERDUE
+  status String @default("DRAFT")
+
+  // Admin approval (internal)
+  adminApprovedDate DateTime?
+  adminApprovedById Int?
+
+  // PM approval
+  pmApprovedDate    DateTime?
+  pmRejectedDate    DateTime?
+  pmRejectionReason String?
+
+  // Payment
+  sentToPMDate         DateTime?
+  dueDate              DateTime?
+  paidDate             DateTime?
+  markedAsPaidByPMDate DateTime?
+
+  // Attachments and notes
+  attachments String[] @default([])
+  notes       String?  @db.Text
+
+  @@index([propertyManagerId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model PropertyManagerCustomer {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Property Manager who manages this customer
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerCustomers", fields: [propertyManagerId], references: [id])
+
+  // Customer Details
+  userId Int?  @unique
+  user   User? @relation("CustomerUser", fields: [userId], references: [id])
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  // Building/Unit Details
+  buildingId   Int?
+  building     Building? @relation("BuildingTenants", fields: [buildingId], references: [id])
+  buildingName String?
+  unitNumber   String?
+  address      String
+
+  // Onboarding Status
+  onboardingStatus String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  onboardedDate    DateTime?
+  approvedBy       Int? // PM user ID who approved
+  approvedDate     DateTime?
+  rejectionReason  String?   @db.Text
+
+  // Status
+  status      String    @default("PENDING") // PENDING, ACTIVE, INACTIVE, MOVED_OUT
+  moveInDate  DateTime?
+  moveOutDate DateTime?
+
+  // Lease Details
+  leaseStartDate  DateTime?
+  leaseEndDate    DateTime?
+  monthlyRent     Float?
+  securityDeposit Float?
+
+  // Utility Tracking
+  electricityMeterNumber String?
+  waterMeterNumber       String?
+  gasMeterNumber         String?
+
+  // Notes
+  notes String? @db.Text
+
+  // Relations
+  maintenanceRequests MaintenanceRequest[]
+  rentPayments        RentPayment[]
+  utilityReadings     UtilityReading[]
+  customerPayments    CustomerPayment[]    @relation("TenantPayments")
+
+  @@index([propertyManagerId])
+  @@index([buildingId])
+  @@index([email])
+  @@index([status])
+  @@index([onboardingStatus])
+}
+
+model MaintenanceRequest {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  requestNumber String   @unique
+
+  // Customer Details
+  customerId Int
+  customer   PropertyManagerCustomer @relation(fields: [customerId], references: [id])
+
+  // Property Manager
+  propertyManagerId Int
+
+  // Request Details
+  title        String
+  description  String  @db.Text
+  buildingName String?
+  unitNumber   String?
+  address      String
+  urgency      String  @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  category     String // PLUMBING, ELECTRICAL, HVAC, GENERAL, etc.
+
+  // Status: DRAFT -> SUBMITTED -> RECEIVED -> APPROVED -> REJECTED -> CONVERTED
+  status String @default("DRAFT")
+
+  // Recipient Type: PM or specific CONTRACTOR
+  recipientType String @default("PM") // PM, CONTRACTOR
+  recipientId   Int? // If CONTRACTOR, store contractor ID
+
+  // Contractor Details (if sent directly to contractor)
+  contractorCompanyName   String?
+  contractorEmail         String?
+  contractorPhone         String?
+  contractorContactPerson String?
+
+  // Photos
+  photos String[] @default([])
+
+  // Approval Workflow
+  approvedBy      Int? // Property Manager ID who approved
+  approvalNotes   String? @db.Text
+  rejectionReason String?
+
+  // Dates
+  submittedDate DateTime?
+  receivedDate  DateTime? // When PM receives it
+  reviewedDate  DateTime?
+  approvedDate  DateTime?
+  rejectedDate  DateTime?
+  completedDate DateTime?
+
+  // Conversion to work order
+  convertedToRFQId   Int?
+  convertedToOrderId Int?
+  conversionType     String? // RFQ or ORDER
+  convertedDate      DateTime?
+
+  @@index([customerId])
+  @@index([propertyManagerId])
+  @@index([status])
+  @@index([recipientType])
+}
+
+model Building {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Property Manager
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerBuildings", fields: [propertyManagerId], references: [id])
+
+  // Building Details
+  name            String
+  address         String
+  buildingType    String // RESIDENTIAL, COMMERCIAL, MIXED_USE, INDUSTRIAL
+  numberOfUnits   Int?
+  totalSquareFeet Float?
+  yearBuilt       Int?
+
+  // Financial
+  estimatedValue  Float?
+  monthlyExpenses Float?
+  monthlyRevenue  Float  @default(0)
+
+  // Status
+  status String @default("ACTIVE") // ACTIVE, UNDER_RENOVATION, INACTIVE
+
+  // Attachments and notes
+  photos    String[] @default([])
+  documents String[] @default([])
+  notes     String?  @db.Text
+
+  // Relations
+  budgets              BuildingBudget[]
+  maintenanceSchedules BuildingMaintenanceSchedule[]
+  financialMetrics     PropertyFinancialMetrics[]
+  tenants              PropertyManagerCustomer[]     @relation("BuildingTenants")
+  payments             CustomerPayment[]             @relation("BuildingPayments")
+
+  @@index([propertyManagerId])
+}
+
+model BuildingBudget {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Building
+  buildingId Int
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  // Property Manager
+  propertyManagerId Int
+
+  // Budget Period
+  fiscalYear Int
+  quarter    Int? // 1, 2, 3, 4 (optional for quarterly budgets)
+  startDate  DateTime
+  endDate    DateTime
+
+  // Budget Categories
+  preventativeMaintenance Float @default(0)
+  reactiveMaintenance     Float @default(0)
+  correctiveMaintenance   Float @default(0)
+  capitalExpenditures     Float @default(0)
+  utilities               Float @default(0)
+  insurance               Float @default(0)
+  propertyTax             Float @default(0)
+  other                   Float @default(0)
+
+  // Totals
+  totalBudget    Float
+  totalSpent     Float @default(0)
+  totalRemaining Float
+
+  // Status
+  status String @default("DRAFT") // DRAFT, APPROVED, ACTIVE, CLOSED
+
+  // Notes
+  notes String? @db.Text
+
+  // Relations
+  expenses BudgetExpense[]
+
+  @@index([buildingId])
+  @@index([propertyManagerId])
+  @@index([fiscalYear])
+}
+
+model BudgetExpense {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // Budget
+  budgetId Int
+  budget   BuildingBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  // Expense Details
+  description String
+  category    String // Must match budget categories
+  amount      Float
+  expenseDate DateTime
+
+  // Reference
+  referenceType String? // RFQ, ORDER, INVOICE, MANUAL
+  referenceId   Int?
+
+  // Attachments
+  receiptUrl String?
+  invoiceUrl String?
+
+  // Notes
+  notes String?
+
+  @@index([budgetId])
+  @@index([category])
+}
+
+model BuildingMaintenanceSchedule {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Building
+  buildingId Int
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  // Property Manager
+  propertyManagerId Int
+
+  // Schedule Details
+  title           String
+  description     String @db.Text
+  maintenanceType String // PREVENTATIVE, REACTIVE, CORRECTIVE
+  category        String // HVAC, PLUMBING, ELECTRICAL, STRUCTURAL, etc.
+
+  // Frequency
+  frequency String // DAILY, WEEKLY, MONTHLY, QUARTERLY, ANNUALLY, ONE_TIME
+
+  // Dates
+  startDate         DateTime
+  endDate           DateTime?
+  lastPerformedDate DateTime?
+  nextDueDate       DateTime
+
+  // Budget allocation
+  estimatedCost   Float?
+  budgetAllocated Float?
+
+  // Status
+  status String @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED, CANCELLED
+
+  // Notifications
+  notifyDaysBefore Int @default(7)
+
+  // Notes
+  notes String? @db.Text
+
+  @@index([buildingId])
+  @@index([propertyManagerId])
+  @@index([nextDueDate])
+  @@index([status])
+}
+
+// ============================================================================
+// CONTRACTOR MANAGEMENT
+// ============================================================================
+
+model Contractor {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Basic Information
+  firstName          String
+  lastName           String
+  email              String  @unique
+  phone              String?
+  companyName        String?
+  registrationNumber String? // Business registration/tax number
+
+  // Service Categorization
+  serviceType     String // e.g., PLUMBING, ELECTRICAL, HVAC, CARPENTRY, etc.
+  serviceCategory String? // Broader category for grouping
+  specializations String[] @default([])
+
+  // Financial Information
+  hourlyRate        Float?
+  dailyRate         Float?
+  projectRate       Float?
+  bankName          String?
+  bankAccountHolder String?
+  bankAccountNumber String?
+  bankCode          String?
+
+  // Status and Activity
+  status      ContractorStatus @default(ACTIVE)
+  dateJoined  DateTime
+  lastJobDate DateTime?
+
+  // Portal Access
+  portalAccessEnabled Boolean   @default(false)
+  lastLoginDate       DateTime?
+
+  // Documents and Compliance
+  documents ContractorDocument[]
+
+  // Performance Metrics
+  totalJobsCompleted Int   @default(0)
+  averageRating      Float @default(0)
+  totalSpent         Float @default(0)
+
+  // Performance tracking
+  kpis               ContractorKPI[]
+  performanceMetrics ContractorPerformance[]
+
+  // Relations
+  propertyManagerId Int?
+  propertyManager   User? @relation("PropertyManagerContractors", fields: [propertyManagerId], references: [id], onDelete: SetNull)
+
+  notes String? @db.Text
+
+  @@index([propertyManagerId])
+  @@index([status])
+  @@index([serviceType])
+  @@index([email])
+}
+
+model ContractorDocument {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contractorId Int
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  documentType DocumentType
+  title        String
+  description  String?
+  fileUrl      String
+  fileName     String
+
+  expiryDate DateTime? // For licenses, insurance, etc.
+  notes      String?
+
+  @@index([contractorId])
+  @@index([documentType])
+}
+
+model ContractorKPI {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contractorId Int
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  kpiName     String // e.g., "Jobs Completed", "Quality Rating", "On-Time Delivery Rate"
+  description String?
+  targetValue Float
+  actualValue Float   @default(0)
+  unit        String // e.g., "jobs", "hours", "R", "%"
+
+  frequency KPIFrequency
+  status    KPIStatus    @default(ACTIVE)
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  achievementRate Float @default(0) // Percentage of target achieved
+
+  notes      String?
+  reviewedAt DateTime?
+
+  @@index([contractorId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+}
+
+model ContractorPerformance {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contractorId Int
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  // Performance Metrics
+  jobsCompleted Int   @default(0)
+  jobsOnTime    Int   @default(0)
+  jobsQuality   Float @default(0) // Average quality rating
+
+  // Time Metrics
+  averageJobDuration Float? // In days
+  onTimePercentage   Float  @default(0)
+  completionRate     Float  @default(0)
+
+  // Quality Metrics
+  qualityScore         Float @default(0) // 0-100
+  customerSatisfaction Float @default(0) // 0-100
+  issuesReported       Int   @default(0)
+  reworkRequired       Int   @default(0)
+
+  // Financial Metrics
+  totalRevenueGenerated Float @default(0)
+  averageJobValue       Float @default(0)
+  costPerJob            Float @default(0)
+  profitMargin          Float @default(0)
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Overall Rating
+  overallRating ContractorPerformanceRating @default(AVERAGE)
+
+  notes String? @db.Text
+
+  @@index([contractorId])
+  @@index([periodStart, periodEnd])
+}
+
+// ============================================================================
+// PROPERTY FINANCIAL METRICS
+// ============================================================================
+
+model PropertyFinancialMetrics {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Property Reference
+  buildingId Int
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  // Property Manager
+  propertyManagerId Int
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  periodType  String   @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL
+
+  // INCOME
+  rentalIncome    Float @default(0)
+  maintenanceFees Float @default(0)
+  depositInterest Float @default(0)
+  otherIncome     Float @default(0)
+  totalIncome     Float @default(0)
+
+  // EXPENSES
+  maintenanceExpenses    Float @default(0)
+  utilities              Float @default(0)
+  propertyTax            Float @default(0)
+  insurance              Float @default(0)
+  staffSalaries          Float @default(0)
+  marketingExpenses      Float @default(0)
+  administrativeExpenses Float @default(0)
+  contractorPayments     Float @default(0)
+  otherExpenses          Float @default(0)
+  totalExpenses          Float @default(0)
+
+  // PROFIT/LOSS
+  operatingProfit Float @default(0) // totalIncome - totalExpenses
+  profitMargin    Float @default(0) // operatingProfit / totalIncome * 100
+
+  // ASSETS
+  buildingValue Float @default(0)
+  improvements  Float @default(0)
+  deposits      Float @default(0)
+  otherAssets   Float @default(0)
+  totalAssets   Float @default(0)
+
+  // LIABILITIES
+  mortgage         Float @default(0)
+  loans            Float @default(0)
+  accountsPayable  Float @default(0)
+  otherLiabilities Float @default(0)
+  totalLiabilities Float @default(0)
+
+  // EQUITY
+  equity Float @default(0) // totalAssets - totalLiabilities
+
+  // CASH FLOW
+  operatingCashFlow Float @default(0)
+  investingCashFlow Float @default(0)
+  financingCashFlow Float @default(0)
+  netCashFlow       Float @default(0)
+
+  // Key Metrics
+  debtToEquityRatio Float @default(0)
+  returnOnAssets    Float @default(0)
+  occupancyRate     Float @default(0) // Percentage
+
+  notes String? @db.Text
+
+  @@index([buildingId])
+  @@index([propertyManagerId])
+  @@index([periodStart, periodEnd])
+}
+
+model PropertyManagerFinancialMetrics {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Property Manager Reference
+  propertyManagerId Int
+  propertyManager   User @relation("ManagerFinancialMetrics", fields: [propertyManagerId], references: [id])
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  periodType  String   @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL
+
+  // INCOME
+  totalRentalIncome Float @default(0)
+  maintenanceFees   Float @default(0)
+  otherIncome       Float @default(0)
+  totalIncome       Float @default(0)
+
+  // EXPENSES
+  maintenanceExpenses    Float @default(0)
+  utilities              Float @default(0)
+  propertyTax            Float @default(0)
+  insurance              Float @default(0)
+  staffSalaries          Float @default(0)
+  contractorPayments     Float @default(0)
+  administrativeExpenses Float @default(0)
+  otherExpenses          Float @default(0)
+  totalExpenses          Float @default(0)
+
+  // PROFIT/LOSS
+  operatingProfit Float @default(0)
+  profitMargin    Float @default(0)
+
+  // Contractor Spending
+  totalContractorSpent      Float @default(0)
+  numberOfContractors       Int   @default(0)
+  averageSpentPerContractor Float @default(0)
+
+  // ASSETS (Total across all properties)
+  totalPropertyValue Float @default(0)
+  totalDeposits      Float @default(0)
+  totalAssets        Float @default(0)
+
+  // LIABILITIES (Total across all properties)
+  totalMortgages   Float @default(0)
+  totalLoans       Float @default(0)
+  totalLiabilities Float @default(0)
+
+  // EQUITY
+  totalEquity Float @default(0)
+
+  // CASH FLOW
+  operatingCashFlow Float @default(0)
+  netCashFlow       Float @default(0)
+
+  // Key Metrics
+  overallDebtToEquityRatio Float @default(0)
+  overallReturnOnAssets    Float @default(0)
+  overallOccupancyRate     Float @default(0)
+  numberOfProperties       Int   @default(0)
+
+  notes String? @db.Text
+
+  @@index([propertyManagerId])
+  @@index([periodStart, periodEnd])
+}
+
+model RentPayment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Tenant
+  tenantId Int
+  tenant   PropertyManagerCustomer @relation(fields: [tenantId], references: [id])
+
+  // Property Manager
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerRentPayments", fields: [propertyManagerId], references: [id])
+
+  // Payment Details
+  paymentNumber String    @unique
+  dueDate       DateTime
+  paidDate      DateTime?
+  amount        Float
+  amountPaid    Float     @default(0)
+  lateFee       Float     @default(0)
+  status        String    @default("PENDING") // PENDING, PAID, PARTIAL, OVERDUE
+
+  // Transaction Details
+  paymentMethod        String? // CASH, BANK_TRANSFER, CARD, CHEQUE
+  transactionReference String?
+
+  notes String? @db.Text
+
+  @@index([tenantId])
+  @@index([propertyManagerId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model UtilityReading {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Tenant
+  tenantId Int
+  tenant   PropertyManagerCustomer @relation(fields: [tenantId], references: [id])
+
+  // Property Manager
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerUtilityReadings", fields: [propertyManagerId], references: [id])
+
+  // Utility Details
+  utilityType     String // ELECTRICITY, WATER, GAS, INTERNET
+  readingDate     DateTime
+  previousReading Float    @default(0)
+  currentReading  Float
+  consumption     Float
+
+  // Billing
+  ratePerUnit Float?
+  totalCost   Float?
+  status      String @default("RECORDED") // RECORDED, BILLED, PAID
+
+  // Meter Details
+  meterNumber String?
+
+  notes String? @db.Text
+
+  @@index([tenantId])
+  @@index([propertyManagerId])
+  @@index([utilityType])
+  @@index([readingDate])
+}
+
+model CustomerPayment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Customer who made the payment
+  customerId Int?
+  customer   User? @relation("CustomerPayments", fields: [customerId], references: [id])
+
+  // Property Manager Customer (Tenant)
+  tenantId Int?
+  tenant   PropertyManagerCustomer? @relation("TenantPayments", fields: [tenantId], references: [id])
+
+  // Property Manager
+  propertyManagerId Int?
+  propertyManager   User? @relation("PropertyManagerCustomerPayments", fields: [propertyManagerId], references: [id])
+
+  // Building
+  buildingId Int?
+  building   Building? @relation("BuildingPayments", fields: [buildingId], references: [id])
+
+  // Payment Details
+  paymentNumber   String  @unique
+  paymentType     String // RENT, UTILITIES, CLAIM
+  amount          Float
+  expectedAmount  Float? // Expected rent amount for comparison
+  deviationReason String? @db.Text // Notes if amount differs from expected
+
+  // Payment Method
+  paymentMethod        String? // BANK_TRANSFER, CASH, CARD, EFT
+  transactionReference String?
+
+  // Proof of Payment
+  proofOfPayment String[] @default([]) // Attachment URLs
+
+  // Status
+  status String @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  // Review
+  reviewedBy      Int? // Property Manager ID who reviewed
+  reviewedDate    DateTime?
+  approvalNotes   String?   @db.Text
+  rejectionReason String?   @db.Text
+
+  // Allocation
+  allocatedDate DateTime?
+
+  // Dates
+  paymentDate DateTime // Date when customer made payment
+
+  // Month/Period (for rent payments)
+  paymentMonth DateTime? // First day of the month being paid for
+
+  notes String? @db.Text
+
+  @@index([customerId])
+  @@index([tenantId])
+  @@index([propertyManagerId])
+  @@index([buildingId])
+  @@index([status])
+  @@index([paymentType])
+  @@index([paymentDate])
+  @@index([paymentMonth])
+}
+
+// Property Manager Order - Materials tracking
+model PropertyManagerOrderMaterial {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  name        String
+  description String?
+  quantity    Float
+  unit        String   @default("unit")
+  unitPrice   Float
+  totalCost   Float
+
+  orderId Int
+  order   PropertyManagerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// Property Manager Order - Job Activities tracking
+model PropertyManagerOrderJobActivity {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  description     String?
+  hoursWorked     Float?
+  rate            Float?
+
+  orderId Int
+  order   PropertyManagerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  artisanId Int
+  artisan   User @relation("PMOrderJobActivities", fields: [artisanId], references: [id])
+
+  @@index([orderId])
+  @@index([artisanId])
+}
+
+// Property Manager Order - Expense Slips tracking
+model PropertyManagerOrderExpenseSlip {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  url         String
+  category    SlipCategory
+  description String?
+  amount      Float?
+
+  orderId Int
+  order   PropertyManagerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// Add relation to User model (already exists but we add new relation)
+// Just document: propertyManagerContractors and ManagerFinancialMetrics relations
+
+// Operational Expenses - Track non-order related business expenses
+model OperationalExpense {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  date            DateTime // Date the expense occurred
+  category        ExpenseCategory
+  description     String
+  amount          Float
+  vendor          String? // Supplier/vendor name
+  referenceNumber String? // Receipt/invoice number
+  notes           String?
+  documentUrl     String? // URL to receipt/invoice document
+
+  // User who created the expense
+  createdById Int
+  createdBy   User @relation("UserOperationalExpenses", fields: [createdById], references: [id], onDelete: Cascade)
+
+  // Approval tracking
+  isApproved   Boolean   @default(false)
+  approvedById Int?
+  approvedBy   User?     @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  // For categorization
+  isRecurring     Boolean @default(false)
+  recurringPeriod String? // e.g., "MONTHLY", "QUARTERLY"
+
+  @@index([createdById])
+  @@index([category])
+  @@index([date])
+  @@index([isApproved])
+}
+
+// Alternative Revenue - Track non-invoice related income
+model AlternativeRevenue {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  date            DateTime // Date the revenue was received
+  category        RevenueCategory
+  description     String
+  amount          Float
+  source          String? // Source of revenue
+  referenceNumber String? // Transaction/reference number
+  notes           String?
+  documentUrl     String? // URL to supporting document
+
+  // User who created the revenue entry
+  createdById Int
+  createdBy   User @relation("UserAlternativeRevenues", fields: [createdById], references: [id], onDelete: Cascade)
+
+  // Approval tracking
+  isApproved   Boolean   @default(false)
+  approvedById Int?
+  approvedBy   User?     @relation("RevenueApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  // For categorization
+  isRecurring     Boolean @default(false)
+  recurringPeriod String? // e.g., "MONTHLY", "QUARTERLY"
+
+  @@index([createdById])
+  @@index([category])
+  @@index([date])
+  @@index([isApproved])
+}

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# Rebuild Docker containers without cache
+# This is useful when you need to force a complete rebuild to clear stale build artifacts
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+echo "=========================================="
+echo "Rebuilding Docker containers without cache"
+echo "=========================================="
+echo ""
+
+# Stop and remove containers
+echo "Stopping and removing containers..."
+docker compose -f docker/compose.yaml down
+
+# Remove dangling images to free up space
+echo "Cleaning up dangling images..."
+docker image prune -f
+
+# Rebuild without cache
+echo "Rebuilding containers without cache..."
+docker compose -f docker/compose.yaml build --no-cache
+
+# Start containers
+echo "Starting containers..."
+docker compose -f docker/compose.yaml up -d
+
+echo ""
+echo "=========================================="
+echo "Rebuild complete!"
+echo "=========================================="
+echo ""
+echo "The application should now be starting up."
+echo "You can view logs with: ./scripts/docker-compose logs -f"
+echo ""
+echo "Once startup is complete, you can access:"
+echo "  - Application: http://localhost:8000"
+echo "  - Adminer: http://localhost:8000/adminer"
+echo "  - MinIO Console: http://localhost:9001"

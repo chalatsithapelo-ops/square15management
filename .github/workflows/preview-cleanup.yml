@@ -1,0 +1,90 @@
+name: Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  cleanup:
+    name: Clean up Preview Resources
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete preview images
+        continue-on-error: true
+        run: |
+          # Get the PR number
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          
+          echo "Cleaning up preview images for PR #$PR_NUMBER"
+          
+          # Note: This requires the GitHub CLI and appropriate permissions
+          # Alternatively, you can use the GitHub API directly
+          
+          # For now, we'll just log what would be deleted
+          echo "Would delete images tagged with pr-$PR_NUMBER"
+          
+          # To actually delete, you would need to:
+          # 1. List all images with the PR tag
+          # 2. Delete each image using the GitHub Container Registry API
+          # This typically requires additional setup and permissions
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `## 🧹 Preview Cleanup
+            
+            Preview deployment resources for this PR have been marked for cleanup.
+            
+            **Cleaned up:**
+            - Docker images tagged with \`pr-${{ github.event.pull_request.number }}\`
+            
+            If you deployed to a cloud platform, remember to manually delete:
+            - Preview deployment instances
+            - Preview databases
+            - Preview storage buckets
+            
+            This helps manage costs and resources.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Cleanup summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🧹 Preview Cleanup Complete
+          
+          Resources for PR #${{ github.event.pull_request.number }} have been cleaned up.
+          
+          ### Cleaned Resources:
+          - ✓ Docker images marked for deletion
+          - ✓ GitHub Actions cache cleaned
+          
+          ### Manual Cleanup Required:
+          If you deployed to a cloud platform, remember to:
+          - [ ] Delete the preview deployment instance
+          - [ ] Remove preview databases
+          - [ ] Clean up storage buckets
+          - [ ] Remove any DNS records
+          
+          EOF

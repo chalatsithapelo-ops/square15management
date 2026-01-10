@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+# Complete Purge and Redeploy
+# WARNING: This will delete ALL data including database, uploaded files, and caches
+# Use this when you want a completely fresh start
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+# Load environment variables
+if [ -f .env ]; then
+  source .env
+fi
+
+# Get APP_NAME for volume naming
+if [ -z "$APP_NAME" ]; then
+  APP_NAME=$(basename $(pwd))
+fi
+
+echo "=========================================="
+echo "COMPLETE PURGE AND REDEPLOY"
+echo "=========================================="
+echo ""
+echo "WARNING: This will delete:"
+echo "  - All containers"
+echo "  - All data volumes (database, MinIO, Redis)"
+echo "  - All Docker images and build cache"
+echo "  - All application data will be lost"
+echo ""
+echo "Press Ctrl+C now to cancel, or Enter to continue..."
+read -r
+
+echo ""
+echo "=========================================="
+echo "Step 1: Stopping and removing containers"
+echo "=========================================="
+docker compose -f docker/compose.yaml down --remove-orphans
+
+echo ""
+echo "=========================================="
+echo "Step 2: Removing data volumes"
+echo "=========================================="
+echo "Removing postgres-data volume..."
+docker volume rm ${APP_NAME}_postgres-data 2>/dev/null || echo "  (volume didn't exist)"
+
+echo "Removing redis-data volume..."
+docker volume rm ${APP_NAME}_redis-data 2>/dev/null || echo "  (volume didn't exist)"
+
+echo "Removing minio-data volume..."
+docker volume rm ${APP_NAME}_minio-data 2>/dev/null || echo "  (volume didn't exist)"
+
+echo "Removing adminer-permanent-login-key volume..."
+docker volume rm ${APP_NAME}_adminer-permanent-login-key 2>/dev/null || echo "  (volume didn't exist)"
+
+echo "Removing htpasswd-cache volume..."
+docker volume rm ${APP_NAME}_htpasswd-cache 2>/dev/null || echo "  (volume didn't exist)"
+
+echo "Removing node-modules-cache volume..."
+docker volume rm ${APP_NAME}_node-modules-cache 2>/dev/null || echo "  (volume didn't exist)"
+
+echo ""
+echo "=========================================="
+echo "Step 3: Cleaning up Docker images"
+echo "=========================================="
+echo "Removing dangling images..."
+docker image prune -f
+
+echo "Removing build cache..."
+docker builder prune -f
+
+echo ""
+echo "=========================================="
+echo "Step 4: Rebuilding containers (no cache)"
+echo "=========================================="
+docker compose -f docker/compose.yaml build --no-cache
+
+echo ""
+echo "=========================================="
+echo "Step 5: Starting fresh containers"
+echo "=========================================="
+docker compose -f docker/compose.yaml up -d
+
+echo ""
+echo "=========================================="
+echo "PURGE AND REDEPLOY COMPLETE!"
+echo "=========================================="
+echo ""
+echo "The application is starting fresh with:"
+echo "  - Clean database (will be seeded with default data)"
+echo "  - Empty MinIO storage"
+echo "  - Fresh Redis cache"
+echo ""
+echo "You can view logs with: ./scripts/docker-compose logs -f"
+echo ""
+echo "Once startup is complete, you can access:"
+echo "  - Application: http://localhost:8000"
+echo "  - Adminer: http://localhost:8000/adminer"
+echo "  - MinIO Console: http://localhost:9001"
+echo ""
+echo "Default credentials:"
+echo "  - Admin email: admin@example.com"
+echo "  - Admin password: \$ADMIN_PASSWORD (from .env)"
+echo "  - MinIO console: admin / \$ADMIN_PASSWORD"

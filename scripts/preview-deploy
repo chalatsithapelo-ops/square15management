@@ -1,0 +1,325 @@
+#!/bin/bash
+
+# Preview Deployment Helper Script
+# This script helps test preview deployments locally
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Default values
+PREVIEW_NAME="${PREVIEW_NAME:-local-preview}"
+PREVIEW_PORT="${PREVIEW_PORT:-8000}"
+IMAGE_TAG="${IMAGE_TAG:-preview-local}"
+
+# Functions
+print_header() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}========================================${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}✗ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ $1${NC}"
+}
+
+# Command functions
+build_image() {
+    print_header "Building Preview Image"
+    
+    cd "$PROJECT_ROOT"
+    
+    print_info "Building Docker image: $IMAGE_TAG"
+    docker build -f docker/Dockerfile -t "$IMAGE_TAG" .
+    
+    print_success "Image built successfully"
+}
+
+start_preview() {
+    print_header "Starting Preview Deployment"
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    # Check if .env exists
+    if [ ! -f "../.env" ]; then
+        print_error ".env file not found"
+        print_info "Creating .env from .env.example..."
+        cp ../.env.example ../.env
+        print_warning "Please edit .env with your configuration before starting"
+        exit 1
+    fi
+    
+    # Check BASE_URL configuration
+    if [ -z "$BASE_URL" ]; then
+        print_warning "BASE_URL environment variable is not set"
+        print_info "For external access, set BASE_URL to your server's address:"
+        print_info "  export BASE_URL=http://YOUR_VM_IP:$PREVIEW_PORT"
+        print_info "  or"
+        print_info "  export BASE_URL=https://your-preview-domain.com"
+        echo ""
+        print_info "Using default: http://localhost:$PREVIEW_PORT"
+        print_warning "This will only work for local testing!"
+        echo ""
+        read -p "Continue with localhost? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Please set BASE_URL and try again:"
+            print_info "  export BASE_URL=http://YOUR_VM_IP:$PREVIEW_PORT"
+            print_info "  $0 start"
+            exit 1
+        fi
+    else
+        print_info "Using BASE_URL: $BASE_URL"
+    fi
+    
+    # Export variables for docker compose
+    export PREVIEW_IMAGE="$IMAGE_TAG"
+    export PREVIEW_PORT="$PREVIEW_PORT"
+    export PREVIEW_NAME="$PREVIEW_NAME"
+    export BASE_URL="${BASE_URL:-http://localhost:$PREVIEW_PORT}"
+    
+    print_info "Starting services..."
+    docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" up -d
+    
+    print_success "Preview deployment started"
+    print_info "Waiting for services to be healthy..."
+    
+    # Wait for health check
+    timeout=120
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" ps app | grep -q "healthy"; then
+            print_success "Preview is healthy!"
+            break
+        fi
+        echo -n "."
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+    echo ""
+    
+    if [ $elapsed -ge $timeout ]; then
+        print_error "Preview failed to become healthy within timeout"
+        print_info "Check logs with: $0 logs"
+        exit 1
+    fi
+    
+    print_success "Preview deployment is ready!"
+    echo ""
+    print_info "Access your preview at: ${BASE_URL:-http://localhost:$PREVIEW_PORT}"
+    print_info ""
+    print_warning "IMPORTANT: If accessing from a different machine, make sure BASE_URL is set correctly!"
+    print_info "Current BASE_URL: ${BASE_URL:-http://localhost:$PREVIEW_PORT}"
+}
+
+stop_preview() {
+    print_header "Stopping Preview Deployment"
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    print_info "Stopping services..."
+    docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" down
+    
+    print_success "Preview deployment stopped"
+}
+
+cleanup_preview() {
+    print_header "Cleaning Up Preview Deployment"
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    print_info "Stopping and removing services..."
+    docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" down -v
+    
+    print_info "Removing preview image..."
+    docker rmi "$IMAGE_TAG" 2>/dev/null || true
+    
+    print_success "Preview deployment cleaned up"
+}
+
+show_logs() {
+    cd "$PROJECT_ROOT/docker"
+    
+    if [ -z "$2" ]; then
+        docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" logs -f
+    else
+        docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" logs -f "$2"
+    fi
+}
+
+show_status() {
+    print_header "Preview Deployment Status"
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    echo ""
+    print_info "Services:"
+    docker compose -f compose.preview.yaml -p "$PREVIEW_NAME" ps
+    
+    echo ""
+    print_info "Health check:"
+    curl -s "http://localhost:$PREVIEW_PORT/health" | jq . || print_warning "Health check failed or jq not installed"
+}
+
+show_config() {
+    print_header "Preview Deployment Configuration"
+    
+    echo ""
+    print_info "Current Configuration:"
+    echo "  PREVIEW_NAME: $PREVIEW_NAME"
+    echo "  PREVIEW_PORT: $PREVIEW_PORT"
+    echo "  IMAGE_TAG: $IMAGE_TAG"
+    echo "  BASE_URL: ${BASE_URL:-http://localhost:$PREVIEW_PORT (default)}"
+    echo ""
+    
+    print_info "To set BASE_URL for external access:"
+    echo "  export BASE_URL=http://YOUR_VM_IP:$PREVIEW_PORT"
+    echo "  or"
+    echo "  export BASE_URL=https://your-preview-domain.com"
+    echo ""
+    
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        print_info "BASE_URL in .env file:"
+        grep "^BASE_URL=" "$PROJECT_ROOT/.env" || print_warning "BASE_URL not found in .env"
+    else
+        print_warning ".env file not found"
+    fi
+}
+
+test_preview() {
+    print_header "Testing Preview Deployment"
+    
+    print_info "Testing health endpoint..."
+    if curl -f -s "http://localhost:$PREVIEW_PORT/health" > /dev/null; then
+        print_success "Health check passed"
+    else
+        print_error "Health check failed"
+        exit 1
+    fi
+    
+    print_info "Testing main page..."
+    if curl -f -s "http://localhost:$PREVIEW_PORT/" > /dev/null; then
+        print_success "Main page accessible"
+    else
+        print_error "Main page not accessible"
+        exit 1
+    fi
+    
+    print_success "All tests passed!"
+}
+
+show_help() {
+    cat << EOF
+Preview Deployment Helper Script
+
+Usage: $0 <command> [options]
+
+Commands:
+    build               Build the preview Docker image
+    start               Start the preview deployment
+    stop                Stop the preview deployment
+    restart             Restart the preview deployment
+    cleanup             Stop and remove all preview resources
+    logs [service]      Show logs (optionally for specific service)
+    status              Show preview deployment status
+    config              Show current configuration
+    test                Run basic tests on the preview
+    help                Show this help message
+
+Environment Variables:
+    PREVIEW_NAME        Name for the preview deployment (default: local-preview)
+    PREVIEW_PORT        Port to expose the preview on (default: 8000)
+    IMAGE_TAG           Tag for the Docker image (default: preview-local)
+    BASE_URL            External URL for the preview (IMPORTANT for non-local deployments)
+
+Examples:
+    # Build and start a preview locally
+    $0 build
+    $0 start
+
+    # Start on a VM with external access
+    export BASE_URL=http://YOUR_VM_IP:8000
+    $0 start
+
+    # Start with custom port and URL
+    export PREVIEW_PORT=8001
+    export BASE_URL=http://YOUR_VM_IP:8001
+    $0 start
+
+    # Check configuration
+    $0 config
+
+    # View logs
+    $0 logs
+    $0 logs app
+
+    # Check status
+    $0 status
+
+    # Clean up
+    $0 cleanup
+
+EOF
+}
+
+# Main script logic
+case "${1:-help}" in
+    build)
+        build_image
+        ;;
+    start)
+        start_preview
+        ;;
+    stop)
+        stop_preview
+        ;;
+    restart)
+        stop_preview
+        start_preview
+        ;;
+    cleanup)
+        cleanup_preview
+        ;;
+    logs)
+        show_logs "$@"
+        ;;
+    status)
+        show_status
+        ;;
+    config)
+        show_config
+        ;;
+    test)
+        test_preview
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        print_error "Unknown command: $1"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

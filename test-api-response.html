@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Response</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Testing PropertyManagerRFQs API</h1>
+    <p>This will test if the API returns contractor quotation data for RECEIVED RFQs.</p>
+    
+    <div id="result"></div>
+    
+    <script>
+        // Use the PM's token (you need to get this from browser dev tools)
+        const token = prompt("Enter your JWT token (from localStorage or cookies):");
+        
+        if (token) {
+            fetch('http://localhost:8000/trpc/getPropertyManagerRFQs?input=' + encodeURIComponent(JSON.stringify({
+                token: token,
+                status: "RECEIVED"
+            })))
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = `
+                    <h2 class="success">✓ API Response Received</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                // Check if contractor quotation is in response
+                if (data.result && data.result.data && data.result.data.length > 0) {
+                    const rfq = data.result.data[0];
+                    if (rfq.contractorQuotation) {
+                        alert('✓ Contractor Quotation Data Found!\\n\\nQuote: ' + rfq.contractorQuotation.quoteNumber + '\\nTotal: R' + rfq.contractorQuotation.total.toLocaleString());
+                    } else {
+                        alert('✗ Contractor Quotation Data NOT Found in Response');
+                    }
+                }
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `
+                    <h2 class="error">✗ API Error</h2>
+                    <pre>${error.message}</pre>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
