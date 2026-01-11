@@ -8,18 +8,30 @@ export function SubscriptionManagement() {
   const { token } = useAuthStore();
   const [selectedTab, setSelectedTab] = useState<'packages' | 'subscriptions' | 'pending'>('subscriptions');
 
-  const { data: packages } = trpc.getPackages.useQuery(
-    { token: token! },
+  const { data: packages, isLoading: packagesLoading } = trpc.getPackages.useQuery(
+    { token: token || '' },
     { enabled: !!token }
   );
-  const { data: subscriptions } = trpc.getAllSubscriptions.useQuery(
-    { token: token! },
+  const { data: subscriptions, isLoading: subsLoading } = trpc.getAllSubscriptions.useQuery(
+    { token: token || '' },
     { enabled: !!token }
   );
-  const { data: pendingRegs } = trpc.getPendingRegistrations.useQuery(
-    { token: token!, isApproved: false },
+  const { data: pendingRegs, isLoading: pendingLoading } = trpc.getPendingRegistrations.useQuery(
+    { token: token || '', isApproved: false },
     { enabled: !!token }
   );
+
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Not authenticated</h3>
+          <p className="mt-1 text-sm text-gray-500">Please log in to view subscriptions.</p>
+        </div>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'subscriptions', label: 'Active Subscriptions', icon: Users },
