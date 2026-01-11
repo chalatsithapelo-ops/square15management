@@ -38,6 +38,7 @@ import { MetricCard } from "~/components/MetricCard";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
 import { useState } from "react";
 import { ROLES } from "~/utils/roles";
+import type { Permission } from "~/server/utils/permissions";
 
 export const Route = createFileRoute("/admin/dashboard/")({
   beforeLoad: ({ location }) => {
@@ -59,136 +60,120 @@ function AdminDashboard() {
   const trpc = useTRPC();
   const [showAnalytics, setShowAnalytics] = useState(true);
 
-  const userPermissionsQuery = useQuery(
-    trpc.getUserPermissions.queryOptions({
+  const dashboardQueryDefaults = {
+    enabled: !!token,
+    refetchOnWindowFocus: false,
+    refetchInterval: false as const,
+    staleTime: 30000,
+    retry: 1,
+  };
+
+  const userPermissionsQuery = useQuery({
+    ...trpc.getUserPermissions.queryOptions({
       token: token!,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
   const userPermissions = userPermissionsQuery.data?.permissions || [];
   
-  const hasPermission = (permission: string) => {
+  const hasPermission = (permission: Permission) => {
     return userPermissions.includes(permission);
   };
 
-  const leadsQuery = useQuery(
-    trpc.getLeads.queryOptions({
+  const leadsQuery = useQuery({
+    ...trpc.getLeads.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const ordersQuery = useQuery(
-    trpc.getOrders.queryOptions({
+  const ordersQuery = useQuery({
+    ...trpc.getOrders.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const projectsQuery = useQuery(
-    trpc.getProjects.queryOptions({
+  const projectsQuery = useQuery({
+    ...trpc.getProjects.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const quotationsQuery = useQuery(
-    trpc.getQuotations.queryOptions({
+  const quotationsQuery = useQuery({
+    ...trpc.getQuotations.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const invoicesQuery = useQuery(
-    trpc.getInvoices.queryOptions({
+  const invoicesQuery = useQuery({
+    ...trpc.getInvoices.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const assetsQuery = useQuery(
-    trpc.getAssets.queryOptions({
+  const assetsQuery = useQuery({
+    ...trpc.getAssets.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const paymentRequestsQuery = useQuery(
-    trpc.getPaymentRequests.queryOptions({
+  const paymentRequestsQuery = useQuery({
+    ...trpc.getPaymentRequests.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const liabilitiesQuery = useQuery(
-    trpc.getLiabilities.queryOptions({
+  const liabilitiesQuery = useQuery({
+    ...trpc.getLiabilities.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const conversationsQuery = useQuery(
-    trpc.getConversations.queryOptions({
+  const conversationsQuery = useQuery({
+    ...trpc.getConversations.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 10000, // Poll every 10 seconds for messages
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
-  const employeesQuery = useQuery(
-    trpc.getEmployees.queryOptions({
+  const employeesQuery = useQuery({
+    ...trpc.getEmployees.queryOptions({
       token: token!,
-    }, {
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+  });
 
   const operationalExpensesQuery = useQuery({
     ...trpc.getOperationalExpenses.queryOptions({
       token: token!,
     }),
-    refetchInterval: 30000, // Poll every 30 seconds
-    refetchOnWindowFocus: true,
-    enabled: !!token,
+    ...dashboardQueryDefaults,
   });
 
   const alternativeRevenuesQuery = useQuery({
     ...trpc.getAlternativeRevenues.queryOptions({
       token: token!,
     }),
-    refetchInterval: 30000, // Poll every 30 seconds
-    refetchOnWindowFocus: true,
-    enabled: !!token,
+    ...dashboardQueryDefaults,
   });
 
-  const metricSnapshotsQuery = useQuery(
-    trpc.getMetricSnapshots.queryOptions({
+  const metricSnapshotsQuery = useQuery({
+    ...trpc.getMetricSnapshots.queryOptions({
       token: token!,
       metricType: "DAILY",
       limit: 30,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
   // Fetch analytics data for the last 90 days
   const ninetyDaysAgo = new Date();
@@ -196,89 +181,82 @@ function AdminDashboard() {
   const analyticsStartDate = ninetyDaysAgo.toISOString().split('T')[0];
   const analyticsEndDate = new Date().toISOString().split('T')[0];
 
-  const revenueAnalyticsDailyQuery = useQuery(
-    trpc.getRevenueAnalytics.queryOptions({
+  const revenueAnalyticsDailyQuery = useQuery({
+    ...trpc.getRevenueAnalytics.queryOptions({
       token: token!,
       periodType: "DAILY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const revenueAnalyticsWeeklyQuery = useQuery(
-    trpc.getRevenueAnalytics.queryOptions({
+  const revenueAnalyticsWeeklyQuery = useQuery({
+    ...trpc.getRevenueAnalytics.queryOptions({
       token: token!,
       periodType: "WEEKLY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const revenueAnalyticsMonthlyQuery = useQuery(
-    trpc.getRevenueAnalytics.queryOptions({
+  const revenueAnalyticsMonthlyQuery = useQuery({
+    ...trpc.getRevenueAnalytics.queryOptions({
       token: token!,
       periodType: "MONTHLY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const serviceAnalyticsQuery = useQuery(
-    trpc.getServiceAnalytics.queryOptions({
+  const serviceAnalyticsQuery = useQuery({
+    ...trpc.getServiceAnalytics.queryOptions({
       token: token!,
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
       limit: 8,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const customerAnalyticsDailyQuery = useQuery(
-    trpc.getCustomerAnalytics.queryOptions({
+  const customerAnalyticsDailyQuery = useQuery({
+    ...trpc.getCustomerAnalytics.queryOptions({
       token: token!,
       periodType: "DAILY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const customerAnalyticsWeeklyQuery = useQuery(
-    trpc.getCustomerAnalytics.queryOptions({
+  const customerAnalyticsWeeklyQuery = useQuery({
+    ...trpc.getCustomerAnalytics.queryOptions({
       token: token!,
       periodType: "WEEKLY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
-  const customerAnalyticsMonthlyQuery = useQuery(
-    trpc.getCustomerAnalytics.queryOptions({
+  const customerAnalyticsMonthlyQuery = useQuery({
+    ...trpc.getCustomerAnalytics.queryOptions({
       token: token!,
       periodType: "MONTHLY",
       startDate: analyticsStartDate,
       endDate: analyticsEndDate,
-    }, {
-      refetchInterval: 60000, // Poll every 60 seconds
-      refetchOnWindowFocus: true,
-    })
-  );
+    }),
+    ...dashboardQueryDefaults,
+    enabled: !!token && showAnalytics,
+  });
 
   const leads = leadsQuery.data || [];
   const orders = ordersQuery.data || [];
@@ -321,34 +299,23 @@ function AdminDashboard() {
   
   const totalRevenue = invoiceRevenue + alternativeRevenueTotal;
   
-  // Debug logging
-  console.log('[Admin Dashboard] Financial Calculations:', {
-    invoiceRevenue,
-    alternativeRevenueCount: alternativeRevenues.length,
-    alternativeRevenuesApproved: alternativeRevenues.filter((r) => r.isApproved === true).length,
-    alternativeRevenueTotal,
-    totalRevenue,
-    operationalExpenseCount: operationalExpenses.length,
-    operationalExpensesApproved: operationalExpenses.filter((e) => e.isApproved === true).length,
-  });
-  console.log('[Admin Dashboard] Alternative Revenue Details:', alternativeRevenues.map(r => ({
-    category: r.category,
-    amount: r.amount,
-    isApproved: r.isApproved,
-    description: r.description
-  })));
-  console.log('[Admin Dashboard] Operational Expense Details:', operationalExpenses.map(e => ({
-    category: e.category,
-    amount: e.amount,
-    isApproved: e.isApproved,
-    description: e.description
-  })));
+  // (Debug logging removed to reduce noisy rerenders in production)
 
   // Calculate metrics for new features
   const activeProjects = projectsQuery.data ? projects.filter(
     (p) => p.status === "IN_PROGRESS" || p.status === "PLANNING"
   ).length : 0;
-  const pendingQuotations = quotationsQuery.data ? quotations.filter((q) => q.status === "SUBMITTED").length : 0;
+  const pendingQuotations = quotationsQuery.data
+    ? quotations.filter((q: any) =>
+        [
+          "PENDING_ARTISAN_REVIEW",
+          "PENDING_JUNIOR_MANAGER_REVIEW",
+          "PENDING_SENIOR_MANAGER_REVIEW",
+          "SENT_TO_CUSTOMER",
+          "SUBMITTED", // legacy/old data
+        ].includes(q.status)
+      ).length
+    : 0;
   const unpaidInvoices = invoicesQuery.data ? invoices.filter(
     (i) => i.status === "SENT" || i.status === "OVERDUE"
   ).length : 0;

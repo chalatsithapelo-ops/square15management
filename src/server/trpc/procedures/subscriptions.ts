@@ -3,6 +3,9 @@ import { baseProcedure } from '~/server/trpc/main';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
 
+const isAdminRole = (role: string | undefined) =>
+  role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
+
 export const getPackages = baseProcedure
   .input(
     z.object({
@@ -74,7 +77,7 @@ export const createSubscription = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can create subscriptions');
     }
 
@@ -135,7 +138,7 @@ export const updateSubscriptionPackage = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can update subscriptions');
     }
 
@@ -192,7 +195,7 @@ export const updatePackagePricing = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can update package pricing');
     }
 
@@ -228,7 +231,7 @@ export const activateSubscription = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can activate subscriptions');
     }
 
@@ -257,7 +260,7 @@ export const suspendSubscription = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can suspend subscriptions');
     }
 
@@ -285,7 +288,7 @@ export const getAllSubscriptions = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can view all subscriptions');
     }
 

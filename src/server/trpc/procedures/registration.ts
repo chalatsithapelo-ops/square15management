@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { baseProcedure } from '~/server/trpc/main';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
-import bcrypt from 'bcrypt';
+import { hash } from 'bcryptjs';
+
+const isAdminRole = (role: string | undefined) =>
+  role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
 
 export const createPendingRegistration = baseProcedure
   .input(
@@ -75,7 +78,7 @@ export const getPendingRegistrations = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can view pending registrations');
     }
 
@@ -83,9 +86,6 @@ export const getPendingRegistrations = baseProcedure
       where: {
         ...(input.isApproved !== undefined && { isApproved: input.isApproved }),
         ...(input.hasPaid !== undefined && { hasPaid: input.hasPaid }),
-      },
-      include: {
-        _count: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -120,7 +120,7 @@ export const approvePendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can approve registrations');
     }
 
@@ -150,7 +150,7 @@ export const approvePendingRegistration = baseProcedure
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(input.password, 10);
+    const hashedPassword = await hash(input.password, 10);
 
     // Determine role based on account type
     const role = registration.accountType === 'CONTRACTOR' ? 'CONTRACTOR' : 'PROPERTY_MANAGER';
@@ -222,7 +222,7 @@ export const rejectPendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can reject registrations');
     }
 
@@ -251,7 +251,7 @@ export const markRegistrationAsPaid = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (adminUser.role !== 'ADMIN') {
+    if (!isAdminRole(adminUser.role)) {
       throw new Error('Only administrators can mark registrations as paid');
     }
 
