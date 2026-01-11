@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTRPC } from '~/trpc/react';
 import { useAuthStore } from '~/stores/auth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, Mic, MicOff, Send, Upload, X, Loader } from 'lucide-react';
+import { Download, Mic, MicOff, Send, Upload, X, Loader, Sparkles } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -337,8 +337,10 @@ export function AIAgentChat({ isWidget = false }: AIAgentChatProps) {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="text-6xl mb-4">🤖</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to AI Agent</h2>
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-full mb-4">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Hi I am Your AI Assistant</h2>
               <p className="text-gray-600 max-w-md">
                 I can help you with CRM, HR, Finance, and Operations tasks. Try asking me to create leads,
                 manage employees, generate invoices, or analyze your business performance.

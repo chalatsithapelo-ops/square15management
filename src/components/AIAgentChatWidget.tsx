@@ -1,5 +1,5 @@
 import { useState, Suspense } from "react";
-import { Bot, X, ChevronDown, ChevronUp, Maximize2 } from "lucide-react";
+import { Sparkles, X, ChevronDown, ChevronUp, Maximize2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { AIAgentChat } from "~/components/AIAgentChat";
@@ -45,7 +45,7 @@ export function AIAgentChatWidget() {
           className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 bg-gradient-to-br from-cyan-500 to-cyan-700 text-white rounded-full p-3 sm:p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-50 group"
           aria-label="Open AI Agent"
         >
-          <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
+          <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
           <span className="absolute left-full ml-3 whitespace-nowrap bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
             AI Agent (27 tools)
           </span>
@@ -62,14 +62,14 @@ export function AIAgentChatWidget() {
           {/* Header */}
           <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 text-white px-4 py-3 sm:rounded-t-xl flex items-center justify-between flex-shrink-0">
             <div className="flex items-center space-x-2">
-              <Bot className="h-5 w-5" />
+              <Sparkles className="h-5 w-5" />
               <span className="font-semibold">AI Agent Assistant</span>
               <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">27 Tools</span>
             </div>
             <div className="flex items-center space-x-2">
               <Link
                 to={aiAgentRoute}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-white hover:bg-white/20 rounded p-1 transition-all"
                 aria-label="Open fullscreen"
                 title="Open in fullscreen"
               >
@@ -77,7 +77,7 @@ export function AIAgentChatWidget() {
               </Link>
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-white hover:bg-white/20 rounded p-1 transition-all"
                 aria-label={isMinimized ? "Maximize" : "Minimize"}
               >
                 {isMinimized ? (
@@ -88,7 +88,7 @@ export function AIAgentChatWidget() {
               </button>
               <button
                 onClick={handleClose}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-white hover:bg-white/20 rounded p-1 transition-all"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
