@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useTRPC } from '~/trpc/react';
-import { useAuthStore } from '~/stores/authStore';
+import { useAuthStore } from '~/stores/auth';
 import { Lock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 

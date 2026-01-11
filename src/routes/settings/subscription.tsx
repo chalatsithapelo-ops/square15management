@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useTRPC } from '~/trpc/react';
-import { useAuthStore } from '~/stores/authStore';
+import { useAuthStore } from '~/stores/auth';
 import { CreditCard, Package, Clock, Users, TrendingUp } from 'lucide-react';
 
 export const Route = createFileRoute('/settings/subscription')({
