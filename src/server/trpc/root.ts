@@ -285,6 +285,10 @@ import { generateFinancialInsights } from "~/server/trpc/procedures/generateFina
 import { generateProjectInsights } from "~/server/trpc/procedures/generateProjectInsights";
 import { generateAccountsInsights } from "~/server/trpc/procedures/generateAccountsInsights";
 
+// Subscriptions
+import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions } from "~/server/trpc/procedures/subscriptions";
+import { createPendingRegistration, getPendingRegistrations, approvePendingRegistration, rejectPendingRegistration, markRegistrationAsPaid } from "~/server/trpc/procedures/registration";
+
 export const appRouter = createTRPCRouter({
   // Auth
   login,
@@ -625,6 +629,23 @@ export const appRouter = createTRPCRouter({
   getPropertyManagerPayments,
   approveCustomerPayment,
   rejectCustomerPayment,
+  
+  // Subscriptions & Billing
+  getPackages,
+  getUserSubscription,
+  createSubscription,
+  updateSubscriptionPackage,
+  updatePackagePricing,
+  activateSubscription,
+  suspendSubscription,
+  getAllSubscriptions,
+  
+  // Self-Registration
+  createPendingRegistration,
+  getPendingRegistrations,
+  approvePendingRegistration,
+  rejectPendingRegistration,
+  markRegistrationAsPaid,
 });
 
 export type AppRouter = typeof appRouter;
