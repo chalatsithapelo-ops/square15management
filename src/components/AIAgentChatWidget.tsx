@@ -42,7 +42,7 @@ export function AIAgentChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 bg-gradient-to-br from-cyan-500 to-cyan-700 text-white rounded-full p-3 sm:p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-50 group"
+          className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 bg-gradient-to-br from-cyan-500 to-cyan-700 text-white rounded-full p-3 sm:p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-[9999] group"
           aria-label="Open AI Agent"
         >
           <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -55,7 +55,7 @@ export function AIAgentChatWidget() {
       {/* Chat Panel */}
       {isOpen && (
         <div
-          className={`fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:left-6 bg-white sm:rounded-xl shadow-2xl border border-gray-200 z-50 flex flex-col transition-all ${
+          className={`fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:left-6 bg-white sm:rounded-xl shadow-2xl border border-gray-200 z-[10000] flex flex-col transition-all ${
             isMinimized ? "h-16" : "h-[100vh] sm:h-[600px]"
           } w-full sm:w-96 md:w-[28rem] lg:w-[32rem]`}
         >
