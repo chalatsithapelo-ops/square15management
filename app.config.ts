@@ -61,6 +61,13 @@ export default createApp({
             allowedHosts: true,
           },
         }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["bcrypt"],
+            },
+          },
+        }),
         tsConfigPaths({
           projects: ["./tsconfig.json"],
         }),
