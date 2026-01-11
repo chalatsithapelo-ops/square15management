@@ -120,8 +120,8 @@ export function SubscriptionBanner() {
 
   if (!subscription) return null;
 
-  const daysUntilExpiry = subscription.trialEndDate
-    ? Math.ceil((new Date(subscription.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const daysUntilExpiry = subscription.trialEndsAt
+    ? Math.ceil((new Date(subscription.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
   if (subscription.status === 'TRIAL' && daysUntilExpiry && daysUntilExpiry <= 7) {

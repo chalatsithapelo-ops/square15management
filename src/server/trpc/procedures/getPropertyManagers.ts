@@ -54,7 +54,7 @@ export const getPropertyManagers = baseProcedure
             status: true,
             currentUsers: true,
             maxUsers: true,
-            trialEndDate: true,
+            trialEndsAt: true,
             nextBillingDate: true,
             package: {
               select: {

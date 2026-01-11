@@ -86,7 +86,7 @@ function SubscriptionSettingsPage() {
             </div>
           </div>
 
-          {subscription.trialEndDate && (
+          {subscription.trialEndsAt && (
             <div className="flex items-center gap-3">
               <div className="bg-blue-100 rounded-lg p-3">
                 <Clock className="h-6 w-6 text-blue-600" />
@@ -94,7 +94,7 @@ function SubscriptionSettingsPage() {
               <div>
                 <div className="text-sm text-gray-500">Trial Ends</div>
                 <div className="text-lg font-semibold text-gray-900">
-                  {new Date(subscription.trialEndDate).toLocaleDateString()}
+                  {new Date(subscription.trialEndsAt).toLocaleDateString()}
                 </div>
               </div>
             </div>

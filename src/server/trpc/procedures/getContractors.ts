@@ -104,7 +104,7 @@ export const getContractors = baseProcedure
               status: true,
               currentUsers: true,
               maxUsers: true,
-              trialEndDate: true,
+              trialEndsAt: true,
               nextBillingDate: true,
               package: {
                 select: {
