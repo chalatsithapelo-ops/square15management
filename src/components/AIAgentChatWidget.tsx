@@ -56,8 +56,8 @@ export function AIAgentChatWidget() {
       {isOpen && (
         <div
           className={`fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:left-6 bg-white sm:rounded-xl shadow-2xl border border-gray-200 z-[10000] flex flex-col transition-all ${
-            isMinimized ? "h-16" : "h-[100vh] sm:h-[600px]"
-          } w-full sm:w-96 md:w-[28rem] lg:w-[32rem]`}
+            isMinimized ? "h-16" : "h-[100vh] sm:h-[500px]"
+          } w-full sm:w-96 md:w-[26rem] lg:w-[28rem]`}
         >
           {/* Header */}
           <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 text-white px-4 py-3 sm:rounded-t-xl flex items-center justify-between flex-shrink-0">
