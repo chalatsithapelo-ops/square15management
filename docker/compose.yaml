@@ -8,6 +8,7 @@ services:
     image: postgres:16
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     ports:
       - "${LISTEN_IP:-0.0.0.0}:5432:5432"
     environment:
