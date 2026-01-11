@@ -615,6 +615,14 @@ function AdminDashboard() {
       stats: "Admin tool",
     },
     {
+      title: "Subscriptions",
+      description: "Manage user subscriptions and packages",
+      icon: Package,
+      href: "/admin/subscriptions",
+      color: "from-yellow-500 to-yellow-600",
+      stats: "Admin tool",
+    },
+    {
       title: "Settings",
       description: "Manage company branding and settings",
       icon: Settings,
@@ -645,6 +653,9 @@ function AdminDashboard() {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
     }
     if (card.title === "Property Management") {
+      return hasPermission("MANAGE_SYSTEM_SETTINGS");
+    }
+    if (card.title === "Subscriptions") {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
     }
     if (card.title === "Settings") {
