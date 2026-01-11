@@ -47,10 +47,8 @@ async function main() {
             nextBillingDate: nextBilling,
             currentUsers: 1,
             maxUsers: 5,
-            currentTenants: 0,
-            maxTenants: 10,
-            currentContractors: 0,
-            maxContractors: 3,
+            includedUsers: 5,
+            additionalUsers: 0,
           },
         });
 
@@ -99,6 +97,8 @@ async function main() {
             nextBillingDate: nextBilling,
             currentUsers: 1,
             maxUsers: 3,
+            includedUsers: 3,
+            additionalUsers: 0,
           },
         });
 
@@ -123,6 +123,8 @@ async function main() {
             nextBillingDate: nextBilling,
             currentUsers: 1,
             maxUsers: 5,
+            includedUsers: 5,
+            additionalUsers: 0,
           },
         });
 
