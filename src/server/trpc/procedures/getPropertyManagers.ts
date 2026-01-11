@@ -48,6 +48,27 @@ export const getPropertyManagers = baseProcedure
         pmCompanyName: true,
         pmCompanyPhone: true,
         pmCompanyEmail: true,
+        subscriptions: {
+          select: {
+            id: true,
+            status: true,
+            currentUsers: true,
+            maxUsers: true,
+            trialEndDate: true,
+            nextBillingDate: true,
+            package: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                basePrice: true,
+                type: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
     });

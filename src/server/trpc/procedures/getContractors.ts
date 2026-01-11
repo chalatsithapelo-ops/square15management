@@ -86,7 +86,8 @@ export const getContractors = baseProcedure
         .filter(c => c.portalAccessEnabled)
         .map(c => c.email);
       
-      console.log(`\n📋 Fetching User IDs for ${contractorEmails.length} contractors with portal access`);
+      console.log(`
+📋 Fetching User IDs for ${contractorEmails.length} contractors with portal access`);
       console.log(`Contractor emails:`, contractorEmails);
       
       const users = await db.user.findMany({
@@ -94,13 +95,38 @@ export const getContractors = baseProcedure
           email: { in: contractorEmails },
           role: { in: ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"] },
         },
-        select: { id: true, email: true },
+        select: {
+          id: true,
+          email: true,
+          subscriptions: {
+            select: {
+              id: true,
+              status: true,
+              currentUsers: true,
+              maxUsers: true,
+              trialEndDate: true,
+              nextBillingDate: true,
+              package: {
+                select: {
+                  id: true,
+                  name: true,
+                  displayName: true,
+                  basePrice: true,
+                  type: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
       });
 
       console.log(`Found ${users.length} matching User accounts with CONTRACTOR role`);
       users.forEach(u => console.log(`  - ${u.email} → User ID: ${u.id}`));
 
       const emailToUserId = new Map(users.map(u => [u.email, u.id]));
+      const emailToSubscription = new Map(users.map(u => [u.email, u.subscriptions?.[0] || null]));
 
       // Log contractors without matching User accounts
       const contractorsWithoutUsers = contractors
@@ -118,6 +144,7 @@ export const getContractors = baseProcedure
           id: c.id,
           userId: emailToUserId.get(c.email) || null,
           hasPortalUser: emailToUserId.has(c.email),
+          subscription: emailToSubscription.get(c.email) || null,
           propertyManager: c.propertyManager,
           propertyManagerId: c.propertyManagerId,
           firstName: c.firstName,

@@ -602,10 +602,8 @@ function ContractorManagementAdminPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Company</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Service</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Subscription</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Property Manager</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Jobs</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Spent</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Portal</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                   </tr>
@@ -613,7 +611,7 @@ function ContractorManagementAdminPage() {
                 <tbody>
                   {contractors.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-gray-600">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-600">
                         No contractors found
                       </td>
                     </tr>
@@ -630,14 +628,31 @@ function ContractorManagementAdminPage() {
                             {c.serviceType}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{c.status}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {c.propertyManager
-                            ? `${c.propertyManager.firstName} ${c.propertyManager.lastName}`
-                            : "-"}
+                        <td className="px-4 py-3 text-sm">
+                          {c.subscription ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium text-gray-900">{c.subscription.package.displayName}</span>
+                              <span className="text-xs text-gray-600">R{c.subscription.package.basePrice}/mo</span>
+                              <span className="text-xs text-gray-500">{c.subscription.currentUsers}/{c.subscription.maxUsers} users</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No subscription</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{c.totalJobsCompleted}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">R {Number(c.totalSpent || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {c.subscription ? (
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              c.subscription.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              c.subscription.status === 'TRIAL' ? 'bg-blue-100 text-blue-800' :
+                              c.subscription.status === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {c.subscription.status}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">NONE</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{c.portalAccessEnabled ? "Enabled" : "Disabled"}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           <div className="flex items-center gap-3">

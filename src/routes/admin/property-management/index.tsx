@@ -474,8 +474,8 @@ function PropertyManagementPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Company</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Company Email</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Company Phone</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Subscription</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Created</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                   </tr>
@@ -495,8 +495,31 @@ function PropertyManagementPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{pm.email}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{pm.pmCompanyName || "-"}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{pm.pmCompanyEmail || "-"}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{pm.pmCompanyPhone || "-"}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {pm.subscriptions?.[0] ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium text-gray-900">{pm.subscriptions[0].package.displayName}</span>
+                              <span className="text-xs text-gray-600">R{pm.subscriptions[0].package.basePrice}/mo</span>
+                              <span className="text-xs text-gray-500">{pm.subscriptions[0].currentUsers}/{pm.subscriptions[0].maxUsers} users</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No subscription</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {pm.subscriptions?.[0] ? (
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              pm.subscriptions[0].status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              pm.subscriptions[0].status === 'TRIAL' ? 'bg-blue-100 text-blue-800' :
+                              pm.subscriptions[0].status === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {pm.subscriptions[0].status}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">NONE</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {pm.createdAt ? new Date(pm.createdAt).toLocaleDateString() : "-"}
                         </td>
