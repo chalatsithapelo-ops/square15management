@@ -1,25 +1,34 @@
 import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useAuthStore } from '~/stores/auth';
-import { Package, Briefcase, Users, DollarSign, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Package, Users, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+
+type PackagePricingUpdate = {
+  basePrice: number;
+  additionalUserPrice: number;
+  additionalTenantPrice?: number;
+};
 
 export function SubscriptionManagement() {
   const trpc = useTRPC();
   const { token } = useAuthStore();
   const [selectedTab, setSelectedTab] = useState<'packages' | 'subscriptions' | 'pending'>('subscriptions');
 
-  const { data: packages, isLoading: packagesLoading } = trpc.getPackages.useQuery(
-    { token: token || '' },
-    { enabled: !!token }
-  );
-  const { data: subscriptions, isLoading: subsLoading } = trpc.getAllSubscriptions.useQuery(
-    { token: token || '' },
-    { enabled: !!token }
-  );
-  const { data: pendingRegs, isLoading: pendingLoading } = trpc.getPendingRegistrations.useQuery(
-    { token: token || '', isApproved: false },
-    { enabled: !!token }
-  );
+  const packagesQuery = useQuery({
+    ...trpc.getPackages.queryOptions({ token: token! }),
+    enabled: !!token,
+  });
+
+  const subscriptionsQuery = useQuery({
+    ...trpc.getAllSubscriptions.queryOptions({ token: token! }),
+    enabled: !!token,
+  });
+
+  const pendingRegsQuery = useQuery({
+    ...trpc.getPendingRegistrations.queryOptions({ token: token!, isApproved: false }),
+    enabled: !!token,
+  });
 
   if (!token) {
     return (
@@ -35,7 +44,7 @@ export function SubscriptionManagement() {
 
   const tabs = [
     { id: 'subscriptions', label: 'Active Subscriptions', icon: Users },
-    { id: 'pending', label: 'Pending Registrations', icon: Clock, count: pendingRegs?.length || 0 },
+    { id: 'pending', label: 'Pending Registrations', icon: Clock, count: pendingRegsQuery.data?.length || 0 },
     { id: 'packages', label: 'Package Management', icon: Package },
   ];
 
@@ -79,9 +88,9 @@ export function SubscriptionManagement() {
       </div>
 
       {/* Content */}
-      {selectedTab === 'subscriptions' && <SubscriptionsTab subscriptions={subscriptions} />}
-      {selectedTab === 'pending' && <PendingRegistrationsTab registrations={pendingRegs} />}
-      {selectedTab === 'packages' && <PackagesTab packages={packages} />}
+      {selectedTab === 'subscriptions' && <SubscriptionsTab subscriptions={subscriptionsQuery.data} />}
+      {selectedTab === 'pending' && <PendingRegistrationsTab registrations={pendingRegsQuery.data} />}
+      {selectedTab === 'packages' && <PackagesTab packages={packagesQuery.data} />}
     </div>
   );
 }
@@ -142,21 +151,29 @@ function SubscriptionCard({ subscription }: { subscription: any }) {
   const trpc = useTRPC();
   const { token } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
-  const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
 
-  const activateMutation = trpc.activateSubscription.useMutation({
-    onSuccess: () => {
-      utils.getAllSubscriptions.invalidate();
-      alert('Subscription activated successfully');
-    },
-  });
+  const activateMutation = useMutation(
+    trpc.activateSubscription.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getAllSubscriptions.queryKey({ token: token! }),
+        });
+        alert('Subscription activated successfully');
+      },
+    })
+  );
 
-  const suspendMutation = trpc.suspendSubscription.useMutation({
-    onSuccess: () => {
-      utils.getAllSubscriptions.invalidate();
-      alert('Subscription suspended');
-    },
-  });
+  const suspendMutation = useMutation(
+    trpc.suspendSubscription.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getAllSubscriptions.queryKey({ token: token! }),
+        });
+        alert('Subscription suspended');
+      },
+    })
+  );
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -240,28 +257,40 @@ function SubscriptionCard({ subscription }: { subscription: any }) {
 function PendingRegistrationsTab({ registrations }: { registrations: any[] | undefined }) {
   const trpc = useTRPC();
   const { token } = useAuthStore();
-  const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
 
-  const approveMutation = trpc.approvePendingRegistration.useMutation({
-    onSuccess: () => {
-      utils.getPendingRegistrations.invalidate();
-      alert('Registration approved successfully');
-    },
-  });
+  const approveMutation = useMutation(
+    trpc.approvePendingRegistration.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getPendingRegistrations.queryKey({ token: token!, isApproved: false }),
+        });
+        alert('Registration approved successfully');
+      },
+    })
+  );
 
-  const rejectMutation = trpc.rejectPendingRegistration.useMutation({
-    onSuccess: () => {
-      utils.getPendingRegistrations.invalidate();
-      alert('Registration rejected');
-    },
-  });
+  const rejectMutation = useMutation(
+    trpc.rejectPendingRegistration.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getPendingRegistrations.queryKey({ token: token!, isApproved: false }),
+        });
+        alert('Registration rejected');
+      },
+    })
+  );
 
-  const markPaidMutation = trpc.markRegistrationAsPaid.useMutation({
-    onSuccess: () => {
-      utils.getPendingRegistrations.invalidate();
-      alert('Marked as paid');
-    },
-  });
+  const markPaidMutation = useMutation(
+    trpc.markRegistrationAsPaid.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getPendingRegistrations.queryKey({ token: token!, isApproved: false }),
+        });
+        alert('Marked as paid');
+      },
+    })
+  );
 
   const handleApprove = (regId: number) => {
     const password = prompt('Set initial password for user (min 6 characters):');
@@ -387,16 +416,20 @@ function PendingRegistrationsTab({ registrations }: { registrations: any[] | und
 function PackagesTab({ packages }: { packages: any[] | undefined }) {
   const trpc = useTRPC();
   const { token } = useAuthStore();
-  const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const [editingPackage, setEditingPackage] = useState<any>(null);
 
-  const updatePricingMutation = trpc.updatePackagePricing.useMutation({
-    onSuccess: () => {
-      utils.getPackages.invalidate();
-      setEditingPackage(null);
-      alert('Pricing updated successfully');
-    },
-  });
+  const updatePricingMutation = useMutation(
+    trpc.updatePackagePricing.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.getPackages.queryKey({ token: token! }),
+        });
+        setEditingPackage(null);
+        alert('Pricing updated successfully');
+      },
+    })
+  );
 
   const contractorPackages = packages?.filter((p) => p.type === 'CONTRACTOR');
   const pmPackages = packages?.filter((p) => p.type === 'PROPERTY_MANAGER');
@@ -411,7 +444,7 @@ function PackagesTab({ packages }: { packages: any[] | undefined }) {
               key={pkg.id}
               package={pkg}
               onEdit={setEditingPackage}
-              onSave={(data) => {
+              onSave={(data: PackagePricingUpdate) => {
                 updatePricingMutation.mutate({
                   token: token!,
                   packageId: pkg.id,
@@ -432,7 +465,7 @@ function PackagesTab({ packages }: { packages: any[] | undefined }) {
               key={pkg.id}
               package={pkg}
               onEdit={setEditingPackage}
-              onSave={(data) => {
+              onSave={(data: PackagePricingUpdate) => {
                 updatePricingMutation.mutate({
                   token: token!,
                   packageId: pkg.id,
