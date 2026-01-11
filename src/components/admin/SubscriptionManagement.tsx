@@ -8,9 +8,18 @@ export function SubscriptionManagement() {
   const { token } = useAuthStore();
   const [selectedTab, setSelectedTab] = useState<'packages' | 'subscriptions' | 'pending'>('subscriptions');
 
-  const { data: packages } = trpc.getPackages.useQuery({ token: token! });
-  const { data: subscriptions } = trpc.getAllSubscriptions.useQuery({ token: token! });
-  const { data: pendingRegs } = trpc.getPendingRegistrations.useQuery({ token: token!, isApproved: false });
+  const { data: packages } = trpc.getPackages.useQuery(
+    { token: token! },
+    { enabled: !!token }
+  );
+  const { data: subscriptions } = trpc.getAllSubscriptions.useQuery(
+    { token: token! },
+    { enabled: !!token }
+  );
+  const { data: pendingRegs } = trpc.getPendingRegistrations.useQuery(
+    { token: token!, isApproved: false },
+    { enabled: !!token }
+  );
 
   const tabs = [
     { id: 'subscriptions', label: 'Active Subscriptions', icon: Users },
