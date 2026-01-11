@@ -386,6 +386,9 @@ model User {
   approvedExpenses    OperationalExpense[] @relation("ExpenseApprover")
   alternativeRevenues AlternativeRevenue[] @relation("UserAlternativeRevenues")
   approvedRevenues    AlternativeRevenue[] @relation("RevenueApprover")
+  
+  // Subscription relations
+  subscriptions Subscription[]
 }
 
 model Lead {
@@ -2565,4 +2568,215 @@ model AlternativeRevenue {
   @@index([category])
   @@index([date])
   @@index([isApproved])
+}
+
+// ============================================
+// SUBSCRIPTION & PAYMENT MODELS
+// ============================================
+
+enum PackageType {
+  CONTRACTOR
+  PROPERTY_MANAGER
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  PAYFAST
+  PAYSTACK
+  MANUAL
+}
+
+// Package definitions (S1-S6 for Contractors, PM1-PM2 for Property Managers)
+model Package {
+  id        Int         @id @default(autoincrement())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  name        String      @unique // S1, S2, S3, S4, S5, S6, PM1, PM2
+  displayName String      // "Starter Package", "Premium Package", etc.
+  description String?
+  type        PackageType // CONTRACTOR or PROPERTY_MANAGER
+  
+  // Pricing
+  basePrice             Float   // Monthly base price for one user
+  additionalUserPrice   Float   // Price per additional user (contractors) or employee (PM)
+  additionalTenantPrice Float?  // Only for Property Managers
+  
+  // Feature access
+  hasQuotations        Boolean @default(false)
+  hasInvoices          Boolean @default(false)
+  hasStatements        Boolean @default(false)
+  hasOperations        Boolean @default(false)
+  hasPayments          Boolean @default(false)
+  hasCRM               Boolean @default(false)
+  hasProjectManagement Boolean @default(false)
+  hasAssets            Boolean @default(false)
+  hasHR                Boolean @default(false)
+  hasMessages          Boolean @default(false)
+  hasAIAgent           Boolean @default(false)
+  hasAIInsights        Boolean @default(false)
+  
+  // Trial period (in days, 0 means no trial)
+  trialDays Int @default(0)
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Relations
+  subscriptions Subscription[]
+  
+  @@index([type])
+  @@index([isActive])
+}
+
+// Subscription model - Links users to packages
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // User/Company
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Package
+  packageId Int
+  package   Package @relation(fields: [packageId], references: [id])
+  
+  // Status
+  status          SubscriptionStatus
+  startDate       DateTime
+  endDate         DateTime? // Null means ongoing
+  trialEndsAt     DateTime? // When trial period ends
+  cancelledAt     DateTime?
+  cancellationReason String?
+  
+  // User limits
+  includedUsers      Int   @default(1) // Base users included
+  additionalUsers    Int   @default(0) // Additional users purchased
+  maxUsers           Int // Total users allowed (includedUsers + additionalUsers)
+  currentUsers       Int   @default(1) // Current active users
+  
+  // Property Manager specific
+  additionalTenants     Int? @default(0)
+  additionalContractors Int? @default(0)
+  
+  // Payment tracking
+  nextBillingDate DateTime?
+  lastPaymentDate DateTime?
+  isPaymentOverdue Boolean @default(false)
+  
+  // Admin notes
+  notes String?
+  
+  // Relations
+  payments Payment[]
+  
+  @@index([userId])
+  @@index([packageId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+// Payment records
+model Payment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Subscription
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount            Float
+  currency          String         @default("ZAR")
+  status            PaymentStatus
+  method            PaymentMethod
+  
+  // Gateway details
+  gatewayReference  String? // Payment ID from gateway
+  gatewayResponse   String? // JSON response from gateway
+  
+  // Billing period
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  
+  // Card details (last 4 digits only for security)
+  cardLast4         String?
+  cardBrand         String?
+  
+  // Status tracking
+  paidAt            DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  refundedAt        DateTime?
+  refundReason      String?
+  
+  // Invoice
+  invoiceNumber     String?
+  invoiceUrl        String?
+  
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Self-registration pending approval
+model PendingRegistration {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // User details
+  email         String
+  firstName     String
+  lastName      String
+  phone         String
+  companyName   String?
+  
+  // Account type
+  accountType   PackageType // CONTRACTOR or PROPERTY_MANAGER
+  
+  // Selected package
+  packageId     Int
+  
+  // Additional details
+  additionalUsers      Int @default(0)
+  additionalTenants    Int @default(0)
+  additionalContractors Int @default(0)
+  
+  // Payment
+  hasPaid       Boolean @default(false)
+  paymentId     String?
+  
+  // Status
+  isApproved    Boolean @default(false)
+  approvedAt    DateTime?
+  approvedById  Int?
+  rejectedAt    DateTime?
+  rejectionReason String?
+  
+  // Created user ID (after approval)
+  createdUserId Int?
+  
+  @@index([email])
+  @@index([isApproved])
+  @@index([hasPaid])
 }
