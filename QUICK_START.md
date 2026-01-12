@@ -113,6 +113,25 @@ docker compose down -v
 docker compose up
 ```
 
+### Permanent "no login errors" setup (Windows/Docker)
+
+If you see intermittent login failures like "Authentication failed against database server" after a reboot, it usually means PostgreSQL wasn't running yet.
+
+This repo's [docker/compose.yaml](docker/compose.yaml) is configured so core services (Postgres/Redis/MinIO) automatically restart after reboots **as long as Docker Desktop is running**.
+
+One-time setup on Windows:
+- Enable Docker Desktop to start on login.
+- Start the services once:
+
+```powershell
+docker compose -f docker/compose.yaml up -d
+```
+
+Optional helper scripts (repo root):
+- `start-dev.ps1` starts infra + the dev server
+- `diagnose-db.ps1` checks DATABASE_URL + port 5432 + container status
+- `fix-local-postgres.ps1` resets local dev DB volume (deletes local dev data)
+
 ### Health check fails?
 
 ```bash

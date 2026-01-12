@@ -19,6 +19,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]),
   BASE_URL: z.string(),
   BASE_URL_OTHER_PORT: z.string().optional(),
+  // Prisma reads DATABASE_URL directly; validate it early to avoid intermittent boot/login failures.
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   ADMIN_PASSWORD: z.string(),
   JWT_SECRET: z.string(),
   GEMINI_API_KEY: z.string(),

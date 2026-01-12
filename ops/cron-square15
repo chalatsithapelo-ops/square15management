@@ -1,0 +1,7 @@
+# Square15 backups + health monitoring
+
+# Daily DB backup at 02:15 UTC
+15 2 * * * root /root/square15management/ops/backup-postgres.sh >> /var/log/square15/backup.log 2>&1
+
+# App/DB health check every 2 minutes (self-healing)
+*/2 * * * * root /root/square15management/ops/monitor-health.sh >> /var/log/square15/monitor-cron.log 2>&1
