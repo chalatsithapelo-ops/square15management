@@ -590,6 +590,14 @@ function AdminDashboard() {
       stats: "Admin tool",
     },
     {
+      title: "Registrations",
+      description: "Review and approve new account requests",
+      icon: ClipboardList,
+      href: "/admin/registrations",
+      color: "from-yellow-500 to-yellow-600",
+      stats: "Admin tool",
+    },
+    {
       title: "Settings",
       description: "Manage company branding and settings",
       icon: Settings,
@@ -623,6 +631,9 @@ function AdminDashboard() {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
     }
     if (card.title === "Subscriptions") {
+      return hasPermission("MANAGE_SYSTEM_SETTINGS");
+    }
+    if (card.title === "Registrations") {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
     }
     if (card.title === "Settings") {

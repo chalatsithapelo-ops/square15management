@@ -14,7 +14,11 @@ export const getPackages = baseProcedure
     })
   )
   .query(async ({ input }) => {
-    await authenticateUser(input.token);
+    // Public registration flow uses the literal token "public".
+    // In that case we allow package listing without a JWT.
+    if (input.token !== 'public') {
+      await authenticateUser(input.token);
+    }
 
     const packages = await db.package.findMany({
       where: {

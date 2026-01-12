@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { Building2, Briefcase, Check, Calculator } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
@@ -19,20 +20,25 @@ export function RegisterPage() {
     additionalContractors: 0,
   });
 
-  const { data: packages } = trpc.getPackages.useQuery(
-    { token: 'public', type: accountType || undefined },
-    { enabled: !!accountType }
-  );
-
-  const registerMutation = trpc.createPendingRegistration.useMutation({
-    onSuccess: () => {
-      alert('Registration submitted successfully! You will be contacted once your account is approved.');
-      navigate({ to: '/login' });
-    },
-    onError: (error) => {
-      alert(`Registration failed: ${error.message}`);
-    },
+  const packagesQuery = useQuery({
+    ...trpc.getPackages.queryOptions({ token: 'public', type: accountType || undefined }),
+    enabled: !!accountType,
   });
+  const packages = packagesQuery.data;
+
+  const registerMutation = useMutation(
+    trpc.createPendingRegistration.mutationOptions({
+      onSuccess: () => {
+        alert(
+          'Registration submitted successfully! You will be contacted once your account is approved.'
+        );
+        navigate({ to: '/' });
+      },
+      onError: (error) => {
+        alert(`Registration failed: ${error.message}`);
+      },
+    })
+  );
 
   const calculateTotal = () => {
     if (!selectedPackage) return 0;

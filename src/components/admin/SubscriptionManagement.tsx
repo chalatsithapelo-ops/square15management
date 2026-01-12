@@ -10,10 +10,16 @@ type PackagePricingUpdate = {
   additionalTenantPrice?: number;
 };
 
-export function SubscriptionManagement() {
+type SubscriptionManagementTab = 'packages' | 'subscriptions' | 'pending';
+
+export function SubscriptionManagement({
+  initialTab = 'subscriptions',
+}: {
+  initialTab?: SubscriptionManagementTab;
+}) {
   const trpc = useTRPC();
   const { token } = useAuthStore();
-  const [selectedTab, setSelectedTab] = useState<'packages' | 'subscriptions' | 'pending'>('subscriptions');
+  const [selectedTab, setSelectedTab] = useState<SubscriptionManagementTab>(initialTab);
 
   const packagesQuery = useQuery({
     ...trpc.getPackages.queryOptions({ token: token! }),
