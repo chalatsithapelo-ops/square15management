@@ -190,7 +190,9 @@ function LoginPage() {
                 <p className="font-semibold text-gray-700 mb-2">Test Accounts:</p>
                 <div className="space-y-1">
                   <p><span className="font-medium">Junior Admin:</span> junior@propmanagement.com (junior123)</p>
-                  <p><span className="font-medium">Senior Admin:</span> chalatsithapelo@gmail.com (1991Slowmo*)</p>
+                  <p><span className="font-medium">Senior Admin:</span> admin@propmanagement.com (admin123)</p>
+                  <p><span className="font-medium">Property Manager:</span> pm@propmanagement.com (pm123)</p>
+                  <p><span className="font-medium">Contractor:</span> contractor@propmanagement.com (contractor123)</p>
                   <p><span className="font-medium">Artisan:</span> artisan@propmanagement.com (artisan123)</p>
                   <p><span className="font-medium">Customer:</span> customer@example.com (customer123)</p>
                 </div>
@@ -210,7 +212,7 @@ function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-brand-primary-900/90 via-brand-primary-900/50 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-12 text-white">
           <h1 className="text-4xl font-bold mb-4">
-            Manage Your Properties with Ease
+            Manage Your Properties and Property Services with Ease
           </h1>
           <p className="text-xl text-brand-primary-100 max-w-lg">
             Streamline operations, track projects, manage teams, and grow your property services business all in one place.

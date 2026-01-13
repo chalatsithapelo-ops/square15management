@@ -768,10 +768,10 @@ export async function sendCompletionReportEmail(params: {
           </div>
           
           <div class="portal-section">
-            <h3>🔐 Access Your Customer Portal</h3>
-            <p>View all your ${params.completionType === "ORDER" ? "jobs" : params.completionType === "MILESTONE" ? "milestones" : "projects"}, documents, and more in your dedicated customer portal.</p>
+            <h3>🔐 Access Your Tenant Portal</h3>
+            <p>View all your ${params.completionType === "ORDER" ? "jobs" : params.completionType === "MILESTONE" ? "milestones" : "projects"}, documents, and more in your dedicated tenant portal.</p>
             <a href="${portalLink}" class="button">
-              Go to Customer Portal →
+              Go to Tenant Portal →
             </a>
             <p style="font-size: 12px; margin-top: 15px; color: #666;">
               Or copy this link: <a href="${portalLink}" style="color: ${env.BRAND_PRIMARY_COLOR};">${portalLink}</a>
@@ -1127,12 +1127,12 @@ export async function sendInvoiceNotificationEmail(params: {
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${portalLink}" class="cta-button">
-            View Invoice in Customer Portal →
+            View Invoice in Tenant Portal →
           </a>
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          You can view the complete invoice details, download a PDF copy, and make payment arrangements through your customer portal.
+          You can view the complete invoice details, download a PDF copy, and make payment arrangements through your tenant portal.
         </p>
         
         <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; margin: 20px 0;">
@@ -1254,7 +1254,7 @@ export async function sendOrderNotificationEmail(params: {
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          You can track the progress of your order, view updates, and communicate with our team through your customer portal.
+          You can track the progress of your order, view updates, and communicate with our team through your tenant portal.
         </p>
       </div>
       
@@ -1369,7 +1369,7 @@ export async function sendStatementNotificationEmail(params: {
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          You can view the complete statement details, including all transactions and balances, through your customer portal.
+          You can view the complete statement details, including all transactions and balances, through your tenant portal.
         </p>
       </div>
       
