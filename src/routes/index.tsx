@@ -77,29 +77,29 @@ function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Login Form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-md w-full space-y-8">
+      <div className="flex-1 flex items-start justify-center px-4 sm:px-6 lg:px-8 py-6 bg-white">
+        <div className="max-w-md w-full space-y-4">
           <div>
             <div className="flex justify-center">
-              <div className="bg-gradient-to-br from-brand-primary-600 to-brand-primary-800 p-4 rounded-2xl shadow-lg">
+              <div className="bg-gradient-to-br from-brand-primary-600 to-brand-primary-800 p-3 rounded-2xl shadow-lg">
                 <div className="bg-white rounded-full p-2 shadow-inner">
                   <img 
                     src="/square15-logo-design.png" 
                     alt="Square 15 Facility Solutions" 
-                    className="h-20 w-20 object-contain"
+                    className="h-16 w-16 object-contain"
                   />
                 </div>
               </div>
             </div>
-            <h2 className="mt-6 text-center text-4xl font-extrabold text-gray-900">
+            <h2 className="mt-3 text-center text-3xl font-extrabold text-gray-900">
               Square 15 Management System
             </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
+            <p className="mt-1 text-center text-sm text-gray-600">
               Sign in to your account to continue
             </p>
           </div>
 
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          <form className="mt-4 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -114,7 +114,7 @@ function LoginPage() {
                     type="email"
                     autoComplete="email"
                     {...register("email")}
-                    className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-transparent transition duration-150 ease-in-out sm:text-sm"
+                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-transparent transition duration-150 ease-in-out sm:text-sm"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -136,7 +136,7 @@ function LoginPage() {
                     type="password"
                     autoComplete="current-password"
                     {...register("password")}
-                    className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-transparent transition duration-150 ease-in-out sm:text-sm"
+                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary-500 focus:border-transparent transition duration-150 ease-in-out sm:text-sm"
                     placeholder="••••••••"
                   />
                 </div>
@@ -150,7 +150,7 @@ function LoginPage() {
               <button
                 type="submit"
                 disabled={loginMutation.isPending}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-brand-primary-600 to-brand-accent-600 hover:from-brand-primary-700 hover:to-brand-accent-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-brand-primary-600 to-brand-accent-600 hover:from-brand-primary-700 hover:to-brand-accent-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
               >
                 {loginMutation.isPending ? (
                   <span className="flex items-center">
@@ -176,7 +176,7 @@ function LoginPage() {
               </Link>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-4">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300" />
@@ -186,15 +186,15 @@ function LoginPage() {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2 text-xs text-gray-600 bg-gray-50 p-4 rounded-lg">
-                <p className="font-semibold text-gray-700 mb-2">Test Accounts:</p>
-                <div className="space-y-1">
+              <div className="mt-2 space-y-1 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <p className="font-semibold text-gray-700 mb-1">Test Accounts:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                   <p><span className="font-medium">Junior Admin:</span> junior@propmanagement.com (junior123)</p>
                   <p><span className="font-medium">Senior Admin:</span> admin@propmanagement.com (admin123)</p>
                   <p><span className="font-medium">Property Manager:</span> pm@propmanagement.com (pm123)</p>
                   <p><span className="font-medium">Contractor:</span> contractor@propmanagement.com (contractor123)</p>
                   <p><span className="font-medium">Artisan:</span> artisan@propmanagement.com (artisan123)</p>
-                  <p><span className="font-medium">Customer:</span> customer@example.com (customer123)</p>
+                  <p><span className="font-medium">Tenant:</span> customer@example.com (customer123)</p>
                 </div>
               </div>
             </div>
