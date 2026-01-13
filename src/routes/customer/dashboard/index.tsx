@@ -394,7 +394,7 @@ function CustomerDashboard() {
                 <Home className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Customer Portal</h1>
+                <h1 className="text-2xl font-bold text-white">Tenant Portal</h1>
                 <p className="text-sm text-purple-100">Welcome, {user?.firstName}!</p>
               </div>
             </div>
@@ -420,6 +420,13 @@ function CustomerDashboard() {
               >
                 <Wrench className="h-4 w-4" />
                 <span>Maintenance</span>
+              </Link>
+              <Link
+                to="/customer/feedback"
+                className="px-4 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 flex items-center gap-2 transition-all duration-200"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Complaints &amp; Complements</span>
               </Link>
               <Link
                 to="/"

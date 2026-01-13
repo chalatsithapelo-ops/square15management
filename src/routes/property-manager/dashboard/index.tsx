@@ -17,6 +17,7 @@ import {
   Plus,
   Calendar,
   Wrench,
+  MessageSquare,
   Home,
   PieChart,
   Loader2,
@@ -207,6 +208,13 @@ function PropertyManagerDashboard() {
                     {pendingMaintenance.length}
                   </span>
                 )}
+              </Link>
+              <Link
+                to="/property-manager/feedback"
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 rounded-lg transition-colors shadow-sm"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Complaints &amp; Complements</span>
               </Link>
               <Link
                 to="/property-manager/ai-agent"

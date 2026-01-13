@@ -130,6 +130,17 @@ enum StatementStatus {
   overdue
 }
 
+enum TenantFeedbackType {
+  COMPLAINT
+  COMPLEMENT
+}
+
+enum TenantFeedbackStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
 enum NotificationType {
   ORDER_ASSIGNED
   ORDER_STATUS_UPDATED
@@ -389,6 +400,9 @@ model User {
   
   // Subscription relations
   subscriptions Subscription[]
+
+  // Tenant feedback (Complaints & Complements)
+  tenantFeedbackReceived TenantFeedback[] @relation("PropertyManagerTenantFeedback")
 }
 
 model Lead {
@@ -1770,12 +1784,45 @@ model PropertyManagerCustomer {
   rentPayments        RentPayment[]
   utilityReadings     UtilityReading[]
   customerPayments    CustomerPayment[]    @relation("TenantPayments")
+  tenantFeedback      TenantFeedback[]
 
   @@index([propertyManagerId])
   @@index([buildingId])
   @@index([email])
   @@index([status])
   @@index([onboardingStatus])
+}
+
+model TenantFeedback {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  type     TenantFeedbackType
+  category String
+  message  String @db.Text
+  status   TenantFeedbackStatus @default(OPEN)
+  resolvedAt DateTime?
+
+  // Tenant (customer) who submitted
+  customerId Int
+  customer   PropertyManagerCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Property Manager (denormalized for efficient queries)
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerTenantFeedback", fields: [propertyManagerId], references: [id])
+
+  // Building (optional)
+  buildingId Int?
+  building   Building? @relation("BuildingTenantFeedback", fields: [buildingId], references: [id])
+
+  @@index([customerId])
+  @@index([propertyManagerId])
+  @@index([buildingId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model MaintenanceRequest {
@@ -1877,6 +1924,7 @@ model Building {
   financialMetrics     PropertyFinancialMetrics[]
   tenants              PropertyManagerCustomer[]     @relation("BuildingTenants")
   payments             CustomerPayment[]             @relation("BuildingPayments")
+  tenantFeedback       TenantFeedback[]              @relation("BuildingTenantFeedback")
 
   @@index([propertyManagerId])
 }

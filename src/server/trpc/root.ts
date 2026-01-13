@@ -289,6 +289,15 @@ import { generateAccountsInsights } from "~/server/trpc/procedures/generateAccou
 import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions } from "~/server/trpc/procedures/subscriptions";
 import { createPendingRegistration, getPendingRegistrations, approvePendingRegistration, rejectPendingRegistration, markRegistrationAsPaid } from "~/server/trpc/procedures/registration";
 
+// Tenant Feedback (Complaints & Complements)
+import {
+  submitTenantFeedback,
+  getMyTenantFeedback,
+  getTenantFeedbackForPM,
+  updateTenantFeedbackStatus,
+  getTenantFeedbackAnalyticsForPM,
+} from "~/server/trpc/procedures/tenantFeedback";
+
 export const appRouter = createTRPCRouter({
   // Auth
   login,
@@ -646,6 +655,13 @@ export const appRouter = createTRPCRouter({
   approvePendingRegistration,
   rejectPendingRegistration,
   markRegistrationAsPaid,
+
+  // Tenant Feedback (Complaints & Complements)
+  submitTenantFeedback,
+  getMyTenantFeedback,
+  getTenantFeedbackForPM,
+  updateTenantFeedbackStatus,
+  getTenantFeedbackAnalyticsForPM,
 });
 
 export type AppRouter = typeof appRouter;
