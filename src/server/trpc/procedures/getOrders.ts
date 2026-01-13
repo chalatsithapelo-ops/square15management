@@ -78,10 +78,9 @@ export const getOrders = baseProcedure
           where.id = -1; // Match nothing
         }
       } else if (user.role === "ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN") {
-        // Admin portal: ONLY show admin-created orders
-        // EXCLUDE all Property Manager orders (propertyManagerId not null)
-        // PropertyManagerOrder is a separate table - this ensures no PM orders appear
-        where.propertyManagerId = null;
+        // Admins can view regular orders.
+        // Note: Property Manager orders live in `PropertyManagerOrder` (separate table),
+        // so there is no need to filter the `Order` table by any `propertyManagerId` field.
       }
 
       const orders = await db.order.findMany({
