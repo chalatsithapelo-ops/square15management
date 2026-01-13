@@ -15,6 +15,7 @@ import { getCompanyDetails } from "~/server/utils/company-details";
 import { clearPermissionsCache } from "~/server/utils/permissions";
 import { createMonthlySalaryPayments } from "./create-monthly-salary-payments";
 import { getBaseUrl } from "~/server/utils/base-url";
+import { seedRFQWorkflow } from "./seed-rfq-workflow";
 
 const exec = promisify(execCallback);
 
@@ -191,7 +192,7 @@ function validateBaseUrl() {
       console.warn("     - Email links (will point to localhost)");
       console.warn("     - File storage URLs (MinIO links will be broken)");
       console.warn("     - PDF generation (QR codes and links will be incorrect)");
-      console.warn("     - Customer portal access");
+      console.warn("     - Tenant portal access");
       console.warn("");
       console.warn("   To fix this, set the BASE_URL environment variable to your actual deployment URL:");
       console.warn("   Example: export BASE_URL=https://your-preview-url.codapt.app");
@@ -385,6 +386,104 @@ async function setup() {
         } else {
           console.log(`✓ Senior admin user already exists: ${seniorAdminEmail}`);
         }
+
+        // Seed demo admin user (displayed on landing page) if not exists
+        const demoAdminEmail = "admin@propmanagement.com";
+        const existingDemoAdmin = await db.user.findUnique({
+          where: { email: demoAdminEmail },
+        });
+
+        if (!existingDemoAdmin) {
+          const hashedPassword = await bcryptjs.hash("admin123", 10);
+
+          await db.user.create({
+            data: {
+              email: demoAdminEmail,
+              password: hashedPassword,
+              firstName: "Admin",
+              lastName: "User",
+              phone: "+27123456788",
+              role: "SENIOR_ADMIN",
+            },
+          });
+          console.log(`✓ Created demo admin user: ${demoAdminEmail} (password: admin123)`);
+        } else {
+          console.log(`✓ Demo admin user already exists: ${demoAdminEmail}`);
+        }
+
+        // Seed demo Property Manager user if not exists
+        const demoPmEmail = "pm@propmanagement.com";
+        const existingDemoPm = await db.user.findUnique({
+          where: { email: demoPmEmail },
+        });
+
+        if (!existingDemoPm) {
+          const hashedPassword = await bcryptjs.hash("pm123", 10);
+
+          await db.user.create({
+            data: {
+              email: demoPmEmail,
+              password: hashedPassword,
+              firstName: "Sarah",
+              lastName: "Johnson",
+              phone: "+27123456789",
+              role: "PROPERTY_MANAGER",
+              pmCompanyName: "Premium Property Management",
+              pmCompanyAddressLine1: "123 Business Park",
+              pmCompanyAddressLine2: "Sandton, 2196",
+              pmCompanyPhone: "+27114445555",
+              pmCompanyEmail: "info@premiumpm.co.za",
+              pmCompanyVatNumber: "VAT123456789",
+              pmCompanyBankName: "Standard Bank",
+              pmCompanyBankAccountName: "Premium Property Management",
+              pmCompanyBankAccountNumber: "1234567890",
+              pmCompanyBankBranchCode: "051001",
+              pmBrandPrimaryColor: "#2563eb",
+              pmBrandSecondaryColor: "#1e40af",
+              pmBrandAccentColor: "#3b82f6",
+            },
+          });
+          console.log(`✓ Created demo property manager: ${demoPmEmail} (password: pm123)`);
+        } else {
+          console.log(`✓ Demo property manager already exists: ${demoPmEmail}`);
+        }
+
+        // Seed demo Contractor user if not exists
+        const demoContractorEmail = "contractor@propmanagement.com";
+        const existingDemoContractor = await db.user.findUnique({
+          where: { email: demoContractorEmail },
+        });
+
+        if (!existingDemoContractor) {
+          const hashedPassword = await bcryptjs.hash("contractor123", 10);
+
+          await db.user.create({
+            data: {
+              email: demoContractorEmail,
+              password: hashedPassword,
+              firstName: "Mike",
+              lastName: "Thompson",
+              phone: "+27821234567",
+              role: "CONTRACTOR",
+              contractorCompanyName: "Thompson Construction",
+              contractorCompanyAddressLine1: "456 Industrial Drive",
+              contractorCompanyAddressLine2: "Midrand, 1685",
+              contractorCompanyPhone: "+27114447777",
+              contractorCompanyEmail: "mike@thompsonconstruction.co.za",
+              contractorCompanyVatNumber: "VAT987654321",
+              contractorCompanyBankName: "FNB",
+              contractorCompanyBankAccountName: "Thompson Construction",
+              contractorCompanyBankAccountNumber: "9876543210",
+              contractorCompanyBankBranchCode: "250655",
+              contractorBrandPrimaryColor: "#ea580c",
+              contractorBrandSecondaryColor: "#c2410c",
+              contractorBrandAccentColor: "#f97316",
+            },
+          });
+          console.log(`✓ Created demo contractor: ${demoContractorEmail} (password: contractor123)`);
+        } else {
+          console.log(`✓ Demo contractor already exists: ${demoContractorEmail}`);
+        }
         
         // Seed test artisan
         const artisanEmail = "artisan@propmanagement.com";
@@ -446,13 +545,17 @@ async function setup() {
         async () => {
           // Check if demo data already exists (using orders as a proxy)
           const existingOrders = await db.order.count();
-          
+
+          // Always seed PM/Contractor portal workflow data (idempotent)
+          console.log("Seeding Property Manager / Contractor portal demo workflow...");
+          await seedRFQWorkflow({ disconnect: false });
+
           if (existingOrders > 0) {
-            console.log("✓ Demo data already exists, skipping seeding");
+            console.log("✓ Admin demo data already exists, skipping seeding");
             return;
           }
-          
-          console.log("Seeding demo data...");
+
+          console.log("Seeding admin demo data...");
           
           // Get users for relationships
           const seniorAdmin = await db.user.findUnique({ where: { email: "chalatsithapelo@gmail.com" } });
@@ -484,7 +587,7 @@ async function setup() {
               notes: "Prefers morning appointments",
             },
           });
-          
+
           const lead2 = await db.lead.create({
             data: {
               customerName: "Bob Williams",
@@ -500,7 +603,7 @@ async function setup() {
               followUpAssignedToId: juniorAdmin.id,
             },
           });
-          
+
           const lead3 = await db.lead.create({
             data: {
               customerName: "Carol Martinez",
@@ -514,9 +617,9 @@ async function setup() {
               createdById: seniorAdmin.id,
             },
           });
-          
+
           console.log("✓ Created 3 demo leads");
-          
+
           // 2. Seed Orders
           console.log("Seeding orders...");
           const order1 = await db.order.create({

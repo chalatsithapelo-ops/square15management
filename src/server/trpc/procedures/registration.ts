@@ -7,6 +7,13 @@ import { hash } from 'bcryptjs';
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
 
+const DEMO_JUNIOR_ADMIN_EMAIL = 'junior@propmanagement.com';
+
+const canManageRegistrations = (user: { role?: string; email?: string }) =>
+  user.role === 'ADMIN' ||
+  user.role === 'SENIOR_ADMIN' ||
+  (user.role === 'JUNIOR_ADMIN' && user.email !== DEMO_JUNIOR_ADMIN_EMAIL);
+
 export const createPendingRegistration = baseProcedure
   .input(
     z.object({
@@ -78,7 +85,7 @@ export const getPendingRegistrations = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!isAdminRole(adminUser.role)) {
+    if (!canManageRegistrations(adminUser)) {
       throw new Error('Only administrators can view pending registrations');
     }
 
@@ -120,7 +127,7 @@ export const approvePendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!isAdminRole(adminUser.role)) {
+    if (!canManageRegistrations(adminUser)) {
       throw new Error('Only administrators can approve registrations');
     }
 
@@ -222,7 +229,7 @@ export const rejectPendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!isAdminRole(adminUser.role)) {
+    if (!canManageRegistrations(adminUser)) {
       throw new Error('Only administrators can reject registrations');
     }
 
@@ -251,7 +258,7 @@ export const markRegistrationAsPaid = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!isAdminRole(adminUser.role)) {
+    if (!canManageRegistrations(adminUser)) {
       throw new Error('Only administrators can mark registrations as paid');
     }
 

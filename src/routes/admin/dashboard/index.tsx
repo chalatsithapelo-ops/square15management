@@ -607,6 +607,9 @@ function AdminDashboard() {
     },
   ];
 
+  const isDemoJuniorAdmin =
+    user?.role === "JUNIOR_ADMIN" && user?.email === "junior@propmanagement.com";
+
   const filteredDashboardCards = dashboardCards.filter((card) => {
     // Check permissions for each restricted card
     if (card.title === "Management Accounts") {
@@ -631,10 +634,10 @@ function AdminDashboard() {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
     }
     if (card.title === "Subscriptions") {
-      return hasPermission("MANAGE_SYSTEM_SETTINGS");
+      return hasPermission("MANAGE_SYSTEM_SETTINGS") && !isDemoJuniorAdmin;
     }
     if (card.title === "Registrations") {
-      return hasPermission("MANAGE_SYSTEM_SETTINGS");
+      return hasPermission("MANAGE_SYSTEM_SETTINGS") && !isDemoJuniorAdmin;
     }
     if (card.title === "Settings") {
       return hasPermission("MANAGE_SYSTEM_SETTINGS");
