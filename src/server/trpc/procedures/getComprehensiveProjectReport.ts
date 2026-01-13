@@ -2,7 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import { authenticateUser, requireAdmin } from "~/server/utils/auth";
+import { authenticateUser, isAdmin } from "~/server/utils/auth";
+import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const getComprehensiveProjectReport = baseProcedure
   .input(
@@ -12,9 +13,20 @@ export const getComprehensiveProjectReport = baseProcedure
     })
   )
   .query(async ({ input }) => {
-    // Authenticate user and ensure admin access
     const user = await authenticateUser(input.token);
-    requireAdmin(user);
+
+    // Restrict comprehensive report access to admins and property managers only.
+    // Property managers must also have access to the specific project.
+    if (isAdmin(user)) {
+      // allow
+    } else if (user.role === "PROPERTY_MANAGER") {
+      await assertCanAccessProject(user, input.projectId);
+    } else {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have access to this report",
+      });
+    }
 
     // Fetch the project with all related data
     const project = await db.project.findUnique({

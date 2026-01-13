@@ -1,17 +1,22 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { baseProcedure } from '~/server/trpc/main';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
+import { DEMO_ADMIN_EMAIL, DEMO_JUNIOR_ADMIN_EMAIL } from '~/server/utils/demoAccounts';
 
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
 
-const DEMO_JUNIOR_ADMIN_EMAIL = 'junior@propmanagement.com';
+const canManageSubscriptions = (user: { role?: string; email?: string | null }) => {
+  const email = user.email?.trim().toLowerCase();
+  const isRestrictedDemo = email === DEMO_ADMIN_EMAIL || email === DEMO_JUNIOR_ADMIN_EMAIL;
 
-const canManageSubscriptions = (user: { role?: string; email?: string }) =>
-  user.role === 'ADMIN' ||
-  user.role === 'SENIOR_ADMIN' ||
-  (user.role === 'JUNIOR_ADMIN' && user.email !== DEMO_JUNIOR_ADMIN_EMAIL);
+  return (
+    !isRestrictedDemo &&
+    (user.role === 'ADMIN' || user.role === 'SENIOR_ADMIN' || user.role === 'JUNIOR_ADMIN')
+  );
+};
 
 export const getPackages = baseProcedure
   .input(
@@ -89,7 +94,10 @@ export const createSubscription = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can create subscriptions');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can create subscriptions',
+      });
     }
 
     // Get package details
@@ -150,7 +158,10 @@ export const updateSubscriptionPackage = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can update subscriptions');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can update subscriptions',
+      });
     }
 
     const packageDetails = await db.package.findUnique({
@@ -207,7 +218,10 @@ export const updatePackagePricing = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can update package pricing');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can update package pricing',
+      });
     }
 
     const updateData: any = {};
@@ -243,7 +257,10 @@ export const activateSubscription = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can activate subscriptions');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can activate subscriptions',
+      });
     }
 
     const subscription = await db.subscription.update({
@@ -272,7 +289,10 @@ export const suspendSubscription = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can suspend subscriptions');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can suspend subscriptions',
+      });
     }
 
     const subscription = await db.subscription.update({
@@ -300,7 +320,10 @@ export const getAllSubscriptions = baseProcedure
     const adminUser = await authenticateUser(input.token);
 
     if (!canManageSubscriptions(adminUser)) {
-      throw new Error('Only administrators can view all subscriptions');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only non-demo administrators can view all subscriptions',
+      });
     }
 
     const subscriptions = await db.subscription.findMany({

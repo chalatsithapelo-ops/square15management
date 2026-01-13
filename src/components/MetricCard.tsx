@@ -13,6 +13,7 @@ interface MetricCardProps {
   sparklineData?: number[];
   gradient?: boolean;
   subtitle?: string;
+  subtext?: string;
 }
 
 const colorSchemes = {
@@ -87,7 +88,9 @@ export function MetricCard({
   sparklineData,
   gradient = false,
   subtitle,
+  subtext,
 }: MetricCardProps) {
+  const resolvedSubtitle = subtitle ?? subtext;
   const scheme = colorSchemes[color];
 
   const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Minus;
@@ -148,8 +151,8 @@ export function MetricCard({
           <div>
             <p className="text-sm font-medium opacity-90 mb-1">{name}</p>
             <p className="text-2xl sm:text-3xl font-bold tracking-tight">{value}</p>
-            {subtitle && (
-              <p className="text-xs opacity-75 mt-1">{subtitle}</p>
+            {resolvedSubtitle && (
+              <p className="text-xs opacity-75 mt-1">{resolvedSubtitle}</p>
             )}
           </div>
           {renderSparkline()}
@@ -169,8 +172,8 @@ export function MetricCard({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-500 truncate mb-1">{name}</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">{value}</p>
-              {subtitle && (
-                <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+              {resolvedSubtitle && (
+                <p className="text-xs text-gray-500 mt-1">{resolvedSubtitle}</p>
               )}
               {trend && (
                 <div className={`flex items-center mt-2 space-x-1 ${trendColor}`}>

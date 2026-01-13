@@ -7,7 +7,10 @@ import { authenticateUser } from "~/server/utils/auth";
 const rateCompletedWorkSchema = z.object({
   token: z.string(),
   orderId: z.number(),
+  // NOTE: PropertyManagerOrder.contractorId points to a User (contractor portal user)
   contractorId: z.number(),
+  // Optional: Contractor management table id (for updating Contractor/KPI/performance records)
+  contractorManagementId: z.number().optional(),
   qualityRating: z.number().min(1).max(5),
   timelinessRating: z.number().min(1).max(5),
   professionalismRating: z.number().min(1).max(5),
@@ -40,6 +43,12 @@ export const rateCompletedWork = baseProcedure
           id: input.orderId,
           propertyManagerId: user.id,
         },
+        select: {
+          id: true,
+          contractorId: true,
+          assignedToId: true,
+          ratedAt: true,
+        },
       });
 
       if (!order) {
@@ -49,31 +58,50 @@ export const rateCompletedWork = baseProcedure
         });
       }
 
-      // Try to find contractor in Contractor table first (third-party contractors)
-      let contractor = await db.contractor.findFirst({
+      const wasAlreadyRated = !!order.ratedAt;
+
+      // If the order already has a contractor assigned, enforce consistency.
+      // Otherwise, allow assigning it now (some older orders may have null contractorId).
+      const contractorUserId = order.contractorId ?? input.contractorId;
+      if (order.contractorId && order.contractorId !== input.contractorId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Selected contractor does not match the order contractor",
+        });
+      }
+
+      // Load contractor user (PropertyManagerOrder.contractorId is a User relation)
+      const contractorUser = await db.user.findFirst({
         where: {
-          id: input.contractorId,
-          propertyManagerId: user.id,
+          id: contractorUserId,
+          role: { in: ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"] },
         },
+        select: { id: true, email: true },
       });
 
-      // If not found, try User table (contractor portal users)
-      let contractorUser = null;
-      if (!contractor) {
-        contractorUser = await db.user.findFirst({
-          where: {
-            id: input.contractorId,
-            role: "CONTRACTOR",
-          },
+      if (!contractorUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contractor not found",
         });
-
-        if (!contractorUser) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Contractor not found",
-          });
-        }
       }
+
+      // Resolve Contractor management record (used by PM + contractor dashboards)
+      const contractorRecord = input.contractorManagementId
+        ? await db.contractor.findFirst({
+            where: {
+              id: input.contractorManagementId,
+              propertyManagerId: user.id,
+            },
+            select: { id: true },
+          })
+        : await db.contractor.findFirst({
+            where: {
+              propertyManagerId: user.id,
+              email: { equals: contractorUser.email, mode: "insensitive" },
+            },
+            select: { id: true },
+          });
 
       // Calculate average rating
       const averageRating = (
@@ -88,6 +116,7 @@ export const rateCompletedWork = baseProcedure
       await db.propertyManagerOrder.update({
         where: { id: input.orderId },
         data: {
+          contractorId: order.contractorId ?? contractorUserId,
           qualityRating: input.qualityRating,
           timelinessRating: input.timelinessRating,
           professionalismRating: input.professionalismRating,
@@ -98,32 +127,32 @@ export const rateCompletedWork = baseProcedure
         },
       });
 
-      // Update contractor's average rating
-      const contractorOrders = await db.propertyManagerOrder.findMany({
+      // Recompute contractor average rating across all PM orders for this contractor user
+      const contractorRatingsAgg = await db.propertyManagerOrder.aggregate({
         where: {
-          contractorId: input.contractorId,
+          contractorId: contractorUserId,
           overallRating: { not: null },
         },
+        _avg: { overallRating: true },
+        _count: { _all: true },
       });
 
-      const totalRatings = contractorOrders.reduce((sum, order) => sum + (order.overallRating || 0), 0) + input.overallRating;
-      const newAverageRating = totalRatings / (contractorOrders.length + 1);
+      const newAverageRating = contractorRatingsAgg._avg.overallRating ?? 0;
+      const ratedJobsCount = contractorRatingsAgg._count._all ?? 0;
 
-      // Update contractor stats (only if it's a Contractor table entry)
-      if (contractor) {
+      // Update contractor management stats when a mapped record exists
+      if (contractorRecord) {
         await db.contractor.update({
-          where: { id: input.contractorId },
+          where: { id: contractorRecord.id },
           data: {
             averageRating: newAverageRating,
-            totalJobsCompleted: contractor.totalJobsCompleted + 1,
+            totalJobsCompleted: ratedJobsCount,
           },
         });
       }
-      // Note: For contractor portal users (User table), we don't update global stats
-      // as those fields don't exist in the User model. The ratings are stored per order.
 
-      // Update KPI actuals and performance metrics (only for Contractor table entries)
-      if (contractor) {
+      // Update KPI actuals and performance metrics (only when we have a Contractor record)
+      if (contractorRecord) {
         // Update KPI actuals if KPI ratings provided
         if (input.kpiRatings && input.kpiRatings.length > 0) {
           for (const kpiRating of input.kpiRatings) {
@@ -155,7 +184,7 @@ export const rateCompletedWork = baseProcedure
 
         let performance = await db.contractorPerformance.findFirst({
           where: {
-            contractorId: input.contractorId,
+            contractorId: contractorRecord.id,
             periodStart: { lte: now },
             periodEnd: { gte: now },
           },
@@ -165,10 +194,10 @@ export const rateCompletedWork = baseProcedure
           // Create new performance record for this period
           performance = await db.contractorPerformance.create({
             data: {
-              contractorId: input.contractorId,
+              contractorId: contractorRecord.id,
               periodStart,
               periodEnd,
-              jobsCompleted: 1,
+              jobsCompleted: wasAlreadyRated ? 0 : 1,
               jobsQuality: averageRating,
               qualityScore: averageRating * 20, // Convert to 0-100 scale
               overallRating: averageRating >= 4.5 ? "EXCELLENT" : averageRating >= 3.5 ? "GOOD" : "AVERAGE",
@@ -176,8 +205,11 @@ export const rateCompletedWork = baseProcedure
           });
         } else {
           // Update existing performance record
-          const newJobsCompleted = performance.jobsCompleted + 1;
-          const newQualityAvg = ((performance.jobsQuality * performance.jobsCompleted) + averageRating) / newJobsCompleted;
+          // Avoid inflating counts on re-rates
+          const newJobsCompleted = wasAlreadyRated ? performance.jobsCompleted : performance.jobsCompleted + 1;
+          const newQualityAvg = wasAlreadyRated
+            ? performance.jobsQuality
+            : ((performance.jobsQuality * performance.jobsCompleted) + averageRating) / newJobsCompleted;
           
           await db.contractorPerformance.update({
             where: { id: performance.id },
@@ -188,6 +220,27 @@ export const rateCompletedWork = baseProcedure
               overallRating: newQualityAvg >= 4.5 ? "EXCELLENT" : newQualityAvg >= 3.5 ? "GOOD" : "AVERAGE",
             },
           });
+        }
+      }
+
+      // If an artisan was assigned to this PM order, propagate a review-like signal so the artisan portal reflects it.
+      // This leverages the existing Review-based artisan rating calculations.
+      if (order.assignedToId) {
+        try {
+          await db.review.create({
+            data: {
+              customerId: user.id,
+              artisanId: order.assignedToId,
+              rating: input.overallRating,
+              comment: input.comments || null,
+              serviceQuality: input.qualityRating,
+              professionalism: input.professionalismRating,
+              timeliness: input.timelinessRating,
+            },
+          });
+        } catch (e) {
+          // Non-fatal: rating still persisted on the PM order.
+          console.warn("Failed to create artisan review from PM rating", e);
         }
       }
 

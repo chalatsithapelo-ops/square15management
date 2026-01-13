@@ -15,8 +15,14 @@ export const login = baseProcedure
     })
   )
   .mutation(async ({ input }) => {
-    const user = await db.user.findUnique({
-      where: { email: input.email },
+    const email = input.email.trim();
+    const user = await db.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: "insensitive",
+        },
+      },
     });
 
     if (!user) {

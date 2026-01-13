@@ -2,11 +2,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { authenticateUser } from "~/server/utils/auth";
+import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const generateProjectReportPdf = baseProcedure
   .input(
@@ -17,8 +18,10 @@ export const generateProjectReportPdf = baseProcedure
   )
   .mutation(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      const parsed = z.object({ userId: z.number() }).parse(verified);
+      const user = await authenticateUser(input.token);
+
+      // Enforce role/ownership access to the project
+      await assertCanAccessProject(user, input.projectId);
 
       const project = await db.project.findUnique({
         where: { id: input.projectId },

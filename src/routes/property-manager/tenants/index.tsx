@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
@@ -20,6 +20,8 @@ import {
   ArrowLeft,
   Edit2,
   AlertCircle,
+  Wrench,
+  MessageSquare,
 } from "lucide-react";
 
 export const Route = createFileRoute("/property-manager/tenants/")({
@@ -45,23 +47,13 @@ function PropertyManagerTenantsPage() {
 
   // Fetch tenants overview
   const tenantsQuery = useQuery({
-    queryKey: ["getTenantsOverview"],
-    queryFn: async () => {
-      if (!token) return { tenants: [], metrics: {} };
-      const result = await trpc.getTenantsOverview.query({ token });
-      return result;
-    },
+    ...trpc.getTenantsOverview.queryOptions({ token: token! }),
     enabled: !!token,
   });
 
   // Fetch pending onboardings
   const pendingQuery = useQuery({
-    queryKey: ["getPendingOnboardings"],
-    queryFn: async () => {
-      if (!token) return [];
-      const result = await trpc.getPendingOnboardings.query({ token });
-      return result;
-    },
+    ...trpc.getPendingOnboardings.queryOptions({ token: token! }),
     enabled: !!token,
   });
 
@@ -127,7 +119,8 @@ function PropertyManagerTenantsPage() {
     });
   };
 
-  const { tenants = [], metrics = {} } = tenantsQuery.data || {};
+  const tenants = (tenantsQuery.data as any)?.tenants ?? [];
+  const metrics = (tenantsQuery.data as any)?.metrics ?? ({} as any);
   const pendingOnboardings = pendingQuery.data || [];
   const buildings = buildingsQuery.data || [];
 
@@ -151,13 +144,29 @@ function PropertyManagerTenantsPage() {
               Manage tenant onboarding, rent payments, utilities, and maintenance requests
             </p>
           </div>
-          <button
-            onClick={() => setShowAddTenantModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            Add Tenant
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/property-manager/maintenance/received"
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Wrench className="w-5 h-5" />
+              Maintenance
+            </Link>
+            <Link
+              to="/property-manager/feedback"
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <MessageSquare className="w-5 h-5" />
+              Complaints &amp; Complements
+            </Link>
+            <button
+              onClick={() => setShowAddTenantModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              Add Tenant
+            </button>
+          </div>
         </div>
 
         {/* Add Tenant Modal */}
@@ -182,7 +191,7 @@ function PropertyManagerTenantsPage() {
                   <h3 className="text-sm font-medium text-gray-600">Total Tenants</h3>
                   <Users className="h-5 w-5 text-blue-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{metrics.totalTenants || 0}</p>
+                <p className="text-3xl font-bold text-gray-900">{(metrics as any).totalTenants || 0}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -190,7 +199,7 @@ function PropertyManagerTenantsPage() {
                   <h3 className="text-sm font-medium text-gray-600">Active Tenants</h3>
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{metrics.activeTenants || 0}</p>
+                <p className="text-3xl font-bold text-gray-900">{(metrics as any).activeTenants || 0}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -198,8 +207,8 @@ function PropertyManagerTenantsPage() {
                   <h3 className="text-sm font-medium text-gray-600">Pending Onboarding</h3>
                   <Clock className="h-5 w-5 text-yellow-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{metrics.pendingOnboarding || 0}</p>
-                {metrics.pendingOnboarding > 0 && (
+                <p className="text-3xl font-bold text-gray-900">{(metrics as any).pendingOnboarding || 0}</p>
+                {(metrics as any).pendingOnboarding > 0 && (
                   <button
                     onClick={() => setView("pending")}
                     className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -215,7 +224,7 @@ function PropertyManagerTenantsPage() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900">
-                  R {(metrics.totalMonthlyRent || 0).toLocaleString()}
+                  R {(((metrics as any).totalMonthlyRent || 0) as number).toLocaleString()}
                 </p>
               </div>
             </div>

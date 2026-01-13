@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import jwt from "jsonwebtoken";
-import { env } from "~/server/env";
+import { assertCanAccessProject } from "~/server/utils/project-access";
+import { authenticateUser } from "~/server/utils/auth";
 
 export const updateProjectActualCost = baseProcedure
   .input(
@@ -14,19 +14,7 @@ export const updateProjectActualCost = baseProcedure
   )
   .mutation(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      const parsed = z.object({ userId: z.number() }).parse(verified);
-
-      const user = await db.user.findUnique({
-        where: { id: parsed.userId },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User not found",
-        });
-      }
+      const user = await authenticateUser(input.token);
 
       // Check if project exists
       const project = await db.project.findUnique({
@@ -40,8 +28,11 @@ export const updateProjectActualCost = baseProcedure
         });
       }
 
+      // Enforce role/ownership access to the project
+      await assertCanAccessProject(user, input.projectId);
+
       // Only admins can update project costs
-      if (user.role !== "SENIOR_ADMIN" && user.role !== "ADMIN") {
+      if (user.role !== "SENIOR_ADMIN" && user.role !== "ADMIN" && user.role !== "PROPERTY_MANAGER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only administrators can update project costs",

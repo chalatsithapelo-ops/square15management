@@ -24,7 +24,8 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
   const [comments, setComments] = useState("");
   const [kpiRatings, setKpiRatings] = useState<{ kpiId: string; rating: number; notes?: string }[]>([]);
   const [error, setError] = useState("");
-  const [selectedContractorId, setSelectedContractorId] = useState<string>("");
+  const [selectedContractorManagementId, setSelectedContractorManagementId] = useState<string>("");
+  const [selectedContractorUserId, setSelectedContractorUserId] = useState<string>("");
 
   // Fetch contractors to select from if order doesn't have contractorId
   const contractorsQuery = useQuery(
@@ -35,26 +36,34 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
 
   const contractors = (contractorsQuery.data as any)?.contractors || [];
 
-  // Use order's contractorId if available, otherwise let user select
-  const contractorId = order.contractorId || selectedContractorId;
+  // PropertyManagerOrder.contractorId is a User id.
+  // If the order doesn't have it (legacy), the selector chooses a Contractor record and we map it to userId.
+  const contractorUserId: string = String(order.contractorId || selectedContractorUserId || "");
+
+  const resolvedContractorManagementId: number | null = (() => {
+    if (selectedContractorManagementId) return parseInt(selectedContractorManagementId);
+    if (!contractorUserId) return null;
+    const match = contractors.find((c: any) => String(c.userId || "") === String(contractorUserId));
+    return match?.id ?? null;
+  })();
 
   // Fetch contractor's KPIs
   const kpisQuery = useQuery({
     ...trpc.getContractorPerformance.queryOptions({
       token: token!,
-      contractorId: contractorId ? parseInt(contractorId) : 0,
+      contractorId: resolvedContractorManagementId || 0,
     }),
-    enabled: !!contractorId,
+    enabled: !!resolvedContractorManagementId,
   });
 
-  const kpis = kpisQuery.data?.data?.kpis || [];
+  const kpis = (kpisQuery as any)?.data?.kpis || [];
 
   const rateWorkMutation = useMutation(
     trpc.rateCompletedWork.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPropertyManagerOrders"] });
-        queryClient.invalidateQueries({ queryKey: ["getContractors"] });
-        queryClient.invalidateQueries({ queryKey: ["getContractorPerformance"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPropertyManagerOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getContractors.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getContractorPerformance.queryKey() });
         onClose();
         resetForm();
       },
@@ -79,7 +88,7 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
     e.preventDefault();
     setError("");
 
-    if (!contractorId) {
+    if (!contractorUserId) {
       setError("Please select a contractor");
       return;
     }
@@ -92,7 +101,8 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
     rateWorkMutation.mutate({
       token: token!,
       orderId: order.id,
-      contractorId: parseInt(contractorId),
+      contractorId: parseInt(contractorUserId),
+      contractorManagementId: resolvedContractorManagementId || undefined,
       qualityRating,
       timelinessRating,
       professionalismRating,
@@ -105,6 +115,21 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
         notes: r.notes,
       })) : undefined,
     });
+  };
+
+  const handleContractorSelect = (contractorManagementId: string) => {
+    setSelectedContractorManagementId(contractorManagementId);
+    const selected = contractors.find((c: any) => String(c.id) === String(contractorManagementId));
+    if (!selected) {
+      setSelectedContractorUserId("");
+      return;
+    }
+    if (!selected.userId) {
+      setSelectedContractorUserId("");
+      setError("Selected contractor does not have a portal user account");
+      return;
+    }
+    setSelectedContractorUserId(String(selected.userId));
   };
 
   const handleKpiRatingChange = (kpiId: string, rating: number) => {
@@ -205,15 +230,15 @@ export function RateWorkModal({ isOpen, onClose, order }: RateWorkModalProps) {
                         Select Contractor <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={selectedContractorId}
-                        onChange={(e) => setSelectedContractorId(e.target.value)}
+                        value={selectedContractorManagementId}
+                        onChange={(e) => handleContractorSelect(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                         required
                       >
                         <option value="">-- Select Contractor --</option>
                         {contractors.map((contractor: any) => (
-                          <option key={contractor.id} value={contractor.id}>
-                            {contractor.companyName} - {contractor.email}
+                          <option key={contractor.id} value={contractor.id} disabled={!contractor.userId}>
+                            {contractor.companyName} - {contractor.email}{contractor.userId ? "" : " (no portal user)"}
                           </option>
                         ))}
                       </select>

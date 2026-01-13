@@ -13,7 +13,7 @@ type SeedOptions = {
 
 const DEMO_PM = {
   email: "pm@propmanagement.com",
-  password: "pm123",
+  password: "property123",
   firstName: "Sarah",
   lastName: "Johnson",
   phone: "+27123456789",
@@ -46,7 +46,14 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
 
     const propertyManager = await db.user.upsert({
       where: { email: DEMO_PM.email },
-      update: {},
+      update: {
+        // Keep demo credentials predictable
+        password: pmPasswordHash,
+        firstName: DEMO_PM.firstName,
+        lastName: DEMO_PM.lastName,
+        phone: DEMO_PM.phone,
+        role: "PROPERTY_MANAGER",
+      },
       create: {
         email: DEMO_PM.email,
         password: pmPasswordHash,

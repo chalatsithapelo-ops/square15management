@@ -65,6 +65,29 @@ export const getProjects = baseProcedure
         }
       } else if (user.role === "CUSTOMER") {
         where.customerEmail = user.email;
+      } else if (user.role === "PROPERTY_MANAGER") {
+        const customers = await db.propertyManagerCustomer.findMany({
+          where: {
+            propertyManagerId: user.id,
+          },
+          select: {
+            email: true,
+          },
+        });
+
+        const customerEmails = customers
+          .map((c) => c.email?.trim())
+          .filter((e): e is string => !!e);
+
+        // If no managed tenants yet, return no projects.
+        if (customerEmails.length === 0) {
+          return [];
+        }
+
+        where.customerEmail = {
+          in: customerEmails,
+          mode: "insensitive",
+        };
       } else {
         // Admin Portal: Exclude contractor-managed projects
         const contractors = await db.user.findMany({

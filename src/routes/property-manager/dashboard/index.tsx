@@ -27,6 +27,7 @@ import {
   Settings,
   Download,
   Search,
+  FolderKanban,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { MetricCard } from "~/components/MetricCard";
@@ -63,7 +64,19 @@ export const Route = createFileRoute("/property-manager/dashboard/")({
 function PropertyManagerDashboard() {
   const { user, token } = useAuthStore();
   const trpc = useTRPC();
-  const [activeTab, setActiveTab] = useState<"overview" | "rfqs" | "orders" | "invoices" | "maintenance" | "buildings" | "budgets" | "contractors" | "financial" | "payments">("overview");
+  const [activeTab, setActiveTab] = useState<
+    | "overview"
+    | "rfqs"
+    | "orders"
+    | "invoices"
+    | "projects"
+    | "maintenance"
+    | "buildings"
+    | "budgets"
+    | "contractors"
+    | "financial"
+    | "payments"
+  >("overview");
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
   const [showRateWorkModal, setShowRateWorkModal] = useState(false);
@@ -157,6 +170,7 @@ function PropertyManagerDashboard() {
     { id: "rfqs" as const, label: "RFQs", count: rfqs.length, icon: FileText },
     { id: "orders" as const, label: "Orders", count: orders.length, icon: Package },
     { id: "invoices" as const, label: "Invoices", count: invoices.length, icon: Receipt },
+    { id: "projects" as const, label: "Projects", icon: FolderKanban },
     { id: "maintenance" as const, label: "Maintenance", count: maintenanceRequests.length, icon: Wrench },
     { id: "buildings" as const, label: "Buildings", count: buildings.length, icon: Building2 },
     { id: "budgets" as const, label: "Budgets", count: budgets.length, icon: PieChart },
@@ -198,25 +212,6 @@ function PropertyManagerDashboard() {
                 <span>Tenant Management</span>
               </Link>
               <Link
-                to="/property-manager/maintenance/received"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 rounded-lg transition-colors shadow-sm"
-              >
-                <Wrench className="h-4 w-4" />
-                <span>Maintenance</span>
-                {pendingMaintenance.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-bold bg-white text-purple-600 rounded-full">
-                    {pendingMaintenance.length}
-                  </span>
-                )}
-              </Link>
-              <Link
-                to="/property-manager/feedback"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 rounded-lg transition-colors shadow-sm"
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span>Complaints &amp; Complements</span>
-              </Link>
-              <Link
                 to="/property-manager/ai-agent"
                 className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg transition-colors shadow-sm"
               >
@@ -243,7 +238,7 @@ function PropertyManagerDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10" style={{ isolation: 'isolate' }}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10" style={{ isolation: "isolate" }}>
         {/* Key Metrics */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
           <MetricCard
@@ -259,7 +254,7 @@ function PropertyManagerDashboard() {
             icon={Receipt}
             color="orange"
             gradient={true}
-            subtext={overdueInvoices.length > 0 ? `${overdueInvoices.length} overdue` : undefined}
+            subtitle={overdueInvoices.length > 0 ? `${overdueInvoices.length} overdue` : undefined}
           />
           <MetricCard
             name="Maintenance Requests"
@@ -267,7 +262,7 @@ function PropertyManagerDashboard() {
             icon={Wrench}
             color="purple"
             gradient={true}
-            subtext={urgentMaintenance.length > 0 ? `${urgentMaintenance.length} urgent` : undefined}
+            subtitle={urgentMaintenance.length > 0 ? `${urgentMaintenance.length} urgent` : undefined}
           />
           <MetricCard
             name="Budget Utilization"
@@ -275,7 +270,7 @@ function PropertyManagerDashboard() {
             icon={DollarSign}
             color={budgetUtilization > 90 ? "red" : budgetUtilization > 75 ? "orange" : "green"}
             gradient={true}
-            subtext={`R${totalSpent.toLocaleString()} of R${totalBudget.toLocaleString()}`}
+            subtitle={`R${totalSpent.toLocaleString()} of R${totalBudget.toLocaleString()}`}
           />
         </div>
 
@@ -322,10 +317,11 @@ function PropertyManagerDashboard() {
               setShowRateWorkModal(true);
             }} />}
             {activeTab === "invoices" && <InvoicesTab onCreateClick={() => setShowCreateInvoiceModal(true)} />}
+            {activeTab === "projects" && <ProjectsTab />}
             {activeTab === "maintenance" && <MaintenanceTab />}
             {activeTab === "buildings" && <BuildingsTab />}
             {activeTab === "budgets" && <BudgetsTab />}
-            {activeTab === "contractors" && <ContractorManagement token={token!} />}
+            {activeTab === "contractors" && <ContractorManagement />}
             {activeTab === "financial" && <ComprehensivePMFinancialReporting />}
             {activeTab === "payments" && <PaymentReviewPage token={token!} />}
           </div>
@@ -397,6 +393,29 @@ function OverviewTab() {
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectsTab() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-2">
+          <FolderKanban className="h-6 w-6 text-teal-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Manage your projects, milestones, and progress tracking.
+        </p>
+        <Link
+          to="/property-manager/projects"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+        >
+          <FolderKanban className="h-4 w-4" />
+          <span>Open Projects</span>
+        </Link>
       </div>
     </div>
   );
@@ -589,23 +608,27 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
   const statusOptions = ["ALL", "DRAFT", "SUBMITTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "INVOICED"];
 
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    statusOptions.forEach(status => {
-      if (status !== "ALL") {
-        counts[status] = 0;
-      }
-    });
+    const counts = {
+      DRAFT: 0,
+      SUBMITTED: 0,
+      ACCEPTED: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      INVOICED: 0,
+    };
     orders.forEach((order: any) => {
-      if (order.status in counts) {
-        counts[order.status]!++;
-      }
+      if (order.status === "DRAFT") counts.DRAFT += 1;
+      if (order.status === "SUBMITTED") counts.SUBMITTED += 1;
+      if (order.status === "ACCEPTED") counts.ACCEPTED += 1;
+      if (order.status === "IN_PROGRESS") counts.IN_PROGRESS += 1;
+      if (order.status === "COMPLETED") counts.COMPLETED += 1;
       // Count INVOICED orders - those with invoices in SENT_TO_PM status or later
       if (order.invoices && order.invoices.length > 0) {
         const hasInvoicedStatus = order.invoices.some((inv: any) => 
           ['SENT_TO_PM', 'PM_APPROVED', 'PM_REJECTED', 'PAID', 'OVERDUE'].includes(inv.status)
         );
         if (hasInvoicedStatus) {
-          counts['INVOICED']++;
+          counts.INVOICED += 1;
         }
       }
     });
@@ -654,7 +677,6 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
           Create Order
         </button>
       </div>
-
       {/* Search and Filter */}
       <div className="space-y-4">
         <div className="relative">
@@ -679,12 +701,11 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {status} {status !== "ALL" ? `(${statusCounts[status] || 0})` : ""}
+              {status} {status !== "ALL" ? "(${statusCounts[status] || 0})" : ""}
             </button>
           ))}
         </div>
       </div>
-
       {/* Orders List */}
       {orders.length === 0 ? (
         <div className="text-center py-16">
@@ -826,7 +847,6 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
           ))}
         </div>
       )}
-
       {showEditModal && (
         <EditOrderModal
           isOpen={showEditModal}
@@ -838,7 +858,7 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
         />
       )}
     </div>
-  );
+  )
 }
 
 function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
@@ -946,35 +966,35 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
     
     const allInvoices = [...pmInvsWithType, ...regularInvsWithType];
     
-    const counts: Record<string, number> = {
-      "ALL": allInvoices.length,
-      "SENT_TO_PM": 0,
-      "PM_APPROVED": 0,
-      "PAID": 0,
-      "OVERDUE": 0,
+    const counts = {
+      ALL: allInvoices.length,
+      SENT_TO_PM: 0,
+      PM_APPROVED: 0,
+      PAID: 0,
+      OVERDUE: 0,
     };
     
     allInvoices.forEach((inv: any) => {
       // SENT_TO_PM count
       if ((inv.isPropertyManagerInvoice && (inv.status === "SENT_TO_PM" || inv.status === "ADMIN_APPROVED")) ||
           (inv.isRegularInvoice && inv.status === "SENT" && !inv.pmApproved)) {
-        counts["SENT_TO_PM"]++;
+        counts.SENT_TO_PM += 1;
       }
       
       // PM_APPROVED count
       if ((inv.isPropertyManagerInvoice && inv.status === "PM_APPROVED") ||
           (inv.isRegularInvoice && inv.pmApproved === true && inv.status !== "PAID")) {
-        counts["PM_APPROVED"]++;
+        counts.PM_APPROVED += 1;
       }
       
       // PAID count
       if (inv.status === "PAID") {
-        counts["PAID"]++;
+        counts.PAID += 1;
       }
       
       // OVERDUE count
       if (inv.status === "OVERDUE") {
-        counts["OVERDUE"]++;
+        counts.OVERDUE += 1;
       }
     });
     
@@ -1189,7 +1209,7 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
     }
   };
 
-  const statusOptions = ["ALL", "SENT_TO_PM", "PM_APPROVED", "PAID", "OVERDUE"];
+  const statusOptions = ["ALL", "SENT_TO_PM", "PM_APPROVED", "PAID", "OVERDUE"] as const;
 
   if (pmInvoicesQuery.isLoading || regularInvoicesQuery.isLoading) {
     return (
@@ -1212,7 +1232,6 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
           Create Invoice
         </button>
       </div>
-
       {/* Search and Filter */}
       <div className="space-y-4">
         <div className="relative">
@@ -1237,12 +1256,11 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {status.replace(/_/g, " ")} ({invoiceStatusCounts[status] || 0})
+              {status.replace(/_/g, " ")} ({invoiceStatusCounts[status as keyof typeof invoiceStatusCounts] || 0})
             </button>
           ))}
         </div>
       </div>
-
       {/* Invoices List */}
       {invoices.length === 0 ? (
         <div className="text-center py-16">
@@ -1336,7 +1354,7 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function MaintenanceTab() {
@@ -1414,7 +1432,6 @@ function MaintenanceTab() {
         onClose={() => setShowCreateModal(false)}
         customerId={mockCustomerId}
       />
-
       {/* Filter Buttons and Create Button */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">
@@ -1441,7 +1458,6 @@ function MaintenanceTab() {
           Create Request
         </button>
       </div>
-
       {/* Requests List */}
       {requests.length === 0 ? (
         <div className="text-center py-16">
@@ -1562,7 +1578,7 @@ function MaintenanceTab() {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function BuildingsTab() {
@@ -1593,7 +1609,6 @@ function BuildingsTab() {
   return (
     <div className="space-y-6">
       <CreateBuildingModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
-
       {/* Header with Add Button */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-900">Your Buildings</h3>
@@ -1605,7 +1620,6 @@ function BuildingsTab() {
           Add Building
         </button>
       </div>
-
       {/* Buildings List */}
       {buildings.length === 0 ? (
         <div className="text-center py-16">
@@ -1676,7 +1690,7 @@ function BuildingsTab() {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function BudgetsTab() {

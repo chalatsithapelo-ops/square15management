@@ -9,6 +9,8 @@ import { sendCompletionReportEmail } from "~/server/utils/email";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { authenticateUser } from "~/server/utils/auth";
+import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const updateProjectStatus = baseProcedure
   .input(
@@ -20,8 +22,10 @@ export const updateProjectStatus = baseProcedure
   )
   .mutation(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const user = await authenticateUser(input.token);
+
+      // Enforce role/ownership access to the project
+      await assertCanAccessProject(user, input.projectId);
 
       // Use a transaction to update both project and milestones atomically
       const result = await db.$transaction(async (tx) => {

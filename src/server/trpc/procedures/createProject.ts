@@ -25,7 +25,39 @@ export const createProject = baseProcedure
   .mutation(async ({ input }) => {
     try {
       const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const parsed = z.object({ userId: z.number() }).parse(verified);
+
+      const user = await db.user.findUnique({
+        where: { id: parsed.userId },
+        select: { id: true, role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      if (user.role === "PROPERTY_MANAGER") {
+        const managesCustomer = await db.propertyManagerCustomer.findFirst({
+          where: {
+            propertyManagerId: user.id,
+            email: {
+              equals: input.customerEmail,
+              mode: "insensitive",
+            },
+          },
+          select: { id: true },
+        });
+
+        if (!managesCustomer) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only create projects for tenants you manage",
+          });
+        }
+      }
 
       // Generate unique project number
       const count = await db.project.count();

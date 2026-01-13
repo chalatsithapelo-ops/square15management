@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import jwt from "jsonwebtoken";
-import { env } from "~/server/env";
+import { authenticateUser } from "~/server/utils/auth";
+import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const getMilestonesByProject = baseProcedure
   .input(
@@ -14,8 +14,10 @@ export const getMilestonesByProject = baseProcedure
   )
   .query(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const user = await authenticateUser(input.token);
+
+      // Enforce role/ownership access to the project
+      await assertCanAccessProject(user, input.projectId);
 
       const milestones = await db.milestone.findMany({
         where: {

@@ -179,7 +179,7 @@ async function main() {
 
   console.log("\n✅ Tenant feedback demo data seeded.\n");
   console.log("Logins:");
-  console.log("- Property Manager: pm@propmanagement.com / pm123");
+  console.log("- Property Manager: pm@propmanagement.com / property123");
   console.log("- Tenant 1: tenant1@propmanagement.com / tenant123");
   console.log("- Tenant 2: tenant2@propmanagement.com / tenant123");
 }

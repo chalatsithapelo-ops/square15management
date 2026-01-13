@@ -140,35 +140,41 @@ async function resetRolePermissionsToDefaults() {
   }
 }
 
-// Verify and fix senior admin user role
+// Optional: Verify and fix a configured senior admin user role.
+// NOTE: We intentionally do not hardcode personal emails here.
 async function verifySeniorAdminRole() {
-  console.log("Verifying senior admin user role...");
-  
+  const seedSeniorAdminEmail = env.SEED_SENIOR_ADMIN_EMAIL?.trim();
+  if (!seedSeniorAdminEmail) {
+    console.log("Skipping senior admin role verification (SEED_SENIOR_ADMIN_EMAIL not set)");
+    return;
+  }
+
+  console.log("Verifying configured senior admin user role...");
+
   try {
-    const seniorAdminEmail = "chalatsithapelo@gmail.com";
     const seniorAdmin = await db.user.findUnique({
-      where: { email: seniorAdminEmail },
+      where: { email: seedSeniorAdminEmail },
     });
-    
+
     if (seniorAdmin) {
       if (seniorAdmin.role !== "SENIOR_ADMIN") {
-        console.log(`⚠ Senior admin user has incorrect role: ${seniorAdmin.role}`);
+        console.log(`⚠ Configured senior admin user has incorrect role: ${seniorAdmin.role}`);
         console.log("  Correcting role to SENIOR_ADMIN...");
-        
+
         await db.user.update({
-          where: { email: seniorAdminEmail },
+          where: { email: seedSeniorAdminEmail },
           data: { role: "SENIOR_ADMIN" },
         });
-        
-        console.log("✓ Senior admin role corrected to SENIOR_ADMIN");
+
+        console.log("✓ Configured senior admin role corrected to SENIOR_ADMIN");
       } else {
-        console.log("✓ Senior admin user has correct role: SENIOR_ADMIN");
+        console.log("✓ Configured senior admin user has correct role: SENIOR_ADMIN");
       }
     } else {
-      console.log("  Senior admin user not found (will be created during user seeding)");
+      console.log("  Configured senior admin user not found (will be created during user seeding)");
     }
   } catch (error) {
-    console.error("Error verifying senior admin role:", error);
+    console.error("Error verifying configured senior admin role:", error);
     // Don't throw - this is not critical enough to stop the setup
   }
 }
@@ -363,28 +369,35 @@ async function setup() {
           console.log(`✓ Junior admin user already exists: ${juniorAdminEmail}`);
         }
         
-        // Seed senior admin user if not exists
-        const seniorAdminEmail = "chalatsithapelo@gmail.com";
-        const existingSeniorAdmin = await db.user.findUnique({
-          where: { email: seniorAdminEmail },
-        });
-        
-        if (!existingSeniorAdmin) {
-          const hashedPassword = await bcryptjs.hash("1991Slowmo*", 10);
-          
-          await db.user.create({
-            data: {
-              email: seniorAdminEmail,
-              password: hashedPassword,
-              firstName: "Chalat",
-              lastName: "Sithapelo",
-              phone: "+27783800308",
-              role: "SENIOR_ADMIN",
-            },
+        // Optional: Seed a senior admin user if configured.
+        // NOTE: No hardcoded personal emails; use env vars if you want this behavior.
+        const seedSeniorAdminEmail = env.SEED_SENIOR_ADMIN_EMAIL?.trim();
+        const seedSeniorAdminPassword = env.SEED_SENIOR_ADMIN_PASSWORD;
+
+        if (seedSeniorAdminEmail && seedSeniorAdminPassword) {
+          const existingSeniorAdmin = await db.user.findUnique({
+            where: { email: seedSeniorAdminEmail },
           });
-          console.log(`✓ Created senior admin user: ${seniorAdminEmail} (password: 1991Slowmo*)`);
+
+          if (!existingSeniorAdmin) {
+            const hashedPassword = await bcryptjs.hash(seedSeniorAdminPassword, 10);
+
+            await db.user.create({
+              data: {
+                email: seedSeniorAdminEmail,
+                password: hashedPassword,
+                firstName: "Senior",
+                lastName: "Admin",
+                phone: "+27123456780",
+                role: "SENIOR_ADMIN",
+              },
+            });
+            console.log(`✓ Created configured senior admin user: ${seedSeniorAdminEmail}`);
+          } else {
+            console.log(`✓ Configured senior admin user already exists: ${seedSeniorAdminEmail}`);
+          }
         } else {
-          console.log(`✓ Senior admin user already exists: ${seniorAdminEmail}`);
+          console.log("✓ Skipping configured senior admin seeding (SEED_SENIOR_ADMIN_EMAIL/PASSWORD not set)");
         }
 
         // Seed demo admin user (displayed on landing page) if not exists
@@ -417,13 +430,15 @@ async function setup() {
           where: { email: demoPmEmail },
         });
 
+        const demoPmPassword = "property123";
+        const demoPmHashedPassword = await bcryptjs.hash(demoPmPassword, 10);
+
         if (!existingDemoPm) {
-          const hashedPassword = await bcryptjs.hash("pm123", 10);
 
           await db.user.create({
             data: {
               email: demoPmEmail,
-              password: hashedPassword,
+              password: demoPmHashedPassword,
               firstName: "Sarah",
               lastName: "Johnson",
               phone: "+27123456789",
@@ -443,9 +458,17 @@ async function setup() {
               pmBrandAccentColor: "#3b82f6",
             },
           });
-          console.log(`✓ Created demo property manager: ${demoPmEmail} (password: pm123)`);
+          console.log(`✓ Created demo property manager: ${demoPmEmail} (password: ${demoPmPassword})`);
         } else {
-          console.log(`✓ Demo property manager already exists: ${demoPmEmail}`);
+          // Keep demo credentials predictable: update password if user already exists.
+          await db.user.update({
+            where: { email: demoPmEmail },
+            data: {
+              password: demoPmHashedPassword,
+              role: "PROPERTY_MANAGER",
+            },
+          });
+          console.log(`✓ Demo property manager already exists (password reset): ${demoPmEmail} (password: ${demoPmPassword})`);
         }
 
         // Seed demo Contractor user if not exists
