@@ -80,7 +80,7 @@ const milestoneStatuses = [
 ];
 
 export default function MilestoneManager({ projectId, projectBudget }: MilestoneManagerProps) {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -108,6 +108,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
   }>>([]);
   const [uploadingMaterialQuotation, setUploadingMaterialQuotation] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [paymentComments, setPaymentComments] = useState<Record<number, string>>({});
 
   const milestonesQuery = useQuery(
     trpc.getMilestonesByProject.queryOptions({
@@ -224,6 +225,19 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete quotation");
+      },
+    })
+  );
+
+  const updatePaymentRequestStatusMutation = useMutation(
+    trpc.updatePaymentRequestStatus.mutationOptions({
+      onSuccess: () => {
+        toast.success("Payment request updated");
+        queryClient.invalidateQueries({ queryKey: trpc.getMilestonesByProject.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getProjects.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update payment request");
       },
     })
   );
@@ -1349,7 +1363,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
                     <div className="border-t border-gray-200 bg-gray-50">
                       {/* Tab Navigation */}
                       <div className="flex border-b border-gray-200 bg-white px-4 sm:px-6 overflow-x-auto">
-                        {["overview", "budget", "quotations", "risks"].map((tab) => (
+                        {["overview", "budget", "quotations", "risks", "payments"].map((tab) => (
                           <button
                             key={tab}
                             onClick={(e) => {
@@ -1626,6 +1640,108 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
                                 <p className="text-xs text-gray-500 mt-1">Upload quotations to track supplier costs</p>
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {/* Payments Tab */}
+                        {expandedMilestoneTabs[milestone.id] === "payments" && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-gray-900">Payment Requests</h4>
+                              <span className="text-xs text-gray-500">
+                                {(milestone as any).paymentRequests?.length || 0} request(s)
+                              </span>
+                            </div>
+
+                            {(!(milestone as any).paymentRequests || (milestone as any).paymentRequests.length === 0) && (
+                              <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+                                No payment requests submitted for this milestone.
+                              </div>
+                            )}
+
+                            {((milestone as any).paymentRequests || []).map((pr: any) => {
+                              const canReview = user?.role === "PROPERTY_MANAGER" || user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
+                              const isPending = pr.status === "PENDING";
+                              const commentValue = paymentComments[pr.id] ?? "";
+
+                              return (
+                                <div key={pr.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div>
+                                      <div className="text-sm font-semibold text-gray-900">
+                                        {pr.requestNumber}  R{Number(pr.calculatedAmount || 0).toLocaleString()}
+                                      </div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        Contractor: {pr.artisan?.firstName} {pr.artisan?.lastName}
+                                      </div>
+                                      <div className="text-xs text-gray-600">
+                                        Status: <span className="font-medium">{pr.status}</span>
+                                      </div>
+                                      {pr.rejectionReason && (
+                                        <div className="text-xs text-red-700 mt-1">Rejection reason: {pr.rejectionReason}</div>
+                                      )}
+                                      {pr.notes && (
+                                        <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">Notes: {pr.notes}</div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {canReview && (
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                      <input
+                                        type="text"
+                                        value={commentValue}
+                                        onChange={(e) => setPaymentComments((prev) => ({ ...prev, [pr.id]: e.target.value }))}
+                                        placeholder="Comment (optional)"
+                                        className="sm:col-span-2 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        disabled={updatePaymentRequestStatusMutation.isPending}
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          type="button"
+                                          className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                                          disabled={!isPending || updatePaymentRequestStatusMutation.isPending}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!token) return;
+                                            updatePaymentRequestStatusMutation.mutate({
+                                              token,
+                                              paymentRequestId: pr.id,
+                                              status: "APPROVED",
+                                              notes: commentValue?.trim() ? `PM comment: ${commentValue.trim()}` : undefined,
+                                            });
+                                          }}
+                                        >
+                                          Approve
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                                          disabled={!isPending || updatePaymentRequestStatusMutation.isPending}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!token) return;
+                                            const reason = commentValue?.trim();
+                                            if (!reason) {
+                                              toast.error("Please provide a rejection reason");
+                                              return;
+                                            }
+                                            updatePaymentRequestStatusMutation.mutate({
+                                              token,
+                                              paymentRequestId: pr.id,
+                                              status: "REJECTED",
+                                              rejectionReason: reason,
+                                            });
+                                          }}
+                                        >
+                                          Reject
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
 

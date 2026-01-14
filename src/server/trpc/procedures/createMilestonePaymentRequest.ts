@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import jwt from "jsonwebtoken";
-import { env } from "~/server/env";
+import { authenticateUser } from "~/server/utils/auth";
+import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const createMilestonePaymentRequest = baseProcedure
   .input(
@@ -22,8 +22,20 @@ export const createMilestonePaymentRequest = baseProcedure
   )
   .mutation(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const user = await authenticateUser(input.token);
+
+      const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN";
+      const isContractorRole =
+        user.role === "CONTRACTOR" ||
+        user.role === "CONTRACTOR_SENIOR_MANAGER" ||
+        user.role === "CONTRACTOR_JUNIOR_MANAGER";
+
+      if (!isAdmin && !isContractorRole) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only contractors or admins can submit milestone payment requests",
+        });
+      }
 
       // Verify milestone exists and is completed
       const milestone = await db.milestone.findUnique({
@@ -34,6 +46,17 @@ export const createMilestonePaymentRequest = baseProcedure
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Milestone not found",
+        });
+      }
+
+      // Enforce that the submitter has access to the milestone's project.
+      await assertCanAccessProject(user, milestone.projectId);
+
+      // Contractors can only submit for themselves.
+      if (isContractorRole && input.artisanId !== user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only submit payment requests for your own account",
         });
       }
 
@@ -85,8 +108,8 @@ export const createMilestonePaymentRequest = baseProcedure
     } catch (error) {
       if (error instanceof TRPCError) throw error;
       throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid or expired token",
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to create payment request",
       });
     }
   });

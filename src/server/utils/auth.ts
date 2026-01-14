@@ -23,6 +23,7 @@ export type AuthenticatedUser = {
   phone: string | null;
   hourlyRate: number | null;
   dailyRate: number | null;
+  contractorCompanyName: string | null;
   hasPersonalEmail: boolean;
   disabledNotificationTypes: string[];
 };
@@ -55,6 +56,7 @@ export async function authenticateUser(token: string): Promise<AuthenticatedUser
         phone: true,
         hourlyRate: true,
         dailyRate: true,
+        contractorCompanyName: true,
         userEmailSmtpHost: true,
         userEmailSmtpUser: true,
         userEmailSmtpPassword: true,
@@ -78,6 +80,7 @@ export async function authenticateUser(token: string): Promise<AuthenticatedUser
       phone: user.phone,
       hourlyRate: user.hourlyRate,
       dailyRate: user.dailyRate,
+      contractorCompanyName: user.contractorCompanyName,
       hasPersonalEmail: !!(user.userEmailSmtpHost && user.userEmailSmtpUser && user.userEmailSmtpPassword),
       disabledNotificationTypes: user.disabledNotificationTypes,
     };

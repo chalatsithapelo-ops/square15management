@@ -2,8 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import jwt from "jsonwebtoken";
-import { env } from "~/server/env";
+import { authenticateUser } from "~/server/utils/auth";
 
 export const getProjects = baseProcedure
   .input(
@@ -14,19 +13,7 @@ export const getProjects = baseProcedure
   )
   .query(async ({ input }) => {
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
-      const parsed = z.object({ userId: z.number() }).parse(verified);
-
-      const user = await db.user.findUnique({
-        where: { id: parsed.userId },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User not found",
-        });
-      }
+      const user = await authenticateUser(input.token);
 
       const where: any = {};
       
@@ -179,9 +166,10 @@ export const getProjects = baseProcedure
 
       return projects;
     } catch (error) {
+      if (error instanceof TRPCError) throw error;
       throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid or expired token",
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch projects",
       });
     }
   });
