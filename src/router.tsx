@@ -1,6 +1,6 @@
 import React from "react";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { routeTree } from "./generated/tanstack-router/routeTree.gen";
+import { routeTree } from "./generated/routeTree.gen";
 
 const PendingComponent = () => {
   return (
