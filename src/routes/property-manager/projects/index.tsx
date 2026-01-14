@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
@@ -34,23 +34,56 @@ import {
 import MilestoneManager from "~/components/projects/MilestoneManager";
 
 export const Route = createFileRoute("/property-manager/projects/")({
+  beforeLoad: ({ location }) => {
+    const { user, token } = useAuthStore.getState();
+    if (!user || !token || user.role !== "PROPERTY_MANAGER") {
+      throw redirect({
+        to: "/",
+        search: { redirect: location.href },
+      });
+    }
+  },
   component: ProjectsPage,
 });
 
-const projectSchema = z.object({
-  name: z.string().min(1, "Project name is required"),
-  description: z.string().min(1, "Description is required"),
-  customerName: z.string().min(1, "Customer name is required"),
-  customerEmail: z.string().email("Invalid email address"),
-  customerPhone: z.string().min(1, "Phone number is required"),
-  address: z.string().min(1, "Address is required"),
-  projectType: z.string().min(1, "Project type is required"),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  estimatedBudget: z.number().optional(),
-});
+const projectSchema = z
+  .object({
+    name: z.string().min(1, "Project name is required"),
+    description: z.string().min(1, "Description is required"),
+    customerName: z.string().min(1, "Customer name is required"),
+    customerEmail: z.string().email("Invalid email address"),
+    customerPhone: z.string().min(1, "Phone number is required"),
+    address: z.string().min(1, "Address is required"),
+    projectType: z.string().min(1, "Project type is required"),
+    otherProjectType: z.string().optional(),
+    assignedToId: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    estimatedBudget: z.number().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.projectType === "Other" && !data.otherProjectType?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["otherProjectType"],
+        message: "Please specify the project type",
+      });
+    }
+  });
 
 type ProjectForm = z.infer<typeof projectSchema>;
+
+const propertyManagerProjectTypes = [
+  "Maintenance Request",
+  "Property Inspection",
+  "Tenant Move-In",
+  "Tenant Move-Out",
+  "Lease Renewal",
+  "Renovation",
+  "Compliance / Certificate",
+  "Insurance Claim",
+  "Other",
+] as const;
 
 const projectStatuses = [
   { value: "PLANNING", label: "Planning", color: "bg-gray-100 text-gray-800" },
@@ -80,14 +113,24 @@ function ProjectsPage() {
     })
   );
 
+  const contractorsQuery = useQuery({
+    ...trpc.getContractors.queryOptions({
+      token: token!,
+    }),
+    enabled: !!token && showAddForm,
+  });
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
   } = useForm<ProjectForm>({
     resolver: zodResolver(projectSchema),
   });
+
+  const selectedProjectType = watch("projectType");
 
   const createProjectMutation = useMutation(
     trpc.createProject.mutationOptions({
@@ -218,6 +261,8 @@ function ProjectsPage() {
   const handleEditProject = (project: any) => {
     setEditingProjectId(project.id);
     setShowAddForm(true);
+
+    const isKnownType = propertyManagerProjectTypes.includes(project.projectType as any);
     reset({
       name: project.name,
       description: project.description,
@@ -225,7 +270,9 @@ function ProjectsPage() {
       customerEmail: project.customerEmail,
       customerPhone: project.customerPhone,
       address: project.address,
-      projectType: project.projectType,
+      projectType: isKnownType ? project.projectType : "Other",
+      otherProjectType: isKnownType ? undefined : project.projectType,
+      assignedToId: project.assignedToId ? String(project.assignedToId) : "",
       startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : undefined,
       endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : undefined,
       estimatedBudget: project.estimatedBudget || undefined,
@@ -233,17 +280,34 @@ function ProjectsPage() {
   };
 
   const onSubmit = (data: ProjectForm) => {
+    const projectType =
+      data.projectType === "Other" ? (data.otherProjectType || "").trim() : data.projectType;
+
+    const parsedAssignedToId = data.assignedToId ? Number(data.assignedToId) : undefined;
+    const assignedToId = parsedAssignedToId && Number.isFinite(parsedAssignedToId) ? parsedAssignedToId : undefined;
+
+    const payload = {
+      token: token!,
+      name: data.name,
+      description: data.description,
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      customerPhone: data.customerPhone,
+      address: data.address,
+      projectType,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      estimatedBudget: data.estimatedBudget,
+      assignedToId,
+    };
+
     if (editingProjectId) {
       updateProjectDetailsMutation.mutate({
-        token: token!,
+        ...payload,
         projectId: editingProjectId,
-        ...data,
       });
     } else {
-      createProjectMutation.mutate({
-        token: token!,
-        ...data,
-      });
+      createProjectMutation.mutate(payload);
     }
   };
 
@@ -528,14 +592,50 @@ function ProjectsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="">Select type</option>
-                  <option value="Affordable Housing">Affordable Housing</option>
-                  <option value="Social Housing">Social Housing</option>
-                  <option value="Shopping Center">Shopping Center</option>
-                  <option value="Commercial Development">Commercial Development</option>
-                  <option value="Residential Development">Residential Development</option>
+                  {propertyManagerProjectTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
                 </select>
                 {errors.projectType && (
                   <p className="mt-1 text-sm text-red-600">{errors.projectType.message}</p>
+                )}
+              </div>
+
+              {selectedProjectType === "Other" && (
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Please specify *</label>
+                  <input
+                    type="text"
+                    {...register("otherProjectType")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="e.g. Garden service, Pest control"
+                  />
+                  {errors.otherProjectType && (
+                    <p className="mt-1 text-sm text-red-600">{errors.otherProjectType.message}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Contractor</label>
+                <select
+                  {...register("assignedToId")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Unassigned</option>
+                  {(contractorsQuery.data?.contractors || [])
+                    .filter((c: any) => !!c.userId)
+                    .map((c: any) => (
+                      <option key={c.userId} value={c.userId}>
+                        {c.firstName} {c.lastName}
+                        {c.companyName ? ` (${c.companyName})` : ""}
+                      </option>
+                    ))}
+                </select>
+                {contractorsQuery.isLoading && (
+                  <p className="mt-1 text-xs text-gray-500">Loading contractors...</p>
                 )}
               </div>
 
