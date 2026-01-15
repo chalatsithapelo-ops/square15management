@@ -38,9 +38,50 @@ export const createProject = baseProcedure
         });
 
         if (!managesCustomer) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You can only create projects for tenants you manage",
+          const existingCustomerUser = await db.user.findFirst({
+            where: {
+              email: {
+                equals: input.customerEmail,
+                mode: "insensitive",
+              },
+              role: "CUSTOMER",
+            },
+            select: {
+              id: true,
+              customerProfile: {
+                select: {
+                  propertyManagerId: true,
+                },
+              },
+            },
+          });
+
+          if (
+            existingCustomerUser?.customerProfile &&
+            existingCustomerUser.customerProfile.propertyManagerId !== user.id
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This customer is managed by a different property manager",
+            });
+          }
+
+          const [firstNameRaw, ...rest] = input.customerName.trim().split(/\s+/);
+          const firstName = firstNameRaw || "Customer";
+          const lastName = rest.join(" ") || "";
+
+          await db.propertyManagerCustomer.create({
+            data: {
+              propertyManagerId: user.id,
+              userId: existingCustomerUser?.id ?? null,
+              firstName,
+              lastName,
+              email: input.customerEmail,
+              phone: input.customerPhone || null,
+              address: input.address,
+              onboardingStatus: "PENDING",
+              status: "PENDING",
+            },
           });
         }
       }

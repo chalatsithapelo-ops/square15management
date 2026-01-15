@@ -581,7 +581,7 @@ async function setup() {
           console.log("Seeding admin demo data...");
           
           // Get users for relationships
-          const seniorAdmin = await db.user.findUnique({ where: { email: "chalatsithapelo@gmail.com" } });
+          const seniorAdmin = await db.user.findUnique({ where: { email: "admin@propmanagement.com" } });
           const juniorAdmin = await db.user.findUnique({ where: { email: "junior@propmanagement.com" } });
           const artisan = await db.user.findUnique({ where: { email: "artisan@propmanagement.com" } });
           const customer = await db.user.findUnique({ where: { email: "customer@example.com" } });

@@ -23,7 +23,7 @@ import {
   User,
   BarChart3,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ReviewModal } from "~/components/customer/ReviewModal";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
@@ -34,8 +34,11 @@ import { PaymentModal } from "~/components/customer/PaymentModal";
 
 export const Route = createFileRoute("/customer/dashboard/")({
   beforeLoad: ({ location }) => {
-    const { user } = useAuthStore.getState();
-    if (!user || user.role !== "CUSTOMER") {
+    const { user, token, clearAuth } = useAuthStore.getState();
+    if (!user || user.role !== "CUSTOMER" || !token) {
+      if (!token) {
+        clearAuth();
+      }
       throw redirect({
         to: "/",
         search: {
@@ -50,6 +53,7 @@ export const Route = createFileRoute("/customer/dashboard/")({
 function CustomerDashboard() {
   const { user, token } = useAuthStore();
   const trpc = useTRPC();
+  const hasHandledAuthErrorRef = useRef(false);
   const [activeTab, setActiveTab] = useState<"orders" | "quotations" | "invoices" | "projects" | "messages" | "statements">("orders");
   const [showMetrics, setShowMetrics] = useState(false);
   const [generatingQuotePdfId, setGeneratingQuotePdfId] = useState<number | null>(null);
@@ -91,6 +95,7 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 30000, // Poll every 30 seconds
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
 
@@ -100,6 +105,7 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 30000, // Poll every 30 seconds
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
 
@@ -109,6 +115,7 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 30000, // Poll every 30 seconds
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
 
@@ -118,6 +125,7 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 30000, // Poll every 30 seconds
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
 
@@ -127,6 +135,7 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 10000, // Poll every 10 seconds for messages
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
 
@@ -148,8 +157,47 @@ function CustomerDashboard() {
     }, {
       refetchInterval: 30000, // Poll every 30 seconds
       refetchOnWindowFocus: true,
+      enabled: !!token,
     })
   );
+
+  useEffect(() => {
+    if (hasHandledAuthErrorRef.current) return;
+
+    const errors = [
+      ordersQuery.error,
+      quotationsQuery.error,
+      invoicesQuery.error,
+      projectsQuery.error,
+      messagesQuery.error,
+      statementsQuery.error,
+      customerProfileQuery.error,
+    ].filter(Boolean) as Array<{ message?: string }>;
+
+    const authError = errors.find((e) => {
+      const message = (e?.message || "").toLowerCase();
+      return (
+        message.includes("invalid or expired token") ||
+        message.includes("authentication required") ||
+        message.includes("unauthorized")
+      );
+    });
+
+    if (!authError) return;
+
+    hasHandledAuthErrorRef.current = true;
+    toast.error("Your session has expired. Please log in again.");
+    useAuthStore.getState().clearAuth();
+    window.location.href = "/";
+  }, [
+    ordersQuery.error,
+    quotationsQuery.error,
+    invoicesQuery.error,
+    projectsQuery.error,
+    messagesQuery.error,
+    statementsQuery.error,
+    customerProfileQuery.error,
+  ]);
 
   const orders = ordersQuery.data || [];
   const quotations = quotationsQuery.data || [];
@@ -394,7 +442,7 @@ function CustomerDashboard() {
                 <Home className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Tenant Portal</h1>
+                <h1 className="text-2xl font-bold text-white">Customer Portal</h1>
                 <p className="text-sm text-purple-100">Welcome, {user?.firstName}!</p>
               </div>
             </div>
