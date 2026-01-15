@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
@@ -65,6 +65,7 @@ export const Route = createFileRoute("/property-manager/dashboard/")({
 
 function PropertyManagerDashboard() {
   const { user, token } = useAuthStore();
+  const navigate = useNavigate();
   const trpc = useTRPC();
   const [activeTab, setActiveTab] = useState<
     | "overview"
@@ -172,6 +173,7 @@ function PropertyManagerDashboard() {
     { id: "rfqs" as const, label: "RFQs", count: rfqs.length, icon: FileText },
     { id: "orders" as const, label: "Orders", count: orders.length, icon: Package },
     { id: "invoices" as const, label: "Invoices", count: invoices.length, icon: Receipt },
+    { id: "statements" as const, label: "Statements", icon: FileText },
     { id: "projects" as const, label: "Projects", icon: FolderKanban },
     { id: "maintenance" as const, label: "Maintenance", count: maintenanceRequests.length, icon: Wrench },
     { id: "buildings" as const, label: "Buildings", count: buildings.length, icon: Building2 },
@@ -292,7 +294,14 @@ function PropertyManagerDashboard() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      if (tab.id === "statements") {
+                        navigate({ to: "/property-manager/statements" });
+                        return;
+                      }
+
+                      setActiveTab(tab.id);
+                    }}
                     className={`flex-shrink-0 flex items-center gap-2 py-3 px-5 rounded-xl font-medium text-sm transition-all transform ${
                       activeTab === tab.id
                         ? "bg-gradient-to-r from-teal-600 to-cyan-500 text-white shadow-md scale-105"
