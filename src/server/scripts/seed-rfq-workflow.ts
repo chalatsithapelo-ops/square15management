@@ -38,6 +38,9 @@ const DEMO_ARTISAN = {
 export async function seedRFQWorkflow(options: SeedOptions = {}) {
   console.log("🌱 Seeding Property Manager / Contractor demo workflow...");
 
+  // Use relative URLs so they work regardless of BASE_URL in different environments.
+  const demoAttachmentUrls = ["/demo/demo-attachment.txt", "/demo/demo-image.svg"];
+
   try {
     // 1) Ensure demo users exist
     const pmPasswordHash = await bcryptjs.hash(DEMO_PM.password, 10);
@@ -121,7 +124,9 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
     // 3) Create RFQs for the PM portal (idempotent)
     const rfqSubmitted = await db.propertyManagerRFQ.upsert({
       where: { rfqNumber: "PM-RFQ-DEMO-001" },
-      update: {},
+      update: {
+        attachments: demoAttachmentUrls,
+      },
       create: {
         rfqNumber: "PM-RFQ-DEMO-001",
         propertyManagerId: propertyManager.id,
@@ -135,14 +140,16 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
         estimatedBudget: 45000,
         status: "SUBMITTED",
         submittedDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
-        attachments: [],
+        attachments: demoAttachmentUrls,
         selectedContractorIds: [contractorRecord.id],
       },
     });
 
     await db.propertyManagerRFQ.upsert({
       where: { rfqNumber: "PM-RFQ-DEMO-002" },
-      update: {},
+      update: {
+        attachments: demoAttachmentUrls,
+      },
       create: {
         rfqNumber: "PM-RFQ-DEMO-002",
         propertyManagerId: propertyManager.id,
@@ -156,14 +163,16 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
         estimatedBudget: 65000,
         status: "UNDER_REVIEW",
         submittedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
-        attachments: [],
+        attachments: demoAttachmentUrls,
         selectedContractorIds: [contractorRecord.id],
       },
     });
 
     const rfqQuoted = await db.propertyManagerRFQ.upsert({
       where: { rfqNumber: "PM-RFQ-DEMO-003" },
-      update: {},
+      update: {
+        attachments: demoAttachmentUrls,
+      },
       create: {
         rfqNumber: "PM-RFQ-DEMO-003",
         propertyManagerId: propertyManager.id,
@@ -178,7 +187,7 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
         status: "QUOTED",
         submittedDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
         quotedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        attachments: [],
+        attachments: demoAttachmentUrls,
         selectedContractorIds: [contractorRecord.id],
       },
     });
@@ -186,7 +195,9 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
     // 4) Create admin quote for the QUOTED RFQ (rfqId is unique)
     await db.propertyManagerQuote.upsert({
       where: { quoteNumber: "PM-QT-DEMO-001" },
-      update: {},
+      update: {
+        attachments: demoAttachmentUrls,
+      },
       create: {
         quoteNumber: "PM-QT-DEMO-001",
         rfqId: rfqQuoted.id,
@@ -215,6 +226,7 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
         estimatedDuration: "2 days",
         status: "SENT",
         sentDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        attachments: demoAttachmentUrls,
         notes: "Includes maintenance log and call-out for minor issues during visit.",
       },
     });
@@ -222,7 +234,9 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
     // 5) RFQ converted to an Order + invoice + progress
     const rfqConverted = await db.propertyManagerRFQ.upsert({
       where: { rfqNumber: "PM-RFQ-DEMO-004" },
-      update: {},
+      update: {
+        attachments: demoAttachmentUrls,
+      },
       create: {
         rfqNumber: "PM-RFQ-DEMO-004",
         propertyManagerId: propertyManager.id,
@@ -237,7 +251,7 @@ export async function seedRFQWorkflow(options: SeedOptions = {}) {
         status: "CONVERTED_TO_ORDER",
         submittedDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
         approvedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-        attachments: [],
+        attachments: demoAttachmentUrls,
         selectedContractorIds: [contractorRecord.id],
       },
     });

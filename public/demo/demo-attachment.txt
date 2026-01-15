@@ -1,0 +1,5 @@
+Square 15 Demo Attachment
+
+This is a demo file seeded by the system so demo accounts show working attachment links.
+
+If you can download this file from the demo portal, attachments are working.
