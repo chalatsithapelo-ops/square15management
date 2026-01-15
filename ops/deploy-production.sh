@@ -28,7 +28,7 @@ pm2 restart "$PM2_APP_NAME"
 
 echo "== health check =="
 for i in {1..30}; do
-  if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null; then
+  if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; then
     echo "HEALTH_OK"
     echo "=== Deploy complete ==="
     exit 0

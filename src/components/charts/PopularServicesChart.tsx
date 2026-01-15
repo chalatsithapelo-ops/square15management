@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { Bar } from 'recharts/es6/cartesian/Bar';
 import { Wrench, Award, TrendingUp } from 'lucide-react';
 
 interface ServiceData {

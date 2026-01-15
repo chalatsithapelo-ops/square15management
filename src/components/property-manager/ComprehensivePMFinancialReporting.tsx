@@ -4,7 +4,6 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import {
   BarChart,
-  Bar,
   LineChart,
   Line,
   PieChart,
@@ -19,6 +18,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { Bar } from "recharts/es6/cartesian/Bar";
 import {
   Download,
   TrendingUp,

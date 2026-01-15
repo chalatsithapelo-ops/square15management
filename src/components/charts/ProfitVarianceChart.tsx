@@ -1,4 +1,5 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
+import { BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
+import { Bar } from 'recharts/es6/cartesian/Bar';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
 interface ProfitVarianceDataPoint {

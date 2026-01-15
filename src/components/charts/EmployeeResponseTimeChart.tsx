@@ -1,4 +1,5 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { Bar } from 'recharts/es6/cartesian/Bar';
 import { Clock, Zap, AlertTriangle } from 'lucide-react';
 
 interface EmployeePerformanceData {

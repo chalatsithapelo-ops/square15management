@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { Bar } from 'recharts/es6/cartesian/Bar';
 import { Users, TrendingUp, Clock, Target, Award } from 'lucide-react';
 
 interface EmployeePerformanceData {
