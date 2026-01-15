@@ -19,6 +19,8 @@ import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/admin/contractor-management/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
       throw redirect({

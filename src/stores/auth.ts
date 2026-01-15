@@ -32,7 +32,17 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "prop-management-auth",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => {
+        if (typeof window === "undefined") {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+
+        return localStorage;
+      }),
     },
   ),
 );

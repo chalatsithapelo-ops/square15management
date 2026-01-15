@@ -26,7 +26,17 @@ export const usePushNotificationStore = create<PushNotificationState>()(
     }),
     {
       name: "push-notification-settings",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => {
+        if (typeof window === "undefined") {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+
+        return localStorage;
+      }),
     }
   )
 );

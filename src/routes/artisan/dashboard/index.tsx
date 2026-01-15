@@ -48,6 +48,8 @@ import ItemizedExpenseTracker from "~/components/projects/ItemizedExpenseTracker
 
 export const Route = createFileRoute("/artisan/dashboard/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || user.role !== "ARTISAN") {
       throw redirect({

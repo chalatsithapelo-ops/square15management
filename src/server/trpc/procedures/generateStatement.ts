@@ -7,7 +7,7 @@ import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { minioClient, minioBaseUrl } from "~/server/minio";
-import { authenticateUser, requireAdmin } from "~/server/utils/auth";
+import { authenticateUser, isAdmin, requireAdmin } from "~/server/utils/auth";
 
 export const generateStatement = baseProcedure
   .input(
@@ -25,7 +25,26 @@ export const generateStatement = baseProcedure
   .mutation(async ({ input }) => {
     // Authenticate user and require admin privileges
     const user = await authenticateUser(input.token);
-    requireAdmin(user);
+
+    if (user.role === "PROPERTY_MANAGER") {
+      const managedCustomer = await db.propertyManagerCustomer.findFirst({
+        where: {
+          propertyManagerId: user.id,
+          email: input.client_email,
+        },
+        select: { id: true },
+      });
+
+      if (!managedCustomer) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only generate statements for customers you manage",
+        });
+      }
+    } else {
+      // Keep existing behavior: admins only
+      requireAdmin(user);
+    }
 
     const period_start = new Date(input.period_start);
     const period_end = new Date(input.period_end);

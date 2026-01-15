@@ -5,6 +5,8 @@ import { isContractorRole } from "~/utils/roles";
 
 export const Route = createFileRoute("/contractor/ai-agent")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || !isContractorRole(user.role)) {
       throw redirect({

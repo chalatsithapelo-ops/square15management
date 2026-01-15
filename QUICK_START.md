@@ -4,6 +4,11 @@ Get the Square 15 Property Management System running in 5 minutes.
 
 ## Local Development
 
+### Prereqs (if running without Docker)
+
+- **Node.js**: 20.x LTS (this repo currently fails at runtime on Node 22 on Windows)
+- **pnpm**: per `package.json` `packageManager`
+
 ### 1. Clone and Setup
 
 ```bash

@@ -1,5 +1,9 @@
 {
   "name": "sqr15-prop-management-system",
+  "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=20 <22"
+  },
   "scripts": {
     "postinstall": "prisma generate && tsr generate",
     "dev": "vinxi dev",

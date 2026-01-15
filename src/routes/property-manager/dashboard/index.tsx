@@ -48,6 +48,8 @@ import toast from "react-hot-toast";
 
 export const Route = createFileRoute("/property-manager/dashboard/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || user.role !== "PROPERTY_MANAGER") {
       throw redirect({
@@ -210,6 +212,13 @@ function PropertyManagerDashboard() {
               >
                 <Users className="h-4 w-4" />
                 <span>Tenant Management</span>
+              </Link>
+              <Link
+                to="/property-manager/statements"
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-lg transition-colors shadow-sm"
+              >
+                <FileText className="h-4 w-4" />
+                <span>Statements</span>
               </Link>
               <Link
                 to="/property-manager/ai-agent"

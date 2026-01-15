@@ -12,6 +12,8 @@ import { useTRPC } from "~/trpc/react";
 
 export const Route = createFileRoute("/customer/feedback/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || user.role !== "CUSTOMER") {
       throw redirect({

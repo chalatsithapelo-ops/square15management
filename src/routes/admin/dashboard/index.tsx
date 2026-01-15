@@ -42,6 +42,8 @@ import type { Permission } from "~/server/utils/permissions";
 
 export const Route = createFileRoute("/admin/dashboard/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
       throw redirect({

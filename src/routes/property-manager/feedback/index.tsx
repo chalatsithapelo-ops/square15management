@@ -15,6 +15,8 @@ import { useTRPC } from "~/trpc/react";
 
 export const Route = createFileRoute("/property-manager/feedback/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || user.role !== "PROPERTY_MANAGER") {
       throw redirect({

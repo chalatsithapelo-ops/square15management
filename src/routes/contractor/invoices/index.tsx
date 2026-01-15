@@ -29,6 +29,8 @@ import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 
 export const Route = createFileRoute("/contractor/invoices/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     const isContractorRole =
       user?.role === "CONTRACTOR" ||

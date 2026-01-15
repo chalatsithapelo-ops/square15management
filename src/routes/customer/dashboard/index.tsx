@@ -34,6 +34,8 @@ import { PaymentModal } from "~/components/customer/PaymentModal";
 
 export const Route = createFileRoute("/customer/dashboard/")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user, token, clearAuth } = useAuthStore.getState();
     if (!user || user.role !== "CUSTOMER" || !token) {
       if (!token) {

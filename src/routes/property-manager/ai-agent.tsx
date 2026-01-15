@@ -4,6 +4,8 @@ import { useAuthStore } from "~/stores/auth";
 
 export const Route = createFileRoute("/property-manager/ai-agent")({
   beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
     const { user } = useAuthStore.getState();
     if (!user || user.role !== "PROPERTY_MANAGER") {
       throw redirect({
