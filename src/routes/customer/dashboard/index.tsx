@@ -1191,6 +1191,15 @@ function StatementsTab({
     return `R${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
   if (statements.length === 0) {
     return (
       <div className="text-center py-12">
@@ -1269,17 +1278,23 @@ function StatementsTab({
                 </h5>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {invoiceDetails.map((inv: any, idx: number) => (
+                    (() => {
+                      const daysOverdue = toNumber(inv?.days_overdue ?? inv?.age_days);
+                      const totalDue = toNumber(inv?.total_due ?? inv?.amount ?? inv?.total);
+                      return (
                     <div key={idx} className="flex justify-between text-sm py-1 border-b border-gray-100 last:border-0">
                       <div>
                         <span className="font-medium text-gray-900">{inv.invoice_number}</span>
-                        {inv.days_overdue > 0 && (
+                        {daysOverdue > 0 && (
                           <span className="ml-2 text-xs text-red-600">
-                            ({inv.days_overdue} days overdue)
+                            ({daysOverdue} days overdue)
                           </span>
                         )}
                       </div>
-                      <span className="text-gray-900">{formatCurrency(inv.total_due)}</span>
+                      <span className="text-gray-900">{formatCurrency(totalDue)}</span>
                     </div>
+                      );
+                    })()
                   ))}
                 </div>
               </div>
