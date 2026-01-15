@@ -228,6 +228,7 @@ async function setup() {
   console.log("Starting setup...");
   
   const shouldSeedDemoData = process.env.SEED_DEMO_DATA === "true";
+  const skipMinioSetup = process.env.SKIP_MINIO_SETUP === "true";
   
   try {
     // 1. Apply database schema changes without resetting data.
@@ -273,74 +274,86 @@ async function setup() {
     );
     
     // Create MinIO bucket for property management files with retry
-    await retry(
-      async () => {
-        const bucketName = "property-management";
-        const bucketExists = await minioClient.bucketExists(bucketName);
-        
-        if (!bucketExists) {
-          await minioClient.makeBucket(bucketName);
-          console.log(`✓ Created bucket: ${bucketName}`);
-          
-          // Set bucket policy to allow public read access for files in the 'public' prefix
-          const policy = {
-            Version: "2012-10-17",
-            Statement: [
-              {
-                Effect: "Allow",
-                Principal: { AWS: ["*"] },
-                Action: ["s3:GetObject"],
-                Resource: [`arn:aws:s3:::${bucketName}/public/*`],
-              },
-            ],
-          };
-          
-          await minioClient.setBucketPolicy(
-            bucketName,
-            JSON.stringify(policy)
-          );
-          console.log(`✓ Set public policy for ${bucketName}/public/*`);
-        } else {
-          console.log(`✓ Bucket ${bucketName} already exists`);
-        }
-      },
-      { operationName: "MinIO bucket setup" }
-    );
+    if (skipMinioSetup) {
+      console.log("Skipping MinIO bucket setup (SKIP_MINIO_SETUP=true)");
+    } else {
+      try {
+        await retry(
+          async () => {
+            const bucketName = "property-management";
+            const bucketExists = await minioClient.bucketExists(bucketName);
+
+            if (!bucketExists) {
+              await minioClient.makeBucket(bucketName);
+              console.log(`✓ Created bucket: ${bucketName}`);
+
+              // Set bucket policy to allow public read access for files in the 'public' prefix
+              const policy = {
+                Version: "2012-10-17",
+                Statement: [
+                  {
+                    Effect: "Allow",
+                    Principal: { AWS: ["*"] },
+                    Action: ["s3:GetObject"],
+                    Resource: [`arn:aws:s3:::${bucketName}/public/*`],
+                  },
+                ],
+              };
+
+              await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
+              console.log(`✓ Set public policy for ${bucketName}/public/*`);
+            } else {
+              console.log(`✓ Bucket ${bucketName} already exists`);
+            }
+          },
+          { operationName: "MinIO bucket setup" }
+        );
+      } catch (error) {
+        console.warn("MinIO bucket setup failed; continuing without it.");
+        console.warn(error);
+      }
+    }
     
     // Create MinIO bucket for financial reports and other documents
-    await retry(
-      async () => {
-        const documentsBucketName = "documents";
-        const documentsExists = await minioClient.bucketExists(documentsBucketName);
-        
-        if (!documentsExists) {
-          await minioClient.makeBucket(documentsBucketName);
-          console.log(`✓ Created bucket: ${documentsBucketName}`);
-          
-          // Set bucket policy to allow public read access for files in the 'public' prefix
-          const policy = {
-            Version: "2012-10-17",
-            Statement: [
-              {
-                Effect: "Allow",
-                Principal: { AWS: ["*"] },
-                Action: ["s3:GetObject"],
-                Resource: [`arn:aws:s3:::${documentsBucketName}/public/*`],
-              },
-            ],
-          };
-          
-          await minioClient.setBucketPolicy(
-            documentsBucketName,
-            JSON.stringify(policy)
-          );
-          console.log(`✓ Set public policy for ${documentsBucketName}/public/*`);
-        } else {
-          console.log(`✓ Bucket ${documentsBucketName} already exists`);
-        }
-      },
-      { operationName: "MinIO documents bucket setup" }
-    );
+    if (skipMinioSetup) {
+      console.log("Skipping MinIO documents bucket setup (SKIP_MINIO_SETUP=true)");
+    } else {
+      try {
+        await retry(
+          async () => {
+            const documentsBucketName = "documents";
+            const documentsExists = await minioClient.bucketExists(documentsBucketName);
+
+            if (!documentsExists) {
+              await minioClient.makeBucket(documentsBucketName);
+              console.log(`✓ Created bucket: ${documentsBucketName}`);
+
+              // Set bucket policy to allow public read access for files in the 'public' prefix
+              const policy = {
+                Version: "2012-10-17",
+                Statement: [
+                  {
+                    Effect: "Allow",
+                    Principal: { AWS: ["*"] },
+                    Action: ["s3:GetObject"],
+                    Resource: [`arn:aws:s3:::${documentsBucketName}/public/*`],
+                  },
+                ],
+              };
+
+              await minioClient.setBucketPolicy(documentsBucketName, JSON.stringify(policy));
+              console.log(`✓ Set public policy for ${documentsBucketName}/public/*`);
+            } else {
+              console.log(`✓ Bucket ${documentsBucketName} already exists`);
+            }
+          },
+          { operationName: "MinIO documents bucket setup" }
+        );
+      } catch (error) {
+        console.warn("MinIO documents bucket setup failed; continuing without it.");
+        console.warn(error);
+      }
+    }
     
     // Seed users with retry
     await retry(

@@ -18,7 +18,7 @@ echo "== prisma db push =="
 pnpm exec prisma db push
 
 echo "== setup (demo seed) =="
-SEED_DEMO_DATA=true pnpm exec tsx src/server/scripts/setup.ts
+SEED_DEMO_DATA=true SKIP_MINIO_SETUP=true pnpm exec tsx src/server/scripts/setup.ts
 
 echo "== build =="
 pnpm build
