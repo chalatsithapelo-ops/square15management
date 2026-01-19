@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
+import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 const createPropertyManagerSchema = z.object({
   token: z.string(),
@@ -39,7 +39,7 @@ export const createPropertyManager = baseProcedure
     const user = await authenticateUser(input.token);
 
     // Demo admin accounts must not be able to create users
-    assertNotRestrictedDemoAccount(user, "create users");
+    assertNotRestrictedDemoAccountAccessDenied(user);
 
     if (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN") {
       throw new TRPCError({

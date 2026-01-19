@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const getPropertyManagers = baseProcedure
   .input(
@@ -20,6 +21,9 @@ export const getPropertyManagers = baseProcedure
         message: "Only Admin users can view Property Managers",
       });
     }
+
+    // Demo accounts must not be able to load users
+    assertNotRestrictedDemoAccountAccessDenied(user);
 
     const where: any = {
       role: "PROPERTY_MANAGER",

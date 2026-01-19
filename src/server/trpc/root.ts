@@ -269,6 +269,13 @@ import { getContractorPerformance } from "~/server/trpc/procedures/getContractor
 import { getContractorSpending } from "~/server/trpc/procedures/getContractorSpending";
 import { rateCompletedWork } from "~/server/trpc/procedures/rateCompletedWork";
 
+// External contractor submission links (email-based)
+import { getExternalSubmissionInfo } from "~/server/trpc/procedures/getExternalSubmissionInfo";
+import { getPresignedUploadUrlForSubmission } from "~/server/trpc/procedures/getPresignedUploadUrlForSubmission";
+import { submitExternalRFQQuotation } from "~/server/trpc/procedures/submitExternalRFQQuotation";
+import { acceptExternalOrder } from "~/server/trpc/procedures/acceptExternalOrder";
+import { submitExternalOrderInvoice } from "~/server/trpc/procedures/submitExternalOrderInvoice";
+
 // Property Manager Admin Management
 import { getPropertyManagers } from "~/server/trpc/procedures/getPropertyManagers";
 import { createPropertyManager } from "~/server/trpc/procedures/createPropertyManager";
@@ -601,6 +608,7 @@ export const appRouter = createTRPCRouter({
   // Utils
   getMinioBaseUrl,
   getPresignedUploadUrl,
+  getPresignedUploadUrlForSubmission,
   uploadCompanyLogo,
   deleteCompanyLogo,
   getCompanyLogoUrl,
@@ -617,6 +625,12 @@ export const appRouter = createTRPCRouter({
   sendTestStatementEmail,
   sendTestInvoiceEmail,
   sendTestOrderNotificationEmail,
+
+  // External contractor submissions (public)
+  getExternalSubmissionInfo,
+  submitExternalRFQQuotation,
+  acceptExternalOrder,
+  submitExternalOrderInvoice,
   
   // Dashboard
   getDashboardConfig,

@@ -42,6 +42,8 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
     companyEmail: "",
     companyPhone: "",
     contactPerson: "",
+    externalContractorEmail: "",
+    externalContractorName: "",
     serviceType: "",
     callOutFee: 0,
     labourRate: 0,
@@ -97,6 +99,8 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
           companyEmail: "",
           companyPhone: "",
           contactPerson: "",
+          externalContractorEmail: "",
+          externalContractorName: "",
           serviceType: "",
           callOutFee: 0,
           labourRate: 0,
@@ -167,9 +171,18 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
       return;
     }
 
-    // Validate contractor info only if not using manual entry
-    if (!useManualEntry && !formData.contractorId) {
-      toast.error("Please select a contractor from the list");
+    const externalEmail = (useManualEntry ? formData.companyEmail : formData.externalContractorEmail).trim();
+    const externalName = (useManualEntry
+      ? (formData.companyName || formData.contactPerson || externalEmail)
+      : (formData.externalContractorName || externalEmail)).trim();
+
+    if (!formData.contractorId && !externalEmail) {
+      toast.error("Please select a contractor or enter an external contractor email");
+      return;
+    }
+
+    if (externalEmail && !externalEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -184,7 +197,9 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
 
     const orderData = {
       token,
-      contractorTableId: formData.contractorId || undefined, // Pass Contractor table ID
+      contractorTableId: externalEmail ? undefined : (formData.contractorId || undefined), // prefer external email if provided
+      externalContractorEmail: externalEmail || undefined,
+      externalContractorName: externalEmail ? (externalName || externalEmail) : undefined,
       title: formData.title,
       description: formData.description,
       scopeOfWork: scopeOfWorkText,
@@ -325,7 +340,15 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
                   setUseManualEntry(!useManualEntry);
                   if (!useManualEntry) {
                     setSelectedContractor("");
-                    setFormData({ ...formData, companyName: "", companyEmail: "", companyPhone: "", contactPerson: "" });
+                    setFormData({
+                      ...formData,
+                      companyName: "",
+                      companyEmail: "",
+                      companyPhone: "",
+                      contactPerson: "",
+                      externalContractorEmail: "",
+                      externalContractorName: "",
+                    });
                   }
                 }}
                 className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
@@ -336,18 +359,55 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
             </div>
             
             {!useManualEntry ? (
-              <select
-                value={selectedContractor}
-                onChange={(e) => handleContractorSelect(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-              >
-                <option value="">Select Contractor</option>
-                {contractors.map((contractor: any) => (
-                  <option key={contractor.id} value={contractor.id}>
-                    {contractor.companyName || `${contractor.firstName} ${contractor.lastName}`} - {contractor.serviceType}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={selectedContractor}
+                  onChange={(e) => handleContractorSelect(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">Select Contractor</option>
+                  {contractors.map((contractor: any) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {contractor.companyName || `${contractor.firstName} ${contractor.lastName}`} - {contractor.serviceType}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email Order to External Contractor (Optional)
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    If provided, the order will be emailed with a secure link to accept and upload invoices without logging in.
+                  </p>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="email"
+                      placeholder="contractor@example.com"
+                      value={formData.externalContractorEmail}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          externalContractorEmail: value,
+                          contractorId: value ? 0 : formData.contractorId,
+                        });
+                        if (value) {
+                          setSelectedContractor("");
+                        }
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Contractor Name (optional)"
+                      value={formData.externalContractorName}
+                      onChange={(e) => setFormData({ ...formData, externalContractorName: e.target.value })}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input

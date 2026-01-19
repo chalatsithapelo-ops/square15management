@@ -29,7 +29,7 @@ import {
   Search,
   FolderKanban,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { MetricCard } from "~/components/MetricCard";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -173,7 +173,6 @@ function PropertyManagerDashboard() {
     { id: "rfqs" as const, label: "RFQs", count: rfqs.length, icon: FileText },
     { id: "orders" as const, label: "Orders", count: orders.length, icon: Package },
     { id: "invoices" as const, label: "Invoices", count: invoices.length, icon: Receipt },
-    { id: "statements" as const, label: "Statements", icon: FileText },
     { id: "projects" as const, label: "Projects", icon: FolderKanban },
     { id: "maintenance" as const, label: "Maintenance", count: maintenanceRequests.length, icon: Wrench },
     { id: "buildings" as const, label: "Buildings", count: buildings.length, icon: Building2 },
@@ -214,13 +213,6 @@ function PropertyManagerDashboard() {
               >
                 <Users className="h-4 w-4" />
                 <span>Tenant Management</span>
-              </Link>
-              <Link
-                to="/property-manager/statements"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 rounded-lg transition-colors shadow-sm"
-              >
-                <FileText className="h-4 w-4" />
-                <span>Statements</span>
               </Link>
               <Link
                 to="/property-manager/ai-agent"
@@ -291,37 +283,45 @@ function PropertyManagerDashboard() {
             <nav className="flex gap-2 overflow-x-auto">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      if (tab.id === "statements") {
-                        navigate({ to: "/property-manager/statements" });
-                        return;
-                      }
+                const isActive = activeTab === tab.id;
 
-                      setActiveTab(tab.id);
-                    }}
-                    className={`flex-shrink-0 flex items-center gap-2 py-3 px-5 rounded-xl font-medium text-sm transition-all transform ${
-                      activeTab === tab.id
-                        ? "bg-gradient-to-r from-teal-600 to-cyan-500 text-white shadow-md scale-105"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-teal-600"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                    {tab.count !== undefined && tab.count > 0 && (
-                      <span
-                        className={`py-0.5 px-2 rounded-full text-xs font-semibold ${
-                          activeTab === tab.id
-                            ? "bg-white/20 text-white"
-                            : "bg-teal-100 text-teal-700"
-                        }`}
+                return (
+                  <Fragment key={tab.id}>
+                    <button
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                      }}
+                      className={`flex-shrink-0 flex items-center gap-2 py-3 px-5 rounded-xl font-medium text-sm transition-all transform ${
+                        isActive
+                          ? "bg-gradient-to-r from-teal-600 to-cyan-500 text-white shadow-md scale-105"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-teal-600"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{tab.label}</span>
+                      {tab.count !== undefined && tab.count > 0 && (
+                        <span
+                          className={`py-0.5 px-2 rounded-full text-xs font-semibold ${
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-teal-100 text-teal-700"
+                          }`}
+                        >
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+
+                    {tab.id === "invoices" && (
+                      <Link
+                        to="/property-manager/statements"
+                        className="flex-shrink-0 flex items-center gap-2 py-3 px-5 rounded-xl font-medium text-sm transition-all transform text-gray-600 hover:bg-gray-50 hover:text-teal-600"
                       >
-                        {tab.count}
-                      </span>
+                        <FileText className="h-4 w-4" />
+                        <span>Statements</span>
+                      </Link>
                     )}
-                  </button>
+                  </Fragment>
                 );
               })}
             </nav>
@@ -623,7 +623,7 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
     }
   };
 
-  const statusOptions = ["ALL", "DRAFT", "SUBMITTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "INVOICED"];
+  const statusOptions = ["ALL", "DRAFT", "SUBMITTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "INVOICED"] as const;
 
   const statusCounts = useMemo(() => {
     const counts = {
@@ -719,7 +719,8 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {status} {status !== "ALL" ? "(${statusCounts[status] || 0})" : ""}
+              {status}{" "}
+              {status !== "ALL" ? `(${statusCounts[status] ?? 0})` : ""}
             </button>
           ))}
         </div>

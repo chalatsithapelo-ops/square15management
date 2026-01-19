@@ -298,30 +298,34 @@ export function NotificationDropdown() {
 
             {open && (
               <Portal>
-                <div className="fixed inset-0" style={{ pointerEvents: 'none', zIndex: 99999 }}>
-                  {/* Interaction shield above page content, below dropdown */}
-                  <div className="fixed inset-0" style={{ pointerEvents: 'auto', zIndex: 99998, background: 'rgba(0,0,0,0.1)' }} />
-                  <Transition
-                    as={Fragment}
-                    show={open}
-                    enter="transition ease-out duration-100"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-75"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
+                <Transition
+                  as={Fragment}
+                  show={open}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items
+                    static
+                    className="fixed w-full sm:w-96 max-w-[calc(100vw-2rem)] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none"
+                    style={{
+                      top: PIN_TOP_RIGHT_DEBUG
+                        ? 80
+                        : buttonRef.current
+                          ? buttonRef.current.getBoundingClientRect().bottom + 8
+                          : 80,
+                      left: PIN_TOP_RIGHT_DEBUG
+                        ? undefined
+                        : buttonRef.current
+                          ? Math.max(buttonRef.current.getBoundingClientRect().left - 320 + 40, 16)
+                          : undefined,
+                      right: PIN_TOP_RIGHT_DEBUG || !buttonRef.current ? 16 : undefined,
+                      zIndex: 99999,
+                    }}
                   >
-                    <Menu.Items
-                      static
-                      className="fixed w-full sm:w-96 max-w-[calc(100vw-2rem)] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none"
-                      style={{ 
-                        pointerEvents: 'auto', 
-                        top: PIN_TOP_RIGHT_DEBUG ? 80 : (buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + 8 : 80),
-                        left: PIN_TOP_RIGHT_DEBUG ? undefined : (buttonRef.current ? Math.max(buttonRef.current.getBoundingClientRect().left - 320 + 40, 16) : undefined),
-                        right: PIN_TOP_RIGHT_DEBUG || !buttonRef.current ? 16 : undefined,
-                        zIndex: 99999 
-                      }}
-                    >
                       <div className="absolute -top-2 right-6 w-3 h-3 bg-white rotate-45 shadow-md" style={{ zIndex: 99999 }} />
                       
                       <div className="p-4 border-b border-gray-200">
@@ -478,9 +482,8 @@ export function NotificationDropdown() {
                           </Link>
                         </div>
                       )}
-                    </Menu.Items>
-                  </Transition>
-                </div>
+                  </Menu.Items>
+                </Transition>
               </Portal>
             )}
           </>

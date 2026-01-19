@@ -47,6 +47,7 @@ export function CreateRFQModal({ isOpen, onClose }: CreateRFQModalProps) {
   const [uploadedAttachments, setUploadedAttachments] = useState<string[]>([]);
   const [selectedContractors, setSelectedContractors] = useState<number[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  const [externalEmailsText, setExternalEmailsText] = useState<string>("");
 
   // Fetch contractors for multi-select
   const contractorsQuery = useQuery({
@@ -101,12 +102,18 @@ export function CreateRFQModal({ isOpen, onClose }: CreateRFQModalProps) {
       return;
     }
     
+    const externalContractorEmails = externalEmailsText
+      .split(/[,\n\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
     createRfqMutation.mutate({
       token,
       ...data,
       estimatedBudget: data.estimatedBudget || undefined,
       attachments: uploadedAttachments,
       contractorTableIds: selectedContractors.length > 0 ? selectedContractors : undefined, // Pass Contractor table IDs
+      externalContractorEmails: externalContractorEmails.length > 0 ? externalContractorEmails : undefined,
     });
   };
 
@@ -126,6 +133,7 @@ export function CreateRFQModal({ isOpen, onClose }: CreateRFQModalProps) {
     setUploadedAttachments([]);
     setSelectedContractors([]);
     setSelectedBuilding("");
+    setExternalEmailsText("");
     onClose();
   };
 
@@ -299,6 +307,24 @@ export function CreateRFQModal({ isOpen, onClose }: CreateRFQModalProps) {
                         <div>
                           <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                             Brief Description / Problem Summary *
+
+                        {/* External Contractor Emails */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Email RFQ to External Contractors (Optional)
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Add one or more emails (separate by commas, spaces, or new lines). They will receive a secure link to submit a quotation without logging in.
+                          </p>
+                          <textarea
+                            value={externalEmailsText}
+                            onChange={(e) => setExternalEmailsText(e.target.value)}
+                            rows={3}
+                            className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 sm:text-sm"
+                            disabled={isSubmitting}
+                            placeholder="contractor@example.com, another@example.com"
+                          />
+                        </div>
                           </label>
                           <textarea
                             id="description"

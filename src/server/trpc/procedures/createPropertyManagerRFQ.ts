@@ -6,6 +6,7 @@ import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { notifyAdmins } from "~/server/utils/notifications";
 import { sendRFQNotificationEmail } from "~/server/utils/email";
+import { createExternalSubmissionInvite } from "~/server/utils/external-invites";
 
 const rfqInputSchema = z.object({
   token: z.string(),
@@ -19,6 +20,7 @@ const rfqInputSchema = z.object({
   attachments: z.array(z.string()).optional(),
   notes: z.string().optional(),
   contractorTableIds: z.array(z.number()).optional(), // IDs from Contractor table, not User table
+  externalContractorEmails: z.array(z.string().email()).optional(),
 });
 
 export const createPropertyManagerRFQ = baseProcedure
@@ -40,6 +42,13 @@ export const createPropertyManagerRFQ = baseProcedure
     try {
       const contractorUserIds: number[] = [];
       const contractorsForEmail: { email: string; name: string }[] = [];
+
+      // Add any manually-provided external contractor emails
+      if (input.externalContractorEmails?.length) {
+        for (const email of input.externalContractorEmails) {
+          contractorsForEmail.push({ email, name: email });
+        }
+      }
 
       if (input.contractorTableIds && input.contractorTableIds.length > 0) {
         console.log(`Contractors selected. Looking up ${input.contractorTableIds.length} contractor(s) from table IDs: ${input.contractorTableIds.join(", ")}`);
@@ -174,6 +183,15 @@ export const createPropertyManagerRFQ = baseProcedure
         console.log(`Sending email notifications to ${contractorsForEmail.length} contractors.`);
         for (const contractor of contractorsForEmail) {
           try {
+            // Create secure external submission link for email-only contractors
+            const { link: quoteSubmissionLink } = await createExternalSubmissionInvite({
+              type: "RFQ_QUOTE",
+              email: contractor.email,
+              name: contractor.name,
+              rfqId: rfq.id,
+              expiresInDays: 14,
+            });
+
             await sendRFQNotificationEmail({
               contractorEmail: contractor.email,
               contractorName: contractor.name,
@@ -186,6 +204,7 @@ export const createPropertyManagerRFQ = baseProcedure
               urgency: rfq.urgency,
               estimatedBudget: rfq.estimatedBudget,
               propertyManagerId: user.id,
+              quoteSubmissionLink,
             });
             console.log(`Email sent to ${contractor.email}`);
           } catch (emailError) {

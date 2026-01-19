@@ -81,6 +81,10 @@ function PropertyManagementPage() {
     enabled: !!token,
   });
 
+  if (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN") {
+    return <AccessDenied message={(propertyManagersQuery.error as any)?.message || "Access denied"} />;
+  }
+
   const createPropertyManagerMutation = useMutation(
     trpc.createPropertyManager.mutationOptions({
       onSuccess: async (res: any) => {

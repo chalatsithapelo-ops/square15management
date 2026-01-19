@@ -114,6 +114,10 @@ function ContractorManagementAdminPage() {
     enabled: !!token,
   });
 
+  if (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN") {
+    return <AccessDenied message={(propertyManagersQuery.error as any)?.message || "Access denied"} />;
+  }
+
   const propertyManagers = propertyManagersQuery.data?.propertyManagers ?? [];
 
   const selectedPropertyManagerId = useMemo(() => {
@@ -131,6 +135,10 @@ function ContractorManagementAdminPage() {
     }),
     enabled: !!token,
   });
+
+  if (contractorsQuery.isError && (contractorsQuery.error as any)?.data?.code === "FORBIDDEN") {
+    return <AccessDenied message={(contractorsQuery.error as any)?.message || "Access denied"} />;
+  }
 
   const contractors = contractorsQuery.data?.contractors ?? [];
 

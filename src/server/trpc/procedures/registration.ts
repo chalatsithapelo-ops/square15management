@@ -1,19 +1,17 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { baseProcedure } from '~/server/trpc/main';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
 import { hash } from 'bcryptjs';
-import { DEMO_ADMIN_EMAIL, DEMO_JUNIOR_ADMIN_EMAIL } from '~/server/utils/demoAccounts';
+import { assertNotRestrictedDemoAccountAccessDenied, isRestrictedDemoAccount } from '~/server/utils/demoAccounts';
 
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
 
 const canManageRegistrations = (user: { role?: string; email?: string | null }) => {
-  const email = user.email?.trim().toLowerCase();
-  const isRestrictedDemo = email === DEMO_ADMIN_EMAIL || email === DEMO_JUNIOR_ADMIN_EMAIL;
-
   return (
-    !isRestrictedDemo &&
+    !isRestrictedDemoAccount(user) &&
     (user.role === 'ADMIN' || user.role === 'SENIOR_ADMIN' || user.role === 'JUNIOR_ADMIN')
   );
 };
@@ -89,8 +87,13 @@ export const getPendingRegistrations = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
+    assertNotRestrictedDemoAccountAccessDenied(adminUser);
+
     if (!canManageRegistrations(adminUser)) {
-      throw new Error('Only administrators can view pending registrations');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only administrators can view pending registrations',
+      });
     }
 
     const registrations = await db.pendingRegistration.findMany({
@@ -131,8 +134,13 @@ export const approvePendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
+    assertNotRestrictedDemoAccountAccessDenied(adminUser);
+
     if (!canManageRegistrations(adminUser)) {
-      throw new Error('Only administrators can approve registrations');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only administrators can approve registrations',
+      });
     }
 
     const registration = await db.pendingRegistration.findUnique({
@@ -140,15 +148,24 @@ export const approvePendingRegistration = baseProcedure
     });
 
     if (!registration) {
-      throw new Error('Registration not found');
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Registration not found',
+      });
     }
 
     if (registration.isApproved) {
-      throw new Error('Registration already approved');
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Registration already approved',
+      });
     }
 
     if (!input.skipPaymentCheck && !registration.hasPaid) {
-      throw new Error('Payment not received. Please confirm payment before approving.');
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Payment not received. Please confirm payment before approving.',
+      });
     }
 
     // Get package details
@@ -157,7 +174,10 @@ export const approvePendingRegistration = baseProcedure
     });
 
     if (!packageDetails) {
-      throw new Error('Package not found');
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Package not found',
+      });
     }
 
     // Hash password
@@ -233,8 +253,13 @@ export const rejectPendingRegistration = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
+    assertNotRestrictedDemoAccountAccessDenied(adminUser);
+
     if (!canManageRegistrations(adminUser)) {
-      throw new Error('Only administrators can reject registrations');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only administrators can reject registrations',
+      });
     }
 
     const registration = await db.pendingRegistration.update({
@@ -262,8 +287,13 @@ export const markRegistrationAsPaid = baseProcedure
   .mutation(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
+    assertNotRestrictedDemoAccountAccessDenied(adminUser);
+
     if (!canManageRegistrations(adminUser)) {
-      throw new Error('Only administrators can mark registrations as paid');
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only administrators can mark registrations as paid',
+      });
     }
 
     const registration = await db.pendingRegistration.update({

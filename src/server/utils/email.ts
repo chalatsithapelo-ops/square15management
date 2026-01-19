@@ -840,9 +840,12 @@ export async function sendRFQNotificationEmail(params: {
   urgency: string;
   estimatedBudget?: number | null;
   propertyManagerId?: number; // Optional: If provided, will attempt to send from PM's personal email
+  quoteSubmissionLink?: string; // Optional: email-only contractors can submit without portal login
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/contractor/quotations`;
+  const registrationLink = `${getBaseUrl()}/register`;
+  const primaryLink = params.quoteSubmissionLink || portalLink;
 
   const urgencyColors: Record<string, string> = {
     LOW: "#10b981",
@@ -974,18 +977,24 @@ export async function sendRFQNotificationEmail(params: {
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalLink}" class="cta-button">
-            View RFQ in Portal & Submit Quotation →
+          <a href="${primaryLink}" class="cta-button">
+            ${params.quoteSubmissionLink ? "Submit Your Quotation →" : "View RFQ in Portal & Submit Quotation →"}
           </a>
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
           <strong>Next Steps:</strong><br>
-          1. Login to your contractor portal<br>
-          2. Review the complete RFQ details including attachments<br>
-          3. Submit your quotation with pricing and timeline<br>
-          4. The property manager will review and respond
+          1. Review the RFQ details<br>
+          2. Submit your quotation (price + notes + optional attachment)<br>
+          3. The property manager will review and respond
         </p>
+
+        <div style="background: #eef2ff; border-left: 4px solid #6366f1; padding: 15px; border-radius: 4px; margin: 20px 0;">
+          <p style="margin: 0; color: #3730a3; font-size: 14px;">
+            <strong>Want faster approvals?</strong> Create a free account to manage RFQs, upload documents, track statuses, and receive notifications.<br>
+            <a href="${registrationLink}" style="color: #3730a3; font-weight: bold;">Register here →</a>
+          </p>
+        </div>
         
         <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; margin: 20px 0;">
           <p style="margin: 0; color: #92400e; font-size: 14px;">
@@ -1172,9 +1181,16 @@ export async function sendOrderNotificationEmail(params: {
   orderDescription: string;
   assignedToName?: string;
   userId?: number; // Optional: sender's user ID for personal email
+  recipientType?: "CUSTOMER" | "CONTRACTOR";
+  orderAcceptLink?: string;
+  invoiceUploadLink?: string;
+  attachments?: EmailAttachment[];
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
+  const registrationLink = `${getBaseUrl()}/register`;
+
+  const isContractor = (params.recipientType || "CUSTOMER") === "CONTRACTOR";
 
   const subject = `Order Confirmation: ${params.orderNumber}`;
 
@@ -1232,14 +1248,14 @@ export async function sendOrderNotificationEmail(params: {
     </head>
     <body>
       <div class="header">
-        <h1>✅ Order Confirmed</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.9;">Your order has been received and is being processed</p>
+        <h1>${isContractor ? "🧰 New Work Order" : "✅ Order Confirmed"}</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">${isContractor ? "You have received a new order" : "Your order has been received and is being processed"}</p>
       </div>
       
       <div class="content">
         <p>Hello <strong>${params.customerName}</strong>,</p>
         
-        <p>Thank you for your order! We have received your request and our team is now working on it.</p>
+        <p>${isContractor ? "A Property Manager has issued a new order to you. Please review and accept the order to confirm availability." : "Thank you for your order! We have received your request and our team is now working on it."}</p>
         
         <div class="info-box">
           <p style="margin: 5px 0;"><strong>Order Number:</strong> ${params.orderNumber}</p>
@@ -1248,14 +1264,31 @@ export async function sendOrderNotificationEmail(params: {
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalLink}" class="cta-button">
-            Track Order Progress →
+          <a href="${isContractor && params.orderAcceptLink ? params.orderAcceptLink : portalLink}" class="cta-button">
+            ${isContractor && params.orderAcceptLink ? "Accept Order →" : "Track Order Progress →"}
           </a>
         </div>
+
+        ${isContractor && params.invoiceUploadLink ? `
+          <div style="text-align: center; margin: 10px 0 25px 0;">
+            <a href="${params.invoiceUploadLink}" class="cta-button" style="background: #2563eb;">
+              Upload Invoice (after work) →
+            </a>
+          </div>
+        ` : ""}
         
         <p style="color: #6b7280; font-size: 14px;">
-          You can track the progress of your order, view updates, and communicate with our team through your tenant portal.
+          ${isContractor ? "You can accept the order and later upload your invoice using the links above." : "You can track the progress of your order, view updates, and communicate with our team through your tenant portal."}
         </p>
+
+        ${isContractor ? `
+          <div style="background: #eef2ff; border-left: 4px solid #6366f1; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0; color: #3730a3; font-size: 14px;">
+              <strong>Get the full portal experience:</strong> track orders, upload documents, receive notifications, and manage invoices in one place.<br>
+              <a href="${registrationLink}" style="color: #3730a3; font-weight: bold;">Register here →</a>
+            </p>
+          </div>
+        ` : ""}
       </div>
       
       <div class="footer">
@@ -1272,6 +1305,7 @@ export async function sendOrderNotificationEmail(params: {
     subject,
     html,
     userId: params.userId,
+    attachments: params.attachments,
   });
 
   console.log(`[sendOrderNotificationEmail] Order notification sent to ${params.customerEmail} for ${params.orderNumber}`);

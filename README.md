@@ -97,11 +97,12 @@ A comprehensive full-stack property management and business operations platform 
 
 ### Prerequisites
 
-- **Docker** and **Docker Compose** installed
-- **Git** for version control
-- (Optional) **Node.js 20+** and **pnpm** for local development without Docker
 
 ### Quick Start
+
+### Node.js version
+
+This project requires Node.js `>=20 <22` (see `package.json` `engines`). If you run it on Node 22+, the server may start and then immediately exit, and you will see `ERR_CONNECTION_REFUSED` when browsing `http://localhost:3000`.
 
 1. **Clone the repository**
    ```bash

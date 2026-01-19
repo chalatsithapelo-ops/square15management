@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useAuthStore } from '~/stores/auth';
 import { Package, Users, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { AccessDenied } from '~/components/AccessDenied';
 
 type PackagePricingUpdate = {
   basePrice: number;
@@ -35,6 +36,15 @@ export function SubscriptionManagement({
     ...trpc.getPendingRegistrations.queryOptions({ token: token!, isApproved: false }),
     enabled: !!token,
   });
+
+  const forbiddenError =
+    (subscriptionsQuery.isError && (subscriptionsQuery.error as any)?.data?.code === 'FORBIDDEN' && subscriptionsQuery.error) ||
+    (pendingRegsQuery.isError && (pendingRegsQuery.error as any)?.data?.code === 'FORBIDDEN' && pendingRegsQuery.error) ||
+    (packagesQuery.isError && (packagesQuery.error as any)?.data?.code === 'FORBIDDEN' && packagesQuery.error);
+
+  if (forbiddenError) {
+    return <AccessDenied message={(forbiddenError as any)?.message || 'Access denied'} returnPath="/" />;
+  }
 
   if (!token) {
     return (

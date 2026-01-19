@@ -5,7 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import bcryptjs from "bcryptjs";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
 import { isValidRole } from "~/server/utils/permissions";
-import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
+import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const createEmployee = baseProcedure
   .input(
@@ -28,7 +28,7 @@ export const createEmployee = baseProcedure
     const user = await authenticateUser(input.token);
 
     // Demo admin accounts must not be able to create users
-    assertNotRestrictedDemoAccount(user, "create users");
+    assertNotRestrictedDemoAccountAccessDenied(user);
     
     // Allow SENIOR_ADMIN, JUNIOR_ADMIN, and CONTRACTOR to create employees
     if (user.role !== "CONTRACTOR") {

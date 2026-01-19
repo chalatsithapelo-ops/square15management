@@ -3,19 +3,13 @@ import { TRPCError } from '@trpc/server';
 import { baseProcedure } from '~/server/trpc/main';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
-import { DEMO_ADMIN_EMAIL, DEMO_JUNIOR_ADMIN_EMAIL } from '~/server/utils/demoAccounts';
+import { isRestrictedDemoAccount } from '~/server/utils/demoAccounts';
 
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
 
 const canManageSubscriptions = (user: { role?: string; email?: string | null }) => {
-  const email = user.email?.trim().toLowerCase();
-  const isRestrictedDemo = email === DEMO_ADMIN_EMAIL || email === DEMO_JUNIOR_ADMIN_EMAIL;
-
-  return (
-    !isRestrictedDemo &&
-    (user.role === 'ADMIN' || user.role === 'SENIOR_ADMIN' || user.role === 'JUNIOR_ADMIN')
-  );
+  return !isRestrictedDemoAccount(user) && isAdminRole(user.role);
 };
 
 export const getPackages = baseProcedure
@@ -322,7 +316,7 @@ export const getAllSubscriptions = baseProcedure
     if (!canManageSubscriptions(adminUser)) {
       throw new TRPCError({
         code: 'FORBIDDEN',
-        message: 'Only non-demo administrators can view all subscriptions',
+        message: 'Access denied',
       });
     }
 

@@ -1491,6 +1491,9 @@ model PropertyManagerRFQ {
   // Selected contractors to receive this RFQ
   selectedContractorIds Int[] @default([])
 
+  // External contractor email-link submissions
+  externalSubmissionTokens ExternalSubmissionToken[]
+
   @@index([propertyManagerId])
   @@index([status])
 }
@@ -1617,6 +1620,7 @@ model PropertyManagerOrder {
 
   // Relations
   invoices        PropertyManagerInvoice[]
+  externalSubmissionTokens ExternalSubmissionToken[]
   progressUpdates PropertyManagerOrderUpdate[]
   materials       PropertyManagerOrderMaterial[]
   jobActivities   PropertyManagerOrderJobActivity[]
@@ -1726,6 +1730,37 @@ model PropertyManagerInvoice {
   @@index([propertyManagerId])
   @@index([status])
   @@index([dueDate])
+}
+
+model ExternalSubmissionToken {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // RFQ_QUOTE | ORDER_ACCEPT | ORDER_INVOICE
+  type String
+
+  // random token included in email links
+  token String @unique
+
+  // recipient context
+  email String
+  name  String?
+
+  // linkage
+  rfqId   Int?
+  rfq     PropertyManagerRFQ?   @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  orderId Int?
+  order   PropertyManagerOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // lifecycle
+  usedAt    DateTime?
+  expiresAt DateTime?
+
+  @@index([type])
+  @@index([email])
+  @@index([rfqId])
+  @@index([orderId])
 }
 
 model PropertyManagerCustomer {

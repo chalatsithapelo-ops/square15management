@@ -1,14 +1,45 @@
 import { z } from "zod";
 import { config as dotenvConfig } from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { dirname, isAbsolute, join, resolve } from "path";
+import { existsSync } from "fs";
 
 // Load environment variables BEFORE validation
-// Get the project root by going up from src/server/env.ts to the root
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '../../');
-const envPath = join(projectRoot, '.env');
+// NOTE: Avoid relying on import.meta.url here.
+// In some Windows/Nitro build/runtime combinations, import.meta can be rewritten
+// in a way that breaks fileURLToPath(). Instead, resolve .env from common anchors.
+function resolveEnvPath(): string {
+  const candidates: string[] = [];
+
+  if (process.env.DOTENV_CONFIG_PATH) {
+    candidates.push(process.env.DOTENV_CONFIG_PATH);
+  }
+
+  // Common case: run from project root
+  candidates.push(join(process.cwd(), ".env"));
+
+  // If started from built output (e.g. .output/server/index.mjs), walk up
+  const entryArg = process.argv[1];
+  if (entryArg) {
+    const entryAbs = isAbsolute(entryArg) ? entryArg : resolve(entryArg);
+    const entryDir = dirname(entryAbs);
+    candidates.push(join(entryDir, "..", "..", "..", ".env"));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      if (candidate && existsSync(candidate)) {
+        return candidate;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Fallback: attempt to load from CWD even if it doesn't exist
+  return join(process.cwd(), ".env");
+}
+
+const envPath = resolveEnvPath();
 
 console.log('[env.ts] Loading .env from:', envPath);
 const result = dotenvConfig({ path: envPath });

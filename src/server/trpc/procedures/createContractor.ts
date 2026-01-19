@@ -4,7 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import bcryptjs from "bcryptjs";
-import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
+import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 const createContractorSchema = z.object({
   token: z.string(),
@@ -37,7 +37,7 @@ export const createContractor = baseProcedure
     const user = await authenticateUser(input.token);
 
     // Demo admin accounts must not be able to create users
-    assertNotRestrictedDemoAccount(user, "create users");
+    assertNotRestrictedDemoAccountAccessDenied(user);
 
     const isPropertyManager = user.role === "PROPERTY_MANAGER";
     const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN";

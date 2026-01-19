@@ -6,6 +6,8 @@ import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { notifyAdmins } from "~/server/utils/notifications";
 import { sendOrderNotificationEmail } from "~/server/utils/email";
+import { createExternalSubmissionInvite } from "~/server/utils/external-invites";
+import { generatePropertyManagerOrderPdf } from "~/server/utils/property-manager-order-pdf";
 
 const CONTRACTOR_ROLES = ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER", "CONTRACTOR_JUNIOR_MANAGER"] as const;
 
@@ -13,6 +15,8 @@ const orderInputSchema = z.object({
   token: z.string(),
   contractorTableId: z.number().optional(), // ID from Contractor table, not User table
   contractorId: z.number().optional(), // DEPRECATED: for backward compatibility
+  externalContractorEmail: z.string().email().optional(),
+  externalContractorName: z.string().optional(),
   generatedFromRFQId: z.number().optional(),
   sourceRFQId: z.number().optional(),
   title: z.string().min(3),
@@ -152,6 +156,12 @@ export const createPropertyManagerOrder = baseProcedure
           message: "Selected contractor not found.",
         });
       }
+    } else if (input.externalContractorEmail) {
+      contractorDetails = {
+        email: input.externalContractorEmail,
+        name: input.externalContractorName || input.externalContractorEmail,
+      };
+      contractorUserId = null;
     } else {
       console.log("No contractor was selected for this order.");
     }
@@ -332,13 +342,33 @@ export const createPropertyManagerOrder = baseProcedure
           totalAmount: resolvedTotalAmount,
           attachments: input.attachments || [],
           notes: input.notes || null,
-          // PM issues the order into the contractor's Draft workflow.
-          status: "DRAFT",
+          // Creating an order from the PM portal implies it has been issued/sent.
+          status: "SUBMITTED",
         },
       });
 
       console.log(`Order ${order.orderNumber} created successfully in database.`);
       console.log(`Order is linked to contractor User ID: ${contractorUserId}`);
+
+      let orderPdfAttachment:
+        | {
+            filename: string;
+            content: Buffer;
+            contentType?: string;
+          }
+        | undefined;
+      if (contractorDetails) {
+        try {
+          const { pdfBuffer } = await generatePropertyManagerOrderPdf(order.id);
+          orderPdfAttachment = {
+            filename: `work-order-${order.orderNumber}.pdf`,
+            content: pdfBuffer,
+            contentType: "application/pdf",
+          };
+        } catch (pdfError) {
+          console.error(`Failed to generate PDF for order ${order.orderNumber}:`, pdfError);
+        }
+      }
 
       // If generated from RFQ, update RFQ status
       if (input.generatedFromRFQId) {
@@ -379,6 +409,7 @@ export const createPropertyManagerOrder = baseProcedure
               orderDescription: order.description,
               assignedToName: `${user.firstName} ${user.lastName}`, // Property Manager who created the order
               userId: user.id, // Send from PM's email if configured
+              attachments: orderPdfAttachment ? [orderPdfAttachment] : undefined,
             });
             console.log(`Email notification sent to contractor: ${contractorDetails.email}`);
           } catch (emailError) {
@@ -390,6 +421,21 @@ export const createPropertyManagerOrder = baseProcedure
         // Contractor selected but no portal access, send email notification
         console.log(`Contractor does not have a portal user. Sending email notification.`);
         try {
+          const { link: orderAcceptLink } = await createExternalSubmissionInvite({
+            type: "ORDER_ACCEPT",
+            email: contractorDetails.email,
+            name: contractorDetails.name,
+            orderId: order.id,
+            expiresInDays: 30,
+          });
+          const { link: invoiceUploadLink } = await createExternalSubmissionInvite({
+            type: "ORDER_INVOICE",
+            email: contractorDetails.email,
+            name: contractorDetails.name,
+            orderId: order.id,
+            expiresInDays: 90,
+          });
+
           await sendOrderNotificationEmail({
             customerEmail: contractorDetails.email,
             customerName: contractorDetails.name,
@@ -397,6 +443,10 @@ export const createPropertyManagerOrder = baseProcedure
             orderDescription: order.description,
             assignedToName: `${user.firstName} ${user.lastName}`,
             userId: user.id,
+            recipientType: "CONTRACTOR",
+            orderAcceptLink,
+            invoiceUploadLink,
+            attachments: orderPdfAttachment ? [orderPdfAttachment] : undefined,
           });
           console.log(`Email notification sent to contractor: ${contractorDetails.email}`);
         } catch (emailError) {
