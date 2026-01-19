@@ -65,25 +65,18 @@ function PropertyManagementPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  const isAdminUser = !!user && (user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPropertyManager, setEditingPropertyManager] = useState<any | null>(null);
-
-  // Permissions: keep simple & consistent with other admin tools
-  if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
-    return <AccessDenied message="You do not have permission to access Property Management." />;
-  }
 
   const propertyManagersQuery = useQuery({
     ...trpc.getPropertyManagers.queryOptions({
       token: token!,
       searchQuery: searchQuery || undefined,
     }),
-    enabled: !!token,
+    enabled: !!token && isAdminUser,
   });
-
-  if (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN") {
-    return <AccessDenied message={(propertyManagersQuery.error as any)?.message || "Access denied"} />;
-  }
 
   const createPropertyManagerMutation = useMutation(
     trpc.createPropertyManager.mutationOptions({
@@ -142,6 +135,15 @@ function PropertyManagementPage() {
       pmBrandAccentColor: "#5A9A47",
     },
   });
+
+  // Permissions: keep simple & consistent with other admin tools
+  if (!isAdminUser) {
+    return <AccessDenied message="You do not have permission to access Property Management." />;
+  }
+
+  if (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN") {
+    return <AccessDenied message={(propertyManagersQuery.error as any)?.message || "Access denied"} />;
+  }
 
   const onSubmit = async (values: CreatePropertyManagerValues) => {
     if (!token) return;

@@ -97,50 +97,20 @@ function ContractorManagementAdminPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  const isAdminUser = !!user && (user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [propertyManagerFilter, setPropertyManagerFilter] = useState<string>("");
   const [editingContractor, setEditingContractor] = useState<any | null>(null);
 
-  if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
-    return <AccessDenied message="You do not have permission to access Contractor Management." />;
-  }
-
-  const propertyManagersQuery = useQuery({
-    ...trpc.getPropertyManagers.queryOptions({
-      token: token!,
-    }),
-    enabled: !!token,
+  const form = useForm<CreateContractorValues>({
+    resolver: zodResolver(createContractorSchema),
+    defaultValues: {
+      serviceType: "GENERAL_MAINTENANCE",
+    },
   });
-
-  if (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN") {
-    return <AccessDenied message={(propertyManagersQuery.error as any)?.message || "Access denied"} />;
-  }
-
-  const propertyManagers = propertyManagersQuery.data?.propertyManagers ?? [];
-
-  const selectedPropertyManagerId = useMemo(() => {
-    const n = Number(propertyManagerFilter);
-    return Number.isFinite(n) && n > 0 ? n : undefined;
-  }, [propertyManagerFilter]);
-
-  const contractorsQuery = useQuery({
-    ...trpc.getContractors.queryOptions({
-      token: token!,
-      propertyManagerId: selectedPropertyManagerId,
-      serviceType: serviceTypeFilter || undefined,
-      status: statusFilter || undefined,
-      searchQuery: searchQuery || undefined,
-    }),
-    enabled: !!token,
-  });
-
-  if (contractorsQuery.isError && (contractorsQuery.error as any)?.data?.code === "FORBIDDEN") {
-    return <AccessDenied message={(contractorsQuery.error as any)?.message || "Access denied"} />;
-  }
-
-  const contractors = contractorsQuery.data?.contractors ?? [];
 
   const createContractorMutation = useMutation(
     trpc.createContractor.mutationOptions({
@@ -187,12 +157,48 @@ function ContractorManagementAdminPage() {
     })
   );
 
-  const form = useForm<CreateContractorValues>({
-    resolver: zodResolver(createContractorSchema),
-    defaultValues: {
-      serviceType: "GENERAL_MAINTENANCE",
-    },
+  const propertyManagersQuery = useQuery({
+    ...trpc.getPropertyManagers.queryOptions({
+      token: token!,
+    }),
+    enabled: !!token && isAdminUser,
   });
+
+  const propertyManagers = propertyManagersQuery.data?.propertyManagers ?? [];
+
+  const selectedPropertyManagerId = useMemo(() => {
+    const n = Number(propertyManagerFilter);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }, [propertyManagerFilter]);
+
+  const contractorsQuery = useQuery({
+    ...trpc.getContractors.queryOptions({
+      token: token!,
+      propertyManagerId: selectedPropertyManagerId,
+      serviceType: serviceTypeFilter || undefined,
+      status: statusFilter || undefined,
+      searchQuery: searchQuery || undefined,
+    }),
+    enabled: !!token && isAdminUser,
+  });
+
+  const forbiddenError: any =
+    (propertyManagersQuery.isError && (propertyManagersQuery.error as any)?.data?.code === "FORBIDDEN"
+      ? propertyManagersQuery.error
+      : null) ||
+    (contractorsQuery.isError && (contractorsQuery.error as any)?.data?.code === "FORBIDDEN"
+      ? contractorsQuery.error
+      : null);
+
+  const contractors = contractorsQuery.data?.contractors ?? [];
+
+  if (!isAdminUser) {
+    return <AccessDenied message="You do not have permission to access Contractor Management." />;
+  }
+
+  if (forbiddenError) {
+    return <AccessDenied message={forbiddenError?.message || "Access denied"} />;
+  }
 
   const onSubmit: SubmitHandler<CreateContractorValues> = async (values) => {
     if (!token) return;
