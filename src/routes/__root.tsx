@@ -26,16 +26,23 @@ export const Route = createRootRoute<{
 
 function RootComponent() {
   const isFetching = useRouterState({ select: (s) => s.isLoading });
+  const locationHref = useRouterState({ select: (s) => s.location.href });
 
   return (
     <TRPCReactProvider>
       <Toaster position="top-right" />
-      <RootInnerComponent isFetching={isFetching} />
+      <RootInnerComponent isFetching={isFetching} locationHref={locationHref} />
     </TRPCReactProvider>
   );
 }
 
-function RootInnerComponent({ isFetching }: { isFetching: boolean }) {
+function RootInnerComponent({
+  isFetching,
+  locationHref,
+}: {
+  isFetching: boolean;
+  locationHref: string;
+}) {
   const { token, setAuth, clearAuth } = useAuthStore();
   const trpc = useTRPC();
   const pushStore = usePushNotificationStore();
@@ -187,6 +194,29 @@ function RootInnerComponent({ isFetching }: { isFetching: boolean }) {
     initializePushNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, currentUserQuery.isSuccess]); // Only re-run when auth state changes
+
+  // Defensive cleanup: if a Headless UI Portal/backdrop ever gets orphaned,
+  // it can leave a full-screen overlay that blocks clicks ("dim screen").
+  // On every route change, remove portal containers that no longer contain dialogs.
+  useEffect(() => {
+    const portalRoots = Array.from(
+      document.querySelectorAll<HTMLElement>('#headlessui-portal-root, [data-headlessui-portal]')
+    );
+
+    for (const root of portalRoots) {
+      const hasActiveDialog =
+        root.querySelector('[role="dialog"]') ||
+        root.querySelector('[data-headlessui-state="open"]') ||
+        root.querySelector('[data-headlessui-state="opening"]');
+
+      if (!hasActiveDialog) {
+        root.remove();
+      }
+    }
+
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }, [locationHref]);
 
   // Show loading state during initial load or retries
   if (isFetching || (token && currentUserQuery.isLoading) || (token && currentUserQuery.isFetching)) {
