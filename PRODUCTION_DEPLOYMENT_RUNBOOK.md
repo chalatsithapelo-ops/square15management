@@ -1,11 +1,20 @@
 # Production Deployment Runbook (www.square15management.co.za)
 
-This project deploys from GitHub `main` to the production server using the repo’s Docker scripts.
+This repo is deployed to production by pulling from GitHub `main` on the server and restarting a PM2-managed Node process.
 
 ## What “making commits live” means
 Pushing code to GitHub **does not** automatically update the running website. Production updates only after the server:
 1) pulls the new commit (`git pull`)
-2) rebuilds/restarts containers (`./scripts/rebuild`)
+2) installs/builds the app
+3) restarts the PM2 process
+
+## Production Host (current)
+- SSH host: `161.35.30.169`
+- SSH user: `root`
+- Repo path on server: `/root/square15management`
+- Process manager: PM2
+- PM2 process name: `square15management`
+- Health URL (on server): `http://127.0.0.1:3000/health/health`
 
 ## One-time: confirm you’re on the right server folder
 SSH to the server, then run:
@@ -28,30 +37,40 @@ sudo find / -maxdepth 4 -type d -name "square15management" 2>/dev/null
 
 Once found, `cd` into that folder.
 
-## Standard deployment (safe, keeps data)
-Run these commands on the **production server** from the project folder:
+## Standard deployment (safe)
+Run these commands on the **production server** from the repo folder:
 
 ```bash
-git fetch origin
-git checkout main
-git pull origin main
+cd /root/square15management
 
-# Rebuild and restart without wiping the database
-./scripts/rebuild
+# Pull latest main
+git pull --ff-only
 
-# Follow logs until healthy
-./scripts/docker-compose logs -f
+# Install deps (runs postinstall: prisma generate + route generation)
+pnpm install --frozen-lockfile
+
+# Apply schema changes to Postgres (project convention)
+pnpm exec prisma db push
+
+# Build the production output (.output/*)
+pnpm build
+
+# Restart the live process
+pm2 restart square15management
+
+# Verify health (startup can take a few seconds after restart)
+for i in 1 2 3 4 5; do
+  curl -fsS --max-time 10 http://127.0.0.1:3000/health/health && break || true
+  sleep 3
+done
 ```
 
 ## Verify it’s live
 On the server:
 
 ```bash
-./scripts/docker-compose ps
-
-# Health endpoint (adjust port if your nginx/app differs)
-curl -i http://localhost:8000/health || true
-curl -i http://localhost:3000/health || true
+pm2 status
+curl -fsS --max-time 10 http://127.0.0.1:3000/health/health
 ```
 
 From your own machine:
@@ -60,20 +79,13 @@ From your own machine:
 ## If deployment fails
 ### 1) Check logs
 ```bash
-./scripts/docker-compose logs -f
+pm2 logs square15management --lines 200
 ```
 
 ### 2) Common causes
-- **Prisma not generated**: the build should run this, but if it didn’t:
-  ```bash
-  pnpm install
-  pnpm exec prisma generate
-  ```
-- **Migrations not applied**: apply DB migrations inside the running app container (exact container name varies):
-  ```bash
-  ./scripts/docker-compose ps
-  ./scripts/docker-compose exec app pnpm exec prisma migrate deploy
-  ```
+- **App not ready yet**: `pm2 restart` returns immediately; wait a few seconds and re-try the health endpoint.
+- **Build/dependency failure**: re-run `pnpm install --frozen-lockfile` then `pnpm build`.
+- **DB mismatch**: re-run `pnpm exec prisma db push`.
 
 ### 3) Quick rollback (go back to previous working commit)
 ```bash
@@ -86,8 +98,8 @@ git checkout <good_commit_hash>
 ## Recent deployment source of truth
 - GitHub repo: `https://github.com/chalatsithapelo-ops/square15management.git`
 - Branch: `main`
-- Latest shipped commit (as of 2026-01-19): `78142e5`
+- Latest shipped commit (as of 2026-01-19): `134e686`
 
 ## Notes
 - Avoid destructive scripts (anything that says “purge” or “wipe”) unless you explicitly want to delete production data.
-- If your production server uses a process manager (PM2/systemd) instead of Docker, do **not** run these scripts; capture the alternative process in this file once confirmed.
+- Do **not** use `./scripts/rebuild` on production unless you explicitly migrate production to a Docker-based deployment.
