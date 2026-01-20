@@ -476,7 +476,7 @@ function CustomerDashboard() {
                 className="px-4 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 flex items-center gap-2 transition-all duration-200"
               >
                 <MessageSquare className="h-4 w-4" />
-                <span>Complaints &amp; Complements</span>
+                <span>Complaints &amp; Compliments</span>
               </Link>
               <Link
                 to="/"

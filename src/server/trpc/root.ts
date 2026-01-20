@@ -294,7 +294,16 @@ import { generateAccountsInsights } from "~/server/trpc/procedures/generateAccou
 
 // Subscriptions
 import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions } from "~/server/trpc/procedures/subscriptions";
-import { createPendingRegistration, getPendingRegistrations, approvePendingRegistration, rejectPendingRegistration, markRegistrationAsPaid } from "~/server/trpc/procedures/registration";
+import {
+  createPendingRegistration,
+  getPendingRegistrations,
+  getAllRegistrations,
+  approvePendingRegistration,
+  rejectPendingRegistration,
+  markRegistrationAsPaid,
+  approveContractorPackageRequest,
+  rejectContractorPackageRequest,
+} from "~/server/trpc/procedures/registration";
 
 // Tenant Feedback (Complaints & Complements)
 import {
@@ -666,9 +675,12 @@ export const appRouter = createTRPCRouter({
   // Self-Registration
   createPendingRegistration,
   getPendingRegistrations,
+  getAllRegistrations,
   approvePendingRegistration,
   rejectPendingRegistration,
   markRegistrationAsPaid,
+  approveContractorPackageRequest,
+  rejectContractorPackageRequest,
 
   // Tenant Feedback (Complaints & Complements)
   submitTenantFeedback,

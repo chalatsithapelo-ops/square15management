@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
@@ -19,6 +19,7 @@ import { Dialog } from "@headlessui/react";
 import { ContractorDetailsModal } from "./ContractorDetailsModal";
 import { CreateContractorModal } from "./CreateContractorModal";
 import { EditContractorModal } from "./EditContractorModal";
+import { OTHER_SERVICE_TYPE_VALUE } from "~/utils/serviceTypeOther";
 
 export function ContractorManagement() {
   const { token } = useAuthStore();
@@ -40,13 +41,20 @@ export function ContractorManagement() {
   const contractorsQuery = useQuery(
     trpc.getContractors.queryOptions({
       token: token!,
-      serviceType: serviceTypeFilter || undefined,
+      serviceType:
+        serviceTypeFilter && serviceTypeFilter !== OTHER_SERVICE_TYPE_VALUE
+          ? serviceTypeFilter
+          : undefined,
       status: statusFilter || undefined,
       searchQuery: searchTerm || undefined,
     })
   );
 
-  const contractors = contractorsQuery.data?.contractors || [];
+  const contractors = useMemo(() => {
+    const list = contractorsQuery.data?.contractors || [];
+    if (serviceTypeFilter !== OTHER_SERVICE_TYPE_VALUE) return list;
+    return list.filter((c: any) => !serviceTypes.includes(String(c.serviceType)));
+  }, [contractorsQuery.data?.contractors, serviceTypeFilter]);
 
   // Delete contractor mutation
   const deleteContractorMutation = useMutation(
@@ -142,6 +150,7 @@ export function ContractorManagement() {
                   {type.replace(/_/g, " ")}
                 </option>
               ))}
+              <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
             </select>
           </div>
 

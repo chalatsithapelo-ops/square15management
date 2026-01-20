@@ -17,13 +17,16 @@ export const getEmployees = baseProcedure
     assertNotRestrictedDemoAccountAccessDenied(user);
     
     // Contractors can view employees without special permission (their own employees)
-    // TODO: Add employerId field to User model to properly filter contractor employees
     if (user.role !== "CONTRACTOR") {
       requirePermission(user, PERMISSIONS.VIEW_ALL_EMPLOYEES);
     }
 
+    const where: any = {};
+    if (input.role) where.role = input.role;
+    if (user.role === "CONTRACTOR") where.employerId = user.id;
+
     const employees = await db.user.findMany({
-      where: input.role ? { role: input.role } : undefined,
+      where,
       select: {
         id: true,
         firstName: true,

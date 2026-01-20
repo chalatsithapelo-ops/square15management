@@ -32,7 +32,7 @@ const DEMO_TENANTS = [
 ] as const;
 
 async function main() {
-  console.log("🌱 Seeding Tenant Complaints & Complements demo data...");
+  console.log("🌱 Seeding Tenant Complaints & Compliments demo data...");
 
   const pm = await db.user.findFirst({
     where: { email: DEMO_PM_EMAIL, role: "PROPERTY_MANAGER" },

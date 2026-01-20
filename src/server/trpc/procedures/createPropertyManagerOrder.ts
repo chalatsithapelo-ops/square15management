@@ -22,6 +22,7 @@ const orderInputSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
   scopeOfWork: z.string().min(10),
+  serviceType: z.string().min(1).optional(),
   buildingName: z.string().optional(),
   buildingAddress: z.string().min(5),
   totalAmount: z.number().min(0),
@@ -327,24 +328,27 @@ export const createPropertyManagerOrder = baseProcedure
       const orderNumber = `${companyDetails.orderPrefix}-PM-${String(count + 1).padStart(5, "0")}`;
 
       // Create the order
+      const orderCreateData: any = {
+        orderNumber,
+        propertyManagerId: user.id,
+        contractorId: contractorUserId || null, // Assign contractor if provided
+        generatedFromRFQId: input.generatedFromRFQId || null,
+        sourceRFQId: input.sourceRFQId || null,
+        title: resolvedTitle,
+        description: resolvedDescription,
+        scopeOfWork: resolvedScopeOfWork,
+        serviceType: input.serviceType || null,
+        buildingName: resolvedBuildingName || null,
+        buildingAddress: resolvedBuildingAddress,
+        totalAmount: resolvedTotalAmount,
+        attachments: input.attachments || [],
+        notes: input.notes || null,
+        // Creating an order from the PM portal implies it has been issued/sent.
+        status: "SUBMITTED",
+      };
+
       const order = await db.propertyManagerOrder.create({
-        data: {
-          orderNumber,
-          propertyManagerId: user.id,
-          contractorId: contractorUserId || null, // Assign contractor if provided
-          generatedFromRFQId: input.generatedFromRFQId || null,
-          sourceRFQId: input.sourceRFQId || null,
-          title: resolvedTitle,
-          description: resolvedDescription,
-          scopeOfWork: resolvedScopeOfWork,
-          buildingName: resolvedBuildingName || null,
-          buildingAddress: resolvedBuildingAddress,
-          totalAmount: resolvedTotalAmount,
-          attachments: input.attachments || [],
-          notes: input.notes || null,
-          // Creating an order from the PM portal implies it has been issued/sent.
-          status: "SUBMITTED",
-        },
+        data: orderCreateData,
       });
 
       console.log(`Order ${order.orderNumber} created successfully in database.`);

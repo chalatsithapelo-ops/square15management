@@ -12,16 +12,20 @@ export const getLiabilities = baseProcedure
   )
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
-    
-    // Contractors see only their company liabilities (when owner field is added)
-    // For now, all users with VIEW_LIABILITIES permission see all liabilities
-    // TODO: Add ownerId field to Liability model for proper data isolation
+
+    // Data isolation:
+    // - Contractors only see liabilities they created
+    // - Other roles keep existing permission-based access
     if (user.role !== "CONTRACTOR") {
       requirePermission(user, PERMISSIONS.VIEW_LIABILITIES);
     }
 
+    const where: any = {};
+    if (user.role === "CONTRACTOR") where.createdById = user.id;
+    if (input.isPaid !== undefined) where.isPaid = input.isPaid;
+
     const liabilities = await db.liability.findMany({
-      where: input.isPaid !== undefined ? { isPaid: input.isPaid } : undefined,
+      where,
       orderBy: {
         createdAt: "desc",
       },

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Dialog } from "@headlessui/react";
 import { X, Loader2 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
+import { OTHER_SERVICE_TYPE_VALUE, resolveServiceType } from "~/utils/serviceTypeOther";
 
 interface CreateContractorModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
     phone: "",
     companyName: "",
     serviceType: "GENERAL_MAINTENANCE",
+    otherServiceType: "",
+    packageId: "",
     taxNumber: "",
     registrationNumber: "",
     address: "",
@@ -33,14 +36,18 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
     accountNumber: "",
     branchCode: "",
     accountType: "CHECKING",
-    password: "",
-    confirmPassword: "",
   });
+
+  const packagesQuery = useQuery({
+    ...trpc.getPackages.queryOptions({ token: token || "public", type: "CONTRACTOR" }),
+    enabled: !!token,
+  });
+  const contractorPackages = (packagesQuery.data || []).filter((p: any) => p.type === "CONTRACTOR");
 
   const createContractorMutation = useMutation(
     trpc.createContractor.mutationOptions({
-      onSuccess: () => {
-        toast.success("Contractor created successfully!");
+      onSuccess: (data: any) => {
+        toast.success(data?.message || "Contractor created successfully!");
         queryClient.invalidateQueries({
           queryKey: trpc.getContractors.queryKey(),
         });
@@ -61,6 +68,8 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
       phone: "",
       companyName: "",
       serviceType: "GENERAL_MAINTENANCE",
+      otherServiceType: "",
+      packageId: "",
       taxNumber: "",
       registrationNumber: "",
       address: "",
@@ -71,8 +80,6 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
       accountNumber: "",
       branchCode: "",
       accountType: "CHECKING",
-      password: "",
-      confirmPassword: "",
     });
   };
 
@@ -95,19 +102,19 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
       return;
     }
 
-    if (!formData.password || formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    const resolvedServiceType = resolveServiceType(formData.serviceType, formData.otherServiceType);
+    if (!resolvedServiceType) {
+      toast.error("Please select or specify a service type");
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
+    const { packageId, otherServiceType: _otherServiceType, ...rest } = formData;
 
     createContractorMutation.mutate({
       token,
-      ...formData,
+      ...rest,
+      serviceType: resolvedServiceType,
+      packageId: packageId ? packageId : null,
     });
   };
 
@@ -120,6 +127,7 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
     { value: "ROOFING", label: "Roofing" },
     { value: "LANDSCAPING", label: "Landscaping" },
     { value: "GENERAL_MAINTENANCE", label: "General Maintenance" },
+    { value: OTHER_SERVICE_TYPE_VALUE, label: "Other" },
   ];
 
   const provinces = [
@@ -213,43 +221,41 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
               </div>
             </div>
 
-            {/* Login Credentials */}
+            {/* Package & Access */}
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Login Credentials</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Package & Access</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contractor Package</label>
+                  <select
+                    value={formData.packageId}
+                    onChange={(e) => setFormData({ ...formData, packageId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                    minLength={6}
-                    placeholder="Minimum 6 characters"
-                  />
-                </div>
+                    disabled={packagesQuery.isLoading || packagesQuery.isError}
+                  >
+                    <option value="">None (Email notifications only)</option>
+                    {contractorPackages.map((pkg: any) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.displayName}
+                      </option>
+                    ))}
+                  </select>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                    minLength={6}
-                    placeholder="Re-enter password"
-                  />
+                  {packagesQuery.isError && (
+                    <p className="mt-2 text-sm text-red-600">Failed to load packages. You can still create an email-only contractor.</p>
+                  )}
+
+                  {formData.packageId ? (
+                    <p className="mt-2 text-sm text-gray-500">
+                      Portal access and package activation will be enabled after Admin approval (Admin → Registrations).
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-500">
+                      This contractor will receive work notifications via email only and will not be able to log into the Contractor Portal.
+                    </p>
+                  )}
                 </div>
               </div>
-              <p className="mt-2 text-sm text-gray-500">
-                This contractor will have access to the Contractor Portal.
-              </p>
             </div>
 
             {/* Company Information */}
@@ -274,7 +280,13 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
                   </label>
                   <select
                     value={formData.serviceType}
-                    onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        serviceType: e.target.value,
+                        otherServiceType: e.target.value === OTHER_SERVICE_TYPE_VALUE ? formData.otherServiceType : "",
+                      })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -284,6 +296,16 @@ export function CreateContractorModal({ isOpen, onClose }: CreateContractorModal
                       </option>
                     ))}
                   </select>
+                  {formData.serviceType === OTHER_SERVICE_TYPE_VALUE && (
+                    <input
+                      type="text"
+                      value={formData.otherServiceType}
+                      onChange={(e) => setFormData({ ...formData, otherServiceType: e.target.value })}
+                      className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Specify service type"
+                      required
+                    />
+                  )}
                 </div>
 
                 <div>

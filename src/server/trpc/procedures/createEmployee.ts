@@ -62,6 +62,7 @@ export const createEmployee = baseProcedure
     // Create the new employee
     const newEmployee = await db.user.create({
       data: {
+        employerId: user.role === "CONTRACTOR" ? user.id : null,
         email: input.email,
         password: hashedPassword,
         firstName: input.firstName,

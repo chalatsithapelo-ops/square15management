@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState, Fragment } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { CampaignEditor } from "~/components/crm/CampaignEditor";
+import { OTHER_SERVICE_TYPE_VALUE } from "~/utils/serviceTypeOther";
 
 export const Route = createFileRoute("/contractor/crm/campaigns/")({
   component: CampaignsPage,
@@ -40,10 +41,22 @@ const campaignSchema = z.object({
   htmlBody: z.string().min(10, "Email body must be at least 10 characters"),
   targetStatuses: z.array(z.string()).optional(),
   targetServiceTypes: z.array(z.string()).optional(),
+  otherServiceType: z.string().optional(),
   estimatedValueMin: z.number().optional(),
   estimatedValueMax: z.number().optional(),
   targetCustomerIds: z.array(z.number()).optional(),
   excludedCustomerIds: z.array(z.number()).optional(),
+}).superRefine((v, ctx) => {
+  if (v.targetServiceTypes?.includes(OTHER_SERVICE_TYPE_VALUE)) {
+    const other = (v.otherServiceType || "").trim();
+    if (!other) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["otherServiceType"],
+        message: "Please specify the service type",
+      });
+    }
+  }
 });
 
 type CampaignForm = z.infer<typeof campaignSchema>;
@@ -128,10 +141,25 @@ function CampaignsPage() {
       htmlBody: "",
       targetStatuses: [],
       targetServiceTypes: [],
+      otherServiceType: "",
     },
   });
 
   const htmlBody = watch("htmlBody");
+  const selectedTargetServiceTypes = watch("targetServiceTypes") || [];
+  const showOtherServiceType = selectedTargetServiceTypes.includes(OTHER_SERVICE_TYPE_VALUE);
+
+  useEffect(() => {
+    if (!showOtherServiceType) {
+      setValue("otherServiceType", "");
+    }
+  }, [showOtherServiceType, setValue]);
+
+  const serviceTypeOptions = useMemo(() => {
+    const extras = selectedTargetServiceTypes
+      .filter((t) => t && t !== OTHER_SERVICE_TYPE_VALUE && !serviceTypes.includes(t));
+    return Array.from(new Set([...serviceTypes, ...extras, OTHER_SERVICE_TYPE_VALUE]));
+  }, [selectedTargetServiceTypes]);
 
   const createCampaignMutation = useMutation(
     trpc.createCampaign.mutationOptions({
@@ -224,9 +252,15 @@ function CampaignsPage() {
   };
 
   const onSubmit = (data: CampaignForm) => {
+    const other = (data.otherServiceType || "").trim();
+    const targetServiceTypesRaw = data.targetServiceTypes || [];
+    const targetServiceTypesResolved = targetServiceTypesRaw.includes(OTHER_SERVICE_TYPE_VALUE)
+      ? [...targetServiceTypesRaw.filter((t) => t !== OTHER_SERVICE_TYPE_VALUE), ...(other ? [other] : [])]
+      : targetServiceTypesRaw;
+
     const targetCriteria = {
       statuses: data.targetStatuses,
-      serviceTypes: data.targetServiceTypes,
+      serviceTypes: targetServiceTypesResolved,
       estimatedValueMin: data.estimatedValueMin,
       estimatedValueMax: data.estimatedValueMax,
       targetCustomerIds: selectedCustomerIds.length > 0 ? selectedCustomerIds : undefined,
@@ -259,13 +293,23 @@ function CampaignsPage() {
     if (campaign) {
       setEditingCampaign(campaign);
       const criteria = campaign.targetCriteria as any;
+      const persistedServiceTypes: string[] = Array.isArray(criteria?.serviceTypes) ? criteria.serviceTypes : [];
+      const unknownServiceTypes = persistedServiceTypes.filter((t) => !serviceTypes.includes(t));
+      const knownServiceTypes = persistedServiceTypes.filter((t) => serviceTypes.includes(t));
+
+      const nextTargetServiceTypes =
+        unknownServiceTypes.length === 1
+          ? [...knownServiceTypes, OTHER_SERVICE_TYPE_VALUE]
+          : persistedServiceTypes;
+
       reset({
         name: campaign.name,
         description: campaign.description || "",
         subject: campaign.subject,
         htmlBody: campaign.htmlBody,
         targetStatuses: criteria?.statuses || [],
-        targetServiceTypes: criteria?.serviceTypes || [],
+        targetServiceTypes: nextTargetServiceTypes,
+        otherServiceType: unknownServiceTypes.length === 1 ? unknownServiceTypes[0] : "",
         estimatedValueMin: criteria?.estimatedValueMin,
         estimatedValueMax: criteria?.estimatedValueMax,
       });
@@ -282,6 +326,7 @@ function CampaignsPage() {
         htmlBody: "",
         targetStatuses: [],
         targetServiceTypes: [],
+        otherServiceType: "",
       });
       setSelectedCustomerIds([]);
       setExcludedCustomerIds([]);
@@ -701,14 +746,31 @@ function CampaignsPage() {
                                   className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   size={4}
                                 >
-                                  {serviceTypes.map((type) => (
+                                  {serviceTypeOptions.map((type) => (
                                     <option key={type} value={type}>
-                                      {type}
+                                      {type === OTHER_SERVICE_TYPE_VALUE ? "Other" : type}
                                     </option>
                                   ))}
                                 </select>
                                 <p className="mt-1 text-xs text-blue-700">Hold Ctrl/Cmd to select multiple</p>
                               </div>
+
+                              {showOtherServiceType && (
+                                <div>
+                                  <label className="block text-xs font-medium text-blue-900 mb-1">
+                                    Specify service type
+                                  </label>
+                                  <input
+                                    type="text"
+                                    {...register("otherServiceType")}
+                                    className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter the service type"
+                                  />
+                                  {errors.otherServiceType && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.otherServiceType.message}</p>
+                                  )}
+                                </div>
+                              )}
 
                               <div>
                                 <label className="block text-xs font-medium text-blue-900 mb-1">

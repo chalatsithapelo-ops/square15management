@@ -8,6 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import {
+  OTHER_SERVICE_TYPE_VALUE,
+  resolveServiceType,
+  splitServiceType,
+} from "~/utils/serviceTypeOther";
+import {
   ArrowLeft,
   Plus,
   Search,
@@ -39,24 +44,45 @@ export const Route = createFileRoute("/contractor/operations/")({
   component: OperationsPage,
 });
 
-const orderSchema = z.object({
-  orderNumber: z.string().or(z.literal("")).optional(),
-  customerName: z.string().min(1, "Customer name is required"),
-  customerEmail: z.string().email("Invalid email address"),
-  customerPhone: z.string().min(1, "Phone number is required"),
-  address: z.string().min(1, "Address is required"),
-  serviceType: z.string().min(1, "Service type is required"),
-  description: z.string().min(1, "Description is required"),
-  assignedToId: z.number().optional(),
-  callOutFee: z.number().min(0),
-  labourRate: z.number().optional(),
-  totalMaterialBudget: z.number().optional(),
-  numLabourersNeeded: z.number().int().optional(),
-  totalLabourCostBudget: z.number().optional(),
-  notes: z.string().optional(),
-});
+const orderSchema = z
+  .object({
+    orderNumber: z.string().or(z.literal("")).optional(),
+    customerName: z.string().min(1, "Customer name is required"),
+    customerEmail: z.string().email("Invalid email address"),
+    customerPhone: z.string().min(1, "Phone number is required"),
+    address: z.string().min(1, "Address is required"),
+    serviceType: z.string().min(1, "Service type is required"),
+    otherServiceType: z.string().optional(),
+    description: z.string().min(1, "Description is required"),
+    assignedToId: z.number().optional(),
+    callOutFee: z.number().min(0),
+    labourRate: z.number().optional(),
+    totalMaterialBudget: z.number().optional(),
+    numLabourersNeeded: z.number().int().optional(),
+    totalLabourCostBudget: z.number().optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.serviceType === OTHER_SERVICE_TYPE_VALUE) {
+      if (!v.otherServiceType || !v.otherServiceType.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please specify the service type",
+          path: ["otherServiceType"],
+        });
+      }
+    }
+  });
 
 type OrderForm = z.infer<typeof orderSchema>;
+
+const serviceTypeOptions = [
+  "Painting",
+  "Plumbing",
+  "Electrical",
+  "Construction",
+  "General Maintenance",
+] as const;
 
 const orderStatuses = [
   { value: "PENDING", label: "Pending", color: "bg-gray-100 text-gray-800" },
@@ -321,6 +347,7 @@ function OperationsPage() {
     (trpc.classifyServiceType as any).mutationOptions({
       onSuccess: (data: any) => {
         setValue("serviceType", data.suggestedServiceType);
+        setValue("otherServiceType", "");
         toast.success(`Service type suggested: ${data.suggestedServiceType}`);
         setClassifyingService(false);
       },
@@ -486,6 +513,8 @@ function OperationsPage() {
     setShowAddForm(true);
     setPendingDocuments([]);
     
+    const split = splitServiceType(order.serviceType, serviceTypeOptions);
+
     // Populate form fields
     reset({
       orderNumber: order.orderNumber,
@@ -493,7 +522,8 @@ function OperationsPage() {
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
       address: order.address,
-      serviceType: order.serviceType,
+      serviceType: split.serviceType,
+      otherServiceType: split.otherServiceType,
       description: order.description,
       assignedToId: order.assignedToId || order.rawObject?.assignedToId || undefined,
       callOutFee: order.callOutFee,
@@ -759,6 +789,15 @@ function OperationsPage() {
   };
 
   const onSubmit = (data: OrderForm) => {
+    const resolvedServiceType = resolveServiceType(data.serviceType, data.otherServiceType);
+
+    if (!resolvedServiceType) {
+      toast.error("Please select or specify a service type");
+      return;
+    }
+
+    const { otherServiceType: _otherServiceType, ...rest } = data;
+
     // Prepare materials data
     const materialsData = materials.length > 0 ? materials.map(m => ({
       name: m.name,
@@ -788,8 +827,9 @@ function OperationsPage() {
         updateOrderDetailsMutation.mutate({
           token: token!,
           orderId: editingOrder,
-          orderNumber: data.orderNumber,
-          ...data,
+          orderNumber: rest.orderNumber,
+          ...rest,
+          serviceType: resolvedServiceType,
           assignedToId: data.assignedToId ? Number(data.assignedToId) : null,
           callOutFee: Number(data.callOutFee) || 0,
           labourRate: data.labourRate ? Number(data.labourRate) : null,
@@ -803,7 +843,8 @@ function OperationsPage() {
     } else {
       createOrderMutation.mutate({
         token: token!,
-        ...data,
+        ...rest,
+        serviceType: resolvedServiceType,
         assignedToId: data.assignedToId ? Number(data.assignedToId) : undefined,
         callOutFee: Number(data.callOutFee) || 0,
         labourRate: data.labourRate ? Number(data.labourRate) : undefined,
@@ -1028,11 +1069,12 @@ function OperationsPage() {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select service</option>
-                    <option value="Painting">Painting</option>
-                    <option value="Plumbing">Plumbing</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Construction">Construction</option>
-                    <option value="General Maintenance">General Maintenance</option>
+                    {serviceTypeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                    <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
                   </select>
                   <button
                     type="button"
@@ -1056,6 +1098,19 @@ function OperationsPage() {
                 </div>
                 {errors.serviceType && (
                   <p className="mt-1 text-sm text-red-600">{errors.serviceType.message}</p>
+                )}
+                {serviceType === OTHER_SERVICE_TYPE_VALUE && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      {...register("otherServiceType")}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Specify service type"
+                    />
+                    {errors.otherServiceType && (
+                      <p className="mt-1 text-sm text-red-600">{errors.otherServiceType.message}</p>
+                    )}
+                  </div>
                 )}
               </div>
 

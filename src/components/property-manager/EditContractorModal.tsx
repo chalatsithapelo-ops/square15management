@@ -5,6 +5,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
+import {
+  OTHER_SERVICE_TYPE_VALUE,
+  resolveServiceType,
+  splitServiceType,
+} from "~/utils/serviceTypeOther";
 
 interface EditContractorModalProps {
   isOpen: boolean;
@@ -24,6 +29,7 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
     phone: "",
     companyName: "",
     serviceType: "GENERAL_MAINTENANCE",
+    otherServiceType: "",
     taxNumber: "",
     registrationNumber: "",
     address: "",
@@ -39,16 +45,29 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
     confirmPassword: "",
   });
 
+  const serviceTypeOptions = [
+    "PLUMBING",
+    "ELECTRICAL",
+    "HVAC",
+    "CARPENTRY",
+    "PAINTING",
+    "ROOFING",
+    "LANDSCAPING",
+    "GENERAL_MAINTENANCE",
+  ] as const;
+
   // Load contractor data when modal opens
   useEffect(() => {
     if (contractor) {
+      const split = splitServiceType(contractor.serviceType, serviceTypeOptions);
       setFormData({
         firstName: contractor.firstName || "",
         lastName: contractor.lastName || "",
         email: contractor.email || "",
         phone: contractor.phone || "",
         companyName: contractor.companyName || "",
-        serviceType: contractor.serviceType || "GENERAL_MAINTENANCE",
+        serviceType: split.serviceType || "GENERAL_MAINTENANCE",
+        otherServiceType: split.otherServiceType,
         taxNumber: contractor.taxNumber || "",
         registrationNumber: contractor.registrationNumber || "",
         address: contractor.address || "",
@@ -107,6 +126,12 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
       }
     }
 
+    const resolvedServiceType = resolveServiceType(formData.serviceType, formData.otherServiceType);
+    if (!resolvedServiceType) {
+      toast.error("Please select or specify a service type");
+      return;
+    }
+
     updateContractorMutation.mutate({
       token,
       contractorId: contractor.id,
@@ -115,7 +140,7 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
       phone: formData.phone,
       companyName: formData.companyName,
       registrationNumber: formData.registrationNumber,
-      serviceType: formData.serviceType,
+      serviceType: resolvedServiceType,
       bankAccountNumber: formData.accountNumber,
       bankCode: formData.branchCode,
       status: formData.status as "ACTIVE" | "INACTIVE" | "SUSPENDED" | "TERMINATED",
@@ -132,6 +157,7 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
     { value: "ROOFING", label: "Roofing" },
     { value: "LANDSCAPING", label: "Landscaping" },
     { value: "GENERAL_MAINTENANCE", label: "General Maintenance" },
+    { value: OTHER_SERVICE_TYPE_VALUE, label: "Other" },
   ];
 
   const provinces = [
@@ -293,7 +319,13 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
                   </label>
                   <select
                     value={formData.serviceType}
-                    onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        serviceType: e.target.value,
+                        otherServiceType: e.target.value === OTHER_SERVICE_TYPE_VALUE ? formData.otherServiceType : "",
+                      })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -303,6 +335,16 @@ export function EditContractorModal({ isOpen, onClose, contractor }: EditContrac
                       </option>
                     ))}
                   </select>
+                  {formData.serviceType === OTHER_SERVICE_TYPE_VALUE && (
+                    <input
+                      type="text"
+                      value={formData.otherServiceType}
+                      onChange={(e) => setFormData({ ...formData, otherServiceType: e.target.value })}
+                      className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Specify service type"
+                      required
+                    />
+                  )}
                 </div>
 
                 <div>

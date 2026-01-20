@@ -28,6 +28,8 @@ export const Route = createFileRoute("/admin/property-management/")({
 });
 
 const createPropertyManagerSchema = z.object({
+  // Package selection (string: 'none' or package id)
+  packageId: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Valid email is required"),
@@ -78,6 +80,13 @@ function PropertyManagementPage() {
     enabled: !!token && isAdminUser,
   });
 
+  const packagesQuery = useQuery({
+    ...trpc.getPackages.queryOptions({ token: token! }),
+    enabled: !!token && isAdminUser,
+  });
+
+  const pmPackages = (packagesQuery.data ?? []).filter((p: any) => p.type === "PROPERTY_MANAGER");
+
   const createPropertyManagerMutation = useMutation(
     trpc.createPropertyManager.mutationOptions({
       onSuccess: async (res: any) => {
@@ -102,6 +111,7 @@ function PropertyManagementPage() {
         });
         setEditingPropertyManager(null);
         form.reset({
+          packageId: "none",
           pmBrandPrimaryColor: "#2D5016",
           pmBrandSecondaryColor: "#F4C430",
           pmBrandAccentColor: "#5A9A47",
@@ -130,6 +140,7 @@ function PropertyManagementPage() {
   const form = useForm<CreatePropertyManagerValues>({
     resolver: zodResolver(createPropertyManagerSchema),
     defaultValues: {
+      packageId: "none",
       pmBrandPrimaryColor: "#2D5016",
       pmBrandSecondaryColor: "#F4C430",
       pmBrandAccentColor: "#5A9A47",
@@ -179,9 +190,33 @@ function PropertyManagementPage() {
       return;
     }
 
+    const packageIdRaw = values.packageId;
+    if (!packageIdRaw) {
+      form.setError("packageId", {
+        type: "manual",
+        message: "Package selection is required (choose None if applicable)",
+      });
+      return;
+    }
+
+    let packageId: number | null = null;
+    if (packageIdRaw === "none") {
+      packageId = null;
+    } else {
+      const parsed = Number(packageIdRaw);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        form.setError("packageId", { type: "manual", message: "Please select a valid package (or None)" });
+        return;
+      }
+      packageId = parsed;
+    }
+
+    const { packageId: _packageId, ...rest } = values;
+
     await createPropertyManagerMutation.mutateAsync({
       token,
-      ...values,
+      ...rest,
+      packageId,
       password: values.password!,
     });
   };
@@ -233,6 +268,27 @@ function PropertyManagementPage() {
             <section>
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Account</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subscription package</label>
+                  <select
+                    disabled={!!editingPropertyManager}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
+                    {...form.register("packageId")}
+                  >
+                    <option value="none">None</option>
+                    {pmPackages.map((pkg: any) => (
+                      <option key={pkg.id} value={String(pkg.id)}>
+                        {pkg.displayName} (R{pkg.basePrice}/mo)
+                      </option>
+                    ))}
+                  </select>
+                  {editingPropertyManager && (
+                    <p className="text-xs text-gray-500 mt-1">Package changes are managed in Subscription Management.</p>
+                  )}
+                  {form.formState.errors.packageId && (
+                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.packageId.message}</p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
                   <input
@@ -422,6 +478,7 @@ function PropertyManagementPage() {
                 onClick={() => {
                   setEditingPropertyManager(null);
                   form.reset({
+                    packageId: "none",
                     pmBrandPrimaryColor: "#2D5016",
                     pmBrandSecondaryColor: "#F4C430",
                     pmBrandAccentColor: "#5A9A47",
@@ -539,6 +596,7 @@ function PropertyManagementPage() {
                               onClick={() => {
                                 setEditingPropertyManager(pm);
                                 form.reset({
+                                  packageId: "none",
                                   firstName: pm.firstName,
                                   lastName: pm.lastName,
                                   email: pm.email,

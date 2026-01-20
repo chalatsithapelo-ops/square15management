@@ -34,14 +34,18 @@ export const getAlternativeRevenues = baseProcedure
       where.isApproved = input.isApproved;
     }
 
-    // Filter at database level based on user role
-    // Admin users only see revenues created by Admin users
-    // Contractor users only see revenues created by Contractor users
-    where.createdBy = {
-      role: {
-        contains: user.role.includes("ADMIN") ? "ADMIN" : "CONTRACTOR",
-      },
-    };
+    // Data isolation:
+    // - Contractors only see their own alternative revenues
+    // - Admins keep existing role-based filtering
+    if (user.role === "CONTRACTOR") {
+      where.createdById = user.id;
+    } else {
+      where.createdBy = {
+        role: {
+          contains: user.role.includes("ADMIN") ? "ADMIN" : "CONTRACTOR",
+        },
+      };
+    }
 
     const revenues = await db.alternativeRevenue.findMany({
       where,

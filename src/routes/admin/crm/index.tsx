@@ -40,28 +40,62 @@ import { LeadConversionTrendChart } from "~/components/charts/LeadConversionTren
 import { SalesPipelineTrendChart } from "~/components/charts/SalesPipelineTrendChart";
 import { WinRateTrendChart } from "~/components/charts/WinRateTrendChart";
 import { EmployeeSalesDashboard } from "~/components/admin/EmployeeSalesDashboard";
+import {
+  OTHER_SERVICE_TYPE_VALUE,
+  resolveServiceType,
+  splitServiceType,
+} from "~/utils/serviceTypeOther";
 
 export const Route = createFileRoute("/admin/crm/")({
   component: CRMPage,
 });
 
-const leadSchema = z.object({
-  customerName: z.string().min(1, "Customer name is required"),
-  companyName: z.string().optional(),
-  customerEmail: z.string().email("Invalid email address"),
-  customerPhone: z.string().min(1, "Phone number is required"),
-  address: z.string().optional(),
-  serviceType: z.string().min(1, "Service type is required"),
-  description: z.string().min(1, "Description is required"),
-  estimatedValue: z.number().optional(),
-  nextFollowUpDate: z.string().optional(),
-  followUpAssignedToId: z.preprocess(
-    (val) => (typeof val === 'number' && Number.isNaN(val) ? undefined : val),
-    z.number().optional()
-  ),
-});
+const leadSchema = z
+  .object({
+    customerName: z.string().min(1, "Customer name is required"),
+    companyName: z.string().optional(),
+    customerEmail: z.string().email("Invalid email address"),
+    customerPhone: z.string().min(1, "Phone number is required"),
+    address: z.string().optional(),
+    serviceType: z.string().min(1, "Service type is required"),
+    otherServiceType: z.string().optional(),
+    description: z.string().min(1, "Description is required"),
+    estimatedValue: z.number().optional(),
+    nextFollowUpDate: z.string().optional(),
+    followUpAssignedToId: z.preprocess(
+      (val) => (typeof val === 'number' && Number.isNaN(val) ? undefined : val),
+      z.number().optional()
+    ),
+  })
+  .superRefine((v, ctx) => {
+    if (v.serviceType === OTHER_SERVICE_TYPE_VALUE) {
+      if (!v.otherServiceType || !v.otherServiceType.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please specify the service type",
+          path: ["otherServiceType"],
+        });
+      }
+    }
+  });
 
 type LeadForm = z.infer<typeof leadSchema>;
+
+const serviceTypeOptions = [
+  "Painting",
+  "Plumbing",
+  "Electrical",
+  "Construction",
+  "Affordable Housing",
+  "Social Housing",
+  "Shopping Center",
+  "General Maintenance",
+  "HVAC",
+  "Carpentry",
+  "Roofing",
+  "Flooring",
+  "Tiling",
+] as const;
 
 const leadStatuses = [
   { value: "NEW", label: "New", color: "bg-gray-100 text-gray-800" },
@@ -142,6 +176,7 @@ function CRMPage() {
   // Watch description field for auto-classification
   const description = watch("description");
   const address = watch("address");
+  const selectedServiceType = watch("serviceType");
 
   const createLeadMutation = useMutation(
     trpc.createLead.mutationOptions({
@@ -209,6 +244,7 @@ function CRMPage() {
         reset({
           ...currentValues,
           serviceType: data.suggestedServiceType,
+          otherServiceType: "",
         });
         toast.success(`Service type suggested: ${data.suggestedServiceType}`);
         setClassifyingService(false);
@@ -250,12 +286,22 @@ function CRMPage() {
   }, [description, address, showAddForm]);
 
   const onSubmit = (data: LeadForm) => {
+    const resolvedServiceType = resolveServiceType(data.serviceType, data.otherServiceType);
+
+    if (!resolvedServiceType) {
+      toast.error("Please select or specify a service type");
+      return;
+    }
+
+    const { otherServiceType: _otherServiceType, ...rest } = data;
+
     if (editingLead) {
       // Update existing lead
       updateLeadDetailsMutation.mutate({
         token: token!,
         leadId: editingLead.id,
-        ...data,
+        ...rest,
+        serviceType: resolvedServiceType,
         // Convert datetime-local string to ISO 8601 format
         nextFollowUpDate: data.nextFollowUpDate 
           ? new Date(data.nextFollowUpDate).toISOString() 
@@ -269,7 +315,8 @@ function CRMPage() {
       // Create new lead
       createLeadMutation.mutate({
         token: token!,
-        ...data,
+        ...rest,
+        serviceType: resolvedServiceType,
         // Convert datetime-local string to ISO 8601 format
         nextFollowUpDate: data.nextFollowUpDate 
           ? new Date(data.nextFollowUpDate).toISOString() 
@@ -310,6 +357,8 @@ function CRMPage() {
   const handleEditLead = (lead: any) => {
     setEditingLead(lead);
     setShowAddForm(true);
+
+    const split = splitServiceType(lead.serviceType, serviceTypeOptions);
     
     // Pre-populate form with lead data
     reset({
@@ -318,7 +367,8 @@ function CRMPage() {
       customerEmail: lead.customerEmail,
       customerPhone: lead.customerPhone,
       address: lead.address || "",
-      serviceType: lead.serviceType,
+      serviceType: split.serviceType,
+      otherServiceType: split.otherServiceType,
       description: lead.description,
       estimatedValue: lead.estimatedValue || undefined,
       // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
@@ -591,19 +641,12 @@ function CRMPage() {
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select service</option>
-                          <option value="Painting">Painting</option>
-                          <option value="Plumbing">Plumbing</option>
-                          <option value="Electrical">Electrical</option>
-                          <option value="Construction">Construction</option>
-                          <option value="Affordable Housing">Affordable Housing</option>
-                          <option value="Social Housing">Social Housing</option>
-                          <option value="Shopping Center">Shopping Center</option>
-                          <option value="General Maintenance">General Maintenance</option>
-                          <option value="HVAC">HVAC</option>
-                          <option value="Carpentry">Carpentry</option>
-                          <option value="Roofing">Roofing</option>
-                          <option value="Flooring">Flooring</option>
-                          <option value="Tiling">Tiling</option>
+                          {serviceTypeOptions.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                          <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
                         </select>
                         <button
                           type="button"
@@ -627,6 +670,19 @@ function CRMPage() {
                       </div>
                       {errors.serviceType && (
                         <p className="mt-1 text-sm text-red-600">{errors.serviceType.message}</p>
+                      )}
+                      {selectedServiceType === OTHER_SERVICE_TYPE_VALUE && (
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            {...register("otherServiceType")}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Specify service type"
+                          />
+                          {errors.otherServiceType && (
+                            <p className="mt-1 text-sm text-red-600">{errors.otherServiceType.message}</p>
+                          )}
+                        </div>
                       )}
                     </div>
 

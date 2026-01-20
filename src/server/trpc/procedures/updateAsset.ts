@@ -18,6 +18,16 @@ export const updateAsset = baseProcedure
     const user = await authenticateUser(input.token);
     requirePermission(user, PERMISSIONS.MANAGE_ASSETS);
 
+    if (user.role === "CONTRACTOR") {
+      const asset = await db.asset.findFirst({
+        where: { id: input.assetId, createdById: user.id },
+        select: { id: true },
+      });
+      if (!asset) {
+        throw new Error("Asset not found");
+      }
+    }
+
     const updateData: any = {};
     if (input.currentValue !== undefined) updateData.currentValue = input.currentValue;
     if (input.condition !== undefined) updateData.condition = input.condition;

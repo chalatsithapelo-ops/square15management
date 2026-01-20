@@ -26,6 +26,7 @@ export const createAsset = baseProcedure
 
     const asset = await db.asset.create({
       data: {
+        createdById: user.id,
         name: input.name,
         description: input.description || null,
         category: input.category,

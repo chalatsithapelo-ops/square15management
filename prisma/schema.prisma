@@ -116,6 +116,12 @@ enum ContractorPerformanceRating {
   CRITICAL
 }
 
+enum ContractorPackageRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum FinancialReportStatus {
   GENERATING
   COMPLETED
@@ -334,6 +340,11 @@ model User {
   contractorCompanyBankAccountNumber String?
   contractorCompanyBankBranchCode    String?
 
+  // Employee management (contractor-owned employees)
+  employerId Int?
+  employer   User?  @relation("EmployerEmployees", fields: [employerId], references: [id], onDelete: SetNull)
+  employees  User[] @relation("EmployerEmployees")
+
   // Relations
   leadsCreated             Lead[]                            @relation("LeadCreator")
   leadsAssignedForFollowUp Lead[]                            @relation("LeadFollowUpAssignee")
@@ -392,17 +403,29 @@ model User {
   managedContractors Contractor[]                      @relation("PropertyManagerContractors")
   financialMetrics   PropertyManagerFinancialMetrics[] @relation("ManagerFinancialMetrics")
 
+  // Property Manager contractor package approvals
+  contractorPackageRequests            ContractorPackageRequest[] @relation("PropertyManagerContractorPackageRequests")
+  approvedContractorPackageRequests    ContractorPackageRequest[] @relation("ContractorPackageRequestApprovedBy")
+  rejectedContractorPackageRequests    ContractorPackageRequest[] @relation("ContractorPackageRequestRejectedBy")
+  createdFromContractorPackageRequests ContractorPackageRequest[] @relation("ContractorPackageRequestCreatedUser")
+
   // Financial operations relations
   operationalExpenses OperationalExpense[] @relation("UserOperationalExpenses")
   approvedExpenses    OperationalExpense[] @relation("ExpenseApprover")
   alternativeRevenues AlternativeRevenue[] @relation("UserAlternativeRevenues")
   approvedRevenues    AlternativeRevenue[] @relation("RevenueApprover")
-  
+
   // Subscription relations
   subscriptions Subscription[]
 
   // Tenant feedback (Complaints & Complements)
   tenantFeedbackReceived TenantFeedback[] @relation("PropertyManagerTenantFeedback")
+
+  // Assets & liabilities (data isolation)
+  assetsCreated      Asset[]     @relation("AssetCreator")
+  liabilitiesCreated Liability[] @relation("LiabilityCreator")
+
+  @@index([employerId])
 }
 
 model Lead {
@@ -856,6 +879,12 @@ model Asset {
   location      String?
   notes         String?
   images        String[]
+
+  // Track who created this asset (essential for portal separation)
+  createdById Int?
+  createdBy   User? @relation("AssetCreator", fields: [createdById], references: [id])
+
+  @@index([createdById])
 }
 
 model Liability {
@@ -873,8 +902,13 @@ model Liability {
   referenceNumber String?
   notes           String?
 
+  // Track who created this liability (essential for portal separation)
+  createdById Int?
+  createdBy   User? @relation("LiabilityCreator", fields: [createdById], references: [id])
+
   @@index([category])
   @@index([isPaid])
+  @@index([createdById])
 }
 
 model PaymentRequest {
@@ -1567,6 +1601,7 @@ model PropertyManagerOrder {
   title           String
   description     String  @db.Text
   scopeOfWork     String  @db.Text
+  serviceType     String? // Optional: older rows may not have this yet
   buildingName    String?
   buildingAddress String
 
@@ -1619,12 +1654,12 @@ model PropertyManagerOrder {
   notes       String?  @db.Text
 
   // Relations
-  invoices        PropertyManagerInvoice[]
+  invoices                 PropertyManagerInvoice[]
   externalSubmissionTokens ExternalSubmissionToken[]
-  progressUpdates PropertyManagerOrderUpdate[]
-  materials       PropertyManagerOrderMaterial[]
-  jobActivities   PropertyManagerOrderJobActivity[]
-  expenseSlips    PropertyManagerOrderExpenseSlip[]
+  progressUpdates          PropertyManagerOrderUpdate[]
+  materials                PropertyManagerOrderMaterial[]
+  jobActivities            PropertyManagerOrderJobActivity[]
+  expenseSlips             PropertyManagerOrderExpenseSlip[]
 
   @@index([propertyManagerId])
   @@index([contractorId])
@@ -1833,10 +1868,10 @@ model TenantFeedback {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  type     TenantFeedbackType
-  category String
-  message  String @db.Text
-  status   TenantFeedbackStatus @default(OPEN)
+  type       TenantFeedbackType
+  category   String
+  message    String               @db.Text
+  status     TenantFeedbackStatus @default(OPEN)
   resolvedAt DateTime?
 
   // Tenant (customer) who submitted
@@ -2142,12 +2177,55 @@ model Contractor {
   propertyManagerId Int?
   propertyManager   User? @relation("PropertyManagerContractors", fields: [propertyManagerId], references: [id], onDelete: SetNull)
 
+  packageRequests ContractorPackageRequest[]
+
   notes String? @db.Text
 
   @@index([propertyManagerId])
   @@index([status])
   @@index([serviceType])
   @@index([email])
+}
+
+model ContractorPackageRequest {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status ContractorPackageRequestStatus @default(PENDING)
+
+  // Request context
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerContractorPackageRequests", fields: [propertyManagerId], references: [id], onDelete: Cascade)
+
+  contractorId Int
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  // Requested contractor package
+  packageId Int
+  package   Package @relation(fields: [packageId], references: [id])
+
+  // Created portal account after approval
+  createdUserId Int?
+  createdUser   User? @relation("ContractorPackageRequestCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+
+  createdSubscriptionId Int?
+  createdSubscription   Subscription? @relation(fields: [createdSubscriptionId], references: [id], onDelete: SetNull)
+
+  // Admin audit
+  approvedAt   DateTime?
+  approvedById Int?
+  approvedBy   User?     @relation("ContractorPackageRequestApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  rejectedAt      DateTime?
+  rejectedById    Int?
+  rejectedBy      User?     @relation("ContractorPackageRequestRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  rejectionReason String?
+
+  @@index([propertyManagerId])
+  @@index([contractorId])
+  @@index([packageId])
+  @@index([status])
 }
 
 model ContractorDocument {
@@ -2687,20 +2765,20 @@ enum PaymentMethod {
 
 // Package definitions (S1-S6 for Contractors, PM1-PM2 for Property Managers)
 model Package {
-  id        Int         @id @default(autoincrement())
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   name        String      @unique // S1, S2, S3, S4, S5, S6, PM1, PM2
-  displayName String      // "Starter Package", "Premium Package", etc.
+  displayName String // "Starter Package", "Premium Package", etc.
   description String?
   type        PackageType // CONTRACTOR or PROPERTY_MANAGER
-  
+
   // Pricing
-  basePrice             Float   // Monthly base price for one user
-  additionalUserPrice   Float   // Price per additional user (contractors) or employee (PM)
-  additionalTenantPrice Float?  // Only for Property Managers
-  
+  basePrice             Float // Monthly base price for one user
+  additionalUserPrice   Float // Price per additional user (contractors) or employee (PM)
+  additionalTenantPrice Float? // Only for Property Managers
+
   // Feature access
   hasQuotations        Boolean @default(false)
   hasInvoices          Boolean @default(false)
@@ -2714,16 +2792,17 @@ model Package {
   hasMessages          Boolean @default(false)
   hasAIAgent           Boolean @default(false)
   hasAIInsights        Boolean @default(false)
-  
+
   // Trial period (in days, 0 means no trial)
   trialDays Int @default(0)
-  
+
   // Status
   isActive Boolean @default(true)
-  
+
   // Relations
-  subscriptions Subscription[]
-  
+  subscriptions             Subscription[]
+  contractorPackageRequests ContractorPackageRequest[]
+
   @@index([type])
   @@index([isActive])
 }
@@ -2733,44 +2812,45 @@ model Subscription {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // User/Company
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   // Package
   packageId Int
   package   Package @relation(fields: [packageId], references: [id])
-  
+
   // Status
-  status          SubscriptionStatus
-  startDate       DateTime
-  endDate         DateTime? // Null means ongoing
-  trialEndsAt     DateTime? // When trial period ends
-  cancelledAt     DateTime?
+  status             SubscriptionStatus
+  startDate          DateTime
+  endDate            DateTime? // Null means ongoing
+  trialEndsAt        DateTime? // When trial period ends
+  cancelledAt        DateTime?
   cancellationReason String?
-  
+
   // User limits
-  includedUsers      Int   @default(1) // Base users included
-  additionalUsers    Int   @default(0) // Additional users purchased
-  maxUsers           Int // Total users allowed (includedUsers + additionalUsers)
-  currentUsers       Int   @default(1) // Current active users
-  
+  includedUsers   Int @default(1) // Base users included
+  additionalUsers Int @default(0) // Additional users purchased
+  maxUsers        Int // Total users allowed (includedUsers + additionalUsers)
+  currentUsers    Int @default(1) // Current active users
+
   // Property Manager specific
   additionalTenants     Int? @default(0)
   additionalContractors Int? @default(0)
-  
+
   // Payment tracking
-  nextBillingDate DateTime?
-  lastPaymentDate DateTime?
-  isPaymentOverdue Boolean @default(false)
-  
+  nextBillingDate  DateTime?
+  lastPaymentDate  DateTime?
+  isPaymentOverdue Boolean   @default(false)
+
   // Admin notes
   notes String?
-  
+
   // Relations
-  payments Payment[]
-  
+  payments                             Payment[]
+  createdFromContractorPackageRequests ContractorPackageRequest[]
+
   @@index([userId])
   @@index([packageId])
   @@index([status])
@@ -2782,40 +2862,40 @@ model Payment {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Subscription
   subscriptionId Int
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  
+
   // Payment details
-  amount            Float
-  currency          String         @default("ZAR")
-  status            PaymentStatus
-  method            PaymentMethod
-  
+  amount   Float
+  currency String        @default("ZAR")
+  status   PaymentStatus
+  method   PaymentMethod
+
   // Gateway details
-  gatewayReference  String? // Payment ID from gateway
-  gatewayResponse   String? // JSON response from gateway
-  
+  gatewayReference String? // Payment ID from gateway
+  gatewayResponse  String? // JSON response from gateway
+
   // Billing period
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
-  
+
   // Card details (last 4 digits only for security)
-  cardLast4         String?
-  cardBrand         String?
-  
+  cardLast4 String?
+  cardBrand String?
+
   // Status tracking
-  paidAt            DateTime?
-  failedAt          DateTime?
-  failureReason     String?
-  refundedAt        DateTime?
-  refundReason      String?
-  
+  paidAt        DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  refundedAt    DateTime?
+  refundReason  String?
+
   // Invoice
-  invoiceNumber     String?
-  invoiceUrl        String?
-  
+  invoiceNumber String?
+  invoiceUrl    String?
+
   @@index([subscriptionId])
   @@index([status])
   @@index([createdAt])
@@ -2826,39 +2906,39 @@ model PendingRegistration {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // User details
-  email         String
-  firstName     String
-  lastName      String
-  phone         String
-  companyName   String?
-  
+  email       String
+  firstName   String
+  lastName    String
+  phone       String
+  companyName String?
+
   // Account type
-  accountType   PackageType // CONTRACTOR or PROPERTY_MANAGER
-  
+  accountType PackageType // CONTRACTOR or PROPERTY_MANAGER
+
   // Selected package
-  packageId     Int
-  
+  packageId Int
+
   // Additional details
-  additionalUsers      Int @default(0)
-  additionalTenants    Int @default(0)
+  additionalUsers       Int @default(0)
+  additionalTenants     Int @default(0)
   additionalContractors Int @default(0)
-  
+
   // Payment
-  hasPaid       Boolean @default(false)
-  paymentId     String?
-  
+  hasPaid   Boolean @default(false)
+  paymentId String?
+
   // Status
-  isApproved    Boolean @default(false)
-  approvedAt    DateTime?
-  approvedById  Int?
-  rejectedAt    DateTime?
+  isApproved      Boolean   @default(false)
+  approvedAt      DateTime?
+  approvedById    Int?
+  rejectedAt      DateTime?
   rejectionReason String?
-  
+
   // Created user ID (after approval)
   createdUserId Int?
-  
+
   @@index([email])
   @@index([isApproved])
   @@index([hasPaid])

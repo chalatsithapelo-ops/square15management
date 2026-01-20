@@ -26,7 +26,7 @@ export const submitTenantFeedback = baseProcedure
     if (user.role !== "CUSTOMER") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only tenants can submit complaints and complements.",
+        message: "Only tenants can submit complaints and compliments.",
       });
     }
 
@@ -72,7 +72,7 @@ export const getMyTenantFeedback = baseProcedure
     if (user.role !== "CUSTOMER") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only tenants can view their complaints and complements.",
+        message: "Only tenants can view their complaints and compliments.",
       });
     }
 

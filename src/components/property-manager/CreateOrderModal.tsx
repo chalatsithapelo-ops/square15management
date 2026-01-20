@@ -4,6 +4,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
 import { X, UserPlus } from "lucide-react";
+import { OTHER_SERVICE_TYPE_VALUE, resolveServiceType } from "~/utils/serviceTypeOther";
 
 interface CreateOrderModalProps {
   isOpen: boolean;
@@ -45,12 +46,23 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
     externalContractorEmail: "",
     externalContractorName: "",
     serviceType: "",
+    otherServiceType: "",
     callOutFee: 0,
     labourRate: 0,
     totalMaterialBudget: 0,
     numLabourersNeeded: 0,
     totalLabourCostBudget: 0,
   });
+
+  const serviceTypeOptions = [
+    "PLUMBING",
+    "ELECTRICAL",
+    "HVAC",
+    "CARPENTRY",
+    "PAINTING",
+    "ROOFING",
+    "GENERAL_MAINTENANCE",
+  ] as const;
 
   // Fetch contractors
   const contractorsQuery = useQuery({
@@ -102,6 +114,7 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
           externalContractorEmail: "",
           externalContractorName: "",
           serviceType: "",
+          otherServiceType: "",
           callOutFee: 0,
           labourRate: 0,
           totalMaterialBudget: 0,
@@ -115,12 +128,10 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
         setSelectedBuilding("");
         onClose();
       },
-      onError: (error) => {
+      onError: (error: any) => {
         console.error("❌ Order creation error:", error);
         console.error("Error details:", {
           message: error.message,
-          stack: error.stack,
-          cause: error.cause,
         });
         toast.error(error.message || "Failed to create order.");
       },
@@ -188,6 +199,8 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
 
     console.log("✅ All validations passed");
 
+    const resolvedServiceType = resolveServiceType(formData.serviceType, formData.otherServiceType);
+
     // Generate scope of work text from line items if using that format
     const scopeOfWorkText = scopeFormat === "lineItems" 
       ? scopeLineItems.map((item, idx) => 
@@ -208,6 +221,7 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
       totalAmount: formData.totalAmount,
       notes: formData.notes || undefined,
       attachments: materials.length > 0 ? materials.map(m => JSON.stringify(m)) : undefined,
+      serviceType: resolvedServiceType || undefined,
     };
 
     console.log("📦 Creating order with data:", orderData);
@@ -500,19 +514,35 @@ export function CreateOrderModal({ isOpen, onClose }: CreateOrderModalProps) {
               <select
                 value={formData.serviceType}
                 onChange={(e) =>
-                  setFormData({ ...formData, serviceType: e.target.value })
+                  setFormData({
+                    ...formData,
+                    serviceType: e.target.value,
+                    otherServiceType: e.target.value === OTHER_SERVICE_TYPE_VALUE ? formData.otherServiceType : "",
+                  })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
               >
                 <option value="">Select Service Type</option>
-                <option value="PLUMBING">Plumbing</option>
-                <option value="ELECTRICAL">Electrical</option>
-                <option value="HVAC">HVAC</option>
-                <option value="CARPENTRY">Carpentry</option>
-                <option value="PAINTING">Painting</option>
-                <option value="ROOFING">Roofing</option>
-                <option value="GENERAL_MAINTENANCE">General Maintenance</option>
+                {serviceTypeOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value
+                      .replace(/_/g, " ")
+                      .toLowerCase()
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </option>
+                ))}
+                <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
               </select>
+              {formData.serviceType === OTHER_SERVICE_TYPE_VALUE && (
+                <input
+                  type="text"
+                  value={formData.otherServiceType}
+                  onChange={(e) => setFormData({ ...formData, otherServiceType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Specify service type"
+                  required
+                />
+              )}
               <textarea
                 placeholder="Description of work *"
                 value={formData.description}

@@ -12,16 +12,20 @@ export const getAssets = baseProcedure
   )
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
-    
-    // Contractors see only their company assets (when owner field is added)
-    // For now, all users with VIEW_ASSETS permission see all assets
-    // TODO: Add ownerId field to Asset model for proper data isolation
+
+    // Data isolation:
+    // - Contractors only see assets they created
+    // - Other roles keep existing permission-based access
     if (user.role !== "CONTRACTOR") {
       requirePermission(user, PERMISSIONS.VIEW_ASSETS);
     }
 
+    const where: any = {};
+    if (user.role === "CONTRACTOR") where.createdById = user.id;
+    if (input.category) where.category = input.category;
+
     const assets = await db.asset.findMany({
-      where: input.category ? { category: input.category } : undefined,
+      where,
       orderBy: {
         createdAt: "desc",
       },

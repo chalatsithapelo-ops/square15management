@@ -4,12 +4,25 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
 import { X, UserPlus } from "lucide-react";
+import {
+  OTHER_SERVICE_TYPE_VALUE,
+  resolveServiceType,
+  splitServiceType,
+} from "~/utils/serviceTypeOther";
 
 interface EditOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: any | null;
 }
+
+type MaterialItem = {
+  name: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  supplier: string;
+};
 
 export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) {
   const { token } = useAuthStore();
@@ -28,6 +41,7 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
     contactPerson: "",
     address: "",
     serviceType: "",
+    otherServiceType: "",
     description: "",
     callOutFee: 0,
     labourRate: 0,
@@ -36,6 +50,16 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
     totalLabourCostBudget: 0,
     notes: "",
   });
+
+  const serviceTypeOptions = [
+    "PLUMBING",
+    "ELECTRICAL",
+    "HVAC",
+    "CARPENTRY",
+    "PAINTING",
+    "ROOFING",
+    "GENERAL_MAINTENANCE",
+  ] as const;
 
   // Fetch contractors
   const contractorsQuery = useQuery({
@@ -52,19 +76,12 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
   const contractors = (contractorsQuery.data as any)?.contractors || [];
   const buildings = buildingsQuery.data || [];
 
-  const [materials, setMaterials] = useState<
-    Array<{
-      name: string;
-      description: string;
-      quantity: number;
-      unitPrice: number;
-      supplier: string;
-    }>
-  >([]);
+  const [materials, setMaterials] = useState<MaterialItem[]>([]);
 
   // Populate form when order is loaded
   useEffect(() => {
     if (order) {
+      const split = splitServiceType(String(order.serviceType || ""), serviceTypeOptions);
       setFormData({
         orderNumber: order.orderNumber || "",
         companyName: order.companyName || "",
@@ -72,7 +89,8 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
         companyPhone: order.companyPhone || "",
         contactPerson: order.contactPerson || "",
         address: order.buildingAddress || order.address || "",
-        serviceType: order.serviceType || "",
+        serviceType: split.serviceType,
+        otherServiceType: split.otherServiceType,
         description: order.description || "",
         callOutFee: order.callOutFee || 0,
         labourRate: order.labourRate || 0,
@@ -111,6 +129,7 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
           contactPerson: "",
           address: "",
           serviceType: "",
+          otherServiceType: "",
           description: "",
           callOutFee: 0,
           labourRate: 0,
@@ -146,13 +165,17 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
       return;
     }
 
+    const resolvedServiceType = resolveServiceType(formData.serviceType, formData.otherServiceType);
+    const { otherServiceType, ...rest } = formData as any;
+
     updateOrderMutation.mutate({
       token,
       orderId: order.id,
-      ...formData,
+      ...rest,
+      serviceType: resolvedServiceType,
       materials: materials.length > 0 ? materials : undefined,
       status: "SUBMITTED", // Submit when editing
-    });
+    } as any);
   };
 
   const handleAddMaterial = () => {
@@ -174,14 +197,14 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
 
   const handleMaterialChange = (
     index: number,
-    field: string,
+    field: keyof MaterialItem,
     value: any
   ) => {
     const updatedMaterials = [...materials];
     updatedMaterials[index] = {
-      ...updatedMaterials[index],
+      ...updatedMaterials[index]!,
       [field]: value,
-    };
+    } as MaterialItem;
     setMaterials(updatedMaterials);
   };
 
@@ -345,19 +368,35 @@ export function EditOrderModal({ isOpen, onClose, order }: EditOrderModalProps) 
               <select
                 value={formData.serviceType}
                 onChange={(e) =>
-                  setFormData({ ...formData, serviceType: e.target.value })
+                  setFormData({
+                    ...formData,
+                    serviceType: e.target.value,
+                    otherServiceType: e.target.value === OTHER_SERVICE_TYPE_VALUE ? formData.otherServiceType : "",
+                  })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
               >
                 <option value="">Select Service Type</option>
-                <option value="PLUMBING">Plumbing</option>
-                <option value="ELECTRICAL">Electrical</option>
-                <option value="HVAC">HVAC</option>
-                <option value="CARPENTRY">Carpentry</option>
-                <option value="PAINTING">Painting</option>
-                <option value="ROOFING">Roofing</option>
-                <option value="GENERAL_MAINTENANCE">General Maintenance</option>
+                {serviceTypeOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value
+                      .replace(/_/g, " ")
+                      .toLowerCase()
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </option>
+                ))}
+                <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
               </select>
+              {formData.serviceType === OTHER_SERVICE_TYPE_VALUE && (
+                <input
+                  type="text"
+                  value={formData.otherServiceType}
+                  onChange={(e) => setFormData({ ...formData, otherServiceType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Specify service type"
+                  required
+                />
+              )}
               <textarea
                 placeholder="Description of work *"
                 value={formData.description}

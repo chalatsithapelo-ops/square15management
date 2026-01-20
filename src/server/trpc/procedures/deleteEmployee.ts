@@ -35,12 +35,25 @@ export const deleteEmployee = baseProcedure
     // Verify the employee exists
     const employee = await db.user.findUnique({
       where: { id: input.employeeId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employerId: true,
+      },
     });
 
     if (!employee) {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Employee not found",
+      });
+    }
+
+    if (user.role === "CONTRACTOR" && employee.employerId !== user.id) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You can only delete employees in your team",
       });
     }
 

@@ -24,6 +24,7 @@ export const createLiability = baseProcedure
 
     const liability = await db.liability.create({
       data: {
+        createdById: user.id,
         name: input.name,
         description: input.description || null,
         category: input.category,

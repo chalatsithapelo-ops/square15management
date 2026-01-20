@@ -9,6 +9,7 @@ const updatePropertyManagerOrderSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   scopeOfWork: z.string().optional(),
+  serviceType: z.string().optional(),
   buildingName: z.string().optional(),
   buildingAddress: z.string().optional(),
   totalAmount: z.number().optional(),
@@ -40,6 +41,7 @@ export const updatePropertyManagerOrder = baseProcedure
       if (input.title) updateData.title = input.title;
       if (input.description) updateData.description = input.description;
       if (input.scopeOfWork) updateData.scopeOfWork = input.scopeOfWork;
+      if (input.serviceType !== undefined) updateData.serviceType = input.serviceType;
       if (input.buildingName !== undefined) updateData.buildingName = input.buildingName;
       if (input.buildingAddress) updateData.buildingAddress = input.buildingAddress;
       if (input.totalAmount !== undefined) updateData.totalAmount = input.totalAmount;

@@ -107,7 +107,7 @@ function PropertyManagerFeedbackPage() {
 
           <h1 className="mt-3 text-3xl font-bold text-gray-900 flex items-center">
             <MessageSquare className="h-8 w-8 mr-3 text-teal-600" />
-            Complaints &amp; Complements
+            Complaints &amp; Compliments
           </h1>
           <p className="text-gray-600 mt-2">
             Review tenant feedback, update status, and track trends.

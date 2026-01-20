@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 import { useMemo, useState } from "react";
+import {
+  OTHER_SERVICE_TYPE_VALUE,
+  resolveServiceType,
+  splitServiceType,
+} from "~/utils/serviceTypeOther";
 
 export const Route = createFileRoute("/admin/contractor-management/")({
   beforeLoad: ({ location }) => {
@@ -38,6 +43,9 @@ const createContractorSchema = z
   .object({
     propertyManagerId: z.number().int().positive().optional(),
 
+    // Package selection (string: 'none' or package id)
+    packageId: z.string().optional(),
+
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     email: z.string().email("Valid email is required"),
@@ -47,6 +55,7 @@ const createContractorSchema = z
     registrationNumber: z.string().optional(),
 
     serviceType: z.string().min(1, "Service type is required"),
+    otherServiceType: z.string().optional(),
     serviceCategory: z.string().optional(),
     specializations: z.string().optional(),
 
@@ -65,6 +74,17 @@ const createContractorSchema = z
     confirmPassword: z.string().optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.serviceType === OTHER_SERVICE_TYPE_VALUE) {
+      const other = (v.otherServiceType || "").trim();
+      if (!other) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please specify the service type",
+          path: ["otherServiceType"],
+        });
+      }
+    }
+
     if (v.password && v.password.length < 6) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -109,8 +129,19 @@ function ContractorManagementAdminPage() {
     resolver: zodResolver(createContractorSchema),
     defaultValues: {
       serviceType: "GENERAL_MAINTENANCE",
+      otherServiceType: "",
+      packageId: "none",
     },
   });
+
+  const packagesQuery = useQuery({
+    ...trpc.getPackages.queryOptions({
+      token: token!,
+    }),
+    enabled: !!token && isAdminUser,
+  });
+
+  const contractorPackages = (packagesQuery.data ?? []).filter((p: any) => p.type === "CONTRACTOR");
 
   const createContractorMutation = useMutation(
     trpc.createContractor.mutationOptions({
@@ -135,7 +166,7 @@ function ContractorManagementAdminPage() {
           queryKey: trpc.getContractors.queryKey(),
         });
         setEditingContractor(null);
-        form.reset({ serviceType: "GENERAL_MAINTENANCE" });
+        form.reset({ serviceType: "GENERAL_MAINTENANCE", otherServiceType: "", packageId: "none" });
       },
       onError: (err: any) => {
         toast.error(err?.message ?? "Failed to update contractor");
@@ -175,7 +206,7 @@ function ContractorManagementAdminPage() {
     ...trpc.getContractors.queryOptions({
       token: token!,
       propertyManagerId: selectedPropertyManagerId,
-      serviceType: serviceTypeFilter || undefined,
+      serviceType: serviceTypeFilter && serviceTypeFilter !== OTHER_SERVICE_TYPE_VALUE ? serviceTypeFilter : undefined,
       status: statusFilter || undefined,
       searchQuery: searchQuery || undefined,
     }),
@@ -190,7 +221,11 @@ function ContractorManagementAdminPage() {
       ? contractorsQuery.error
       : null);
 
-  const contractors = contractorsQuery.data?.contractors ?? [];
+  const contractors = useMemo(() => {
+    const list = contractorsQuery.data?.contractors ?? [];
+    if (serviceTypeFilter !== OTHER_SERVICE_TYPE_VALUE) return list;
+    return list.filter((c: any) => !serviceTypes.includes(String(c.serviceType)));
+  }, [contractorsQuery.data?.contractors, serviceTypeFilter]);
 
   if (!isAdminUser) {
     return <AccessDenied message="You do not have permission to access Contractor Management." />;
@@ -203,10 +238,31 @@ function ContractorManagementAdminPage() {
   const onSubmit: SubmitHandler<CreateContractorValues> = async (values) => {
     if (!token) return;
 
+    const resolvedServiceType = resolveServiceType(values.serviceType, values.otherServiceType);
+
     const isEditing = !!editingContractor?.id;
     if (!isEditing && !values.password) {
       form.setError("password", { type: "manual", message: "Password is required" });
       return;
+    }
+
+    let packageId: number | null = null;
+    if (!isEditing) {
+      if (!values.packageId) {
+        form.setError("packageId", { type: "manual", message: "Package selection is required (choose None if applicable)" });
+        return;
+      }
+
+      if (values.packageId === "none") {
+        packageId = null;
+      } else {
+        const parsed = Number(values.packageId);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          form.setError("packageId", { type: "manual", message: "Please select a valid package (or None)" });
+          return;
+        }
+        packageId = parsed;
+      }
     }
 
     const specializations = (values.specializations || "")
@@ -225,7 +281,7 @@ function ContractorManagementAdminPage() {
         phone: values.phone,
         companyName: values.companyName,
         registrationNumber: values.registrationNumber,
-        serviceType: values.serviceType,
+        serviceType: resolvedServiceType,
         serviceCategory: values.serviceCategory,
         specializations,
         hourlyRate: values.hourlyRate,
@@ -244,13 +300,14 @@ function ContractorManagementAdminPage() {
     await createContractorMutation.mutateAsync({
       token,
       propertyManagerId: values.propertyManagerId,
+      packageId,
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
       phone: values.phone,
       companyName: values.companyName,
       registrationNumber: values.registrationNumber,
-      serviceType: values.serviceType,
+      serviceType: resolvedServiceType,
       serviceCategory: values.serviceCategory,
       specializations,
       hourlyRate: values.hourlyRate,
@@ -346,6 +403,33 @@ function ContractorManagementAdminPage() {
             </section>
 
             <section>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Package</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subscription package</label>
+                  <select
+                    disabled={!!editingContractor}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
+                    {...form.register("packageId")}
+                  >
+                    <option value="none">None</option>
+                    {contractorPackages.map((pkg: any) => (
+                      <option key={pkg.id} value={String(pkg.id)}>
+                        {pkg.displayName} (R{pkg.basePrice}/mo)
+                      </option>
+                    ))}
+                  </select>
+                  {editingContractor && (
+                    <p className="text-xs text-gray-500 mt-1">Package changes are managed in Subscription Management.</p>
+                  )}
+                  {form.formState.errors.packageId && (
+                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.packageId.message}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section>
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Personal Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -395,11 +479,28 @@ function ContractorManagementAdminPage() {
                         {t.replace(/_/g, " ")}
                       </option>
                     ))}
+                    <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
                   </select>
                   {form.formState.errors.serviceType && (
                     <p className="text-sm text-red-600 mt-1">{form.formState.errors.serviceType.message}</p>
                   )}
                 </div>
+
+                {form.watch("serviceType") === OTHER_SERVICE_TYPE_VALUE && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Specify service type</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      {...form.register("otherServiceType")}
+                      placeholder="Enter service type"
+                    />
+                    {form.formState.errors.otherServiceType && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {form.formState.errors.otherServiceType.message}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Service category (optional)</label>
@@ -503,7 +604,7 @@ function ContractorManagementAdminPage() {
                 type="button"
                 onClick={() => {
                   setEditingContractor(null);
-                  form.reset({ serviceType: "GENERAL_MAINTENANCE" });
+                  form.reset({ serviceType: "GENERAL_MAINTENANCE", packageId: "none" });
                 }}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
@@ -580,6 +681,7 @@ function ContractorManagementAdminPage() {
                       {t.replace(/_/g, " ")}
                     </option>
                   ))}
+                  <option value={OTHER_SERVICE_TYPE_VALUE}>Other</option>
                 </select>
               </div>
 
@@ -677,15 +779,18 @@ function ContractorManagementAdminPage() {
                               className="text-blue-600 hover:underline"
                               onClick={() => {
                                 setEditingContractor(c);
+                                const split = splitServiceType(String(c.serviceType || ""), serviceTypes);
                                 form.reset({
                                   propertyManagerId: c.propertyManager?.id ?? undefined,
+                                  packageId: "none",
                                   firstName: c.firstName,
                                   lastName: c.lastName,
                                   email: c.email,
                                   phone: c.phone ?? "",
                                   companyName: c.companyName ?? "",
                                   registrationNumber: c.registrationNumber ?? "",
-                                  serviceType: c.serviceType,
+                                  serviceType: split.serviceType,
+                                  otherServiceType: split.otherServiceType,
                                   serviceCategory: c.serviceCategory ?? "",
                                   specializations: (c.specializations ?? []).join(", "),
                                   hourlyRate: c.hourlyRate ?? undefined,

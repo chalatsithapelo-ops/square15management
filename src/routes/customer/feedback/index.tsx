@@ -130,7 +130,7 @@ function TenantFeedbackPage() {
             </div>
             <h1 className="mt-3 text-3xl font-bold text-gray-900 flex items-center">
               <MessageSquare className="h-8 w-8 mr-3 text-purple-600" />
-              Complaints &amp; Complements
+              Complaints &amp; Compliments
             </h1>
             <p className="text-gray-600 mt-2">
               Send feedback to your property manager, categorized for better tracking.
@@ -170,7 +170,7 @@ function TenantFeedbackPage() {
                   {...form.register("type")}
                 >
                   <option value="COMPLAINT">Complaint</option>
-                  <option value="COMPLEMENT">Complement</option>
+                  <option value="COMPLEMENT">Compliment</option>
                 </select>
               </div>
               <div>
@@ -198,7 +198,7 @@ function TenantFeedbackPage() {
               <textarea
                 rows={5}
                 className="mt-1 w-full rounded-lg border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                placeholder="Describe your complaint or share your complement..."
+                placeholder="Describe your complaint or share your compliment..."
                 {...form.register("message")}
               />
               {form.formState.errors.message && (

@@ -8,6 +8,8 @@ import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoA
 
 const createPropertyManagerSchema = z.object({
   token: z.string(),
+  // Optional subscription package assignment (use null for None)
+  packageId: z.number().int().positive().nullable().optional().default(null),
   // Account
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -96,9 +98,56 @@ export const createPropertyManager = baseProcedure
       },
     });
 
+    let subscription: { id: number } | null = null;
+    if (input.packageId != null) {
+      const packageDetails = await db.package.findUnique({
+        where: { id: input.packageId },
+      });
+
+      if (!packageDetails) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Package not found",
+        });
+      }
+
+      if (packageDetails.type !== "PROPERTY_MANAGER") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Selected package is not a property manager package",
+        });
+      }
+
+      const startDate = new Date();
+      const trialEndsAt =
+        packageDetails.trialDays > 0
+          ? new Date(Date.now() + packageDetails.trialDays * 24 * 60 * 60 * 1000)
+          : null;
+      const nextBillingDate = trialEndsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      subscription = await db.subscription.create({
+        data: {
+          userId: created.id,
+          packageId: packageDetails.id,
+          status: packageDetails.trialDays > 0 ? "TRIAL" : "ACTIVE",
+          startDate,
+          trialEndsAt,
+          includedUsers: 1,
+          additionalUsers: 0,
+          maxUsers: 1,
+          currentUsers: 1,
+          additionalTenants: 0,
+          additionalContractors: 0,
+          nextBillingDate,
+        },
+        select: { id: true },
+      });
+    }
+
     return {
       success: true,
       propertyManager: created,
+      subscriptionId: subscription?.id ?? null,
       message: "Property Manager created successfully",
     };
   });

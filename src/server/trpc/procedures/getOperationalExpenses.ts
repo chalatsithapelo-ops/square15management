@@ -34,14 +34,18 @@ export const getOperationalExpenses = baseProcedure
       where.isApproved = input.isApproved;
     }
 
-    // Filter at database level based on user role
-    // Admin users only see expenses created by Admin users
-    // Contractor users only see expenses created by Contractor users
-    where.createdBy = {
-      role: {
-        contains: user.role.includes("ADMIN") ? "ADMIN" : "CONTRACTOR",
-      },
-    };
+    // Data isolation:
+    // - Contractors only see their own operational expenses
+    // - Admins keep existing role-based filtering
+    if (user.role === "CONTRACTOR") {
+      where.createdById = user.id;
+    } else {
+      where.createdBy = {
+        role: {
+          contains: user.role.includes("ADMIN") ? "ADMIN" : "CONTRACTOR",
+        },
+      };
+    }
 
     const expenses = await db.operationalExpense.findMany({
       where,

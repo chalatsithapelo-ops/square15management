@@ -25,6 +25,16 @@ export const updateLiability = baseProcedure
     const user = await authenticateUser(input.token);
     requirePermission(user, PERMISSIONS.MANAGE_LIABILITIES);
 
+    if (user.role === "CONTRACTOR") {
+      const liability = await db.liability.findFirst({
+        where: { id: input.liabilityId, createdById: user.id },
+        select: { id: true },
+      });
+      if (!liability) {
+        throw new Error("Liability not found");
+      }
+    }
+
     const updateData: any = {};
     
     if (input.name !== undefined) updateData.name = input.name;
