@@ -254,6 +254,8 @@ import { getTenantDetails } from "~/server/trpc/routers/property-manager/getTena
 import { getTenantMaintenanceRequests } from "~/server/trpc/routers/property-manager/getTenantMaintenanceRequests";
 import { recordRentPayment } from "~/server/trpc/routers/property-manager/recordRentPayment";
 import { getTenantRentHistory } from "~/server/trpc/routers/property-manager/getTenantRentHistory";
+import { getTenantRentInvoiceTracking } from "~/server/trpc/routers/property-manager/getTenantRentInvoiceTracking";
+import { updateRentPayment } from "~/server/trpc/routers/property-manager/updateRentPayment";
 import { recordUtilityReading } from "~/server/trpc/routers/property-manager/recordUtilityReading";
 import { getTenantUtilityHistory } from "~/server/trpc/routers/property-manager/getTenantUtilityHistory";
 
@@ -554,6 +556,8 @@ export const appRouter = createTRPCRouter({
   getTenantMaintenanceRequests,
   recordRentPayment,
   getTenantRentHistory,
+  getTenantRentInvoiceTracking,
+  updateRentPayment,
   recordUtilityReading,
   getTenantUtilityHistory,
   
