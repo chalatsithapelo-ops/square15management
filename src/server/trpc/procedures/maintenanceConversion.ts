@@ -202,14 +202,30 @@ export const convertMaintenanceToOrder = baseProcedure
       });
 
       // Notify contractor
-      await createNotification({
-        recipientId: contractor.userId,
-        recipientRole: "CONTRACTOR",
-        message: `You have been assigned a new order ${orderNumber}: ${maintenanceRequest.title}`,
-        type: "NEW_ORDER_ASSIGNED",
-        relatedEntityId: order.id,
-        relatedEntityType: "ORDER",
-      });
+      try {
+        const contractorPortalUser = contractor.portalAccessEnabled
+          ? await db.user.findFirst({
+              where: {
+                email: contractor.email,
+                role: { in: ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"] },
+              },
+              select: { id: true },
+            })
+          : null;
+
+        if (contractorPortalUser?.id) {
+          await createNotification({
+            recipientId: contractorPortalUser.id,
+            recipientRole: "CONTRACTOR",
+            message: `You have been assigned a new order ${orderNumber}: ${maintenanceRequest.title}`,
+            type: "NEW_ORDER_ASSIGNED",
+            relatedEntityId: order.id,
+            relatedEntityType: "ORDER",
+          });
+        }
+      } catch (notifyError) {
+        console.error("Failed to notify contractor about new order:", notifyError);
+      }
 
       return order;
     } catch (error) {

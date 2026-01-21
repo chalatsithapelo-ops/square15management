@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import * as z from "zod";
 import { createNotification } from "~/server/utils/notifications";
+import { sendMaintenanceRequestToContractorEmail } from "~/server/utils/email";
 
 const submitMaintenanceRequestSchema = z.object({
   token: z.string(),
@@ -56,6 +57,33 @@ export const submitMaintenanceRequest = baseProcedure
       }
       const requestNumber = `MR-${year}${month}-${String(sequence).padStart(4, "0")}`;
 
+      const contractor =
+        input.recipientType === "CONTRACTOR" && input.contractorId
+          ? await db.contractor.findUnique({
+              where: { id: input.contractorId },
+              select: {
+                id: true,
+                email: true,
+                phone: true,
+                companyName: true,
+                firstName: true,
+                lastName: true,
+                portalAccessEnabled: true,
+              },
+            })
+          : null;
+
+      const contractorPortalUser =
+        contractor?.portalAccessEnabled && contractor?.email
+          ? await db.user.findFirst({
+              where: {
+                email: contractor.email,
+                role: { in: ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"] },
+              },
+              select: { id: true },
+            })
+          : null;
+
       // Create maintenance request
       const maintenanceRequest = await db.maintenanceRequest.create({
         data: {
@@ -70,6 +98,12 @@ export const submitMaintenanceRequest = baseProcedure
           category: input.category,
           recipientType: input.recipientType,
           recipientId: input.contractorId || undefined,
+          contractorCompanyName: contractor?.companyName || undefined,
+          contractorEmail: contractor?.email || undefined,
+          contractorPhone: contractor?.phone || undefined,
+          contractorContactPerson: contractor
+            ? `${contractor.firstName} ${contractor.lastName}`.trim()
+            : undefined,
           photos: input.photos || [],
           status: "SUBMITTED",
           submittedDate: new Date(),
@@ -92,21 +126,37 @@ export const submitMaintenanceRequest = baseProcedure
           relatedEntityType: "MAINTENANCE_REQUEST",
         });
       } else if (input.recipientType === "CONTRACTOR" && input.contractorId) {
-        // Notify contractor
-        const contractor = await db.contractor.findUnique({
-          where: { id: input.contractorId },
-          include: { user: true },
-        });
-
-        if (contractor?.user?.id) {
+        // Notify contractor (portal user if available, otherwise email)
+        if (contractorPortalUser?.id) {
           await createNotification({
-            recipientId: contractor.user.id,
+            recipientId: contractorPortalUser.id,
             recipientRole: "CONTRACTOR",
             message: `New maintenance request from ${customer.firstName} ${customer.lastName}: ${input.title}`,
             type: "MAINTENANCE_REQUEST_SUBMITTED",
             relatedEntityId: maintenanceRequest.id,
             relatedEntityType: "MAINTENANCE_REQUEST",
           });
+        } else if (contractor?.email) {
+          try {
+            await sendMaintenanceRequestToContractorEmail({
+              contractorEmail: contractor.email,
+              contractorName: `${contractor.firstName} ${contractor.lastName}`.trim() || contractor.email,
+              requestNumber: maintenanceRequest.requestNumber,
+              requestTitle: maintenanceRequest.title,
+              requestDescription: maintenanceRequest.description,
+              urgency: maintenanceRequest.urgency,
+              category: maintenanceRequest.category,
+              buildingName: maintenanceRequest.buildingName ?? null,
+              unitNumber: maintenanceRequest.unitNumber ?? null,
+              address: maintenanceRequest.address,
+              photos: maintenanceRequest.photos,
+              propertyManagerName: `${customer.propertyManager?.firstName || ""} ${customer.propertyManager?.lastName || ""}`.trim(),
+              propertyManagerEmail: customer.propertyManager?.email,
+              userId: customer.propertyManagerId,
+            });
+          } catch (emailError) {
+            console.error("Failed to send contractor maintenance email:", emailError);
+          }
         }
       }
 

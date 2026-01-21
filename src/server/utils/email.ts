@@ -1573,3 +1573,109 @@ export async function sendMaintenanceRequestStatusEmail(params: {
 
   console.log(`[sendMaintenanceRequestStatusEmail] Maintenance update sent to ${params.customerEmail} for ${params.requestNumber}`);
 }
+
+/**
+ * Send maintenance request email to a contractor (for contractors without portal access)
+ */
+export async function sendMaintenanceRequestToContractorEmail(params: {
+  contractorEmail: string;
+  contractorName: string;
+  requestNumber: string;
+  requestTitle: string;
+  requestDescription: string;
+  urgency: string;
+  category: string;
+  buildingName?: string | null;
+  unitNumber?: string | null;
+  address: string;
+  photos?: string[];
+  propertyManagerName?: string;
+  propertyManagerEmail?: string;
+  userId?: number; // Optional: sender's user ID for personal email
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+  const portalLink = `${getBaseUrl()}/contractor/login`;
+
+  const subject = `New Maintenance Request: ${params.requestNumber} - ${params.requestTitle}`;
+
+  const photosHtml = (params.photos || []).length
+    ? `
+      <div class="info-box">
+        <p style="margin: 0 0 10px 0;"><strong>Photos:</strong></p>
+        <ul style="margin: 0; padding-left: 18px;">
+          ${(params.photos || [])
+            .map((url) => `<li style="margin: 6px 0;"><a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></li>`)
+            .join("")}
+        </ul>
+      </div>
+    `
+    : "";
+
+  const pmContactHtml = params.propertyManagerEmail
+    ? `<p style="margin: 0;"><strong>Property Manager Contact:</strong> ${params.propertyManagerName || ""} ${params.propertyManagerEmail}</p>`
+    : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); color: white; padding: 24px; border-radius: 10px 10px 0 0; text-align: center; }
+        .content { background: #f9fafb; padding: 24px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 16px; border-radius: 8px; margin: 18px 0; border-left: 4px solid #1d4ed8; }
+        .cta-button { display: inline-block; background: #1d4ed8; color: white; padding: 12px 22px; text-decoration: none; border-radius: 8px; margin: 16px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🛠️ New Maintenance Request</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9;">Request ${params.requestNumber}</p>
+      </div>
+      <div class="content">
+        <p>Hello <strong>${params.contractorName}</strong>,</p>
+        <p>You have received a new maintenance request.</p>
+
+        <div class="info-box">
+          <p style="margin: 5px 0;"><strong>Title:</strong> ${params.requestTitle}</p>
+          <p style="margin: 5px 0;"><strong>Urgency:</strong> ${params.urgency}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${params.category}</p>
+          ${params.buildingName ? `<p style="margin: 5px 0;"><strong>Building:</strong> ${params.buildingName}</p>` : ""}
+          ${params.unitNumber ? `<p style="margin: 5px 0;"><strong>Unit:</strong> ${params.unitNumber}</p>` : ""}
+          <p style="margin: 5px 0;"><strong>Address:</strong> ${params.address}</p>
+        </div>
+
+        <div class="info-box">
+          <p style="margin: 0 0 10px 0;"><strong>Description</strong></p>
+          <div style="white-space: pre-wrap;">${params.requestDescription}</div>
+        </div>
+
+        ${photosHtml}
+
+        ${pmContactHtml}
+
+        <div style="text-align: center;">
+          <a href="${portalLink}" class="cta-button">Open Contractor Portal →</a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">If you do not have portal access, you can reply to this email to coordinate with the Property Manager.</p>
+      </div>
+      <div class="footer">
+        <p><strong>${companyDetails.companyName}</strong></p>
+        <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+        <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.contractorEmail,
+    subject,
+    html,
+    userId: params.userId,
+  });
+
+  console.log(`[sendMaintenanceRequestToContractorEmail] Sent to ${params.contractorEmail} for ${params.requestNumber}`);
+}
