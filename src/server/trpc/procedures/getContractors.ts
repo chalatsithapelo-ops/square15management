@@ -91,10 +91,11 @@ export const getContractors = baseProcedure
       const contractorEmails = contractors
         .filter(c => c.portalAccessEnabled)
         .map(c => c.email);
-      
-      console.log(`
-📋 Fetching User IDs for ${contractorEmails.length} contractors with portal access`);
-      console.log(`Contractor emails:`, contractorEmails);
+
+      const enableDebugLogs = process.env.CONTRACTORS_DEBUG_LOGS === "1";
+      if (enableDebugLogs) {
+        console.log(`Fetching portal User IDs for ${contractorEmails.length} contractors`);
+      }
       
       const users = await db.user.findMany({
         where: {
@@ -128,21 +129,8 @@ export const getContractors = baseProcedure
         },
       });
 
-      console.log(`Found ${users.length} matching User accounts with CONTRACTOR role`);
-      users.forEach(u => console.log(`  - ${u.email} → User ID: ${u.id}`));
-
       const emailToUserId = new Map(users.map(u => [u.email, u.id]));
       const emailToSubscription = new Map(users.map(u => [u.email, u.subscriptions?.[0] || null]));
-
-      // Log contractors without matching User accounts
-      const contractorsWithoutUsers = contractors
-        .filter(c => c.portalAccessEnabled && !emailToUserId.has(c.email))
-        .map(c => c.email);
-      
-      if (contractorsWithoutUsers.length > 0) {
-        console.warn(`\n⚠️ ${contractorsWithoutUsers.length} contractor(s) have portal access but NO User account:`);
-        contractorsWithoutUsers.forEach(email => console.warn(`  - ${email}`));
-      }
 
       return {
         success: true,

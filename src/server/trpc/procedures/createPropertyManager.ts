@@ -6,10 +6,22 @@ import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
+const packageIdSchema = z.preprocess(
+  (value) => {
+    if (value == null || value === "" || value === "none") return null;
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    }
+    return value;
+  },
+  z.number().int().positive().nullable()
+);
+
 const createPropertyManagerSchema = z.object({
   token: z.string(),
   // Optional subscription package assignment (use null for None)
-  packageId: z.number().int().positive().nullable().optional().default(null),
+  packageId: packageIdSchema.optional().default(null),
   // Account
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
