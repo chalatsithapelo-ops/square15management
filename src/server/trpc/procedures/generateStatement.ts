@@ -8,6 +8,8 @@ import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { minioClient, minioBaseUrl } from "~/server/minio";
 import { authenticateUser, isAdmin, requireAdmin } from "~/server/utils/auth";
+import { sendStatementNotificationEmail } from "~/server/utils/email";
+import { notifyCustomerStatement } from "~/server/utils/notifications";
 
 export const generateStatement = baseProcedure
   .input(
@@ -368,6 +370,35 @@ async function generateStatementInBackground(
         sent_date: new Date(),
       },
     });
+
+    // Notify customer (email + in-app) - best effort
+    try {
+      const periodLabel = `${period_start.toLocaleDateString("en-ZA")} - ${period_end.toLocaleDateString("en-ZA")}`;
+
+      await sendStatementNotificationEmail({
+        customerEmail: client_email,
+        customerName: client_name,
+        statementNumber: statement_number,
+        statementPeriod: periodLabel,
+        totalAmount: total_amount_due,
+      });
+
+      const customerUser = await db.user.findUnique({
+        where: { email: client_email },
+        select: { id: true },
+      });
+
+      if (customerUser) {
+        await notifyCustomerStatement({
+          customerId: customerUser.id,
+          statementNumber: statement_number,
+          statementId,
+          totalDue: total_amount_due,
+        });
+      }
+    } catch (notifyError) {
+      console.error("Failed to send statement notifications:", notifyError);
+    }
   } catch (error) {
     console.error("Error in background statement generation:", error);
     throw error;

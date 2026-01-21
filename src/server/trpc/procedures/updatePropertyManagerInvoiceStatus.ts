@@ -4,6 +4,9 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { notifyAdmins } from "~/server/utils/notifications";
+import { createNotification } from "~/server/utils/notifications";
+import { sendEmail } from "~/server/utils/email";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const updatePropertyManagerInvoiceStatus = baseProcedure
   .input(
@@ -29,7 +32,19 @@ export const updatePropertyManagerInvoiceStatus = baseProcedure
       const invoice = await db.propertyManagerInvoice.findUnique({
         where: { id: input.invoiceId },
         include: {
-          order: true,
+          order: {
+            include: {
+              contractor: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -101,18 +116,27 @@ export const updatePropertyManagerInvoiceStatus = baseProcedure
       // Notify admins
       let notificationType: any = "PM_INVOICE_SENT";
       let message = "";
+      let contractorNotificationType: any = null;
+      let contractorMessage = "";
 
       switch (input.action) {
         case "APPROVE":
           notificationType = "PM_INVOICE_APPROVED";
           message = `Invoice ${invoice.invoiceNumber} has been approved by ${user.firstName} ${user.lastName}`;
+          contractorNotificationType = "PM_INVOICE_APPROVED";
+          contractorMessage = `Your invoice ${invoice.invoiceNumber} was approved by ${user.firstName} ${user.lastName}.`;
           break;
         case "REJECT":
           notificationType = "PM_INVOICE_REJECTED";
           message = `Invoice ${invoice.invoiceNumber} has been rejected by ${user.firstName} ${user.lastName}${input.rejectionReason ? `: ${input.rejectionReason}` : ""}`;
+          contractorNotificationType = "PM_INVOICE_REJECTED";
+          contractorMessage = `Your invoice ${invoice.invoiceNumber} was rejected by ${user.firstName} ${user.lastName}${input.rejectionReason ? `: ${input.rejectionReason}` : ""}.`;
           break;
         case "MARK_PAID":
+          notificationType = "PM_INVOICE_APPROVED";
           message = `Invoice ${invoice.invoiceNumber} has been marked as paid by ${user.firstName} ${user.lastName}`;
+          contractorNotificationType = "PM_INVOICE_APPROVED";
+          contractorMessage = `Your invoice ${invoice.invoiceNumber} was marked as paid by ${user.firstName} ${user.lastName}.`;
           break;
       }
 
@@ -122,6 +146,35 @@ export const updatePropertyManagerInvoiceStatus = baseProcedure
         relatedEntityId: invoice.id,
         relatedEntityType: "PROPERTY_MANAGER_INVOICE",
       });
+
+      // Notify contractor (best-effort)
+      const contractor = invoice.order?.contractor;
+      if (contractor && contractorNotificationType) {
+        await createNotification({
+          recipientId: contractor.id,
+          recipientRole: contractor.role,
+          message: contractorMessage,
+          type: contractorNotificationType,
+          relatedEntityId: invoice.id,
+          relatedEntityType: "PROPERTY_MANAGER_INVOICE",
+        });
+
+        try {
+          const portalLink = `${getBaseUrl()}/contractor/invoices`;
+          await sendEmail({
+            to: contractor.email,
+            subject: `Invoice update: ${invoice.invoiceNumber}`,
+            html: `
+              <p>Hello <strong>${contractor.firstName}</strong>,</p>
+              <p>${contractorMessage}</p>
+              <p><a href="${portalLink}">View in the contractor portal</a></p>
+            `,
+            userId: user.id,
+          });
+        } catch (emailError) {
+          console.error("Failed to send contractor PM-invoice update email:", emailError);
+        }
+      }
 
       return updatedInvoice;
     } catch (error) {

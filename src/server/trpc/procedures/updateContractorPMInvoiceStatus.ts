@@ -3,6 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { createNotification, notifyAdmins } from "~/server/utils/notifications";
+import { sendEmail } from "~/server/utils/email";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const updateContractorPMInvoiceStatus = baseProcedure
   .input(
@@ -33,9 +36,18 @@ export const updateContractorPMInvoiceStatus = baseProcedure
       const invoice = await db.propertyManagerInvoice.findUnique({
         where: { id: input.invoiceId },
         include: {
+          propertyManager: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
           order: {
             select: {
               contractorId: true,
+              orderNumber: true,
             },
           },
         },
@@ -118,6 +130,53 @@ export const updateContractorPMInvoiceStatus = baseProcedure
         where: { id: input.invoiceId },
         data: updateData,
       });
+
+      // Notify Property Manager when invoice is sent / rejected / cancelled (best-effort)
+      if (input.status === "SENT_TO_PM") {
+        await createNotification({
+          recipientId: invoice.propertyManagerId,
+          recipientRole: "PROPERTY_MANAGER",
+          message: `A new invoice (${invoice.invoiceNumber}) has been sent to you for order ${invoice.order?.orderNumber ?? "(unknown)"}.`,
+          type: "PM_INVOICE_SENT",
+          relatedEntityId: invoice.id,
+          relatedEntityType: "PROPERTY_MANAGER_INVOICE",
+        });
+
+        await notifyAdmins({
+          message: `PM invoice ${invoice.invoiceNumber} was sent to the Property Manager by ${user.firstName} ${user.lastName}.`,
+          type: "PM_INVOICE_SENT",
+          relatedEntityId: invoice.id,
+          relatedEntityType: "PROPERTY_MANAGER_INVOICE",
+        });
+
+        try {
+          const portalLink = `${getBaseUrl()}/property-manager/invoices`;
+          await sendEmail({
+            to: invoice.propertyManager.email,
+            subject: `New invoice received: ${invoice.invoiceNumber}`,
+            html: `
+              <p>Hello <strong>${invoice.propertyManager.firstName}</strong>,</p>
+              <p>A new invoice <strong>${invoice.invoiceNumber}</strong> has been sent to you for order <strong>${invoice.order?.orderNumber ?? ""}</strong>.</p>
+              <p><a href="${portalLink}">View invoice in the Property Manager portal</a></p>
+            `,
+            userId: user.id,
+          });
+        } catch (emailError) {
+          console.error("Failed to send PM invoice sent email:", emailError);
+        }
+      }
+
+      if (input.status === "REJECTED" || input.status === "CANCELLED") {
+        const statusLabel = input.status === "REJECTED" ? "rejected" : "cancelled";
+        await createNotification({
+          recipientId: invoice.propertyManagerId,
+          recipientRole: "PROPERTY_MANAGER",
+          message: `Invoice ${invoice.invoiceNumber} has been ${statusLabel} by the contractor.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
+          type: "PM_INVOICE_REJECTED",
+          relatedEntityId: invoice.id,
+          relatedEntityType: "PROPERTY_MANAGER_INVOICE",
+        });
+      }
 
       return updatedInvoice;
     } catch (error) {

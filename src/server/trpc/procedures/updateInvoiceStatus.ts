@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { sendInvoiceNotificationEmail } from "~/server/utils/email";
+import { notifyAdminsInvoicePaid, notifyCustomerInvoice } from "~/server/utils/notifications";
 
 export const updateInvoiceStatus = baseProcedure
   .input(
@@ -152,6 +153,34 @@ export const updateInvoiceStatus = baseProcedure
           },
         },
       });
+
+      // In-app notifications (best-effort): customer + admins
+      if (finalStatus && finalStatus !== currentInvoice.status) {
+        // Try to map customer email -> user account for in-app notifications
+        const customerUser = await db.user.findUnique({
+          where: { email: invoice.customerEmail },
+          select: { id: true },
+        });
+
+        if (customerUser && (finalStatus === "SENT" || finalStatus === "OVERDUE")) {
+          await notifyCustomerInvoice({
+            customerId: customerUser.id,
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceId: invoice.id,
+            status: finalStatus,
+            amount: invoice.total,
+          });
+        }
+
+        if (finalStatus === "PAID") {
+          await notifyAdminsInvoicePaid({
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceId: invoice.id,
+            amount: invoice.total,
+            customerName: invoice.customerName,
+          });
+        }
+      }
 
       // Send email notification when invoice status changes to SENT
       if (finalStatus === "SENT" && currentInvoice.status !== "SENT") {

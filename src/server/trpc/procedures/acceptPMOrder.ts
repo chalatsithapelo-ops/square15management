@@ -3,6 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { createNotification, notifyAdmins } from "~/server/utils/notifications";
+import { sendEmail } from "~/server/utils/email";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 const acceptPMOrderSchema = z.object({
   token: z.string(),
@@ -35,6 +38,7 @@ export const acceptPMOrder = baseProcedure
         where: { id: input.orderId },
         select: {
           id: true,
+          orderNumber: true,
           contractorId: true,
           propertyManagerId: true,
           status: true,
@@ -78,6 +82,40 @@ export const acceptPMOrder = baseProcedure
           notes: input.notes || order.notes,
         },
       });
+
+      // In-app notifications (best-effort)
+      await createNotification({
+        recipientId: order.propertyManagerId,
+        recipientRole: "PROPERTY_MANAGER",
+        message: `Order ${order.orderNumber} has been accepted by ${user.firstName} ${user.lastName} and is now in progress.`,
+        type: "PM_ORDER_ACCEPTED",
+        relatedEntityId: order.id,
+        relatedEntityType: "PROPERTY_MANAGER_ORDER",
+      });
+
+      await notifyAdmins({
+        message: `Order ${order.orderNumber} has been accepted by ${user.firstName} ${user.lastName}.`,
+        type: "PM_ORDER_ACCEPTED",
+        relatedEntityId: order.id,
+        relatedEntityType: "PROPERTY_MANAGER_ORDER",
+      });
+
+      // Email notification to Property Manager (best-effort)
+      try {
+        const portalLink = `${getBaseUrl()}/property-manager/orders`;
+        await sendEmail({
+          to: order.propertyManager.email,
+          subject: `Order ${order.orderNumber} accepted` ,
+          html: `
+            <p>Hello <strong>${order.propertyManager.firstName}</strong>,</p>
+            <p><strong>${user.firstName} ${user.lastName}</strong> has accepted order <strong>${order.orderNumber}</strong> and marked it as <strong>in progress</strong>.</p>
+            <p><a href="${portalLink}">View order in the Property Manager portal</a></p>
+          `,
+          userId: user.id,
+        });
+      } catch (emailError) {
+        console.error("Failed to send PM order acceptance email:", emailError);
+      }
 
       return updatedOrder;
     } catch (error) {

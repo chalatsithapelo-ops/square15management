@@ -73,14 +73,18 @@ export const updatePropertyManagerOrderStatus = baseProcedure
       if (linkedMaintenanceRequest) {
         let maintenanceStatus = linkedMaintenanceRequest.status;
         const maintenanceUpdateData: any = {};
+        let maintenanceNotificationType: "MAINTENANCE_REQUEST_APPROVED" | "MAINTENANCE_REQUEST_COMPLETED" | null = null;
 
         if (input.status === "IN_PROGRESS") {
           maintenanceStatus = "IN_PROGRESS";
           maintenanceUpdateData.status = maintenanceStatus;
+          // Best available enum match for "work started".
+          maintenanceNotificationType = "MAINTENANCE_REQUEST_APPROVED";
         } else if (input.status === "COMPLETED") {
           maintenanceStatus = "COMPLETED";
           maintenanceUpdateData.status = maintenanceStatus;
           maintenanceUpdateData.completedDate = new Date();
+          maintenanceNotificationType = "MAINTENANCE_REQUEST_COMPLETED";
         }
 
         if (Object.keys(maintenanceUpdateData).length > 0) {
@@ -95,12 +99,13 @@ export const updatePropertyManagerOrderStatus = baseProcedure
               where: { id: linkedMaintenanceRequest.customerId },
             });
 
-            if (customer) {
+            const customerUserId = customer?.userId;
+            if (customerUserId !== null && customerUserId !== undefined) {
               await createNotification({
-                recipientId: customer.userId,
+                recipientId: customerUserId,
                 recipientRole: "CUSTOMER",
                 message: `Your maintenance request "${linkedMaintenanceRequest.title}" is now ${maintenanceStatus.toLowerCase().replace('_', ' ')}.`,
-                type: "MAINTENANCE_STATUS_UPDATE",
+                type: maintenanceNotificationType ?? "MAINTENANCE_REQUEST_SUBMITTED",
                 relatedEntityId: linkedMaintenanceRequest.id,
                 relatedEntityType: "MAINTENANCE_REQUEST",
               });
@@ -114,9 +119,9 @@ export const updatePropertyManagerOrderStatus = baseProcedure
         recipientId: order.propertyManagerId,
         recipientRole: "PROPERTY_MANAGER",
         message: `Order ${order.orderNumber} status updated to ${input.status}.`,
-        type: "ORDER_STATUS_UPDATE",
+        type: "PM_ORDER_STATUS_UPDATED",
         relatedEntityId: order.id,
-        relatedEntityType: "ORDER",
+        relatedEntityType: "PROPERTY_MANAGER_ORDER",
       });
 
       return updatedOrder;

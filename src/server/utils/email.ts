@@ -1426,3 +1426,150 @@ export async function sendStatementNotificationEmail(params: {
 
   console.log(`[sendStatementNotificationEmail] Statement notification sent to ${params.customerEmail} for ${params.statementNumber}`);
 }
+
+/**
+ * Send order status update email to customer
+ */
+export async function sendOrderStatusUpdateEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  orderNumber: string;
+  serviceType?: string;
+  newStatus: string;
+  assignedToName?: string;
+  userId?: number; // Optional: sender's user ID for personal email
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+  const portalLink = `${getBaseUrl()}/customer/dashboard`;
+
+  const subject = `Order Update: ${params.orderNumber} - ${params.newStatus.replace(/_/g, " ")}`;
+
+  const statusLabel = params.newStatus.replace(/_/g, " ");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%); color: white; padding: 24px; border-radius: 10px 10px 0 0; text-align: center; }
+        .content { background: #f9fafb; padding: 24px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 16px; border-radius: 8px; margin: 18px 0; border-left: 4px solid #0d9488; }
+        .cta-button { display: inline-block; background: #0d9488; color: white; padding: 12px 22px; text-decoration: none; border-radius: 8px; margin: 16px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>📣 Order Status Update</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9;">Your order has been updated</p>
+      </div>
+      <div class="content">
+        <p>Hello <strong>${params.customerName}</strong>,</p>
+        <p>We have an update on your order.</p>
+
+        <div class="info-box">
+          <p style="margin: 5px 0;"><strong>Order Number:</strong> ${params.orderNumber}</p>
+          ${params.serviceType ? `<p style="margin: 5px 0;"><strong>Service Type:</strong> ${params.serviceType}</p>` : ""}
+          <p style="margin: 5px 0;"><strong>New Status:</strong> ${statusLabel}</p>
+          ${params.assignedToName ? `<p style="margin: 5px 0;"><strong>Assigned To:</strong> ${params.assignedToName}</p>` : ""}
+        </div>
+
+        <div style="text-align: center;">
+          <a href="${portalLink}" class="cta-button">View Order →</a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">You can track progress and view updates in your tenant portal.</p>
+      </div>
+      <div class="footer">
+        <p><strong>${companyDetails.companyName}</strong></p>
+        <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+        <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.customerEmail,
+    subject,
+    html,
+    userId: params.userId,
+  });
+
+  console.log(`[sendOrderStatusUpdateEmail] Order status update sent to ${params.customerEmail} for ${params.orderNumber}`);
+}
+
+/**
+ * Send maintenance request status update email to customer
+ */
+export async function sendMaintenanceRequestStatusEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  requestNumber: string;
+  requestTitle: string;
+  newStatus: string;
+  responseNotes?: string;
+  rejectionReason?: string;
+  userId?: number; // Optional: sender's user ID for personal email
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+  const portalLink = `${getBaseUrl()}/customer/dashboard`;
+
+  const statusLabel = params.newStatus.replace(/_/g, " ");
+  const subject = `Maintenance Update: ${params.requestNumber} - ${statusLabel}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%); color: white; padding: 24px; border-radius: 10px 10px 0 0; text-align: center; }
+        .content { background: #f9fafb; padding: 24px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 16px; border-radius: 8px; margin: 18px 0; border-left: 4px solid #0d9488; }
+        .cta-button { display: inline-block; background: #0d9488; color: white; padding: 12px 22px; text-decoration: none; border-radius: 8px; margin: 16px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🛠️ Maintenance Status Update</h1>
+        <p style="margin: 8px 0 0 0; opacity: 0.9;">Your request has been updated</p>
+      </div>
+      <div class="content">
+        <p>Hello <strong>${params.customerName}</strong>,</p>
+        <p>We have an update on your maintenance request.</p>
+
+        <div class="info-box">
+          <p style="margin: 5px 0;"><strong>Request Number:</strong> ${params.requestNumber}</p>
+          <p style="margin: 5px 0;"><strong>Title:</strong> ${params.requestTitle}</p>
+          <p style="margin: 5px 0;"><strong>New Status:</strong> ${statusLabel}</p>
+          ${params.responseNotes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong><br/>${params.responseNotes}</p>` : ""}
+          ${params.rejectionReason ? `<p style="margin: 10px 0 0 0;"><strong>Rejection Reason:</strong><br/>${params.rejectionReason}</p>` : ""}
+        </div>
+
+        <div style="text-align: center;">
+          <a href="${portalLink}" class="cta-button">View Request →</a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">You can view details and follow updates in your tenant portal.</p>
+      </div>
+      <div class="footer">
+        <p><strong>${companyDetails.companyName}</strong></p>
+        <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+        <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.customerEmail,
+    subject,
+    html,
+    userId: params.userId,
+  });
+
+  console.log(`[sendMaintenanceRequestStatusEmail] Maintenance update sent to ${params.customerEmail} for ${params.requestNumber}`);
+}

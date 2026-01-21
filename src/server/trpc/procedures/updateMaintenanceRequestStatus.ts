@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { createNotification } from "~/server/utils/notifications";
+import { sendMaintenanceRequestStatusEmail } from "~/server/utils/email";
 
 export const updateMaintenanceRequestStatus = baseProcedure
   .input(
@@ -101,6 +102,22 @@ export const updateMaintenanceRequestStatus = baseProcedure
           relatedEntityId: request.id,
           relatedEntityType: "MAINTENANCE_REQUEST",
         });
+      }
+
+      // Email notification to customer (best-effort)
+      try {
+        await sendMaintenanceRequestStatusEmail({
+          customerEmail: updatedRequest.customer.email,
+          customerName: `${updatedRequest.customer.firstName} ${updatedRequest.customer.lastName}`,
+          requestNumber: updatedRequest.requestNumber,
+          requestTitle: updatedRequest.title,
+          newStatus: updatedRequest.status,
+          responseNotes: input.responseNotes,
+          rejectionReason: input.rejectionReason,
+          userId: user.id,
+        });
+      } catch (emailError) {
+        console.error("Failed to send maintenance status email:", emailError);
       }
 
       return updatedRequest;

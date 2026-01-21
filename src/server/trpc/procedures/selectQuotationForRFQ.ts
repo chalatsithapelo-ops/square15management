@@ -4,6 +4,9 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { generateQuotationPdfBuffer } from "~/server/utils/quotation-pdf-buffer";
+import { createNotification, notifyAdmins } from "~/server/utils/notifications";
+import { sendEmail } from "~/server/utils/email";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const selectQuotationForRFQ = baseProcedure
   .input(
@@ -184,6 +187,65 @@ export const selectQuotationForRFQ = baseProcedure
           },
         });
       }
+    });
+
+    // Notify quotation creators (approved/rejected) + admins (best-effort)
+    const allDecidedIds = [approvedId, ...rejectedIds];
+    const decidedQuotations = await db.quotation.findMany({
+      where: { id: { in: allDecidedIds } },
+      select: {
+        id: true,
+        quoteNumber: true,
+        createdBy: {
+          select: {
+            id: true,
+            role: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const portalLink = `${getBaseUrl()}`;
+
+    for (const quotation of decidedQuotations) {
+      if (!quotation.createdBy) continue;
+      const isApproved = quotation.id === approvedId;
+      const notificationType = isApproved ? "RFQ_APPROVED" : "RFQ_REJECTED";
+      const decisionText = isApproved ? "approved" : "rejected";
+
+      await createNotification({
+        recipientId: quotation.createdBy.id,
+        recipientRole: quotation.createdBy.role,
+        message: `Your quotation ${quotation.quoteNumber} for RFQ ${rfq.rfqNumber} was ${decisionText} by ${user.firstName} ${user.lastName}.`,
+        type: notificationType,
+        relatedEntityId: quotation.id,
+        relatedEntityType: "QUOTATION",
+      });
+
+      try {
+        await sendEmail({
+          to: quotation.createdBy.email,
+          subject: `Quotation ${quotation.quoteNumber} ${decisionText} (RFQ ${rfq.rfqNumber})`,
+          html: `
+            <p>Hello <strong>${quotation.createdBy.firstName}</strong>,</p>
+            <p>Your quotation <strong>${quotation.quoteNumber}</strong> for RFQ <strong>${rfq.rfqNumber}</strong> was <strong>${decisionText}</strong> by ${user.firstName} ${user.lastName}.</p>
+            <p>Log into the portal for details: <a href="${portalLink}">${portalLink}</a></p>
+          `,
+          userId: user.id,
+        });
+      } catch (emailError) {
+        console.error("Failed to send RFQ quotation decision email:", emailError);
+      }
+    }
+
+    await notifyAdmins({
+      message: `Quotation selection completed for RFQ ${rfq.rfqNumber} by ${user.firstName} ${user.lastName}.`,
+      type: "RFQ_APPROVED",
+      relatedEntityId: rfq.id,
+      relatedEntityType: "PROPERTY_MANAGER_RFQ",
     });
 
     return { success: true };

@@ -6,11 +6,12 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { SlipCategory } from "@prisma/client";
 import { getCompanyDetails } from "~/server/utils/company-details";
-import { sendCompletionReportEmail } from "~/server/utils/email";
+import { sendCompletionReportEmail, sendOrderStatusUpdateEmail } from "~/server/utils/email";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { fetchImageAsBuffer } from "~/server/utils/pdf-images";
 import { authenticateUser } from "~/server/utils/auth";
+import { notifyAdmins, notifyCustomerOrderStatus } from "~/server/utils/notifications";
 
 export const updateOrderStatus = baseProcedure
   .input(
@@ -494,6 +495,47 @@ export const updateOrderStatus = baseProcedure
             expenseSlips: true,
           },
         });
+      }
+
+      // Notifications (regular orders only) - best effort
+      try {
+        if (!input.isPMOrder && order && updatedOrder && input.status !== order.status) {
+          const customerUser = await db.user.findUnique({
+            where: { email: updatedOrder.customerEmail },
+            select: { id: true, role: true },
+          });
+
+          if (customerUser?.role === "CUSTOMER") {
+            await notifyCustomerOrderStatus({
+              customerId: customerUser.id,
+              orderNumber: updatedOrder.orderNumber,
+              orderId: updatedOrder.id,
+              newStatus: updatedOrder.status,
+            });
+          }
+
+          await notifyAdmins({
+            message: `Order ${updatedOrder.orderNumber} status updated to ${updatedOrder.status}`,
+            type: "ORDER_STATUS_UPDATED" as any,
+            relatedEntityId: updatedOrder.id,
+            relatedEntityType: "ORDER",
+          });
+
+          if (["ASSIGNED", "IN_PROGRESS", "CANCELLED"].includes(updatedOrder.status)) {
+            await sendOrderStatusUpdateEmail({
+              customerEmail: updatedOrder.customerEmail,
+              customerName: updatedOrder.customerName,
+              orderNumber: updatedOrder.orderNumber,
+              serviceType: updatedOrder.serviceType,
+              newStatus: updatedOrder.status,
+              assignedToName: updatedOrder.assignedTo
+                ? `${updatedOrder.assignedTo.firstName} ${updatedOrder.assignedTo.lastName}`
+                : undefined,
+            });
+          }
+        }
+      } catch (notifyError) {
+        console.error("[updateOrderStatus] Failed to send order notifications:", notifyError);
       }
 
       // Update linked maintenance request status if exists
