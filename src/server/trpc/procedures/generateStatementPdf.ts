@@ -35,7 +35,17 @@ export const generateStatementPdf = baseProcedure
       });
     }
 
-    if (!["sent", "paid", "viewed"].includes(statement.status) || !statement.pdfUrl) {
+    if (!statement.pdfUrl) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Statement PDF is not available yet",
+      });
+    }
+
+    // Allow downloading draft/generated statements (PM review workflow) and overdue statements.
+    // The only hard requirement is that the PDF exists.
+    const allowedStatuses = ["generated", "sent", "paid", "viewed", "overdue"];
+    if (!allowedStatuses.includes(statement.status)) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "Statement PDF is not available yet",

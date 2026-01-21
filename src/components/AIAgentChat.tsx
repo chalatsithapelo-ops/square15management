@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTRPC } from '~/trpc/react';
 import { useAuthStore } from '~/stores/auth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, Mic, MicOff, Send, Upload, X, Loader, Sparkles } from 'lucide-react';
+import { Download, Mic, MicOff, Send, Upload, X, Loader, Sparkles, Trash2 } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -101,6 +101,40 @@ export function AIAgentChat({ isWidget = false }: AIAgentChatProps) {
       },
     })
   );
+
+  const clearConversationMutation = useMutation(
+    trpc.clearAIAgentConversation.mutationOptions({
+      onSuccess: (data) => {
+        setMessages([]);
+        setInput('');
+        setAttachments([]);
+        setTranscript('');
+        setVoiceData(null);
+        setErrorMessage(null);
+        if (data.conversationId) {
+          setConversationId(data.conversationId);
+        }
+
+        // Best-effort: ensure any cached conversation state is refreshed
+        try {
+          queryClient.invalidateQueries();
+        } catch {
+          // ignore
+        }
+      },
+      onError: (error) => {
+        setErrorMessage(`Failed to clear conversation: ${error.message}`);
+      },
+    })
+  );
+
+  const handleClearConversation = async () => {
+    if (!authToken) return;
+    await clearConversationMutation.mutateAsync({
+      authToken,
+      conversationId: conversationId ?? undefined,
+    });
+  };
 
   // Initialize speech recognition
   useEffect(() => {
@@ -320,20 +354,46 @@ export function AIAgentChat({ isWidget = false }: AIAgentChatProps) {
                 Ask questions, create leads, manage employees, invoices, orders, and more
               </p>
             </div>
-            <button
-              onClick={downloadChat}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-              disabled={messages.length === 0}
-            >
-              <Download size={18} />
-              Download Chat
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleClearConversation}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+                disabled={messages.length === 0 || isLoading || clearConversationMutation.isPending}
+                title="Clear conversation"
+              >
+                <Trash2 size={18} />
+                Clear
+              </button>
+
+              <button
+                onClick={downloadChat}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                disabled={messages.length === 0}
+              >
+                <Download size={18} />
+                Download Chat
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {isWidget && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleClearConversation}
+              className="flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm disabled:opacity-50"
+              disabled={messages.length === 0 || isLoading || clearConversationMutation.isPending}
+              title="Clear conversation"
+            >
+              <Trash2 size={16} />
+              Clear
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">

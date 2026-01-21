@@ -57,6 +57,9 @@ import { rejectCustomerPayment } from "~/server/trpc/procedures/rejectCustomerPa
 import { getStatements } from "~/server/trpc/procedures/getStatements";
 import { generateStatementPdf } from "~/server/trpc/procedures/generateStatementPdf";
 import { updateStatementDetails } from "~/server/trpc/procedures/updateStatementDetails";
+import { generateManagedCustomerStatements } from "~/server/trpc/procedures/generateManagedCustomerStatements";
+import { sendStatementEmail } from "~/server/trpc/procedures/sendStatementEmail";
+import { markStatementViewed } from "~/server/trpc/procedures/markStatementViewed";
 import { getCustomerDetailsByEmail } from "~/server/trpc/procedures/getCustomerDetailsByEmail";
 import { getAssets } from "~/server/trpc/procedures/getAssets";
 import { createAsset } from "~/server/trpc/procedures/createAsset";
@@ -130,6 +133,7 @@ import { suggestArtisanForJob } from "~/server/trpc/procedures/suggestArtisanFor
 import { sendAgentMessage } from "~/server/trpc/procedures/sendAgentMessage";
 import { aiAgent } from "~/server/trpc/procedures/aiAgent";
 import { getOrCreateAIAgentConversation } from "~/server/trpc/procedures/getOrCreateAIAgentConversation";
+import { clearAIAgentConversation } from "~/server/trpc/procedures/clearAIAgentConversation";
 import { generateEmailContent } from "~/server/trpc/procedures/generateEmailContent";
 import { generateProjectSummary } from "~/server/trpc/procedures/generateProjectSummary";
 import { extractActionItems } from "~/server/trpc/procedures/extractActionItems";
@@ -426,6 +430,9 @@ export const appRouter = createTRPCRouter({
   getStatements,
   generateStatementPdf,
   updateStatementDetails,
+  generateManagedCustomerStatements,
+  sendStatementEmail,
+  markStatementViewed,
   getCustomerDetailsByEmail,
   
   // Assets
@@ -611,6 +618,7 @@ export const appRouter = createTRPCRouter({
   updateProjectActualCost,
   aiAgent,
   getOrCreateAIAgentConversation,
+  clearAIAgentConversation,
   sendAgentMessage,
   generateEmailContent,
   generateProjectSummary,

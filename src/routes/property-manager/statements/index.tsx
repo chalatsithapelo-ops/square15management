@@ -1,11 +1,13 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
+  CheckCircle2,
   Download,
+  Edit,
   FileText,
   Loader2,
   Mail,
@@ -33,8 +35,34 @@ type StatementView = "RECEIVED" | "ISSUED";
 function PropertyManagerStatementsPage() {
   const { token } = useAuthStore();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [activeView, setActiveView] = useState<StatementView>("RECEIVED");
   const [generatingPdfId, setGeneratingPdfId] = useState<number | null>(null);
+  const [sendingStatementId, setSendingStatementId] = useState<number | null>(null);
+  const [markingViewedId, setMarkingViewedId] = useState<number | null>(null);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingStatement, setEditingStatement] = useState<any | null>(null);
+  const [editClientName, setEditClientName] = useState("");
+  const [editCustomerPhone, setEditCustomerPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  const formatDateInput = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const getDefaultPeriod = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: formatDateInput(start), end: formatDateInput(end) };
+  };
+
+  const [bulkPeriodStart, setBulkPeriodStart] = useState(() => getDefaultPeriod().start);
+  const [bulkPeriodEnd, setBulkPeriodEnd] = useState(() => getDefaultPeriod().end);
+  const [bulkNotes, setBulkNotes] = useState("");
 
   const queryDefaults = {
     enabled: !!token,
@@ -96,12 +124,114 @@ function PropertyManagerStatementsPage() {
     })
   );
 
+  const updateStatementDetailsMutation = useMutation(
+    trpc.updateStatementDetails.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Statement updated successfully!");
+        setShowEditModal(false);
+        setEditingStatement(null);
+        await queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update statement");
+      },
+    })
+  );
+
+  const sendStatementEmailMutation = useMutation(
+    trpc.sendStatementEmail.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Statement email sent!");
+        setSendingStatementId(null);
+        await queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to send statement email");
+        setSendingStatementId(null);
+      },
+    })
+  );
+
+  const markStatementViewedMutation = useMutation(
+    trpc.markStatementViewed.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Marked as viewed");
+        setMarkingViewedId(null);
+        await queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to mark as viewed");
+        setMarkingViewedId(null);
+      },
+    })
+  );
+
+  const generateManagedCustomerStatementsMutation = useMutation(
+    trpc.generateManagedCustomerStatements.mutationOptions({
+      onSuccess: async (data) => {
+        toast.success(`Draft generation started for ${data.created} customer(s)`);
+        await queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate draft statements");
+      },
+    })
+  );
+
   const handleDownloadPdf = (statementId: number) => {
     if (!token) return;
     setGeneratingPdfId(statementId);
     generateStatementPdfMutation.mutate({
       token,
       statementId,
+    });
+  };
+
+  const handleEditStatement = (statement: any) => {
+    setEditingStatement(statement);
+    setEditClientName(statement.client_name || "");
+    setEditCustomerPhone(statement.customerPhone || "");
+    setEditAddress(statement.address || "");
+    setEditNotes(statement.notes || "");
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdits = () => {
+    if (!token || !editingStatement) return;
+
+    updateStatementDetailsMutation.mutate({
+      token,
+      statementId: editingStatement.id,
+      client_name: editClientName,
+      customerPhone: editCustomerPhone,
+      address: editAddress,
+      notes: editNotes,
+    });
+  };
+
+  const handleSendStatement = (statementId: number) => {
+    if (!token) return;
+    setSendingStatementId(statementId);
+    sendStatementEmailMutation.mutate({ token, statementId });
+  };
+
+  const handleMarkViewed = (statementId: number) => {
+    if (!token) return;
+    setMarkingViewedId(statementId);
+    markStatementViewedMutation.mutate({ token, statementId });
+  };
+
+  const handleGenerateDrafts = () => {
+    if (!token) return;
+    if (!bulkPeriodStart || !bulkPeriodEnd) {
+      toast.error("Please select a start and end date");
+      return;
+    }
+    generateManagedCustomerStatementsMutation.mutate({
+      token,
+      period_start: bulkPeriodStart,
+      period_end: bulkPeriodEnd,
+      notes: bulkNotes || undefined,
     });
   };
 
@@ -188,6 +318,56 @@ function PropertyManagerStatementsPage() {
                 <p className="text-sm text-gray-600 mt-1">{active.description}</p>
               </div>
             </div>
+
+            {activeView === "ISSUED" && (
+              <div className="w-full max-w-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Period start</label>
+                    <input
+                      type="date"
+                      value={bulkPeriodStart}
+                      onChange={(e) => setBulkPeriodStart(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Period end</label>
+                    <input
+                      type="date"
+                      value={bulkPeriodEnd}
+                      onChange={(e) => setBulkPeriodEnd(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={handleGenerateDrafts}
+                      disabled={generateManagedCustomerStatementsMutation.isPending}
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-60"
+                    >
+                      {generateManagedCustomerStatementsMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
+                      Generate drafts
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={bulkNotes}
+                    onChange={(e) => setBulkNotes(e.target.value)}
+                    placeholder="Notes to include on all statements"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-6">
@@ -243,19 +423,63 @@ function PropertyManagerStatementsPage() {
                           <StatusBadge status={s.status} />
                         </td>
                         <td className="py-3 pr-0 whitespace-nowrap text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadPdf(s.id)}
-                            disabled={generatingPdfId === s.id || generateStatementPdfMutation.isPending}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-60"
-                          >
-                            {generatingPdfId === s.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4" />
+                          <div className="inline-flex items-center gap-2">
+                            {activeView === "ISSUED" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditStatement(s)}
+                                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendStatement(s.id)}
+                                  disabled={sendingStatementId === s.id || sendStatementEmailMutation.isPending}
+                                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-60"
+                                >
+                                  {sendingStatementId === s.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Mail className="h-4 w-4" />
+                                  )}
+                                  Send
+                                </button>
+                              </>
                             )}
-                            Download
-                          </button>
+
+                            {activeView === "RECEIVED" && s.status !== "viewed" && (
+                              <button
+                                type="button"
+                                onClick={() => handleMarkViewed(s.id)}
+                                disabled={markingViewedId === s.id || markStatementViewedMutation.isPending}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-60"
+                              >
+                                {markingViewedId === s.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                )}
+                                Mark viewed
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadPdf(s.id)}
+                              disabled={generatingPdfId === s.id || generateStatementPdfMutation.isPending}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-60"
+                            >
+                              {generatingPdfId === s.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
+                              Download
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -266,12 +490,112 @@ function PropertyManagerStatementsPage() {
           </div>
         </div>
       </main>
+
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => {
+              if (!updateStatementDetailsMutation.isPending) {
+                setShowEditModal(false);
+                setEditingStatement(null);
+              }
+            }}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit statement details</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Amend customer details and notes before sending.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!updateStatementDetailsMutation.isPending) {
+                    setShowEditModal(false);
+                    setEditingStatement(null);
+                  }
+                }}
+                disabled={updateStatementDetailsMutation.isPending}
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Client name</label>
+                <input
+                  type="text"
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={editCustomerPhone}
+                  onChange={(e) => setEditCustomerPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingStatement(null);
+                }}
+                disabled={updateStatementDetailsMutation.isPending}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                disabled={updateStatementDetailsMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {updateStatementDetailsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const meta: Record<string, { label: string; className: string }> = {
+  type StatementStatus = "generated" | "sent" | "viewed" | "paid" | "overdue";
+  const meta: Record<StatementStatus, { label: string; className: string }> = {
     generated: { label: "Generated", className: "bg-blue-50 text-blue-700 border-blue-200" },
     sent: { label: "Sent", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
     viewed: { label: "Viewed", className: "bg-gray-50 text-gray-700 border-gray-200" },
@@ -279,10 +603,17 @@ function StatusBadge({ status }: { status: string }) {
     overdue: { label: "Overdue", className: "bg-red-50 text-red-700 border-red-200" },
   };
 
-  const m = meta[status] || meta.generated;
+  const knownStatuses = ["generated", "sent", "viewed", "paid", "overdue"] as const;
+  const statusKey: StatementStatus = (knownStatuses as readonly string[]).includes(status)
+    ? (status as StatementStatus)
+    : "generated";
+
+  const badge = meta[statusKey];
+  if (!badge) return null;
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-medium ${m.className}`}>
-      {m.label}
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-medium ${badge.className}`}>
+      {badge.label}
     </span>
   );
 }

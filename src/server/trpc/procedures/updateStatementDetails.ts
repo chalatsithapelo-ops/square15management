@@ -17,11 +17,10 @@ export const updateStatementDetails = baseProcedure
     })
   )
   .mutation(async ({ input }) => {
-    // Authenticate user and require admin privileges
+    // Authenticate user
     const user = await authenticateUser(input.token);
-    requireAdmin(user);
 
-    // Get current statement to check if statement_number is changing
+    // Get current statement and perform authorization
     const currentStatement = await db.statement.findUnique({
       where: { id: input.statementId },
     });
@@ -31,6 +30,35 @@ export const updateStatementDetails = baseProcedure
         code: "NOT_FOUND",
         message: "Statement not found",
       });
+    }
+
+    if (user.role === "PROPERTY_MANAGER") {
+      // PM can only update statements issued to customers they manage
+      const managedCustomer = await db.propertyManagerCustomer.findFirst({
+        where: {
+          propertyManagerId: user.id,
+          email: currentStatement.client_email,
+        },
+        select: { id: true },
+      });
+
+      if (!managedCustomer) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only update statements for customers you manage",
+        });
+      }
+
+      // PM can amend content fields, but not change the statement number
+      if (input.statement_number !== undefined && input.statement_number !== currentStatement.statement_number) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Property managers cannot change statement numbers",
+        });
+      }
+    } else {
+      // Keep existing behavior: admins only
+      requireAdmin(user);
     }
 
     // If statement_number is being updated, check for uniqueness

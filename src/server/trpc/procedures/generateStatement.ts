@@ -22,6 +22,9 @@ export const generateStatement = baseProcedure
       customerPhone: z.string().optional(),
       address: z.string().optional(),
       notes: z.string().optional(),
+      // When false, generate the statement + PDF but do not email/notify the customer.
+      // Useful for PM workflows where statements are reviewed/amended before sending.
+      sendToCustomer: z.boolean().optional().default(true),
     })
   )
   .mutation(async ({ input }) => {
@@ -93,7 +96,8 @@ export const generateStatement = baseProcedure
       input.customerName,
       input.customerPhone,
       input.address,
-      input.notes
+      input.notes,
+      input.sendToCustomer
     ).catch(
       (error) => {
         console.error("Error generating statement:", error);
@@ -112,7 +116,7 @@ export const generateStatement = baseProcedure
     return { statementId: statement.id, status: "generated" };
   });
 
-async function generateStatementInBackground(
+export async function generateStatementInBackground(
   statementId: number,
   statement_number: string,
   client_email: string,
@@ -121,7 +125,8 @@ async function generateStatementInBackground(
   providedCustomerName?: string,
   providedCustomerPhone?: string,
   providedAddress?: string,
-  providedNotes?: string
+  providedNotes?: string,
+  sendToCustomer: boolean = true
 ) {
   try {
     // Fetch all unpaid invoices for this customer (regardless of creation date)
@@ -343,12 +348,15 @@ async function generateStatementInBackground(
 
     const pdfUrl = `${minioBaseUrl}/documents/${fileName}`;
 
-    // Determine final status based on outstanding balance
-    let finalStatus: "sent" | "paid" | "overdue" = "sent";
-    if (total_amount_due === 0) {
-      finalStatus = "paid";
-    } else if (invoice_details.some((inv: any) => inv.days_overdue > 0)) {
-      finalStatus = "overdue";
+    // Determine final status based on outstanding balance.
+    // If we are not sending to customer yet (draft mode), keep status as "generated".
+    let finalStatus: "generated" | "sent" | "paid" | "overdue" = sendToCustomer ? "sent" : "generated";
+    if (sendToCustomer) {
+      if (total_amount_due === 0) {
+        finalStatus = "paid";
+      } else if (invoice_details.some((inv: any) => inv.days_overdue > 0)) {
+        finalStatus = "overdue";
+      }
     }
 
     // Update statement record
@@ -367,37 +375,39 @@ async function generateStatementInBackground(
         total_interest,
         total_amount_due,
         payments_received,
-        sent_date: new Date(),
+        sent_date: sendToCustomer ? new Date() : null,
       },
     });
 
-    // Notify customer (email + in-app) - best effort
-    try {
-      const periodLabel = `${period_start.toLocaleDateString("en-ZA")} - ${period_end.toLocaleDateString("en-ZA")}`;
+    if (sendToCustomer) {
+      // Notify customer (email + in-app) - best effort
+      try {
+        const periodLabel = `${period_start.toLocaleDateString("en-ZA")} - ${period_end.toLocaleDateString("en-ZA")}`;
 
-      await sendStatementNotificationEmail({
-        customerEmail: client_email,
-        customerName: client_name,
-        statementNumber: statement_number,
-        statementPeriod: periodLabel,
-        totalAmount: total_amount_due,
-      });
-
-      const customerUser = await db.user.findUnique({
-        where: { email: client_email },
-        select: { id: true },
-      });
-
-      if (customerUser) {
-        await notifyCustomerStatement({
-          customerId: customerUser.id,
+        await sendStatementNotificationEmail({
+          customerEmail: client_email,
+          customerName: client_name,
           statementNumber: statement_number,
-          statementId,
-          totalDue: total_amount_due,
+          statementPeriod: periodLabel,
+          totalAmount: total_amount_due,
         });
+
+        const customerUser = await db.user.findUnique({
+          where: { email: client_email },
+          select: { id: true },
+        });
+
+        if (customerUser) {
+          await notifyCustomerStatement({
+            customerId: customerUser.id,
+            statementNumber: statement_number,
+            statementId,
+            totalDue: total_amount_due,
+          });
+        }
+      } catch (notifyError) {
+        console.error("Failed to send statement notifications:", notifyError);
       }
-    } catch (notifyError) {
-      console.error("Failed to send statement notifications:", notifyError);
     }
   } catch (error) {
     console.error("Error in background statement generation:", error);
