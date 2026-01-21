@@ -10,6 +10,8 @@
  */
 
 export const ROLES = {
+  // Legacy admin role (backwards compatibility)
+  ADMIN: "ADMIN",
   SENIOR_ADMIN: "SENIOR_ADMIN",
   JUNIOR_ADMIN: "JUNIOR_ADMIN",
   MANAGER: "MANAGER",
@@ -31,6 +33,7 @@ export type Role = typeof ROLES[keyof typeof ROLES];
  * Default routes for each role
  */
 const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
+  [ROLES.ADMIN]: "/admin/dashboard",
   [ROLES.SENIOR_ADMIN]: "/admin/dashboard",
   [ROLES.JUNIOR_ADMIN]: "/admin/dashboard",
   [ROLES.MANAGER]: "/admin/dashboard",
@@ -58,6 +61,7 @@ export function getDefaultRoute(role: string): string {
  */
 export function getRoleLabel(role: string): string {
   const labels: Record<Role, string> = {
+    [ROLES.ADMIN]: "Admin",
     [ROLES.SENIOR_ADMIN]: "Senior Admin",
     [ROLES.JUNIOR_ADMIN]: "Junior Admin",
     [ROLES.MANAGER]: "Manager",
@@ -83,6 +87,7 @@ export function getRoleLabel(role: string): string {
  */
 export function getRoleColor(role: string): string {
   const colors: Record<Role, string> = {
+    [ROLES.ADMIN]: "bg-blue-100 text-blue-800",
     [ROLES.SENIOR_ADMIN]: "bg-purple-100 text-purple-800",
     [ROLES.JUNIOR_ADMIN]: "bg-blue-100 text-blue-800",
     [ROLES.MANAGER]: "bg-indigo-100 text-indigo-800",

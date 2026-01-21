@@ -81,7 +81,8 @@ export const ROLE_LEVELS: Record<Role, number> = {
  * Check if a role has equal or higher authority than another role
  */
 export function hasRoleLevel(userRole: string, requiredRole: Role): boolean {
-  const userLevel = ROLE_LEVELS[userRole as Role] || 0;
+  const normalizedRole = userRole === "ADMIN" ? ROLES.JUNIOR_ADMIN : userRole;
+  const userLevel = ROLE_LEVELS[normalizedRole as Role] || 0;
   const requiredLevel = ROLE_LEVELS[requiredRole];
   return userLevel >= requiredLevel;
 }

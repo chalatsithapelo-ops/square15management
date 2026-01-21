@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
-import { authenticateUser } from "~/server/utils/auth";
+import { authenticateUser, isAdmin as isAdminUser } from "~/server/utils/auth";
 import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const getContractors = baseProcedure
@@ -19,7 +19,7 @@ export const getContractors = baseProcedure
     const user = await authenticateUser(input.token);
 
     const isPropertyManager = user.role === "PROPERTY_MANAGER";
-    const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN";
+    const isAdmin = isAdminUser(user);
 
     if (!isPropertyManager && !isAdmin) {
       throw new TRPCError({

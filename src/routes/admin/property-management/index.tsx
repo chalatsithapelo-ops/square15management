@@ -15,7 +15,7 @@ export const Route = createFileRoute("/admin/property-management/")({
     if (typeof window === "undefined") return;
 
     const { user } = useAuthStore.getState();
-    if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
+    if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN" && user.role !== "ADMIN")) {
       throw redirect({
         to: "/",
         search: {
@@ -67,7 +67,9 @@ function PropertyManagementPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const isAdminUser = !!user && (user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN");
+  const isAdminUser =
+    !!user &&
+    (user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "ADMIN");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPropertyManager, setEditingPropertyManager] = useState<any | null>(null);
