@@ -3,41 +3,41 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
 
 export default defineEventHandler(async (event) => {
-  // Debug endpoint for testing Anthropic API
-  if (event.node.req.url?.includes('/test-anthropic')) {
-    console.log('[Test Anthropic] Handler called');
+  // Debug endpoint for testing Anthropic API.
+  // IMPORTANT: Disabled by default and must never leak secrets in production.
+  if (
+    process.env.TEST_ANTHROPIC_ENABLED === "1" &&
+    event.node.req.url?.includes("/test-anthropic")
+  ) {
     try {
-      const { generateText } = await import('ai');
-      const { anthropic } = await import('@ai-sdk/anthropic');
-      
-      console.log('[Test Anthropic] Modules imported');
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      console.log('[Test Anthropic] API Key length:', apiKey?.length || 0);
-      console.log('[Test Anthropic] API Key first 12 chars:', apiKey?.substring(0, 12) || 'MISSING');
-      
-      const model = anthropic('claude-4-5-haiku');
-      console.log('[Test Anthropic] Client created');
-      
+      const { generateText } = await import("ai");
+      const { anthropic } = await import("@ai-sdk/anthropic");
+
+      const model = anthropic("claude-4-5-haiku");
       const result = await generateText({
         model,
-        system: 'You are helpful.',
-        messages: [{ role: 'user', content: 'Say hi.' }],
+        system: "You are helpful.",
+        messages: [{ role: "user", content: "Say hi." }],
       });
-      
-      console.log('[Test Anthropic] Success!');
+
       return new Response(JSON.stringify({ success: true, response: result.text }), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('[Test Anthropic] ERROR:', error instanceof Error ? error.message : String(error));
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack?.substring(0, 200) : 'N/A'
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      console.error(
+        "[Test Anthropic] ERROR:",
+        error instanceof Error ? error.message : String(error)
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
 
@@ -64,6 +64,7 @@ export default defineEventHandler(async (event) => {
     }
     
     const url = `http://${host}${pathname}`;
+    const urlObj = new URL(url);
 
     // For POST/PUT/PATCH, read the body from the Node.js request stream directly
     let body: any = undefined;
@@ -82,24 +83,26 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    const request = new Request(url, {
+    const request = new Request(urlObj.toString(), {
       method,
       headers,
       body,
     });
 
-    // DEBUG: Log the request details
-    console.log(`[tRPC] ${method} ${pathname}, body size: ${body?.length || 0}`);
-    if (body && body.length > 0) {
-      try {
-        const bodyStr = body.toString('utf-8');
-        console.log(`[tRPC] Body content (first 500 chars): ${bodyStr.substring(0, 500)}`);
-        if (pathname.includes('updateOrderStatus')) {
-          console.log(`[tRPC] *** FULL updateOrderStatus REQUEST ***`);
-          console.log(bodyStr);
+    // Optional debug logging (OFF by default).
+    // Never log query strings (tokens often travel via ?input=... or ?token=...).
+    if (process.env.TRPC_DEBUG_LOG_REQUESTS === "1") {
+      console.log(`[tRPC] ${method} ${urlObj.pathname}, body size: ${body?.length || 0}`);
+
+      if (process.env.TRPC_DEBUG_LOG_BODY === "1" && body && body.length > 0) {
+        try {
+          const bodyStr = body.toString("utf-8");
+          console.log(
+            `[tRPC] Body content (first 500 chars): ${bodyStr.substring(0, 500)}`
+          );
+        } catch {
+          console.log("[tRPC] Could not convert body to string");
         }
-      } catch (e) {
-        console.log('[tRPC] Could not convert body to string');
       }
     }
 
