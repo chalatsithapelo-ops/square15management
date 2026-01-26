@@ -24,9 +24,9 @@ export const getBuildings = baseProcedure
         id: true,
         name: true,
         address: true,
-        city: true,
-        state: true,
-        zipCode: true,
+        buildingType: true,
+        status: true,
+        numberOfUnits: true,
       },
       orderBy: {
         name: "asc",

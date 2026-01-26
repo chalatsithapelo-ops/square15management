@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import RFQReportModal from "~/components/RFQReportModal";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   ArrowLeft,
   Plus,
@@ -29,8 +30,16 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/contractor/quotations/")({
-  component: QuotationsPage,
+  component: QuotationsPageGuarded,
 });
+
+function QuotationsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasQuotations" returnPath="/contractor/dashboard">
+      <QuotationsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const quotationSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),

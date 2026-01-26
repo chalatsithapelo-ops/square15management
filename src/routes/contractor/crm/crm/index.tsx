@@ -40,6 +40,7 @@ import { LeadConversionTrendChart } from "~/components/charts/LeadConversionTren
 import { SalesPipelineTrendChart } from "~/components/charts/SalesPipelineTrendChart";
 import { WinRateTrendChart } from "~/components/charts/WinRateTrendChart";
 import { EmployeeSalesDashboard } from "~/components/admin/EmployeeSalesDashboard";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -47,8 +48,16 @@ import {
 } from "~/utils/serviceTypeOther";
 
 export const Route = createFileRoute("/contractor/crm/crm/")({
-  component: CRMPage,
+  component: CRMPageGuarded,
 });
+
+function CRMPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasCRM" returnPath="/contractor/dashboard">
+      <CRMPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const leadSchema = z
   .object({

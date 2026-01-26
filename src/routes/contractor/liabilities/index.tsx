@@ -20,11 +20,19 @@ import {
   XCircle,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 
 export const Route = createFileRoute("/contractor/liabilities/")({
-  component: LiabilitiesPage,
+  component: LiabilitiesPageGuarded,
 });
 
+function LiabilitiesPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasAssets" returnPath="/contractor/dashboard">
+      <LiabilitiesPage />
+    </RequireSubscriptionFeature>
+  );
+}
 const liabilitySchema = z.object({
   name: z.string().min(1, "Liability name is required"),
   description: z.string().optional(),

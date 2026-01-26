@@ -23,16 +23,14 @@ export const getTenantDetails = baseProcedure
             id: true,
             name: true,
             address: true,
-            city: true,
-            state: true,
-            zipCode: true,
           },
         },
         user: {
           select: {
             id: true,
             email: true,
-            name: true,
+            firstName: true,
+            lastName: true,
           },
         },
         rentPayments: {

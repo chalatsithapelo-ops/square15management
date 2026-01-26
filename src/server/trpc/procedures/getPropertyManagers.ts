@@ -15,7 +15,7 @@ export const getPropertyManagers = baseProcedure
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    if (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN") {
+    if (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN" && user.role !== "ADMIN") {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Only Admin users can view Property Managers",

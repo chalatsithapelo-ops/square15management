@@ -32,14 +32,14 @@ export const generateManagedCustomerStatements = baseProcedure
 
     const managedCustomers = await db.propertyManagerCustomer.findMany({
       where: { propertyManagerId: user.id },
-      select: { email: true, name: true, phone: true, address: true },
+      select: { email: true, firstName: true, lastName: true, phone: true, address: true },
     });
 
     const targets = managedCustomers
       .filter((c) => !!c.email)
       .map((c) => ({
         email: c.email as string,
-        name: c.name || undefined,
+        name: `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || undefined,
         phone: c.phone || undefined,
         address: c.address || undefined,
       }));

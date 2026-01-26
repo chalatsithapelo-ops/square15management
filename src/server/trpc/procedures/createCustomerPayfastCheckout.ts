@@ -1,22 +1,28 @@
 import { z } from "zod";
-import { publicProcedure } from "~/server/trpc/main";
 import { TRPCError } from "@trpc/server";
+import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { db } from "~/server/db";
+import { buildPayfastCheckout, mapPayfastPaymentMethod } from "~/server/payments/payfast";
+import { env } from "~/server/env";
 
-export const submitCustomerPayment = publicProcedure
+export const createCustomerPayfastCheckout = baseProcedure
   .input(
     z.object({
       token: z.string(),
       paymentType: z.enum(["RENT", "UTILITIES", "CLAIM"]),
       amount: z.number().min(0.01),
-      paymentMethod: z.enum(["BANK_TRANSFER", "CASH", "CARD", "EFT"]),
-      transactionReference: z.string().optional(),
-      paymentDate: z.string(),
+      paymentOption: z.enum([
+        "CARD",
+        "S_PAY",
+        "INSTANT_EFT",
+        "SNAPSCAN",
+        "ZAPPER",
+        "MASTERPASS",
+        "FNB_PAY",
+      ]),
       paymentMonth: z.string().optional(),
-      deviationReason: z.string().optional(),
       notes: z.string().optional(),
-      proofOfPayment: z.array(z.string()),
       expectedAmount: z.number().optional(),
     })
   )
@@ -26,7 +32,7 @@ export const submitCustomerPayment = publicProcedure
     if (user.role !== "CUSTOMER") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only customers can submit payments.",
+        message: "Only customers can create payments.",
       });
     }
 
@@ -38,9 +44,7 @@ export const submitCustomerPayment = publicProcedure
 
     let customerProfile = userWithProfile?.customerProfile ?? null;
 
-    // Repair: if a tenant record exists by email but is not linked to this user yet, link it now.
-    // This happens when a Property Manager captured the tenant first, and the tenant user account
-    // was created/logged-in later.
+    // Repair: link tenant record by email if it exists but isn't linked yet
     if (!customerProfile) {
       const tenantByEmail = await db.propertyManagerCustomer.findFirst({
         where: {
@@ -71,28 +75,21 @@ export const submitCustomerPayment = publicProcedure
     const paymentCount = await db.customerPayment.count();
     const paymentNumber = `PAY-${(paymentCount + 1).toString().padStart(6, "0")}`;
 
-    // Parse payment date
-    const paymentDate = new Date(input.paymentDate);
-
     // Parse payment month if provided
     let paymentMonth: Date | undefined;
     if (input.paymentMonth) {
       paymentMonth = new Date(input.paymentMonth + "-01");
     }
 
-    // Create the payment
     const payment = await db.customerPayment.create({
       data: {
         paymentNumber,
         paymentType: input.paymentType,
         amount: input.amount,
         expectedAmount: input.expectedAmount,
-        deviationReason: input.deviationReason,
-        paymentMethod: input.paymentMethod,
-        transactionReference: input.transactionReference,
-        proofOfPayment: input.proofOfPayment,
+        paymentMethod: input.paymentOption,
         status: "PENDING",
-        paymentDate,
+        paymentDate: new Date(),
         paymentMonth,
         notes: input.notes,
         customerId: user.id,
@@ -102,23 +99,32 @@ export const submitCustomerPayment = publicProcedure
       },
     });
 
-    // Create notification for property manager
-    if (customerProfile.propertyManagerId) {
-      await db.notification.create({
-        data: {
-          recipientId: customerProfile.propertyManagerId,
-          recipientRole: "PROPERTY_MANAGER",
-          type: "CUSTOMER_PAYMENT_SUBMITTED",
-          message: `${user.firstName} ${user.lastName} submitted a ${input.paymentType.toLowerCase()} payment of R${input.amount.toFixed(2)} for review.`,
-          isRead: false,
-          relatedEntityType: "CUSTOMER_PAYMENT",
-          relatedEntityId: payment.id,
-        },
-      });
-    }
+    const payfastMethod = mapPayfastPaymentMethod(input.paymentOption);
+
+    const checkout = buildPayfastCheckout({
+      name_first: user.firstName,
+      name_last: user.lastName,
+      email_address: user.email,
+
+      m_payment_id: `custpay_${payment.id}`,
+      amount: input.amount.toFixed(2),
+      item_name: `Square 15 - ${input.paymentType} Payment`,
+      item_description: `Tenant payment (${input.paymentType}) by ${user.email}`,
+
+      return_url: `${env.BASE_URL}/customer/dashboard?payment=success`,
+      cancel_url: `${env.BASE_URL}/customer/dashboard?payment=cancel`,
+      // Vinxi mounts http routers at base + router name (e.g. /health/health).
+      notify_url: `${env.BASE_URL}/api/payments/payfast/notify/payfast-notify`,
+
+      ...(payfastMethod ? { payment_method: payfastMethod } : {}),
+
+      // Helpful metadata
+      custom_str1: String(payment.id),
+      custom_str2: input.paymentOption,
+    });
 
     return {
-      success: true,
-      payment,
+      customerPaymentId: payment.id,
+      ...checkout,
     };
   });

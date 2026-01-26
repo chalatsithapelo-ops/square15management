@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useState } from "react";
 import {
@@ -22,8 +22,23 @@ import { HRMetricsDashboard } from "~/components/hr/HRMetricsDashboard";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { AccessDenied } from "~/components/AccessDenied";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
+import { isContractorRole } from "~/utils/roles";
 
 export const Route = createFileRoute("/contractor/hr/")({
+  beforeLoad: ({ location }) => {
+    if (typeof window === "undefined") return;
+
+    const { user } = useAuthStore.getState();
+    if (!user || !isContractorRole(user.role)) {
+      throw redirect({
+        to: "/",
+        search: {
+          redirect: location.href,
+        },
+      });
+    }
+  },
   component: HRToolPage,
 });
 
@@ -41,6 +56,14 @@ const tabs = [
 type TabId = typeof tabs[number]["id"];
 
 function HRToolPage() {
+  return (
+    <RequireSubscriptionFeature feature="hasHR" returnPath="/contractor/dashboard">
+      <HRToolPageInner />
+    </RequireSubscriptionFeature>
+  );
+}
+
+function HRToolPageInner() {
   const { user, token } = useAuthStore();
   const trpc = useTRPC();
   const [activeTab, setActiveTab] = useState<TabId>("employees");

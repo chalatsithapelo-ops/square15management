@@ -5,6 +5,8 @@ import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
 import { hash } from 'bcryptjs';
 import { assertNotRestrictedDemoAccountAccessDenied, isRestrictedDemoAccount } from '~/server/utils/demoAccounts';
+import { buildPayfastCheckout, mapPayfastPaymentMethod } from '~/server/payments/payfast';
+import { env } from '~/server/env';
 
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
@@ -74,6 +76,86 @@ export const createPendingRegistration = baseProcedure
       registrationId: pendingReg.id,
       message: 'Registration submitted successfully. You will receive an email once approved.',
     };
+  });
+
+export const createPendingRegistrationPayfastCheckout = baseProcedure
+  .input(
+    z.object({
+      registrationId: z.number(),
+      paymentOption: z.enum([
+        'CARD',
+        'S_PAY',
+        'INSTANT_EFT',
+        'SNAPSCAN',
+        'ZAPPER',
+        'MASTERPASS',
+        'FNB_PAY',
+      ]),
+    })
+  )
+  .mutation(async ({ input }) => {
+    const registration = await db.pendingRegistration.findUnique({
+      where: { id: input.registrationId },
+    });
+
+    if (!registration) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Registration not found',
+      });
+    }
+
+    const pkg = await db.package.findUnique({
+      where: { id: registration.packageId },
+    });
+
+    if (!pkg) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Selected package not found',
+      });
+    }
+
+    // Calculate amount server-side to prevent tampering.
+    let amount = pkg.basePrice;
+    amount += (registration.additionalUsers ?? 0) * pkg.additionalUserPrice;
+    if (registration.accountType === 'PROPERTY_MANAGER') {
+      amount += (registration.additionalTenants ?? 0) * (pkg.additionalTenantPrice ?? 0);
+      amount += (registration.additionalContractors ?? 0) * pkg.additionalUserPrice;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Invalid amount calculated for this registration',
+      });
+    }
+
+    const payfastMethod = mapPayfastPaymentMethod(input.paymentOption);
+
+    const checkout = buildPayfastCheckout({
+      // Customer details
+      name_first: registration.firstName,
+      name_last: registration.lastName,
+      email_address: registration.email,
+
+      // Transaction details
+      m_payment_id: `reg_${registration.id}`,
+      amount: amount.toFixed(2),
+      item_name: `Square 15 - ${pkg.displayName}`,
+      item_description: `Registration payment for ${registration.accountType} (${registration.email})`,
+
+      // Redirects
+      return_url: `${env.BASE_URL}/register?payment=success`,
+      cancel_url: `${env.BASE_URL}/register?payment=cancel`,
+      // Vinxi mounts http routers at base + router name (e.g. /health/health).
+      notify_url: `${env.BASE_URL}/api/payments/payfast/notify/payfast-notify`,
+
+      // Optional preselection
+      ...(payfastMethod ? { payment_method: payfastMethod } : {}),
+    });
+
+    return checkout;
   });
 
 export const getPendingRegistrations = baseProcedure
@@ -200,7 +282,8 @@ export const getAllRegistrations = baseProcedure
       const monthlyCharge = subscription
         ? subscription.package.basePrice +
           subscription.additionalUsers * subscription.package.additionalUserPrice +
-          (subscription.additionalTenants ?? 0) * (subscription.package.additionalTenantPrice ?? 0)
+          (subscription.additionalTenants ?? 0) * (subscription.package.additionalTenantPrice ?? 0) +
+          (subscription.additionalContractors ?? 0) * (subscription.package.additionalUserPrice ?? 0)
         : null;
 
       const isInTrial = !!subscription?.trialEndsAt && subscription.trialEndsAt.getTime() > now;
@@ -411,7 +494,7 @@ export const approveContractorPackageRequest = baseProcedure
 
     await db.contractor.update({
       where: { id: request.contractorId },
-      data: { portalAccessEnabled: true },
+      data: { portalAccessEnabled: true, status: "ACTIVE" },
     });
 
     await db.contractorPackageRequest.update({

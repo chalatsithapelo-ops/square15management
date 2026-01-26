@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AIAgentChat } from "~/components/AIAgentChat";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import { useAuthStore } from "~/stores/auth";
 import { isContractorRole } from "~/utils/roles";
 
@@ -21,5 +22,9 @@ export const Route = createFileRoute("/contractor/ai-agent")({
 });
 
 function AIAgentPage() {
-  return <AIAgentChat />;
+  return (
+    <RequireSubscriptionFeature feature="hasAIAgent" returnPath="/contractor/dashboard">
+      <AIAgentChat />
+    </RequireSubscriptionFeature>
+  );
 }

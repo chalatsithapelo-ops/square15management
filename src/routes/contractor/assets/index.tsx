@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   ArrowLeft,
   Plus,
@@ -20,8 +21,16 @@ import {
 import { AccessDenied } from "~/components/AccessDenied";
 
 export const Route = createFileRoute("/contractor/assets/")({
-  component: AssetsPage,
+  component: AssetsPageGuarded,
 });
+
+function AssetsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasAssets" returnPath="/contractor/dashboard">
+      <AssetsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const assetSchema = z.object({
   name: z.string().min(1, "Asset name is required"),

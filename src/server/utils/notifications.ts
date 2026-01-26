@@ -1,5 +1,5 @@
 import { db } from "~/server/db";
-import { NotificationType, UserRole } from "@prisma/client";
+import { NotificationType } from "@prisma/client";
 import { notificationEvents } from "~/server/utils/notification-events";
 import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/server/utils/web-push";
 
@@ -8,7 +8,7 @@ import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/serve
  */
 export async function createNotification(params: {
   recipientId: number;
-  recipientRole: UserRole;
+  recipientRole: string;
   message: string;
   type: NotificationType;
   relatedEntityId?: number;
@@ -31,7 +31,7 @@ export async function createNotification(params: {
         recipientId: params.recipientId,
         // Store the recipient's actual role to keep data consistent even if callers pass a generic role
         // (e.g. CONTRACTOR vs CONTRACTOR_SENIOR_MANAGER).
-        recipientRole: (recipient?.role ?? params.recipientRole) as UserRole,
+        recipientRole: recipient?.role ?? params.recipientRole,
         message: params.message,
         type: params.type,
         relatedEntityId: params.relatedEntityId,
@@ -99,7 +99,7 @@ export async function notifyAdmins(params: {
         const notification = await db.notification.create({
           data: {
             recipientId: admin.id,
-            recipientRole: admin.role as UserRole,
+            recipientRole: admin.role,
             message: params.message,
             type: params.type,
             relatedEntityId: params.relatedEntityId,
@@ -211,13 +211,13 @@ export async function notifyArtisanPaymentStatus(params: {
   amount: number;
   rejectionReason?: string;
 }) {
-  const messages: Record<string, string> = {
+  const messages: Record<"APPROVED" | "REJECTED" | "PAID", string> = {
     APPROVED: `Your payment request for R${params.amount.toLocaleString()} has been approved`,
     REJECTED: `Your payment request for R${params.amount.toLocaleString()} has been rejected${params.rejectionReason ? `: ${params.rejectionReason}` : ""}`,
     PAID: `Your payment of R${params.amount.toLocaleString()} has been processed`,
   };
 
-  const types: Record<string, NotificationType> = {
+  const types: Record<"APPROVED" | "REJECTED" | "PAID", NotificationType> = {
     APPROVED: "PAYMENT_REQUEST_APPROVED",
     REJECTED: "PAYMENT_REQUEST_REJECTED",
     PAID: "PAYMENT_REQUEST_PAID",
@@ -277,7 +277,7 @@ export async function notifyCustomerQuotationStatus(params: {
   status: "APPROVED" | "REJECTED";
   rejectionReason?: string;
 }) {
-  const messages: Record<string, string> = {
+  const messages: Record<"APPROVED" | "REJECTED", string> = {
     APPROVED: `Your quotation ${params.quoteNumber} has been approved`,
     REJECTED: `Your quotation ${params.quoteNumber} has been rejected${params.rejectionReason ? `: ${params.rejectionReason}` : ""}`,
   };
@@ -302,7 +302,7 @@ export async function notifyCustomerInvoice(params: {
   status: "SENT" | "OVERDUE";
   amount: number;
 }) {
-  const messages: Record<string, string> = {
+  const messages: Record<"SENT" | "OVERDUE", string> = {
     SENT: `Invoice ${params.invoiceNumber} for R${params.amount.toLocaleString()} has been sent to you`,
     OVERDUE: `Invoice ${params.invoiceNumber} for R${params.amount.toLocaleString()} is now overdue`,
   };

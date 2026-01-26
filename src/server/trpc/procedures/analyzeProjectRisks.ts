@@ -34,7 +34,7 @@ export const analyzeProjectRisks = baseProcedure
               },
               risks: true,
               weeklyUpdates: {
-                orderBy: { weekDate: "desc" },
+                orderBy: { weekStartDate: "desc" },
                 take: 3,
               },
             },
@@ -85,7 +85,7 @@ export const analyzeProjectRisks = baseProcedure
       // Count existing risks
       const existingRisks = project.milestones.reduce((sum, m) => sum + m.risks.length, 0);
       const highSeverityRisks = project.milestones.reduce(
-        (sum, m) => sum + m.risks.filter(r => r.severity === "HIGH").length,
+        (sum, m) => sum + m.risks.filter(r => r.probability === "HIGH" || r.impact === "HIGH").length,
         0
       );
 
@@ -154,12 +154,12 @@ ${project.milestones.map((m, idx) => `${idx + 1}. ${m.name}
    Status: ${m.status}, Progress: ${m.progressPercentage || 0}%
    Budget: R${m.budgetAllocated?.toLocaleString() || 0} / Spent: R${m.actualCost?.toLocaleString() || 0}
    ${m.endDate ? `Due: ${new Date(m.endDate).toLocaleDateString()}${new Date(m.endDate) < now && m.status !== "COMPLETED" ? " (OVERDUE)" : ""}` : ""}
-   ${m.risks.length > 0 ? `Existing Risks: ${m.risks.map(r => r.description).join("; ")}` : ""}
+  ${m.risks.length > 0 ? `Existing Risks: ${m.risks.map(r => r.riskDescription).join("; ")}` : ""}
 `).join("\n")}
 
 ${project.milestones.some(m => m.weeklyUpdates.length > 0) ? `Recent Updates:
 ${project.milestones.filter(m => m.weeklyUpdates.length > 0).map(m => 
-  `${m.name}: ${m.weeklyUpdates[0]?.workCompleted || "No update"}`
+  `${m.name}: ${m.weeklyUpdates[0]?.workDone || m.weeklyUpdates[0]?.notes || "No update"}`
 ).join("\n")}` : ""}
 
 Analysis Focus Areas:

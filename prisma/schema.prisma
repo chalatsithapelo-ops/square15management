@@ -827,6 +827,7 @@ model Invoice {
   estimatedProfit     Float @default(0)
 
   status          InvoiceStatus @default(DRAFT)
+  isDisputed      Boolean       @default(false)
   dueDate         DateTime?
   paidDate        DateTime?
   rejectionReason String?
@@ -2491,6 +2492,7 @@ model RentPayment {
   amountPaid    Float     @default(0)
   lateFee       Float     @default(0)
   status        String    @default("PENDING") // PENDING, PAID, PARTIAL, OVERDUE
+  isDisputed    Boolean   @default(false)
 
   // Transaction Details
   paymentMethod        String? // CASH, BANK_TRANSFER, CARD, CHEQUE

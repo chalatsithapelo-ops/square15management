@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
+import { hasPermission } from "~/server/utils/permissions";
 
 export const getPayslips = baseProcedure
   .input(
@@ -37,8 +38,14 @@ export const getPayslips = baseProcedure
       };
     }
     
+    // Must be allowed to view payslips at all
+    requirePermission(user, PERMISSIONS.VIEW_PAYSLIPS);
+
     // Check if user can view all payslips or only their own
-    const canViewAll = requirePermission(user, PERMISSIONS.VIEW_PAYSLIPS, false);
+    const canViewAll =
+      hasPermission(user.role, PERMISSIONS.MANAGE_PAYSLIPS) ||
+      hasPermission(user.role, PERMISSIONS.VIEW_ALL_EMPLOYEES) ||
+      hasPermission(user.role, PERMISSIONS.MANAGE_ALL_EMPLOYEES);
     
     if (canViewAll) {
       // Admin/manager can view all or filter by specific employee

@@ -32,7 +32,7 @@ export const generateProjectSummary = baseProcedure
               },
               risks: true,
               weeklyUpdates: {
-                orderBy: { weekDate: "desc" },
+                orderBy: { weekStartDate: "desc" },
                 take: 5,
               },
             },
@@ -63,7 +63,8 @@ export const generateProjectSummary = baseProcedure
       
       const totalRisks = project.milestones.reduce((sum, m) => sum + m.risks.length, 0);
       const highRisks = project.milestones.reduce(
-        (sum, m) => sum + m.risks.filter(r => r.severity === "HIGH").length, 
+        (sum, m) =>
+          sum + m.risks.filter((r) => r.probability === "HIGH" || r.impact === "HIGH").length,
         0
       );
       
@@ -74,7 +75,7 @@ export const generateProjectSummary = baseProcedure
       // Get recent updates
       const recentUpdates = project.milestones
         .flatMap(m => m.weeklyUpdates)
-        .sort((a, b) => new Date(b.weekDate).getTime() - new Date(a.weekDate).getTime())
+        .sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime())
         .slice(0, 3);
 
       // Set up AI model
@@ -139,11 +140,11 @@ ${project.milestones.map((m, idx) => `${idx + 1}. ${m.name}
    Budget: R${m.budgetAllocated?.toLocaleString() || 0} (Spent: R${m.actualCost?.toLocaleString() || 0})
    ${m.startDate ? `Start: ${new Date(m.startDate).toLocaleDateString()}` : ""}
    ${m.endDate ? `End: ${new Date(m.endDate).toLocaleDateString()}` : ""}
-   ${m.risks.length > 0 ? `Risks: ${m.risks.map(r => `${r.description} (${r.severity})`).join(", ")}` : ""}
+  ${m.risks.length > 0 ? `Risks: ${m.risks.map(r => `${r.riskDescription} (${r.probability}/${r.impact})`).join(", ")}` : ""}
 `).join("\n")}
 
 ${recentUpdates.length > 0 ? `Recent Updates:
-${recentUpdates.map(u => `- Week of ${new Date(u.weekDate).toLocaleDateString()}: ${u.workCompleted || "No details"}`).join("\n")}` : ""}
+${recentUpdates.map(u => `- Week of ${new Date(u.weekStartDate).toLocaleDateString()}: ${u.workDone || u.notes || "No details"}`).join("\n")}` : ""}
 
 ${project.changeOrders.length > 0 ? `Change Orders: ${project.changeOrders.length} change orders have been issued` : ""}
 

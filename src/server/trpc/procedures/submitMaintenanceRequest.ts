@@ -52,8 +52,9 @@ export const submitMaintenanceRequest = baseProcedure
 
       let sequence = 1;
       if (lastRequest) {
-        const lastSequence = parseInt(lastRequest.requestNumber.split("-")[2]);
-        sequence = lastSequence + 1;
+        const lastSequencePart = lastRequest.requestNumber.split("-").at(2);
+        const lastSequence = lastSequencePart ? parseInt(lastSequencePart, 10) : NaN;
+        sequence = Number.isFinite(lastSequence) ? lastSequence + 1 : 1;
       }
       const requestNumber = `MR-${year}${month}-${String(sequence).padStart(4, "0")}`;
 
@@ -161,14 +162,16 @@ export const submitMaintenanceRequest = baseProcedure
       }
 
       // Notify customer
-      await createNotification({
-        recipientId: customer.userId,
-        recipientRole: "CUSTOMER",
-        message: `Your maintenance request "${input.title}" has been submitted successfully.`,
-        type: "MAINTENANCE_REQUEST_SUBMITTED",
-        relatedEntityId: maintenanceRequest.id,
-        relatedEntityType: "MAINTENANCE_REQUEST",
-      });
+      if (customer.userId) {
+        await createNotification({
+          recipientId: customer.userId,
+          recipientRole: "CUSTOMER",
+          message: `Your maintenance request "${input.title}" has been submitted successfully.`,
+          type: "MAINTENANCE_REQUEST_SUBMITTED",
+          relatedEntityId: maintenanceRequest.id,
+          relatedEntityType: "MAINTENANCE_REQUEST",
+        });
+      }
 
       return maintenanceRequest;
     } catch (error) {

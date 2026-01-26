@@ -26,6 +26,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 
 export const Route = createFileRoute("/contractor/invoices/")({
   beforeLoad: ({ location }) => {
@@ -46,8 +47,16 @@ export const Route = createFileRoute("/contractor/invoices/")({
       });
     }
   },
-  component: InvoicesPage,
+  component: InvoicesPageGuarded,
 });
+
+function InvoicesPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasInvoices" returnPath="/contractor/dashboard">
+      <InvoicesPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const invoiceSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),

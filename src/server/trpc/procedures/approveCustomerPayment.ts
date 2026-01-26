@@ -87,6 +87,52 @@ export const approveCustomerPayment = publicProcedure
           },
         },
       });
+
+      // Also update the matching rent invoice (RentPayment) so PAID reflects PM approval.
+      if (payment.tenantId) {
+        const basisDate = payment.paymentMonth ?? payment.paymentDate;
+        const monthStart = new Date(basisDate.getFullYear(), basisDate.getMonth(), 1);
+        const nextMonthStart = new Date(basisDate.getFullYear(), basisDate.getMonth() + 1, 1);
+
+        const rentInvoice = await db.rentPayment.findFirst({
+          where: {
+            propertyManagerId: user.id,
+            tenantId: payment.tenantId,
+            dueDate: {
+              gte: monthStart,
+              lt: nextMonthStart,
+            },
+          },
+          select: {
+            id: true,
+            amount: true,
+            lateFee: true,
+            amountPaid: true,
+            dueDate: true,
+          },
+          orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
+        });
+
+        if (rentInvoice) {
+          const newAmountPaid = (rentInvoice.amountPaid ?? 0) + payment.amount;
+          const lateFee = rentInvoice.lateFee ?? 0;
+          const totalDue = (rentInvoice.amount ?? 0) + lateFee;
+
+          const isFullyPaid = newAmountPaid >= totalDue;
+          const status = isFullyPaid ? "PAID" : newAmountPaid > 0 ? "PARTIAL" : rentInvoice.dueDate < now ? "OVERDUE" : "PENDING";
+
+          await db.rentPayment.update({
+            where: { id: rentInvoice.id },
+            data: {
+              amountPaid: newAmountPaid,
+              status,
+              paidDate: isFullyPaid ? now : undefined,
+              paymentMethod: payment.paymentMethod ?? undefined,
+              transactionReference: payment.transactionReference ?? undefined,
+            },
+          });
+        }
+      }
     }
 
     // If it's a utilities payment, update the building revenue

@@ -95,6 +95,15 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().email().optional(),
+
+  // PayFast (optional - required only if using PayFast checkout)
+  PAYFAST_MERCHANT_ID: z.string().optional(),
+  PAYFAST_MERCHANT_KEY: z.string().optional(),
+  PAYFAST_PASSPHRASE: z.string().optional(),
+  PAYFAST_SANDBOX: z
+    .string()
+    .optional()
+    .transform((val) => val === "1" || val === "true"),
 });
 
 type Env = z.infer<typeof envSchema>;

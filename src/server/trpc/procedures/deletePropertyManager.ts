@@ -14,7 +14,7 @@ export const deletePropertyManager = baseProcedure
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN";
+    const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "ADMIN";
     if (!isAdmin) {
       throw new TRPCError({
         code: "FORBIDDEN",

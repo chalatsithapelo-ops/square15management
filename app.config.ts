@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 // Get the directory name of the current module
+// @ts-ignore - This file runs in an ESM context (Vinxi/Vite) even if tsconfig module differs.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -21,7 +22,9 @@ export default createApp({
     experimental: {
       asyncContext: true,
     },
+    // @ts-ignore - Supported by Vinxi runtime config.
     port: parseInt(process.env.PORT || "3000"),
+    // @ts-ignore - Supported by Vinxi runtime config.
     host: process.env.HOST || "0.0.0.0",
   },
   routers: [
@@ -78,6 +81,24 @@ export default createApp({
       name: "debug",
       base: "/api/debug/client-logs/",
       handler: "./src/server/debug/client-logs-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
+      type: "http",
+      name: "payfast-notify",
+      base: "/api/payments/payfast/notify/",
+      handler: "./src/server/payments/payfast-notify-handler.ts",
       target: "server",
       plugins: () => [
         config("allowedHosts", {

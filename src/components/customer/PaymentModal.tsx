@@ -16,17 +16,35 @@ interface PaymentModalProps {
 }
 
 const paymentSchema = z.object({
+  paymentFlow: z.enum(["PROOF", "ONLINE"]),
   paymentType: z.enum(["RENT", "UTILITIES", "CLAIM"]),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  paymentMethod: z.enum(["BANK_TRANSFER", "CASH", "CARD", "EFT"]),
+  paymentMethod: z.enum(["BANK_TRANSFER", "CASH", "CARD", "EFT"]).optional(),
   transactionReference: z.string().optional(),
   paymentDate: z.string().min(1, "Payment date is required"),
   paymentMonth: z.string().optional(),
   deviationReason: z.string().optional(),
   notes: z.string().optional(),
+}).superRefine((value, ctx) => {
+  if (value.paymentFlow === "PROOF" && !value.paymentMethod) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["paymentMethod"],
+      message: "Payment method is required",
+    });
+  }
 });
 
 type PaymentFormInput = z.infer<typeof paymentSchema>;
+
+type PayfastPaymentOption =
+  | "CARD"
+  | "S_PAY"
+  | "INSTANT_EFT"
+  | "SNAPSCAN"
+  | "ZAPPER"
+  | "MASTERPASS"
+  | "FNB_PAY";
 
 interface UploadedFile {
   file: File;
@@ -42,6 +60,7 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
   const queryClient = useQueryClient();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedPaymentOption, setSelectedPaymentOption] = useState<PayfastPaymentOption | null>(null);
 
   const {
     register,
@@ -52,6 +71,7 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
   } = useForm<PaymentFormInput>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
+      paymentFlow: "PROOF",
       paymentType: "RENT",
       paymentMethod: "BANK_TRANSFER",
       paymentDate: new Date().toISOString().split('T')[0],
@@ -60,6 +80,7 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
 
   const amount = watch("amount");
   const paymentType = watch("paymentType");
+  const paymentFlow = watch("paymentFlow");
 
   const showDeviationWarning = paymentType === "RENT" && expectedRentAmount && amount && Math.abs(amount - expectedRentAmount) > 0.01;
 
@@ -83,6 +104,15 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
     })
   );
 
+  const createPayfastCheckoutMutation = useMutation(
+    trpc.createCustomerPayfastCheckout.mutationOptions({
+      onError: (error) => {
+        toast.error(error.message || "Failed to start online payment.");
+        console.error(error);
+      },
+    })
+  );
+
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     if (!token) {
@@ -99,7 +129,8 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
     const maxSize = 10 * 1024 * 1024; // 10MB
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+        const file = files.item(i);
+        if (!file) continue;
       
       if (!validTypes.includes(file.type)) {
         toast.error(`${file.name}: Invalid file type. Only images and documents allowed.`);
@@ -186,9 +217,67 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
     });
   };
 
+  const startOnlinePayment = (data: PaymentFormInput) => {
+    if (!token) {
+      toast.error("Authentication required.");
+      return;
+    }
+
+    if (!selectedPaymentOption) {
+      toast.error("Please choose a payment option.");
+      return;
+    }
+
+    if (showDeviationWarning && !data.deviationReason) {
+      toast.error("Please provide a reason for the payment amount deviation.");
+      return;
+    }
+
+    createPayfastCheckoutMutation.mutate(
+      {
+        token,
+        paymentType: data.paymentType,
+        amount: data.amount,
+        paymentOption: selectedPaymentOption,
+        paymentMonth: data.paymentMonth,
+        notes: data.notes,
+        expectedAmount: expectedRentAmount,
+      },
+      {
+        onSuccess: (checkout) => {
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = checkout.endpoint;
+
+          for (const [name, value] of Object.entries(checkout.fields)) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+          }
+
+          document.body.appendChild(form);
+          form.submit();
+          form.remove();
+        },
+      }
+    );
+  };
+
   const onSubmit: SubmitHandler<PaymentFormInput> = (data) => {
     if (!token) {
       toast.error("Authentication required.");
+      return;
+    }
+
+    if (data.paymentFlow === "ONLINE") {
+      startOnlinePayment(data);
+      return;
+    }
+
+    if (!data.paymentMethod) {
+      toast.error("Payment method is required.");
       return;
     }
 
@@ -211,7 +300,14 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
 
     submitPaymentMutation.mutate({
       token,
-      ...data,
+      paymentType: data.paymentType,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      transactionReference: data.transactionReference,
+      paymentDate: data.paymentDate,
+      paymentMonth: data.paymentMonth,
+      deviationReason: data.deviationReason,
+      notes: data.notes,
       proofOfPayment: successfulUploads.map(f => f.url!),
       expectedAmount: expectedRentAmount,
     });
@@ -223,10 +319,11 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
       if (f.preview) URL.revokeObjectURL(f.preview);
     });
     setUploadedFiles([]);
+    setSelectedPaymentOption(null);
     onClose();
   };
 
-  const isSubmitting = submitPaymentMutation.isPending;
+  const isSubmitting = submitPaymentMutation.isPending || createPayfastCheckoutMutation.isPending;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -263,13 +360,47 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
                     <CreditCard className="h-6 w-6 mr-2" />
                     Submit Payment
                   </Dialog.Title>
-                  <p className="text-sm text-purple-100 mt-1">Upload your proof of payment for property manager approval</p>
+                  <p className="text-sm text-purple-100 mt-1">
+                    {paymentFlow === "ONLINE"
+                      ? "Pay securely online using your preferred option"
+                      : "Upload your proof of payment for property manager approval"}
+                  </p>
                 </div>
                 
                 <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Column 1: Payment Details */}
                     <div className="space-y-4">
+                      {/* Payment Flow */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          How would you like to pay? *
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { value: "ONLINE" as const, label: "Pay Online" },
+                            { value: "PROOF" as const, label: "Upload Proof" },
+                          ]).map((opt) => (
+                            <label
+                              key={opt.value}
+                              className={`flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                paymentFlow === opt.value
+                                  ? "border-purple-600 bg-purple-50 text-purple-600"
+                                  : "border-gray-300 hover:border-purple-300"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                value={opt.value}
+                                {...register("paymentFlow")}
+                                className="sr-only"
+                              />
+                              <span className="text-sm font-medium">{opt.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Payment Type */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -372,37 +503,44 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
                       )}
 
                       {/* Payment Method */}
-                      <div>
-                        <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">
-                          Payment Method *
-                        </label>
-                        <select
-                          id="paymentMethod"
-                          {...register("paymentMethod")}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
-                          disabled={isSubmitting}
-                        >
-                          <option value="BANK_TRANSFER">Bank Transfer / EFT</option>
-                          <option value="CASH">Cash</option>
-                          <option value="CARD">Card Payment</option>
-                          <option value="EFT">Instant EFT</option>
-                        </select>
-                      </div>
+                      {paymentFlow === "PROOF" && (
+                        <div>
+                          <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">
+                            Payment Method *
+                          </label>
+                          <select
+                            id="paymentMethod"
+                            {...register("paymentMethod")}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                            disabled={isSubmitting}
+                          >
+                            <option value="BANK_TRANSFER">Bank Transfer / EFT</option>
+                            <option value="CASH">Cash</option>
+                            <option value="CARD">Card Payment</option>
+                            <option value="EFT">Instant EFT</option>
+                          </select>
+                          {errors.paymentMethod && (
+                            <p className="mt-1 text-sm text-red-600">{String(errors.paymentMethod.message ?? "")}</p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Transaction Reference */}
-                      <div>
-                        <label htmlFor="transactionReference" className="block text-sm font-medium text-gray-700">
-                          Transaction Reference
-                        </label>
-                        <input
-                          type="text"
-                          id="transactionReference"
-                          {...register("transactionReference")}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
-                          disabled={isSubmitting}
-                          placeholder="e.g., Reference number, transaction ID"
-                        />
-                      </div>
+                      {paymentFlow === "PROOF" && (
+                        <div>
+                          <label htmlFor="transactionReference" className="block text-sm font-medium text-gray-700">
+                            Transaction Reference
+                          </label>
+                          <input
+                            type="text"
+                            id="transactionReference"
+                            {...register("transactionReference")}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                            disabled={isSubmitting}
+                            placeholder="e.g., Reference number, transaction ID"
+                          />
+                        </div>
+                      )}
 
                       {/* Payment Date */}
                       <div>
@@ -422,7 +560,54 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
 
                     {/* Column 2: Proof of Payment & Notes */}
                     <div className="space-y-4">
+                      {paymentFlow === "ONLINE" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Choose payment option *
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {([
+                              { value: "CARD" as const, label: "Card" },
+                              { value: "S_PAY" as const, label: "S Pay" },
+                              { value: "INSTANT_EFT" as const, label: "Instant EFT" },
+                              { value: "SNAPSCAN" as const, label: "SnapScan" },
+                              { value: "ZAPPER" as const, label: "Zapper" },
+                              { value: "MASTERPASS" as const, label: "Masterpass" },
+                              { value: "FNB_PAY" as const, label: "FNB Pay" },
+                            ]).map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setSelectedPaymentOption(opt.value)}
+                                disabled={isSubmitting}
+                                className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                                  selectedPaymentOption === opt.value
+                                    ? "border-purple-600 bg-purple-50 text-purple-700"
+                                    : "border-gray-300 hover:border-purple-300"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-start">
+                              <AlertCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-blue-800">Online payment</p>
+                                <ul className="text-xs text-blue-700 mt-2 space-y-1 list-disc list-inside">
+                                  <li>You’ll be redirected to the secure PayFast checkout</li>
+                                  <li>After payment, your dashboard will reflect the status</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* File Upload Area */}
+                      {paymentFlow === "PROOF" && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Proof of Payment * <span className="text-gray-500 font-normal">(Images & Documents)</span>
@@ -507,7 +692,9 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
                           </div>
                         )}
                       </div>
+                      )}
                       
+                      {paymentFlow === "PROOF" && (
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-start">
                           <AlertCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
@@ -524,6 +711,7 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
                           </div>
                         </div>
                       </div>
+                      )}
 
                       {/* Notes */}
                       <div>
@@ -558,17 +746,30 @@ export function PaymentModal({ isOpen, onClose, expectedRentAmount }: PaymentMod
                       type="submit"
                       onClick={handleSubmit(onSubmit)}
                       className="inline-flex items-center justify-center rounded-lg border border-transparent bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
-                      disabled={isSubmitting || uploadedFiles.some(f => f.uploading)}
+                      disabled={
+                        isSubmitting ||
+                        (paymentFlow === "PROOF" && uploadedFiles.some(f => f.uploading)) ||
+                        (paymentFlow === "ONLINE" && !selectedPaymentOption)
+                      }
                     >
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                          Submitting...
+                          Processing...
                         </>
                       ) : (
                         <>
-                          <Upload className="h-5 w-5 mr-2" />
-                          Submit Payment
+                          {paymentFlow === "ONLINE" ? (
+                            <>
+                              <CreditCard className="h-5 w-5 mr-2" />
+                              Continue to Payment
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5 mr-2" />
+                              Submit Payment
+                            </>
+                          )}
                         </>
                       )}
                     </button>

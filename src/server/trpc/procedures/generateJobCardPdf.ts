@@ -69,7 +69,7 @@ export const generateJobCardPdf = baseProcedure
         order = await db.order.findUnique({
           where: { id: input.orderId },
           include: {
-            contractor: {
+            assignedTo: {
               select: {
                 id: true,
                 firstName: true,
@@ -82,15 +82,6 @@ export const generateJobCardPdf = baseProcedure
                 contractorCompanyPhone: true,
                 contractorCompanyEmail: true,
                 contractorCompanyVatNumber: true,
-              },
-            },
-            assignedTo: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
               },
             },
             materials: true,
@@ -141,15 +132,17 @@ export const generateJobCardPdf = baseProcedure
 
       // Load all async data BEFORE creating the PDF document
       const systemCompanyDetails = await getCompanyDetails();
+
+      const contractorUser = input.isPMOrder ? order.contractor : order.assignedTo;
       
       // Use contractor's company details if available, otherwise fallback to system settings
       const companyDetails = {
-        companyName: order.contractor?.contractorCompanyName || systemCompanyDetails.companyName,
-        companyAddressLine1: order.contractor?.contractorCompanyAddressLine1 || systemCompanyDetails.companyAddressLine1,
-        companyAddressLine2: order.contractor?.contractorCompanyAddressLine2 || systemCompanyDetails.companyAddressLine2,
-        companyPhone: order.contractor?.contractorCompanyPhone || systemCompanyDetails.companyPhone,
-        companyEmail: order.contractor?.contractorCompanyEmail || systemCompanyDetails.companyEmail,
-        companyVatNumber: order.contractor?.contractorCompanyVatNumber || systemCompanyDetails.companyVatNumber,
+        companyName: contractorUser?.contractorCompanyName || systemCompanyDetails.companyName,
+        companyAddressLine1: contractorUser?.contractorCompanyAddressLine1 || systemCompanyDetails.companyAddressLine1,
+        companyAddressLine2: contractorUser?.contractorCompanyAddressLine2 || systemCompanyDetails.companyAddressLine2,
+        companyPhone: contractorUser?.contractorCompanyPhone || systemCompanyDetails.companyPhone,
+        companyEmail: contractorUser?.contractorCompanyEmail || systemCompanyDetails.companyEmail,
+        companyVatNumber: contractorUser?.contractorCompanyVatNumber || systemCompanyDetails.companyVatNumber,
       };
       
       const logoBuffer = await getCompanyLogo();

@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   Mail,
+  Plus,
   Receipt,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -64,6 +65,12 @@ function PropertyManagerStatementsPage() {
   const [bulkPeriodEnd, setBulkPeriodEnd] = useState(() => getDefaultPeriod().end);
   const [bulkNotes, setBulkNotes] = useState("");
 
+  const [createClientEmail, setCreateClientEmail] = useState("");
+  const [createPeriodStart, setCreatePeriodStart] = useState(() => getDefaultPeriod().start);
+  const [createPeriodEnd, setCreatePeriodEnd] = useState(() => getDefaultPeriod().end);
+  const [createNotes, setCreateNotes] = useState("");
+  const [createSendToCustomer, setCreateSendToCustomer] = useState(false);
+
   const queryDefaults = {
     enabled: !!token,
     refetchOnWindowFocus: true,
@@ -87,6 +94,19 @@ function PropertyManagerStatementsPage() {
         view: "ISSUED",
       },
       queryDefaults
+    )
+  );
+
+  const managedTenantsQuery = useQuery(
+    trpc.getTenantsOverview.queryOptions(
+      {
+        token: token || "",
+        status: "ACTIVE",
+      },
+      {
+        enabled: !!token && activeView === "ISSUED",
+        staleTime: 30_000,
+      }
     )
   );
 
@@ -178,6 +198,18 @@ function PropertyManagerStatementsPage() {
     })
   );
 
+  const generateSingleStatementMutation = useMutation(
+    trpc.generateStatement.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Statement generation started");
+        await queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate statement");
+      },
+    })
+  );
+
   const handleDownloadPdf = (statementId: number) => {
     if (!token) return;
     setGeneratingPdfId(statementId);
@@ -232,6 +264,33 @@ function PropertyManagerStatementsPage() {
       period_start: bulkPeriodStart,
       period_end: bulkPeriodEnd,
       notes: bulkNotes || undefined,
+    });
+  };
+
+  const handleCreateStatement = () => {
+    if (!token) return;
+    if (!createClientEmail) {
+      toast.error("Please select a client/tenant");
+      return;
+    }
+    if (!createPeriodStart || !createPeriodEnd) {
+      toast.error("Please select a start and end date");
+      return;
+    }
+
+    const tenants = (managedTenantsQuery.data as any)?.tenants ?? [];
+    const tenant = tenants.find((t: any) => t.email === createClientEmail);
+
+    generateSingleStatementMutation.mutate({
+      token,
+      client_email: createClientEmail,
+      period_start: new Date(createPeriodStart).toISOString(),
+      period_end: new Date(createPeriodEnd).toISOString(),
+      customerName: tenant ? `${tenant.firstName} ${tenant.lastName}` : undefined,
+      customerPhone: tenant?.phone || undefined,
+      address: tenant?.address || undefined,
+      notes: createNotes || undefined,
+      sendToCustomer: createSendToCustomer,
     });
   };
 
@@ -365,6 +424,80 @@ function PropertyManagerStatementsPage() {
                     placeholder="Notes to include on all statements"
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                   />
+                </div>
+
+                <div className="mt-5 pt-5 border-t border-gray-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Plus className="h-4 w-4 text-teal-700" />
+                    <p className="text-sm font-semibold text-gray-900">Create a statement for a single tenant</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Client/Tenant</label>
+                      <select
+                        value={createClientEmail}
+                        onChange={(e) => setCreateClientEmail(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                      >
+                        <option value="">Select…</option>
+                        {((managedTenantsQuery.data as any)?.tenants ?? []).map((t: any) => (
+                          <option key={t.id} value={t.email}>
+                            {t.firstName} {t.lastName} — {t.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Period start</label>
+                      <input
+                        type="date"
+                        value={createPeriodStart}
+                        onChange={(e) => setCreatePeriodStart(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Period end</label>
+                      <input
+                        type="date"
+                        value={createPeriodEnd}
+                        onChange={(e) => setCreatePeriodEnd(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={createNotes}
+                        onChange={(e) => setCreateNotes(e.target.value)}
+                        placeholder="Note for this statement"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                      />
+                    </div>
+                    <div className="sm:col-span-1 flex items-end">
+                      <button
+                        type="button"
+                        onClick={handleCreateStatement}
+                        disabled={generateSingleStatementMutation.isPending}
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
+                      >
+                        {generateSingleStatementMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
+                        Create
+                      </button>
+                    </div>
+                    <div className="sm:col-span-4">
+                      <label className="inline-flex items-center gap-2 text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={createSendToCustomer}
+                          onChange={(e) => setCreateSendToCustomer(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        Send to customer immediately (otherwise create as draft)
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

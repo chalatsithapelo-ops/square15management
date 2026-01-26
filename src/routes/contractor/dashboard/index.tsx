@@ -62,6 +62,28 @@ function ContractorDashboard() {
     "overview" | "ai-agent" | "jobs" | "performance" | "documents" | "kpis"
   >("overview");
 
+  const subscriptionQuery = useQuery({
+    ...trpc.getUserSubscription.queryOptions({
+      token: token!,
+    }),
+    enabled: !!token,
+  });
+
+  const subscriptionPackage = (subscriptionQuery.data as any)?.package;
+  const hasFeature = (featureKey: string) => subscriptionPackage?.[featureKey] === true;
+
+  const canUseCRM = hasFeature("hasCRM");
+  const canUseOperations = hasFeature("hasOperations");
+  const canUseProjects = hasFeature("hasProjectManagement");
+  const canUseQuotations = hasFeature("hasQuotations");
+  const canUseInvoices = hasFeature("hasInvoices");
+  const canUseStatements = hasFeature("hasStatements");
+  const canUsePayments = hasFeature("hasPayments");
+  const canUseAssetsBundle = hasFeature("hasAssets");
+  const canUseHR = hasFeature("hasHR");
+  const canUseMessages = hasFeature("hasMessages");
+  const canUseAIAgent = hasFeature("hasAIAgent");
+
   // Fetch contractor data
   const contractorQuery = useQuery({
     ...trpc.getContractors.queryOptions({
@@ -294,6 +316,7 @@ function ContractorDashboard() {
       color: "from-blue-500 to-blue-600",
       stats: `${newLeads} new leads`,
       href: "/contractor/crm",
+      enabled: canUseCRM,
     },
     {
       title: "Operations",
@@ -302,6 +325,7 @@ function ContractorDashboard() {
       color: "from-green-500 to-green-600",
       stats: `${activeOrders} active jobs`,
       href: "/contractor/operations",
+      enabled: canUseOperations,
     },
     {
       title: "Messages",
@@ -310,6 +334,7 @@ function ContractorDashboard() {
       color: "from-green-500 to-green-600",
       stats: `${unreadConversations.length} unread`,
       href: "/messages",
+      enabled: canUseMessages,
     },
     {
       title: "Projects",
@@ -318,6 +343,7 @@ function ContractorDashboard() {
       color: "from-purple-500 to-purple-600",
       stats: `${activeProjects} active projects`,
       href: "/contractor/projects",
+      enabled: canUseProjects,
     },
     {
       title: "Quotations",
@@ -326,6 +352,7 @@ function ContractorDashboard() {
       color: "from-orange-500 to-orange-600",
       stats: `${pendingQuotations} pending quotes`,
       href: "/contractor/quotations",
+      enabled: canUseQuotations,
     },
     {
       title: "Invoices",
@@ -334,6 +361,7 @@ function ContractorDashboard() {
       color: "from-red-500 to-red-600",
       stats: `${unpaidInvoices} unpaid invoices`,
       href: "/contractor/invoices",
+      enabled: canUseInvoices,
     },
     {
       title: "Statements",
@@ -342,6 +370,7 @@ function ContractorDashboard() {
       color: "from-purple-500 to-purple-600",
       stats: "Automated statement generation",
       href: "/contractor/statements",
+      enabled: canUseStatements,
     },
     {
       title: "Management Accounts",
@@ -350,6 +379,7 @@ function ContractorDashboard() {
       color: "from-teal-500 to-teal-600",
       stats: `R${(totalRevenue ?? 0).toLocaleString()} revenue`,
       href: "/contractor/accounts",
+      enabled: canUseAssetsBundle,
     },
     {
       title: "Assets",
@@ -358,6 +388,7 @@ function ContractorDashboard() {
       color: "from-indigo-500 to-indigo-600",
       stats: `R${(totalAssetValue ?? 0).toLocaleString()} total value`,
       href: "/contractor/assets",
+      enabled: canUseAssetsBundle,
     },
     {
       title: "Liabilities",
@@ -366,6 +397,7 @@ function ContractorDashboard() {
       color: "from-red-500 to-red-600",
       stats: `R${(unpaidLiabilitiesAmount ?? 0).toLocaleString()} unpaid`,
       href: "/contractor/liabilities",
+      enabled: canUseAssetsBundle,
     },
     {
       title: "Payment Requests",
@@ -374,6 +406,7 @@ function ContractorDashboard() {
       color: "from-pink-500 to-pink-600",
       stats: `${pendingPaymentRequests} pending requests`,
       href: "/contractor/payment-requests",
+      enabled: canUsePayments,
     },
     {
       title: "HR Tool",
@@ -382,6 +415,7 @@ function ContractorDashboard() {
       color: "from-purple-500 to-purple-600",
       stats: `${employees.length} total employees`,
       href: "/contractor/hr",
+      enabled: canUseHR,
     },
     {
       title: "AI Agent",
@@ -390,6 +424,7 @@ function ContractorDashboard() {
       color: "from-cyan-500 to-cyan-600",
       stats: "Use chat widget below",
       action: () => setActiveTab("ai-agent"),
+      enabled: canUseAIAgent,
     },
     {
       title: "Settings",
@@ -399,7 +434,25 @@ function ContractorDashboard() {
       stats: "Contractor access",
       href: "/contractor/settings",
     },
-  ];
+  ].filter((c: any) => c.enabled !== false);
+
+  const navItems = [
+    { id: "overview", label: "Overview", icon: LayoutDashboard, isTab: true, enabled: true },
+    { id: "crm", label: "CRM", icon: Users, href: "/contractor/crm", enabled: canUseCRM },
+    { id: "operations", label: "Operations", icon: ClipboardList, href: "/contractor/operations", enabled: canUseOperations },
+    { id: "projects", label: "Projects", icon: FolderKanban, href: "/contractor/projects", enabled: canUseProjects },
+    { id: "quotations", label: "Quotations", icon: FileText, href: "/contractor/quotations", enabled: canUseQuotations },
+    { id: "invoices", label: "Invoices", icon: Receipt, href: "/contractor/invoices", enabled: canUseInvoices },
+    { id: "messages", label: "Messages", icon: MessageSquare, href: "/messages", enabled: canUseMessages },
+    { id: "hr", label: "HR", icon: UserCircle2, href: "/contractor/hr", enabled: canUseHR },
+    { id: "statements", label: "Statements", icon: FileText, href: "/contractor/statements", enabled: canUseStatements },
+    { id: "accounts", label: "Accounts", icon: DollarSign, href: "/contractor/accounts", enabled: canUseAssetsBundle },
+    { id: "payment-requests", label: "Payments", icon: CreditCard, href: "/contractor/payment-requests", enabled: canUsePayments },
+    { id: "assets", label: "Assets", icon: Package, href: "/contractor/assets", enabled: canUseAssetsBundle },
+    { id: "liabilities", label: "Liabilities", icon: AlertCircle, href: "/contractor/liabilities", enabled: canUseAssetsBundle },
+    { id: "ai-agent", label: "AI Agent", icon: Bot, isTab: true, enabled: canUseAIAgent },
+    { id: "settings", label: "Settings", icon: Settings, href: "/contractor/settings", enabled: true },
+  ].filter((t: any) => t.enabled !== false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-amber-50/30">
@@ -443,23 +496,7 @@ function ContractorDashboard() {
       <div className="bg-white/80 backdrop-blur-md shadow-md border-b border-gray-200/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-2 sm:space-x-3 overflow-x-auto py-3">
-            {[
-              { id: "overview", label: "Overview", icon: LayoutDashboard, isTab: true },
-              { id: "crm", label: "CRM", icon: Users, href: "/contractor/crm" },
-              { id: "operations", label: "Operations", icon: ClipboardList, href: "/contractor/operations" },
-              { id: "projects", label: "Projects", icon: FolderKanban, href: "/contractor/projects" },
-              { id: "quotations", label: "Quotations", icon: FileText, href: "/contractor/quotations" },
-              { id: "invoices", label: "Invoices", icon: Receipt, href: "/contractor/invoices" },
-              { id: "messages", label: "Messages", icon: MessageSquare, href: "/messages" },
-              { id: "hr", label: "HR", icon: UserCircle2, href: "/contractor/hr" },
-              { id: "statements", label: "Statements", icon: FileText, href: "/contractor/statements" },
-              { id: "accounts", label: "Accounts", icon: DollarSign, href: "/contractor/accounts" },
-              { id: "payment-requests", label: "Payments", icon: CreditCard, href: "/contractor/payment-requests" },
-              { id: "assets", label: "Assets", icon: Package, href: "/contractor/assets" },
-              { id: "liabilities", label: "Liabilities", icon: AlertCircle, href: "/contractor/liabilities" },
-              { id: "ai-agent", label: "AI Agent", icon: Bot, isTab: true },
-              { id: "settings", label: "Settings", icon: Settings, href: "/contractor/settings" },
-            ].map((tab) => {
+            {navItems.map((tab: any) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const className = `flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${

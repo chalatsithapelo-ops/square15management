@@ -19,11 +19,19 @@ import {
   Clock,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 
 export const Route = createFileRoute("/contractor/payment-requests/")({
-  component: PaymentRequestsPage,
+  component: PaymentRequestsPageGuarded,
 });
 
+function PaymentRequestsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasPayments" returnPath="/contractor/dashboard">
+      <PaymentRequestsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 const paymentRequestSchema = z.object({
   artisanId: z.number().min(1, "Please select an artisan"),
   hoursWorked: z.number().optional(),

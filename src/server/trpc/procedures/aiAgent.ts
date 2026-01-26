@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { baseProcedure } from '~/server/trpc/main';
 import { runAIAgent } from '~/server/services/aiAgentService';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
+import { requireSubscription } from '~/server/utils/subscription';
 
 const aiAgentInputSchema = z.object({
   authToken: z.string().describe('Authentication token'),
@@ -35,6 +37,19 @@ export const aiAgent = baseProcedure
       
       // Authenticate user to get userId for message saving
       const user = await authenticateUser(input.authToken);
+
+      // Enforce subscription access for contractor/property-manager portals.
+      // Admins/system accounts are allowed regardless.
+      if (user.role === 'CONTRACTOR' || user.role === 'PROPERTY_MANAGER') {
+        try {
+          await requireSubscription(user.id, 'AIAgent');
+        } catch (err: any) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: err?.message || 'AI Agent requires an active subscription that includes AI Agent access.',
+          });
+        }
+      }
       
       if (input.voiceInput) {
         console.log('[aiAgent.ts] Voice format:', input.voiceFormat);
@@ -97,12 +112,28 @@ export const aiAgent = baseProcedure
 
         if (!conversation) {
           // Create new conversation
-          conversation = await db.conversation.create({
+          const created = await db.conversation.create({
             data: {
               participants: {
                 connect: [{ id: user.id }, { id: aiAgentUser.id }],
               },
             },
+          });
+
+          conversation = await db.conversation.findUnique({
+            where: {
+              id: created.id,
+            },
+            include: {
+              participants: true,
+            },
+          });
+        }
+
+        if (!conversation) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to initialize AI Agent conversation.',
           });
         }
 

@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -41,8 +42,16 @@ import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
 
 export const Route = createFileRoute("/contractor/operations/")({
-  component: OperationsPage,
+  component: OperationsPageGuarded,
 });
+
+function OperationsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasOperations" returnPath="/contractor/dashboard">
+      <OperationsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const orderSchema = z
   .object({

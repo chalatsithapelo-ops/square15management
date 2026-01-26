@@ -67,6 +67,7 @@ export const createAlternativeRevenue = baseProcedure
     }
 
     if (seniorRoles.length > 0) {
+      const recipientRole: string = seniorRoles[0] ?? "SENIOR_ADMIN";
       // Find all senior users
       const seniorUsers = await db.user.findMany({
         where: {
@@ -82,7 +83,7 @@ export const createAlternativeRevenue = baseProcedure
       // Create notifications for senior users
       const notifications = seniorUsers.map((seniorUser) => ({
         recipientId: seniorUser.id,
-        recipientRole: seniorRoles[0],
+        recipientRole,
         message: `${user.firstName} ${user.lastName} added alternative revenue: ${input.description} (R ${input.amount.toFixed(2)})`,
         type: "ALTERNATIVE_REVENUE_ADDED" as const,
         relatedEntityId: revenue.id,

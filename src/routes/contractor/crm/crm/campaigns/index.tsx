@@ -29,10 +29,19 @@ import {
 } from "lucide-react";
 import { CampaignEditor } from "~/components/crm/CampaignEditor";
 import { OTHER_SERVICE_TYPE_VALUE } from "~/utils/serviceTypeOther";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 
 export const Route = createFileRoute("/contractor/crm/crm/campaigns/")({
-  component: CampaignsPage,
+  component: CampaignsPageGuarded,
 });
+
+function CampaignsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasCRM" returnPath="/contractor/dashboard">
+      <CampaignsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),

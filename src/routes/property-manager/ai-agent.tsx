@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AIAgentChat } from "../../components/AIAgentChat";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import { useAuthStore } from "~/stores/auth";
 
 export const Route = createFileRoute("/property-manager/ai-agent")({
@@ -20,5 +21,9 @@ export const Route = createFileRoute("/property-manager/ai-agent")({
 });
 
 function AIAgentPage() {
-  return <AIAgentChat />;
+  return (
+    <RequireSubscriptionFeature feature="hasAIAgent" returnPath="/property-manager/dashboard">
+      <AIAgentChat />
+    </RequireSubscriptionFeature>
+  );
 }

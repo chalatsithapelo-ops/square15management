@@ -35,7 +35,8 @@ export const getTenantsOverview = baseProcedure
           select: {
             id: true,
             email: true,
-            name: true,
+            firstName: true,
+            lastName: true,
           },
         },
         _count: {

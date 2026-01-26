@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   ArrowLeft,
   Plus,
@@ -27,8 +28,16 @@ import { StatementPreview } from "~/components/StatementPreview";
 import { Dialog, Transition } from "@headlessui/react";
 
 export const Route = createFileRoute("/contractor/statements/")({
-  component: StatementsPage,
+  component: StatementsPageGuarded,
 });
+
+function StatementsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasStatements" returnPath="/contractor/dashboard">
+      <StatementsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const statementSchema = z.object({
   client_email: z.string().email("Invalid email address"),

@@ -21,10 +21,19 @@ import ExpenseUpload from "~/components/accounts/ExpenseUpload";
 import { CustomizableDashboard } from "~/components/admin/CustomizableDashboard";
 import { FinancialReportsSection } from "~/components/FinancialReportsSection";
 import { ComprehensiveFinancialDashboard } from "~/components/admin/ComprehensiveFinancialDashboard";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 
 export const Route = createFileRoute("/contractor/accounts/")({
-  component: ContractorAccountsPage,
+  component: ContractorAccountsPageGuarded,
 });
+
+function ContractorAccountsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasAssets" returnPath="/contractor/dashboard">
+      <ContractorAccountsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 function ContractorAccountsPage() {
   const { token, user } = useAuthStore();

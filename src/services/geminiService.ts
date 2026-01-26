@@ -18,8 +18,8 @@ export async function sendMessageToGemini(
     // Convert history to the format expected by the aiAgent procedure
     // Google Generative AI uses 'model' for assistant messages, but we need 'assistant'
     const messages = historyForApi.map((msg) => ({
-      role: msg.role === 'model' ? 'assistant' : 'user', // Convert 'model' to 'assistant'
-      content: msg.parts[0]?.text || '',
+      role: (msg.role === 'model' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: msg.parts?.[0]?.text ?? '',
     }));
 
     console.log('[Gemini Service] Calling aiAgent with', messages.length, 'history messages');

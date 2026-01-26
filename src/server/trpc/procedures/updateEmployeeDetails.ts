@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
+import { isValidRole } from "~/server/utils/permissions";
 import bcryptjs from "bcryptjs";
 
 export const updateEmployeeDetails = baseProcedure
@@ -37,7 +38,6 @@ export const updateEmployeeDetails = baseProcedure
       );
       
       // Validate that the role exists
-      const { isValidRole } = await import("~/server/utils/permissions");
       const roleIsValid = await isValidRole(input.role);
       if (!roleIsValid) {
         throw new TRPCError({

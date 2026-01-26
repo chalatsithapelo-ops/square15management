@@ -53,6 +53,9 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
         queryClient.invalidateQueries({
           queryKey: trpc.getPropertyManagerInvoices.queryKey(),
         });
+        queryClient.invalidateQueries({
+          queryKey: trpc.getTenantInvoicesIssued.queryKey(),
+        });
         resetForm();
         onClose();
       },
@@ -96,19 +99,22 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
   const estimatedProfit =
     total - formData.companyMaterialCost - formData.companyLabourCost;
 
-  const handleItemChange = (index: number, field: string, value: any) => {
+  const handleItemChange = <K extends keyof InvoiceItem>(
+    index: number,
+    field: K,
+    value: InvoiceItem[K]
+  ) => {
     const updatedItems = [...items];
-    updatedItems[index] = {
-      ...updatedItems[index],
-      [field]: value,
-    };
+    const current = updatedItems[index]!;
+    const next: InvoiceItem = { ...current };
+    (next as any)[field] = value;
 
     // Auto-calculate total when quantity or unitPrice changes
     if (field === "quantity" || field === "unitPrice") {
-      updatedItems[index].total =
-        updatedItems[index].quantity * updatedItems[index].unitPrice;
+      next.total = next.quantity * next.unitPrice;
     }
 
+    updatedItems[index] = next;
     setItems(updatedItems);
   };
 
@@ -207,7 +213,6 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
               />
               <input
                 type="date"
-                label="Due Date"
                 value={formData.dueDate}
                 onChange={(e) =>
                   setFormData({ ...formData, dueDate: e.target.value })

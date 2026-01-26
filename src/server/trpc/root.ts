@@ -50,6 +50,8 @@ import { updateInvoiceStatus } from "~/server/trpc/procedures/updateInvoiceStatu
 import { updateInvoiceDetails } from "~/server/trpc/procedures/updateInvoiceDetails";
 import { generateStatement } from "~/server/trpc/procedures/generateStatement";
 import { submitCustomerPayment } from "~/server/trpc/procedures/submitCustomerPayment";
+import { createCustomerPayfastCheckout } from "~/server/trpc/procedures/createCustomerPayfastCheckout";
+import { setMyInvoiceDisputeStatus } from "~/server/trpc/procedures/setMyInvoiceDisputeStatus";
 import { getCustomerPayments } from "~/server/trpc/procedures/getCustomerPayments";
 import { getPropertyManagerPayments } from "~/server/trpc/procedures/getPropertyManagerPayments";
 import { approveCustomerPayment } from "~/server/trpc/procedures/approveCustomerPayment";
@@ -259,6 +261,8 @@ import { getTenantMaintenanceRequests } from "~/server/trpc/routers/property-man
 import { recordRentPayment } from "~/server/trpc/routers/property-manager/recordRentPayment";
 import { getTenantRentHistory } from "~/server/trpc/routers/property-manager/getTenantRentHistory";
 import { getTenantRentInvoiceTracking } from "~/server/trpc/routers/property-manager/getTenantRentInvoiceTracking";
+import { getTenantInvoicesIssued } from "~/server/trpc/routers/property-manager/getTenantInvoicesIssued";
+import { setTenantInvoiceDisputeStatus } from "~/server/trpc/routers/property-manager/setTenantInvoiceDisputeStatus";
 import { updateRentPayment } from "~/server/trpc/routers/property-manager/updateRentPayment";
 import { recordUtilityReading } from "~/server/trpc/routers/property-manager/recordUtilityReading";
 import { getTenantUtilityHistory } from "~/server/trpc/routers/property-manager/getTenantUtilityHistory";
@@ -302,6 +306,7 @@ import { generateAccountsInsights } from "~/server/trpc/procedures/generateAccou
 import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions } from "~/server/trpc/procedures/subscriptions";
 import {
   createPendingRegistration,
+  createPendingRegistrationPayfastCheckout,
   getPendingRegistrations,
   getAllRegistrations,
   approvePendingRegistration,
@@ -564,6 +569,8 @@ export const appRouter = createTRPCRouter({
   recordRentPayment,
   getTenantRentHistory,
   getTenantRentInvoiceTracking,
+  getTenantInvoicesIssued,
+  setTenantInvoiceDisputeStatus,
   updateRentPayment,
   recordUtilityReading,
   getTenantUtilityHistory,
@@ -669,6 +676,8 @@ export const appRouter = createTRPCRouter({
   
   // Customer Payments
   submitCustomerPayment,
+  createCustomerPayfastCheckout,
+  setMyInvoiceDisputeStatus,
   getCustomerPayments,
   getPropertyManagerPayments,
   approveCustomerPayment,
@@ -686,6 +695,7 @@ export const appRouter = createTRPCRouter({
   
   // Self-Registration
   createPendingRegistration,
+  createPendingRegistrationPayfastCheckout,
   getPendingRegistrations,
   getAllRegistrations,
   approvePendingRegistration,

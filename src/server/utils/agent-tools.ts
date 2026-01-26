@@ -568,7 +568,7 @@ export const getEmployeesTool = tool({
   execute: async ({ authToken, role, limit }) => {
     const user = await authenticateUser(authToken);
     assertNotRestrictedDemoAccountAccessDenied(user);
-    requirePermission(user, PERMISSIONS.VIEW_EMPLOYEES);
+    requirePermission(user, PERMISSIONS.VIEW_ALL_EMPLOYEES);
     
     const where: any = {};
     if (role) where.role = role;
@@ -937,8 +937,8 @@ export const getPaymentRequestsTool = tool({
         id: pr.id,
         artisan: `${pr.artisan.firstName} ${pr.artisan.lastName}`,
         artisanEmail: pr.artisan.email,
-        amount: pr.amount,
-        description: pr.description,
+        amount: pr.calculatedAmount,
+        description: pr.notes ?? '',
         status: pr.status,
         requestDate: pr.createdAt,
         approvedDate: pr.approvedDate,

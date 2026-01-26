@@ -55,7 +55,7 @@ export const createPropertyManager = baseProcedure
     // Demo admin accounts must not be able to create users
     assertNotRestrictedDemoAccountAccessDenied(user);
 
-    if (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN") {
+    if (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN" && user.role !== "ADMIN") {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Only Admin users can create Property Managers",

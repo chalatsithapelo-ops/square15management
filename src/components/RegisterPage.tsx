@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { Building2, Briefcase, Check, Calculator } from 'lucide-react';
+import { Building2, Briefcase, Check, Calculator, CreditCard, QrCode, Landmark, Wallet, ArrowLeft } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 
 export function RegisterPage() {
@@ -9,6 +9,18 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [accountType, setAccountType] = useState<'CONTRACTOR' | 'PROPERTY_MANAGER' | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
+  const [registrationId, setRegistrationId] = useState<number | null>(null);
+  const [paymentOptionSelected, setPaymentOptionSelected] = useState<
+    | 'CARD'
+    | 'S_PAY'
+    | 'INSTANT_EFT'
+    | 'SNAPSCAN'
+    | 'ZAPPER'
+    | 'MASTERPASS'
+    | 'FNB_PAY'
+    | null
+  >(null);
+  const [isRedirectingToPayfast, setIsRedirectingToPayfast] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -28,14 +40,38 @@ export function RegisterPage() {
 
   const registerMutation = useMutation(
     trpc.createPendingRegistration.mutationOptions({
-      onSuccess: () => {
-        alert(
-          'Registration submitted successfully! You will be contacted once your account is approved.'
-        );
-        navigate({ to: '/' });
+      onSuccess: (data) => {
+        setRegistrationId(data.registrationId);
+        setPaymentOptionSelected(null);
       },
       onError: (error) => {
         alert(`Registration failed: ${error.message}`);
+      },
+    })
+  );
+
+  const payfastCheckoutMutation = useMutation(
+    trpc.createPendingRegistrationPayfastCheckout.mutationOptions({
+      onSuccess: (data) => {
+        // Auto-submit a POST form to PayFast.
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.endpoint;
+
+        Object.entries(data.fields).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value;
+          form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+      },
+      onError: (error) => {
+        setIsRedirectingToPayfast(false);
+        alert(`Payment setup failed: ${error.message}`);
       },
     })
   );
@@ -61,6 +97,33 @@ export function RegisterPage() {
       packageId: selectedPackage.id,
     });
   };
+
+  const paymentOptions = useMemo(
+    () => [
+      { key: 'CARD' as const, label: 'Card', icon: CreditCard, hint: 'Visa / Mastercard' },
+      { key: 'S_PAY' as const, label: 'S Pay', icon: Wallet, hint: 'Bank wallet checkout' },
+      { key: 'INSTANT_EFT' as const, label: 'Instant EFT', icon: Landmark, hint: 'Pay via bank login' },
+      { key: 'SNAPSCAN' as const, label: 'SnapScan', icon: QrCode, hint: 'Scan & pay' },
+      { key: 'ZAPPER' as const, label: 'Zapper', icon: QrCode, hint: 'Scan & pay' },
+      { key: 'MASTERPASS' as const, label: 'Masterpass', icon: Wallet, hint: 'Wallet checkout' },
+      { key: 'FNB_PAY' as const, label: 'FNB Pay', icon: Wallet, hint: 'FNB app payment' },
+    ],
+    []
+  );
+
+  const startPayfastCheckout = (option: (typeof paymentOptions)[number]['key']) => {
+    if (!registrationId) return;
+    setPaymentOptionSelected(option);
+    setIsRedirectingToPayfast(true);
+
+    payfastCheckoutMutation.mutate({
+      registrationId,
+      paymentOption: option,
+    });
+  };
+
+  // If a registration has been created, move user to payment selection UI.
+  const isOnPaymentStep = registrationId != null;
 
   if (!accountType) {
     return (
@@ -242,6 +305,103 @@ export function RegisterPage() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isOnPaymentStep) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 p-4 py-12">
+        <div className="max-w-lg mx-auto">
+          <button
+            type="button"
+            onClick={() => {
+              // Allow user to exit payment step; registration remains pending.
+              setRegistrationId(null);
+              setPaymentOptionSelected(null);
+              setIsRedirectingToPayfast(false);
+            }}
+            className="mb-6 inline-flex items-center gap-2 text-cyan-700 hover:text-cyan-800 font-semibold"
+            disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Choose payment option</h1>
+            <p className="text-sm text-gray-600 mb-6">
+              Select a payment method to complete your registration payment.
+            </p>
+
+            <div className="space-y-4">
+              {paymentOptions.map((opt) => {
+                const Icon = opt.icon;
+                const selected = paymentOptionSelected === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => startPayfastCheckout(opt.key)}
+                    disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
+                    className={`w-full rounded-full border-2 px-5 py-4 flex items-center justify-between transition-colors bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed ${
+                      selected ? 'border-cyan-500' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${selected ? 'bg-cyan-50' : 'bg-gray-50'}`}>
+                        <Icon className={`h-5 w-5 ${selected ? 'text-cyan-700' : 'text-gray-600'}`} />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-gray-900">{opt.label}</div>
+                        <div className="text-xs text-gray-500">{opt.hint}</div>
+                      </div>
+                    </div>
+                    <span className="text-gray-400">→</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 text-xs text-gray-500">
+              {isRedirectingToPayfast ? 'Redirecting to payment gateway…' : 'You can complete payment now, or come back later.'}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => navigate({ to: '/' })}
+                className="flex-1 py-3 px-6 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
+              >
+                Pay Later
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegistrationId(null);
+                  setSelectedPackage(null);
+                  setAccountType(null);
+                  setFormData({
+                    email: '',
+                    firstName: '',
+                    lastName: '',
+                    phone: '',
+                    companyName: '',
+                    additionalUsers: 0,
+                    additionalTenants: 0,
+                    additionalContractors: 0,
+                  });
+                  navigate({ to: '/' });
+                }}
+                className="flex-1 py-3 px-6 bg-cyan-600 text-white rounded-lg font-semibold hover:bg-cyan-700 transition-colors disabled:bg-gray-400"
+                disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       </div>

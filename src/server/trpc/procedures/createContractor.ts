@@ -103,6 +103,7 @@ export const createContractor = baseProcedure
       // If a package is selected, it becomes a PENDING request that Admin must approve
       // before portal access + subscription is activated.
       if (isPropertyManager) {
+        const contractorStatus = input.packageId != null ? "INACTIVE" : "ACTIVE";
         const contractor = await db.contractor.create({
           data: {
             firstName: input.firstName,
@@ -121,6 +122,7 @@ export const createContractor = baseProcedure
             bankAccountHolder: input.bankAccountHolder,
             bankAccountNumber: input.bankAccountNumber,
             bankCode: input.bankCode,
+            status: contractorStatus,
             portalAccessEnabled: false,
             dateJoined: new Date(),
             propertyManagerId: targetPropertyManagerId ?? undefined,

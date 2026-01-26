@@ -35,6 +35,42 @@ export const createEmployee = baseProcedure
       requireAdmin(user);
     }
 
+    // Contractors can only add users when they have an active (paid) subscription
+    // and available seats.
+    let contractorSubscription: { id: number; currentUsers: number; maxUsers: number } | null = null;
+    if (user.role === "CONTRACTOR") {
+      contractorSubscription = await db.subscription.findFirst({
+        where: {
+          userId: user.id,
+          status: "ACTIVE",
+        },
+        select: {
+          id: true,
+          currentUsers: true,
+          maxUsers: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (!contractorSubscription) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "You need an active, paid subscription before you can add additional users. Please contact an administrator to activate your subscription.",
+        });
+      }
+
+      if (contractorSubscription.currentUsers >= contractorSubscription.maxUsers) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "User limit reached. Please purchase additional user seats or upgrade your subscription.",
+        });
+      }
+    }
+
     // Validate that the role exists
     const roleIsValid = await isValidRole(input.role);
     if (!roleIsValid) {
@@ -59,21 +95,46 @@ export const createEmployee = baseProcedure
     // Hash the password
     const hashedPassword = await bcryptjs.hash(input.password, 10);
 
-    // Create the new employee
-    const newEmployee = await db.user.create({
-      data: {
-        employerId: user.role === "CONTRACTOR" ? user.id : null,
-        email: input.email,
-        password: hashedPassword,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        phone: input.phone || null,
-        role: input.role,
-        hourlyRate: input.hourlyRate || null,
-        dailyRate: input.dailyRate || null,
-        monthlySalary: input.monthlySalary || null,
-        monthlyPaymentDay: input.monthlyPaymentDay || null,
-      },
+    const newEmployee = await db.$transaction(async (tx) => {
+      const employee = await tx.user.create({
+        data: {
+          employerId: user.role === "CONTRACTOR" ? user.id : null,
+          email: input.email,
+          password: hashedPassword,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phone: input.phone || null,
+          role: input.role,
+          hourlyRate: input.hourlyRate || null,
+          dailyRate: input.dailyRate || null,
+          monthlySalary: input.monthlySalary || null,
+          monthlyPaymentDay: input.monthlyPaymentDay || null,
+        },
+      });
+
+      if (user.role === "CONTRACTOR" && contractorSubscription) {
+        const updated = await tx.subscription.updateMany({
+          where: {
+            id: contractorSubscription.id,
+            currentUsers: contractorSubscription.currentUsers,
+          },
+          data: {
+            currentUsers: {
+              increment: 1,
+            },
+          },
+        });
+
+        if (updated.count !== 1) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Could not reserve a user seat (subscription was updated). Please try again.",
+          });
+        }
+      }
+
+      return employee;
     });
 
     return {

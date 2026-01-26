@@ -8,7 +8,22 @@ export const getTenantMaintenanceRequests = baseProcedure
     z.object({
       token: z.string(),
       customerId: z.number(),
-      status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+      status: z
+        .enum([
+          // Current workflow
+          "DRAFT",
+          "SUBMITTED",
+          "RECEIVED",
+          "APPROVED",
+          "REJECTED",
+          "CONVERTED",
+          // Legacy values (keep for backward compatibility)
+          "PENDING",
+          "IN_PROGRESS",
+          "COMPLETED",
+          "CANCELLED",
+        ])
+        .optional(),
     })
   )
   .query(async ({ input }) => {
@@ -27,26 +42,22 @@ export const getTenantMaintenanceRequests = baseProcedure
       return [];
     }
 
-    const maintenanceRequests = await db.propertyManagerMaintenanceRequest.findMany({
+    const maintenanceRequests = await db.maintenanceRequest.findMany({
       where: {
         customerId: input.customerId,
+        propertyManagerId: userId,
         status: input.status,
       },
       include: {
-        building: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
         customer: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             email: true,
-            phoneNumber: true,
+            phone: true,
+            buildingName: true,
+            unitNumber: true,
           },
         },
       },

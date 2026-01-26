@@ -86,14 +86,16 @@ export const approveMaintenanceRequest = baseProcedure
       });
 
       // Notify customer
-      await createNotification({
-        recipientId: request.customer.userId,
-        recipientRole: "CUSTOMER",
-        message: `Your maintenance request "${request.title}" has been approved.`,
-        type: "MAINTENANCE_REQUEST_APPROVED",
-        relatedEntityId: request.id,
-        relatedEntityType: "MAINTENANCE_REQUEST",
-      });
+      if (request.customer.userId) {
+        await createNotification({
+          recipientId: request.customer.userId,
+          recipientRole: "CUSTOMER",
+          message: `Your maintenance request "${request.title}" has been approved.`,
+          type: "MAINTENANCE_REQUEST_APPROVED",
+          relatedEntityId: request.id,
+          relatedEntityType: "MAINTENANCE_REQUEST",
+        });
+      }
 
       return updatedRequest;
     } catch (error) {
@@ -147,14 +149,16 @@ export const rejectMaintenanceRequest = baseProcedure
       });
 
       // Notify customer
-      await createNotification({
-        recipientId: request.customer.userId,
-        recipientRole: "CUSTOMER",
-        message: `Your maintenance request "${request.title}" has been rejected: ${input.rejectionReason}`,
-        type: "MAINTENANCE_REQUEST_REJECTED",
-        relatedEntityId: request.id,
-        relatedEntityType: "MAINTENANCE_REQUEST",
-      });
+      if (request.customer.userId) {
+        await createNotification({
+          recipientId: request.customer.userId,
+          recipientRole: "CUSTOMER",
+          message: `Your maintenance request "${request.title}" has been rejected: ${input.rejectionReason}`,
+          type: "SYSTEM_ALERT",
+          relatedEntityId: request.id,
+          relatedEntityType: "MAINTENANCE_REQUEST",
+        });
+      }
 
       return updatedRequest;
     } catch (error) {

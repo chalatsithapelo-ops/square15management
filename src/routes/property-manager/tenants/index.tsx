@@ -5,6 +5,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
 import { AddTenantModal, type AddTenantFormData } from "~/components/property-manager/AddTenantModal";
+import { CreateInvoiceModal } from "~/components/property-manager/CreateInvoiceModal";
 import {
   Users,
   Building2,
@@ -17,6 +18,7 @@ import {
   Calendar,
   Plus,
   FileText,
+  Search,
   ArrowLeft,
   Edit2,
   AlertCircle,
@@ -32,7 +34,7 @@ function PropertyManagerTenantsPage() {
   const { token, user } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"overview" | "pending" | "detail" | "approve" | "record">("overview");
+  const [view, setView] = useState<"overview" | "pending" | "detail" | "approve" | "record" | "invoices">("overview");
   const [selectedTenant, setSelectedTenant] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "maintenance" | "rent" | "utilities">("profile");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -52,6 +54,16 @@ function PropertyManagerTenantsPage() {
     transactionReference: "",
     notes: "",
   });
+
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<"ALL" | "PAID" | "OVERDUE" | "OUTSTANDING" | "DISPUTED">("ALL");
+  const [invoiceFromDueDate, setInvoiceFromDueDate] = useState("");
+  const [invoiceToDueDate, setInvoiceToDueDate] = useState("");
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+
+  const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
+
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [tenantStatusFilter, setTenantStatusFilter] = useState<"ALL" | "ACTIVE" | "PENDING" | "INACTIVE">("ALL");
 
   // Fetch buildings for add tenant form
   const buildingsQuery = useQuery({
@@ -92,6 +104,22 @@ function PropertyManagerTenantsPage() {
     enabled: !!token && view === "detail" && activeTab === "rent" && !!selectedTenant?.id,
   });
 
+  const rentTrackingOverviewQuery = useQuery({
+    ...trpc.getTenantRentInvoiceTracking.queryOptions({ token: token! }),
+    enabled: !!token && view === "overview",
+  });
+
+  const invoicesIssuedQuery = useQuery({
+    ...trpc.getTenantInvoicesIssued.queryOptions({
+      token: token!,
+      status: invoiceStatusFilter,
+      fromDueDate: invoiceFromDueDate ? new Date(invoiceFromDueDate).toISOString() : undefined,
+      toDueDate: invoiceToDueDate ? new Date(invoiceToDueDate).toISOString() : undefined,
+      limit: 200,
+    }),
+    enabled: !!token && view === "invoices",
+  });
+
   const tenantUtilitiesQuery = useQuery({
     ...trpc.getTenantUtilityHistory.queryOptions({ token: token!, tenantId: selectedTenant?.id, limit: 24 }),
     enabled: !!token && view === "detail" && activeTab === "utilities" && !!selectedTenant?.id,
@@ -103,8 +131,10 @@ function PropertyManagerTenantsPage() {
       onSuccess: () => {
         toast.success("Tenant onboarding approved!");
         setView("overview");
-        queryClient.invalidateQueries({ queryKey: ["getPendingOnboardings"] });
-        queryClient.invalidateQueries({ queryKey: ["getTenantsOverview"] });
+        if (token) {
+          queryClient.invalidateQueries({ queryKey: trpc.getPendingOnboardings.queryKey({ token }) });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantsOverview.queryKey({ token }) });
+        }
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to approve onboarding");
@@ -119,7 +149,9 @@ function PropertyManagerTenantsPage() {
         toast.success("Tenant onboarding rejected");
         setView("overview");
         setRejectionReason("");
-        queryClient.invalidateQueries({ queryKey: ["getPendingOnboardings"] });
+        if (token) {
+          queryClient.invalidateQueries({ queryKey: trpc.getPendingOnboardings.queryKey({ token }) });
+        }
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to reject onboarding");
@@ -133,7 +165,9 @@ function PropertyManagerTenantsPage() {
       onSuccess: (result) => {
         toast.success("Tenant added successfully!");
         setTenantCredentials(result.credentials);
-        queryClient.invalidateQueries({ queryKey: ["getTenantsOverview"] });
+        if (token) {
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantsOverview.queryKey({ token }) });
+        }
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to add tenant");
@@ -146,9 +180,12 @@ function PropertyManagerTenantsPage() {
       onSuccess: () => {
         toast.success("Rent invoice issued");
         setIssueRentForm({ dueDate: "", amount: "", lateFee: "0" });
-        queryClient.invalidateQueries({ queryKey: ["getTenantRentHistory"] });
-        queryClient.invalidateQueries({ queryKey: ["getTenantRentInvoiceTracking"] });
-        queryClient.invalidateQueries({ queryKey: ["getTenantDetails"] });
+        if (token) {
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantRentHistory.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantRentInvoiceTracking.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantDetails.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantInvoicesIssued.queryKey() });
+        }
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to issue rent invoice");
@@ -160,12 +197,27 @@ function PropertyManagerTenantsPage() {
     trpc.updateRentPayment.mutationOptions({
       onSuccess: () => {
         toast.success("Rent invoice updated");
-        queryClient.invalidateQueries({ queryKey: ["getTenantRentHistory"] });
-        queryClient.invalidateQueries({ queryKey: ["getTenantRentInvoiceTracking"] });
-        queryClient.invalidateQueries({ queryKey: ["getTenantDetails"] });
+        if (token) {
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantRentHistory.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantRentInvoiceTracking.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantDetails.queryKey() });
+          queryClient.invalidateQueries({ queryKey: trpc.getTenantInvoicesIssued.queryKey() });
+        }
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to update rent invoice");
+      },
+    })
+  );
+
+  const setInvoiceDisputeStatusMutation = useMutation(
+    trpc.setTenantInvoiceDisputeStatus.mutationOptions({
+      onSuccess: (res: any) => {
+        toast.success(res?.message || "Updated dispute status");
+        queryClient.invalidateQueries({ queryKey: trpc.getTenantInvoicesIssued.queryKey() });
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to update dispute status");
       },
     })
   );
@@ -190,47 +242,89 @@ function PropertyManagerTenantsPage() {
 
   const tenants = (tenantsQuery.data as any)?.tenants ?? [];
   const metrics = (tenantsQuery.data as any)?.metrics ?? ({} as any);
+  const invoicesTracking = (rentTrackingOverviewQuery.data as any)?.tracking ?? [];
+  const invoicesIssuedTotal = invoicesTracking.reduce((sum: number, t: any) => sum + (t.issuedCount ?? 0), 0);
+  const invoicesPaidTotal = invoicesTracking.reduce((sum: number, t: any) => sum + (t.paidCount ?? 0), 0);
+  const invoicesOverdueTotal = invoicesTracking.reduce((sum: number, t: any) => sum + (t.overdueCount ?? 0), 0);
+  const invoicesOutstandingTotal = invoicesTracking.reduce((sum: number, t: any) => sum + (t.outstandingAmount ?? 0), 0);
   const pendingOnboardings = pendingQuery.data || [];
   const buildings = buildingsQuery.data || [];
 
-  console.log("Tenants page - Buildings query status:", {
-    isLoading: buildingsQuery.isLoading,
-    isError: buildingsQuery.isError,
-    buildings: buildings,
+  const visibleTenants = tenants.filter((t: any) => {
+    if (tenantStatusFilter !== "ALL" && t.status !== tenantStatusFilter) return false;
+    const q = tenantSearch.trim().toLowerCase();
+    if (!q) return true;
+    const name = `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim().toLowerCase();
+    const email = String(t.email ?? "").toLowerCase();
+    const building = String(t.building?.name ?? "").toLowerCase();
+    return name.includes(q) || email.includes(q) || building.includes(q);
   });
 
+  const issuedInvoices = (invoicesIssuedQuery.data as any)?.invoices ?? [];
+  const visibleIssuedInvoices = issuedInvoices.filter((inv: any) => {
+    const q = invoiceSearch.trim().toLowerCase();
+    if (!q) return true;
+    const ref = String(inv.refNumber ?? inv.paymentNumber ?? "").toLowerCase();
+    const tenantName = `${inv.tenant?.firstName ?? ""} ${inv.tenant?.lastName ?? ""}`.trim().toLowerCase();
+    const tenantEmail = String(inv.tenant?.email ?? inv.customerEmail ?? "").toLowerCase();
+    const building = String(inv.tenant?.buildingName ?? "").toLowerCase();
+    const unit = String(inv.tenant?.unitNumber ?? "").toLowerCase();
+    return ref.includes(q) || tenantName.includes(q) || tenantEmail.includes(q) || building.includes(q) || unit.includes(q);
+  });
+
+  const invoiceTracking = issuedInvoices.reduce(
+    (acc: { issued: number; paid: number; outstanding: number; disputed: number }, inv: any) => {
+      acc.issued += 1;
+      if (inv.status === "DISPUTED") acc.disputed += 1;
+      else if (inv.status === "PAID") acc.paid += 1;
+      else acc.outstanding += 1;
+      return acc;
+    },
+    { issued: 0, paid: 0, outstanding: 0, disputed: 0 }
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="rounded-2xl border border-slate-200 bg-white/70 backdrop-blur shadow-sm p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <Users className="h-8 w-8 mr-3 text-blue-600" />
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center">
+              <span className="mr-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-sm">
+                <Users className="h-6 w-6" />
+              </span>
               Tenant Management
             </h1>
-            <p className="text-gray-600 mt-2">
-              Manage tenant onboarding, rent payments, utilities, and maintenance requests
+            <p className="text-slate-600 mt-2">
+              Onboarding, rent invoices, utilities, and maintenance in one place.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/property-manager/maintenance/received"
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <Wrench className="w-5 h-5" />
               Maintenance
             </Link>
+            <button
+              type="button"
+              onClick={() => setView("invoices")}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <FileText className="w-5 h-5" />
+              Invoices Issued
+            </button>
             <Link
               to="/property-manager/feedback"
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <MessageSquare className="w-5 h-5" />
               Complaints &amp; Compliments
             </Link>
             <button
               onClick={() => setShowAddTenantModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-blue-700 hover:to-indigo-700"
             >
               <Plus className="w-5 h-5" />
               Add Tenant
@@ -251,112 +345,153 @@ function PropertyManagerTenantsPage() {
           credentials={tenantCredentials}
         />
 
+        <CreateInvoiceModal isOpen={showCreateInvoiceModal} onClose={() => setShowCreateInvoiceModal(false)} />
+
         {/* Overview Metrics */}
         {view === "overview" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-blue-50 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">Total Tenants</h3>
+                  <h3 className="text-sm font-medium text-slate-600">Total Tenants</h3>
                   <Users className="h-5 w-5 text-blue-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{(metrics as any).totalTenants || 0}</p>
+                <p className="text-3xl font-bold text-slate-900">{(metrics as any).totalTenants || 0}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-emerald-50 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">Active Tenants</h3>
+                  <h3 className="text-sm font-medium text-slate-600">Active Tenants</h3>
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{(metrics as any).activeTenants || 0}</p>
+                <p className="text-3xl font-bold text-slate-900">{(metrics as any).activeTenants || 0}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-amber-50 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">Pending Onboarding</h3>
+                  <h3 className="text-sm font-medium text-slate-600">Pending Onboarding</h3>
                   <Clock className="h-5 w-5 text-yellow-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{(metrics as any).pendingOnboarding || 0}</p>
+                <p className="text-3xl font-bold text-slate-900">{(metrics as any).pendingOnboarding || 0}</p>
                 {(metrics as any).pendingOnboarding > 0 && (
                   <button
                     onClick={() => setView("pending")}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="mt-2 text-sm text-blue-700 hover:text-blue-800 font-semibold"
                   >
                     Review Now →
                   </button>
                 )}
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-teal-50 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">Monthly Rent</h3>
+                  <h3 className="text-sm font-medium text-slate-600">Monthly Rent</h3>
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-3xl font-bold text-slate-900">
                   R {(((metrics as any).totalMonthlyRent || 0) as number).toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* Tenants List */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">All Tenants</h2>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">All Tenants</h2>
+                  <p className="text-sm text-slate-600 mt-1">{visibleTenants.length} tenant(s) shown</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="relative">
+                    <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={tenantSearch}
+                      onChange={(e) => setTenantSearch(e.target.value)}
+                      placeholder="Search tenants"
+                      className="pl-9 pr-3 py-2 w-64 max-w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <select
+                    value={tenantStatusFilter}
+                    onChange={(e) => setTenantStatusFilter(e.target.value as any)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="ALL">All statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+              </div>
               {tenantsQuery.isLoading ? (
-                <div className="text-center py-8 text-gray-600">Loading tenants...</div>
+                <div className="text-center py-10 text-slate-600">Loading tenants...</div>
               ) : tenants.length === 0 ? (
-                <div className="text-center py-8 text-gray-600">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <div className="text-center py-10 text-slate-600">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-slate-400" />
                   <p>No tenants yet</p>
+                </div>
+              ) : visibleTenants.length === 0 ? (
+                <div className="text-center py-10 text-slate-600">
+                  <Search className="h-10 w-10 mx-auto mb-3 text-slate-400" />
+                  <p className="font-medium text-slate-800">No results</p>
+                  <p className="text-sm text-slate-600 mt-1">Try a different search or status filter.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-slate-50/70 border-y border-slate-200">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Building</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Contact</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Monthly Rent</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Tenant</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Building</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Contact</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Monthly Rent</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {tenants.map((tenant: any) => (
-                        <tr key={tenant.id} className="hover:bg-gray-50">
+                    <tbody className="divide-y divide-slate-200">
+                      {visibleTenants.map((tenant: any) => (
+                        <tr key={tenant.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="px-4 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {tenant.firstName} {tenant.lastName}
-                              </p>
-                              <p className="text-sm text-gray-500">{tenant.email}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600/15 to-indigo-600/15 border border-slate-200 flex items-center justify-center text-sm font-semibold text-slate-700">
+                                {String(tenant.firstName ?? "T").slice(0, 1)}
+                                {String(tenant.lastName ?? "").slice(0, 1)}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900">
+                                  {tenant.firstName} {tenant.lastName}
+                                </p>
+                                <p className="text-sm text-slate-500">{tenant.email}</p>
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center">
-                              <Building2 className="h-4 w-4 mr-2 text-gray-400" />
-                              <span className="text-sm text-gray-900">{tenant.building?.name || "N/A"}</span>
+                              <Building2 className="h-4 w-4 mr-2 text-slate-400" />
+                              <span className="text-sm text-slate-900">{tenant.building?.name || "N/A"}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{tenant.phoneNumber}</td>
-                          <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                          <td className="px-4 py-4 text-sm text-slate-900">{tenant.phone || ""}</td>
+                          <td className="px-4 py-4 text-sm font-semibold text-slate-900">
                             {tenant.monthlyRent ? `R ${tenant.monthlyRent.toLocaleString()}` : "N/A"}
                           </td>
                           <td className="px-4 py-4">
                             {tenant.status === "ACTIVE" && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                 Active
                               </span>
                             )}
                             {tenant.status === "PENDING" && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
                                 <Clock className="h-3 w-3 mr-1" />
                                 Pending
                               </span>
                             )}
                             {tenant.status === "INACTIVE" && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
                                 Inactive
                               </span>
                             )}
@@ -369,7 +504,7 @@ function PropertyManagerTenantsPage() {
                                   setActiveTab("profile");
                                   setSelectedRentPayment(null);
                               }}
-                              className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50"
                             >
                               <Eye className="h-4 w-4 mr-1" />
                               View
@@ -385,30 +520,268 @@ function PropertyManagerTenantsPage() {
           </div>
         )}
 
+        {view === "invoices" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setView("overview")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  Back
+                </button>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Invoices Issued</h2>
+                  <p className="text-slate-600 text-sm">Track rent invoices and invoices created for tenants</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowCreateInvoiceModal(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-teal-700 hover:to-emerald-700"
+              >
+                <Plus className="h-4 w-4" />
+                Create Invoice
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Issued</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{invoiceTracking.issued}</p>
+                  </div>
+                  <div className="rounded-2xl bg-indigo-600/10 p-2 text-indigo-700">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Paid</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{invoiceTracking.paid}</p>
+                  </div>
+                  <div className="rounded-2xl bg-emerald-600/10 p-2 text-emerald-700">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Outstanding</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{invoiceTracking.outstanding}</p>
+                  </div>
+                  <div className="rounded-2xl bg-amber-600/10 p-2 text-amber-700">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-rose-50 to-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Disputed</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{invoiceTracking.disputed}</p>
+                  </div>
+                  <div className="rounded-2xl bg-rose-600/10 p-2 text-rose-700">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex flex-wrap gap-4 items-end">
+              <div className="min-w-[220px] flex-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
+                <input
+                  type="text"
+                  value={invoiceSearch}
+                  onChange={(e) => setInvoiceSearch(e.target.value)}
+                  placeholder="Reference, tenant name, email"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                <select
+                  value={invoiceStatusFilter}
+                  onChange={(e) => setInvoiceStatusFilter(e.target.value as any)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ALL">All</option>
+                  <option value="OUTSTANDING">Outstanding</option>
+                  <option value="OVERDUE">Overdue</option>
+                  <option value="PAID">Paid</option>
+                  <option value="DISPUTED">Disputed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">From (due date)</label>
+                <input
+                  type="date"
+                  value={invoiceFromDueDate}
+                  onChange={(e) => setInvoiceFromDueDate(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">To (due date)</label>
+                <input
+                  type="date"
+                  value={invoiceToDueDate}
+                  onChange={(e) => setInvoiceToDueDate(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              {invoicesIssuedQuery.isLoading ? (
+                <div className="p-10 text-center text-slate-500">Loading invoices...</div>
+              ) : visibleIssuedInvoices.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50/70 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Tenant</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Reference</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Due</th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-slate-700">Amount</th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-slate-700">Paid</th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-slate-700">Outstanding</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Status</th>
+                        <th className="px-6 py-3 text-center text-sm font-semibold text-slate-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleIssuedInvoices.map((inv: any) => (
+                        <tr key={`${inv.source ?? ""}-${inv.id}`} className="border-b border-slate-200 hover:bg-slate-50/60 transition-colors">
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <div className="font-medium">
+                              {inv.tenant?.firstName ? `${inv.tenant.firstName} ${inv.tenant.lastName}` : (inv.customerName || "Unknown")}
+                            </div>
+                            <div className="text-xs text-gray-500">{inv.tenant?.email || inv.customerEmail || ""}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{inv.refNumber ?? inv.paymentNumber ?? ""}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : ""}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700 text-right">R{Number(inv.amount || 0).toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700 text-right">R{Number(inv.amountPaid || 0).toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700 text-right">R{Number(inv.outstanding || 0).toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm">
+                            <span
+                              className={
+                                inv.status === "PAID"
+                                  ? "bg-green-100 text-green-800 px-2 py-1 rounded text-xs"
+                                  : inv.status === "OVERDUE"
+                                  ? "bg-red-100 text-red-800 px-2 py-1 rounded text-xs"
+                                  : inv.status === "DISPUTED"
+                                  ? "bg-rose-100 text-rose-800 px-2 py-1 rounded text-xs"
+                                  : "bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs"
+                              }
+                            >
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center text-sm">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!inv.tenantId) return;
+                                  const tenant = tenants.find((t: any) => t.id === inv.tenantId) ?? { id: inv.tenantId };
+                                  setSelectedTenant(tenant);
+                                  setActiveTab(inv.source === "RENT" ? "rent" : "profile");
+                                  setView("detail");
+                                }}
+                                disabled={!inv.tenantId}
+                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-60"
+                              >
+                                View
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!token) {
+                                    toast.error("Not authenticated");
+                                    return;
+                                  }
+
+                                  const isRejectedInvoice = inv.source === "INVOICE" && inv.rawStatus === "REJECTED";
+                                  if (isRejectedInvoice) return;
+
+                                  setInvoiceDisputeStatusMutation.mutate({
+                                    token,
+                                    source: inv.source,
+                                    id: inv.id,
+                                    isDisputed: inv.status !== "DISPUTED",
+                                  });
+                                }}
+                                disabled={
+                                  !token ||
+                                  setInvoiceDisputeStatusMutation.isPending ||
+                                  (inv.source === "INVOICE" && inv.rawStatus === "REJECTED")
+                                }
+                                className={
+                                  inv.status === "DISPUTED"
+                                    ? "px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-60"
+                                    : "px-3 py-1.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 disabled:opacity-60"
+                                }
+                              >
+                                {inv.source === "INVOICE" && inv.rawStatus === "REJECTED"
+                                  ? "Rejected"
+                                  : inv.status === "DISPUTED"
+                                  ? "Clear Dispute"
+                                  : "Mark Disputed"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-10 text-center text-slate-600">No invoices found for the selected filters.</div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Pending Onboardings View */}
         {view === "pending" && (
           <div className="space-y-6">
             <div className="flex items-center mb-4">
               <button
                 onClick={() => setView("overview")}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="mr-4 text-slate-600 hover:text-slate-900"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-2xl font-bold text-gray-900">Pending Onboarding Requests</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Pending Onboarding Requests</h2>
             </div>
 
             {pendingQuery.isLoading ? (
               <div className="text-center py-8 text-gray-600">Loading...</div>
             ) : pendingOnboardings.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-8 text-center">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
                 <p className="text-gray-600">No pending onboarding requests</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6">
                 {pendingOnboardings.map((request: any) => (
-                  <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
+                  <div key={request.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
@@ -431,7 +804,7 @@ function PropertyManagerTenantsPage() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Phone</p>
-                        <p className="text-sm font-medium text-gray-900">{request.phoneNumber}</p>
+                        <p className="text-sm font-medium text-gray-900">{request.phone}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Building</p>
@@ -442,7 +815,7 @@ function PropertyManagerTenantsPage() {
                       <div>
                         <p className="text-sm text-gray-600">Address</p>
                         <p className="text-sm font-medium text-gray-900">
-                          {request.building?.address}, {request.building?.city}
+                          {request.building?.address}
                         </p>
                       </div>
                     </div>
@@ -481,7 +854,7 @@ function PropertyManagerTenantsPage() {
                           setSelectedTenant(request);
                           setView("approve");
                         }}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                        className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 flex items-center font-semibold"
                       >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Approve
@@ -503,7 +876,7 @@ function PropertyManagerTenantsPage() {
                             }
                           }
                         }}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                        className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center font-semibold"
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Reject
@@ -522,14 +895,14 @@ function PropertyManagerTenantsPage() {
             <div className="flex items-center mb-4">
               <button
                 onClick={() => setView("pending")}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="mr-4 text-slate-600 hover:text-slate-900"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-2xl font-bold text-gray-900">Approve Tenant Onboarding</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Approve Tenant Onboarding</h2>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -551,19 +924,19 @@ function PropertyManagerTenantsPage() {
                 }}
                 className="space-y-6"
               >
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-gray-900 mb-2">Tenant Information</h3>
-                  <p className="text-sm text-gray-600">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 mb-6">
+                  <h3 className="font-semibold text-slate-900 mb-2">Tenant Information</h3>
+                  <p className="text-sm text-slate-600">
                     {selectedTenant.firstName} {selectedTenant.lastName} - {selectedTenant.email}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-slate-600">
                     Building: {selectedTenant.building?.name}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Lease Start Date *
                     </label>
                     <input
@@ -571,24 +944,24 @@ function PropertyManagerTenantsPage() {
                       name="leaseStartDate"
                       required
                       defaultValue={selectedTenant.leaseStartDate?.split("T")[0]}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Lease End Date *
                     </label>
                     <input
                       type="date"
                       name="leaseEndDate"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Monthly Rent (R) *
                     </label>
                     <input
@@ -597,12 +970,12 @@ function PropertyManagerTenantsPage() {
                       step="0.01"
                       required
                       defaultValue={selectedTenant.monthlyRent}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Security Deposit (R)
                     </label>
                     <input
@@ -610,23 +983,23 @@ function PropertyManagerTenantsPage() {
                       name="securityDeposit"
                       step="0.01"
                       defaultValue={selectedTenant.securityDeposit}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4 border-t">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setView("pending")}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                    className="px-4 py-2 bg-slate-100 text-slate-800 rounded-xl hover:bg-slate-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={approveMutation.isPending}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                    className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:bg-slate-400"
                   >
                     {approveMutation.isPending ? "Approving..." : "Approve & Activate"}
                   </button>
@@ -642,24 +1015,24 @@ function PropertyManagerTenantsPage() {
             <div className="flex items-center mb-4">
               <button
                 onClick={() => setView("overview")}
-                className="mr-4 text-gray-600 hover:text-gray-900"
+                className="mr-4 text-slate-600 hover:text-slate-900"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-slate-900">
                 {selectedTenant.firstName} {selectedTenant.lastName}
               </h2>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md">
-              <div className="border-b border-gray-200 px-6 py-4 flex flex-wrap gap-2">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-200 bg-slate-50/60 px-6 py-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => {
                     setActiveTab("profile");
                     setSelectedRentPayment(null);
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    activeTab === "profile" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    activeTab === "profile" ? "bg-blue-600 text-white" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   Profile
@@ -669,8 +1042,8 @@ function PropertyManagerTenantsPage() {
                     setActiveTab("maintenance");
                     setSelectedRentPayment(null);
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    activeTab === "maintenance" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    activeTab === "maintenance" ? "bg-blue-600 text-white" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   Maintenance
@@ -680,8 +1053,8 @@ function PropertyManagerTenantsPage() {
                     setActiveTab("rent");
                     setSelectedRentPayment(null);
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    activeTab === "rent" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    activeTab === "rent" ? "bg-blue-600 text-white" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   Rent
@@ -691,8 +1064,8 @@ function PropertyManagerTenantsPage() {
                     setActiveTab("utilities");
                     setSelectedRentPayment(null);
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    activeTab === "utilities" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    activeTab === "utilities" ? "bg-blue-600 text-white" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   Utilities
@@ -703,76 +1076,73 @@ function PropertyManagerTenantsPage() {
               {activeTab === "profile" && (
                 <div className="p-6">
                   {tenantDetailsQuery.isLoading ? (
-                    <div className="text-center py-8 text-gray-600">Loading tenant details...</div>
+                    <div className="text-center py-10 text-slate-600">Loading tenant details...</div>
                   ) : tenantDetailsQuery.isError ? (
-                    <div className="text-center py-8 text-gray-600">Failed to load tenant details.</div>
+                    <div className="text-center py-10 text-slate-600">Failed to load tenant details.</div>
                   ) : (
                     (() => {
                       const details = tenantDetailsQuery.data as any;
                       const tenant = details?.tenant;
                       return (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 mb-3">Tenant</h3>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <h3 className="font-semibold text-slate-900 mb-3">Tenant</h3>
                             <div className="space-y-2 text-sm">
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Name:</span> {tenant?.firstName} {tenant?.lastName}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Email:</span> {tenant?.email}
                               </p>
-                              <p className="text-gray-700">
-                                <span className="font-medium">Phone:</span> {tenant?.phoneNumber}
+                              <p className="text-slate-700">
+                                <span className="font-medium">Phone:</span> {tenant?.phone}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Status:</span> {tenant?.status}
                               </p>
                             </div>
                           </div>
 
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 mb-3">Building</h3>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <h3 className="font-semibold text-slate-900 mb-3">Building</h3>
                             <div className="space-y-2 text-sm">
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Name:</span> {tenant?.building?.name || "N/A"}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Address:</span> {tenant?.building?.address || "N/A"}
-                              </p>
-                              <p className="text-gray-700">
-                                <span className="font-medium">City:</span> {tenant?.building?.city || "N/A"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 mb-3">Lease & Rent</h3>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <h3 className="font-semibold text-slate-900 mb-3">Lease & Rent</h3>
                             <div className="space-y-2 text-sm">
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Monthly Rent:</span>{" "}
                                 {tenant?.monthlyRent ? `R ${tenant.monthlyRent.toLocaleString()}` : "N/A"}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Lease Start:</span>{" "}
                                 {tenant?.leaseStartDate ? new Date(tenant.leaseStartDate).toLocaleDateString() : "N/A"}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Lease End:</span>{" "}
                                 {tenant?.leaseEndDate ? new Date(tenant.leaseEndDate).toLocaleDateString() : "N/A"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 mb-3">Recent Rent Summary</h3>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <h3 className="font-semibold text-slate-900 mb-3">Recent Rent Summary</h3>
                             <div className="space-y-2 text-sm">
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Paid (recent):</span> R {(details?.rentMetrics?.totalPaid || 0).toLocaleString()}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Outstanding (recent):</span> R {(details?.rentMetrics?.totalOutstanding || 0).toLocaleString()}
                               </p>
-                              <p className="text-gray-700">
+                              <p className="text-slate-700">
                                 <span className="font-medium">Overdue (count):</span> {details?.rentMetrics?.overdueCount || 0}
                               </p>
                             </div>
@@ -788,23 +1158,23 @@ function PropertyManagerTenantsPage() {
               {activeTab === "maintenance" && (
                 <div className="p-6">
                   {tenantMaintenanceQuery.isLoading ? (
-                    <div className="text-center py-8 text-gray-600">Loading maintenance requests...</div>
+                    <div className="text-center py-10 text-slate-600">Loading maintenance requests...</div>
                   ) : (
                     (() => {
                       const requests = (tenantMaintenanceQuery.data as any) || [];
                       return requests.length === 0 ? (
-                        <div className="text-center py-8 text-gray-600">No maintenance requests.</div>
+                        <div className="text-center py-10 text-slate-600">No maintenance requests.</div>
                       ) : (
                         <div className="space-y-3">
                           {requests.map((r: any) => (
-                            <div key={r.id} className="border border-gray-200 rounded-lg p-4">
+                            <div key={r.id} className="border border-slate-200 rounded-2xl p-4 bg-white">
                               <div className="flex items-start justify-between gap-4">
                                 <div>
-                                  <p className="font-medium text-gray-900">{r.title || r.issueType || "Maintenance request"}</p>
-                                  <p className="text-sm text-gray-600 mt-1">{r.description}</p>
-                                  <p className="text-xs text-gray-500 mt-2">Created: {new Date(r.createdAt).toLocaleDateString()}</p>
+                                  <p className="font-semibold text-slate-900">{r.title || r.issueType || "Maintenance request"}</p>
+                                  <p className="text-sm text-slate-600 mt-1">{r.description}</p>
+                                  <p className="text-xs text-slate-500 mt-2">Created: {new Date(r.createdAt).toLocaleDateString()}</p>
                                 </div>
-                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">
                                   {r.status}
                                 </span>
                               </div>
@@ -826,17 +1196,17 @@ function PropertyManagerTenantsPage() {
                       const tracking = (tenantRentTrackingQuery.data as any)?.tracking?.[0];
                       return (
                         <>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-xs font-medium text-gray-600">Issued</p>
-                            <p className="text-2xl font-bold text-gray-900">{tracking?.issuedCount ?? 0}</p>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <p className="text-xs font-semibold text-slate-600">Issued</p>
+                            <p className="text-2xl font-bold text-slate-900">{tracking?.issuedCount ?? 0}</p>
                           </div>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-xs font-medium text-gray-600">Paid</p>
-                            <p className="text-2xl font-bold text-gray-900">{tracking?.paidCount ?? 0}</p>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <p className="text-xs font-semibold text-slate-600">Paid</p>
+                            <p className="text-2xl font-bold text-slate-900">{tracking?.paidCount ?? 0}</p>
                           </div>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-xs font-medium text-gray-600">Overdue</p>
-                            <p className="text-2xl font-bold text-gray-900">{tracking?.overdueCount ?? 0}</p>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                            <p className="text-xs font-semibold text-slate-600">Overdue</p>
+                            <p className="text-2xl font-bold text-slate-900">{tracking?.overdueCount ?? 0}</p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-4">
                             <p className="text-xs font-medium text-gray-600">Outstanding</p>
@@ -975,7 +1345,7 @@ function PropertyManagerTenantsPage() {
                                         setSelectedRentPayment(p);
                                         setUpdateRentForm({
                                           amountPaid: String(p.amountPaid ?? 0),
-                                          paidDate: p.paidDate ? String(p.paidDate).split("T")[0] : "",
+                                          paidDate: p.paidDate ? new Date(p.paidDate).toISOString().slice(0, 10) : "",
                                           lateFee: String(p.lateFee ?? 0),
                                           paymentMethod: (p.paymentMethod || "BANK_TRANSFER") as any,
                                           transactionReference: p.transactionReference || "",

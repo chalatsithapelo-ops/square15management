@@ -58,9 +58,31 @@ export const deleteEmployee = baseProcedure
     }
 
     try {
-      // Attempt to delete the employee
-      await db.user.delete({
-        where: { id: input.employeeId },
+      await db.$transaction(async (tx) => {
+        // Attempt to delete the employee
+        await tx.user.delete({
+          where: { id: input.employeeId },
+        });
+
+        // If a contractor deletes one of their team members, release a user seat.
+        if (user.role === "CONTRACTOR") {
+          await tx.subscription.updateMany({
+            where: {
+              userId: user.id,
+              status: {
+                in: ["ACTIVE", "TRIAL"],
+              },
+              currentUsers: {
+                gt: 1,
+              },
+            },
+            data: {
+              currentUsers: {
+                decrement: 1,
+              },
+            },
+          });
+        }
       });
 
       return {

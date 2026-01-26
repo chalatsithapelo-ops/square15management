@@ -14,7 +14,9 @@ export const submitTenantOnboarding = baseProcedure
       lastName: z.string().min(1),
       email: z.string().email(),
       phoneNumber: z.string().min(1),
+      unitNumber: z.string().optional(),
       leaseStartDate: z.string().datetime().optional(),
+      leaseEndDate: z.string().datetime().optional(),
       monthlyRent: z.number().positive().optional(),
       securityDeposit: z.number().nonnegative().optional(),
       electricityMeterNumber: z.string().optional(),
@@ -24,7 +26,7 @@ export const submitTenantOnboarding = baseProcedure
   )
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
-    const userId = user.id;
+    const customerUserId = user.id;
 
     // Check if customer already exists with this email for this PM
     const existing = await db.propertyManagerCustomer.findFirst({
@@ -56,20 +58,24 @@ export const submitTenantOnboarding = baseProcedure
       });
     }
 
-    // Create the onboarding request
+    // Create the onboarding request (linked to the CUSTOMER user account)
     const customer = await db.propertyManagerCustomer.create({
       data: {
         propertyManagerId: input.propertyManagerId,
         buildingId: input.buildingId,
-        userId: userId,
+        userId: customerUserId,
         firstName: input.firstName,
         lastName: input.lastName,
         email: input.email,
-        phoneNumber: input.phoneNumber,
+        phone: input.phoneNumber,
+        unitNumber: input.unitNumber,
+        buildingName: building.name,
+        address: building.address,
         onboardingStatus: "PENDING",
         onboardedDate: new Date(),
         status: "PENDING",
         leaseStartDate: input.leaseStartDate ? new Date(input.leaseStartDate) : undefined,
+        leaseEndDate: input.leaseEndDate ? new Date(input.leaseEndDate) : undefined,
         monthlyRent: input.monthlyRent,
         securityDeposit: input.securityDeposit,
         electricityMeterNumber: input.electricityMeterNumber,

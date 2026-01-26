@@ -42,7 +42,6 @@ import { ContractorManagement } from "~/components/property-manager/ContractorMa
 import { ComprehensivePMFinancialReporting } from "~/components/property-manager/ComprehensivePMFinancialReporting";
 import { CreateOrderModal } from "~/components/property-manager/CreateOrderModal";
 import { EditOrderModal } from "~/components/property-manager/EditOrderModal";
-import { CreateInvoiceModal } from "~/components/property-manager/CreateInvoiceModal";
 import { RateWorkModal } from "~/components/property-manager/RateWorkModal";
 import toast from "react-hot-toast";
 
@@ -81,9 +80,17 @@ function PropertyManagerDashboard() {
     | "payments"
   >("overview");
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
-  const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
   const [showRateWorkModal, setShowRateWorkModal] = useState(false);
   const [orderToRate, setOrderToRate] = useState<any>(null);
+
+  const subscriptionQuery = useQuery({
+    ...trpc.getUserSubscription.queryOptions({
+      token: token!,
+    }),
+    enabled: !!token,
+  });
+
+  const canUseAIAgent = (subscriptionQuery.data as any)?.package?.hasAIAgent === true;
 
   // Real queries
   const rfqsQuery = useQuery({
@@ -214,13 +221,15 @@ function PropertyManagerDashboard() {
                 <Users className="h-4 w-4" />
                 <span>Tenant Management</span>
               </Link>
-              <Link
-                to="/property-manager/ai-agent"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg transition-colors shadow-sm"
-              >
-                <Bot className="h-4 w-4" />
-                <span>AI Agent</span>
-              </Link>
+              {canUseAIAgent && (
+                <Link
+                  to="/property-manager/ai-agent"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg transition-colors shadow-sm"
+                >
+                  <Bot className="h-4 w-4" />
+                  <span>AI Agent</span>
+                </Link>
+              )}
               <Link
                 to="/property-manager/settings"
                 className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -334,7 +343,7 @@ function PropertyManagerDashboard() {
               setOrderToRate(order);
               setShowRateWorkModal(true);
             }} />}
-            {activeTab === "invoices" && <InvoicesTab onCreateClick={() => setShowCreateInvoiceModal(true)} />}
+            {activeTab === "invoices" && <InvoicesTab />}
             {activeTab === "projects" && <ProjectsTab />}
             {activeTab === "maintenance" && <MaintenanceTab />}
             {activeTab === "buildings" && <BuildingsTab />}
@@ -348,7 +357,6 @@ function PropertyManagerDashboard() {
 
       {/* Modals */}
       <CreateOrderModal isOpen={showCreateOrderModal} onClose={() => setShowCreateOrderModal(false)} />
-      <CreateInvoiceModal isOpen={showCreateInvoiceModal} onClose={() => setShowCreateInvoiceModal(false)} />
       {orderToRate && (
         <RateWorkModal 
           isOpen={showRateWorkModal} 
@@ -880,7 +888,7 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
   )
 }
 
-function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
+function InvoicesTab() {
   const { token } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -1241,16 +1249,6 @@ function InvoicesTab({ onCreateClick }: { onCreateClick: () => void }) {
 
   return (
     <div className="space-y-6">
-      {/* Create Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={onCreateClick}
-          className="px-4 py-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Create Invoice
-        </button>
-      </div>
       {/* Search and Filter */}
       <div className="space-y-4">
         <div className="relative">

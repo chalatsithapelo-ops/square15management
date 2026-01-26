@@ -1,18 +1,17 @@
 import { defineEventHandler } from "h3";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
+import { generateText } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 
 export default defineEventHandler(async (event) => {
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (
     process.env.TEST_ANTHROPIC_ENABLED === "1" &&
-    event.node.req.url?.includes("/test-anthropic")
+    event.node?.req.url?.includes("/test-anthropic")
   ) {
     try {
-      const { generateText } = await import("ai");
-      const { anthropic } = await import("@ai-sdk/anthropic");
-
       const model = anthropic("claude-4-5-haiku");
       const result = await generateText({
         model,
@@ -42,7 +41,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const nodeReq = event.node.req;
+    const nodeReq = event.node?.req;
+    if (!nodeReq) {
+      return new Response(JSON.stringify({ error: "Missing node request" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const method = nodeReq.method || "GET";
     const headers = new Headers();
     

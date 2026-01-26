@@ -82,14 +82,16 @@ export const convertMaintenanceToRFQ = baseProcedure
       });
 
       // Notify customer
-      await createNotification({
-        recipientId: maintenanceRequest.customer.userId,
-        recipientRole: "CUSTOMER",
-        message: `Your maintenance request has been converted to RFQ ${rfqNumber}.`,
-        type: "MAINTENANCE_CONVERTED_TO_RFQ",
-        relatedEntityId: rfq.id,
-        relatedEntityType: "RFQ",
-      });
+      if (maintenanceRequest.customer.userId) {
+        await createNotification({
+          recipientId: maintenanceRequest.customer.userId,
+          recipientRole: "CUSTOMER",
+          message: `Your maintenance request has been converted to RFQ ${rfqNumber}.`,
+          type: "RFQ_SUBMITTED",
+          relatedEntityId: rfq.id,
+          relatedEntityType: "RFQ",
+        });
+      }
 
       return rfq;
     } catch (error) {
@@ -192,14 +194,16 @@ export const convertMaintenanceToOrder = baseProcedure
       });
 
       // Notify customer
-      await createNotification({
-        recipientId: maintenanceRequest.customer.userId,
-        recipientRole: "CUSTOMER",
-        message: `Your maintenance request has been converted to Order ${orderNumber} assigned to ${contractor.companyName}.`,
-        type: "MAINTENANCE_CONVERTED_TO_ORDER",
-        relatedEntityId: order.id,
-        relatedEntityType: "ORDER",
-      });
+      if (maintenanceRequest.customer.userId) {
+        await createNotification({
+          recipientId: maintenanceRequest.customer.userId,
+          recipientRole: "CUSTOMER",
+          message: `Your maintenance request has been converted to Order ${orderNumber} assigned to ${contractor.companyName}.`,
+          type: "ORDER_STATUS_UPDATED",
+          relatedEntityId: order.id,
+          relatedEntityType: "ORDER",
+        });
+      }
 
       // Notify contractor
       try {
@@ -218,7 +222,7 @@ export const convertMaintenanceToOrder = baseProcedure
             recipientId: contractorPortalUser.id,
             recipientRole: "CONTRACTOR",
             message: `You have been assigned a new order ${orderNumber}: ${maintenanceRequest.title}`,
-            type: "NEW_ORDER_ASSIGNED",
+            type: "ORDER_ASSIGNED",
             relatedEntityId: order.id,
             relatedEntityType: "ORDER",
           });

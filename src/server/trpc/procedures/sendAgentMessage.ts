@@ -102,7 +102,7 @@ export const sendAgentMessage = baseProcedure
       }
 
       // Convert history to AI SDK format
-      const messages = input.history.slice(-10).map((msg) => ({
+      const messages: any[] = input.history.slice(-10).map((msg) => ({
         role: (msg.role === 'model' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: msg.text,
       }));
@@ -128,7 +128,10 @@ export const sendAgentMessage = baseProcedure
             
             try {
               // Inject authToken into all tool calls
-              const result = await toolDef.execute({ ...params, authToken: input.authToken });
+              const result = await (toolDef.execute as any)(
+                { ...params, authToken: input.authToken },
+                { toolCallId: toolName, messages: [] }
+              );
               console.log(`[AI Agent] ✓ Tool ${toolName} completed successfully`);
               console.log(`[AI Agent] Tool result:`, JSON.stringify(result, null, 2).substring(0, 300));
               return result;

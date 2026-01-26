@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
   ArrowLeft,
   Plus,
@@ -34,8 +35,16 @@ import {
 import MilestoneManager from "~/components/projects/MilestoneManager";
 
 export const Route = createFileRoute("/contractor/projects/")({
-  component: ProjectsPage,
+  component: ProjectsPageGuarded,
 });
+
+function ProjectsPageGuarded() {
+  return (
+    <RequireSubscriptionFeature feature="hasProjectManagement" returnPath="/contractor/dashboard">
+      <ProjectsPage />
+    </RequireSubscriptionFeature>
+  );
+}
 
 const projectSchema = z.object({
   name: z.string().min(1, "Project name is required"),

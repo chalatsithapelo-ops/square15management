@@ -5,7 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
@@ -657,9 +657,10 @@ async function generateReportInBackground(
     let aiInsights = "AI insights are temporarily unavailable. Please review the financial metrics above for your analysis.";
     
     try {
-      const model = google("gemini-1.5-pro", {
-        apiKey: env.GEMINI_API_KEY,
+      const googleAI = createGoogleGenerativeAI({
+        apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY || env.GEMINI_API_KEY,
       });
+      const model = googleAI("gemini-1.5-pro");
 
       const filterDescription = [];
       if (projectType) filterDescription.push(`Project Type: ${projectType}`);
@@ -805,9 +806,13 @@ Format as clear, professional paragraphs suitable for a formal financial report.
     const pdfFileName = `financial-reports/${reportType.toLowerCase()}-${
       startDate.getTime()
     }-${endDate.getTime()}.pdf`;
-    await minioClient.putObject("documents", pdfFileName, pdfBuffer, {
-      "Content-Type": "application/pdf",
-    });
+    await minioClient.putObject(
+      "documents",
+      pdfFileName,
+      pdfBuffer,
+      pdfBuffer.length,
+      { "Content-Type": "application/pdf" }
+    );
 
     const pdfUrl = `${minioBaseUrl}/documents/${pdfFileName}`;
 
@@ -815,9 +820,13 @@ Format as clear, professional paragraphs suitable for a formal financial report.
     const csvFileName = `financial-reports/${reportType.toLowerCase()}-${
       startDate.getTime()
     }-${endDate.getTime()}.csv`;
-    await minioClient.putObject("documents", csvFileName, csvBuffer, {
-      "Content-Type": "text/csv",
-    });
+    await minioClient.putObject(
+      "documents",
+      csvFileName,
+      csvBuffer,
+      csvBuffer.length,
+      { "Content-Type": "text/csv" }
+    );
 
     const csvUrl = `${minioBaseUrl}/documents/${csvFileName}`;
 

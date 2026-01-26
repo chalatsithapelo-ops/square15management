@@ -184,14 +184,15 @@ export async function generateStatementInBackground(
     // Combine both lists
     const invoices = [...unpaidInvoices, ...paidInvoices];
 
-    if (invoices.length === 0) {
+    const firstInvoice = invoices[0];
+    if (!firstInvoice) {
       throw new Error("No outstanding or recently paid invoices found for this customer");
     }
 
     // Use provided customer details if available, otherwise get from first invoice
-    const client_name = providedCustomerName || invoices[0].customerName;
-    const customerPhone = providedCustomerPhone || invoices[0].customerPhone;
-    const address = providedAddress || invoices[0].address;
+    const client_name = providedCustomerName || firstInvoice.customerName;
+    const customerPhone = providedCustomerPhone || firstInvoice.customerPhone;
+    const address = providedAddress || firstInvoice.address;
 
     // Previous balance is now 0 since we're including all unpaid invoices in the statement
     const previous_balance = 0;
@@ -342,9 +343,13 @@ export async function generateStatementInBackground(
 
     // Upload to MinIO
     const fileName = `statements/${client_email.replace(/[^a-zA-Z0-9]/g, "-")}-${period_start.getTime()}-${period_end.getTime()}.pdf`;
-    await minioClient.putObject("documents", fileName, pdfBuffer, {
-      "Content-Type": "application/pdf",
-    });
+    await minioClient.putObject(
+      "documents",
+      fileName,
+      pdfBuffer,
+      pdfBuffer.length,
+      { "Content-Type": "application/pdf" }
+    );
 
     const pdfUrl = `${minioBaseUrl}/documents/${fileName}`;
 
@@ -496,7 +501,12 @@ async function generateStatementPdf(
       .fillColor("#666666")
       .font("Helvetica")
       .text(`${statement_number}`, 50, 205)
-      .text(`Customer ID: ${client_email.split('@')[0].toUpperCase()}`, 320, 205, { align: "right", width: 225 });
+      .text(
+        `Customer ID: ${(client_email.split("@")[0] ?? client_email).toUpperCase()}`,
+        320,
+        205,
+        { align: "right", width: 225 }
+      );
 
     // Statement period with accent color
     doc

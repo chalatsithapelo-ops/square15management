@@ -73,6 +73,7 @@ export const createOperationalExpense = baseProcedure
     }
 
     if (seniorRoles.length > 0) {
+      const recipientRole = seniorRoles[0] ?? "SENIOR_ADMIN";
       // Find all senior users
       const seniorUsers = await db.user.findMany({
         where: {
@@ -88,7 +89,7 @@ export const createOperationalExpense = baseProcedure
       // Create notifications for senior users
       const notifications = seniorUsers.map((seniorUser) => ({
         recipientId: seniorUser.id,
-        recipientRole: seniorRoles[0],
+        recipientRole,
         message: `${user.firstName} ${user.lastName} added a new operational expense: ${input.description} (R ${input.amount.toFixed(2)})`,
         type: "OPERATIONAL_EXPENSE_ADDED" as const,
         relatedEntityId: expense.id,

@@ -5,7 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import PDFDocument from "pdfkit";
-import { getPropertyManagerLogo } from "~/server/utils/logo";
+import { getContractorLogo, getPropertyManagerLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { getInternalMinioUrl } from "~/server/minio";
 import { authenticateUser } from "~/server/utils/auth";
@@ -188,7 +188,6 @@ export const generateOrderPdf = baseProcedure
         }
         
         // Use contractor logo (falls back to default if not set)
-        const { getContractorLogo } = await import("~/server/utils/logo");
         logoBuffer = await getContractorLogo();
       } else {
         // Property managers or other roles

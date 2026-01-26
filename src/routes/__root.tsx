@@ -197,25 +197,38 @@ function RootInnerComponent({
 
   // Defensive cleanup: if a Headless UI Portal/backdrop ever gets orphaned,
   // it can leave a full-screen overlay that blocks clicks ("dim screen").
-  // On every route change, remove portal containers that no longer contain dialogs.
+  // On every route change (and periodically), remove portal containers that no longer contain dialogs.
   useEffect(() => {
-    const portalRoots = Array.from(
-      document.querySelectorAll<HTMLElement>('#headlessui-portal-root, [data-headlessui-portal]')
-    );
+    const cleanupOrphanedOverlays = () => {
+      const portalRoots = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '#headlessui-portal-root, [data-headlessui-portal]'
+        )
+      );
 
-    for (const root of portalRoots) {
-      const hasActiveDialog =
-        root.querySelector('[role="dialog"]') ||
-        root.querySelector('[data-headlessui-state="open"]') ||
-        root.querySelector('[data-headlessui-state="opening"]');
+      for (const root of portalRoots) {
+        const hasDialog =
+          !!root.querySelector('[role="dialog"], [aria-modal="true"]');
 
-      if (!hasActiveDialog) {
-        root.remove();
+        // If there is no dialog left inside the portal, the remaining nodes are stale.
+        if (!hasDialog) {
+          root.remove();
+        }
       }
-    }
 
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
+      // Also clear any scroll-lock that may have been left behind.
+      const anyDialogOpen =
+        !!document.querySelector('[role="dialog"], [aria-modal="true"]');
+
+      if (!anyDialogOpen) {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+
+    cleanupOrphanedOverlays();
+    const intervalId = window.setInterval(cleanupOrphanedOverlays, 1500);
+    return () => window.clearInterval(intervalId);
   }, [locationHref]);
 
   // Show loading state during initial load or retries

@@ -73,7 +73,7 @@ export const createWeeklyBudgetUpdate = baseProcedure
           challenges: input.challenges || null,
           successes: input.successes || null,
           imagesDone: input.imagesDone,
-          itemizedExpenses: input.itemizedExpenses || null,
+          itemizedExpenses: input.itemizedExpenses ?? undefined,
           nextWeekPlan: input.nextWeekPlan || null,
         },
       });

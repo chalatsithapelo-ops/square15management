@@ -120,7 +120,8 @@ Each package has specific feature flags:
   - `aiAgent` → requires `hasAIAgent`
 
 ### 6. Payment Webhooks
-- Create `/api/webhooks/payfast` endpoint
+- Create the PayFast ITN (notify) endpoint (implemented as a Vinxi http router)
+  - Live URL pattern: `/api/payments/payfast/notify/payfast-notify`
 - Verify payment signature
 - Update `PendingRegistration.hasPaid = true`
 - Auto-approve if configured (or send admin notification)

@@ -129,7 +129,7 @@
 **Files to Create**:
 ```
 src/server/api/payment/initiate.ts          # Start payment
-src/server/api/webhooks/payfast.ts          # Webhook handler
+src/server/payments/payfast-notify-handler.ts     # PayFast ITN handler
 src/components/PayFastButton.tsx            # Payment button
 ```
 
@@ -144,7 +144,7 @@ src/components/PayFastButton.tsx            # Payment button
 
 **PayFast Configuration**:
 - Merchant ID, Merchant Key (from PayFast dashboard)
-- Notify URL: `https://square15management.co.za/api/webhooks/payfast`
+- Notify URL: `https://square15management.co.za/api/payments/payfast/notify/payfast-notify`
 - Return URLs: Success, Cancel
 - Signature validation for security
 
