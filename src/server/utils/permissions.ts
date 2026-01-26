@@ -99,6 +99,9 @@ export const PERMISSIONS = {
   // User Management
   MANAGE_ALL_EMPLOYEES: "MANAGE_ALL_EMPLOYEES",
   VIEW_ALL_EMPLOYEES: "VIEW_ALL_EMPLOYEES",
+  // Backward-compatible aliases (older code used these names)
+  MANAGE_EMPLOYEES: "MANAGE_ALL_EMPLOYEES",
+  VIEW_EMPLOYEES: "VIEW_ALL_EMPLOYEES",
   MANAGE_EMPLOYEE_ROLES: "MANAGE_EMPLOYEE_ROLES",
   MANAGE_EMPLOYEE_COMPENSATION: "MANAGE_EMPLOYEE_COMPENSATION",
   DELETE_EMPLOYEES: "DELETE_EMPLOYEES",
@@ -797,6 +800,9 @@ export async function getAllRoleMetadata(): Promise<Record<string, RoleMetadata>
   const customMetadata: Record<string, RoleMetadata> = {};
   
   customRoles.forEach(role => {
+    // Never allow custom roles to override built-in roles.
+    // This prevents UI regressions like JUNIOR_ADMIN showing the wrong label.
+    if (isBuiltInRole(role.name)) return;
     customMetadata[role.name] = {
       label: role.label,
       color: role.color,
