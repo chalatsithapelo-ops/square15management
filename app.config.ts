@@ -46,6 +46,13 @@ export default createApp({
             allowedHosts: true,
           },
         }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
         tsConfigPaths({
           projects: ["./tsconfig.json"],
         }),
@@ -67,7 +74,7 @@ export default createApp({
         config("external", {
           build: {
             rollupOptions: {
-              external: ["bcrypt"],
+              external: ["h3", "bcrypt"],
             },
           },
         }),
@@ -89,6 +96,13 @@ export default createApp({
             allowedHosts: true,
           },
         }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
         tsConfigPaths({
           projects: ["./tsconfig.json"],
         }),
@@ -105,6 +119,13 @@ export default createApp({
           // @ts-ignore
           server: {
             allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
           },
         }),
         tsConfigPaths({
