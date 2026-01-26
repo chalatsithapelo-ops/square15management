@@ -5,6 +5,7 @@ import { env } from "~/server/env";
 import { Client } from "minio";
 import { getInternalMinioBaseUrl } from "~/server/minio";
 import { getValidExternalTokenRecord } from "~/server/utils/external-submissions";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const getPresignedUploadUrlForSubmission = baseProcedure
   .input(
@@ -47,10 +48,9 @@ export const getPresignedUploadUrlForSubmission = baseProcedure
       10 * 60
     );
 
-    const nginxProxyUrl = presignedUrl.replace(
-      "http://minio:9000",
-      "http://localhost:8000/minio"
-    );
+    const appBaseUrl = getBaseUrl().replace(/\/$/, "");
+    const minioProxyPrefix = `${appBaseUrl}/minio`;
+    const nginxProxyUrl = presignedUrl.replace("http://minio:9000", minioProxyPrefix);
 
     return {
       presignedUrl: nginxProxyUrl,

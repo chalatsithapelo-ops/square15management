@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireSeniorAdmin, isAdmin } from "~/server/utils/auth";
-import { minioClient, minioBaseUrl } from "~/server/minio";
+import { minioClient } from "~/server/minio";
 import { db } from "~/server/db";
 import { clearLogoCache } from "~/server/utils/logo";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const uploadCompanyLogo = baseProcedure
   .input(
@@ -36,8 +37,14 @@ export const uploadCompanyLogo = baseProcedure
       10 * 60 // 10 minutes
     );
 
+    // If running behind nginx in Docker, rewrite the internal MinIO hostname to the external proxy URL.
+    const appBaseUrl = getBaseUrl().replace(/\/$/, "");
+    const minioProxyPrefix = `${appBaseUrl}/minio`;
+    const browserPresignedUrl = presignedUrl.replace("http://minio:9000", minioProxyPrefix);
+
     // Construct the final URL that will be used to access the file
-    const logoUrl = `${minioBaseUrl}/property-management/${objectName}`;
+    // Store an externally reachable URL (via nginx /minio proxy)
+    const logoUrl = `${minioProxyPrefix}/property-management/${objectName}`;
 
     // Store the logo URL in system settings
     await db.systemSettings.upsert({
@@ -55,7 +62,7 @@ export const uploadCompanyLogo = baseProcedure
     clearLogoCache(isContractorRole ? 'contractor' : 'pm');
 
     return {
-      presignedUrl,
+      presignedUrl: browserPresignedUrl,
       logoUrl,
     };
   });

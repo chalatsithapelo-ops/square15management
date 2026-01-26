@@ -4,7 +4,8 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { Client } from "minio";
-import { minioBaseUrl, getInternalMinioBaseUrl } from "~/server/minio";
+import { getInternalMinioBaseUrl } from "~/server/minio";
+import { getBaseUrl } from "~/server/utils/base-url";
 
 export const getPresignedUploadUrl = baseProcedure
   .input(
@@ -46,12 +47,12 @@ export const getPresignedUploadUrl = baseProcedure
         10 * 60 // 10 minutes
       );
 
-      // Replace MinIO internal URL with nginx proxy URL
-      // This avoids hostname issues while keeping signature valid
-      const nginxProxyUrl = presignedUrl.replace('http://minio:9000', 'http://localhost:8000/minio');
-
-      console.log("Generated presigned URL:", presignedUrl);
-      console.log("Nginx proxy URL:", nginxProxyUrl);
+      // Replace the internal Docker hostname with the externally reachable nginx proxy URL.
+      // Nginx forwards the request to MinIO and sets the Host header to `minio:9000`
+      // so MinIO signature validation still passes.
+      const appBaseUrl = getBaseUrl().replace(/\/$/, "");
+      const minioProxyPrefix = `${appBaseUrl}/minio`;
+      const nginxProxyUrl = presignedUrl.replace("http://minio:9000", minioProxyPrefix);
 
       return {
         presignedUrl: nginxProxyUrl,
