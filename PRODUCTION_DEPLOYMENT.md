@@ -27,6 +27,10 @@ pnpm install --frozen-lockfile
 # Apply schema changes to Postgres
 pnpm exec prisma db push
 
+# Optional: only run setup if you explicitly want it
+# (Avoid demo seeding on production by default.)
+# RUN_SETUP=true SEED_DEMO_DATA=false SKIP_MINIO_SETUP=true pnpm exec tsx src/server/scripts/setup.ts
+
 # Build the production output (.output/*)
 pnpm build
 
@@ -36,6 +40,14 @@ pm2 restart square15management
 # Verify health
 curl -fsS --max-time 10 http://127.0.0.1:3000/health/health
 ```
+
+## Critical production configuration checks
+- Ensure `BASE_URL` is set to the real production domain (uploads + PayFast ITN callbacks rely on it).
+- Ensure nginx proxies `/minio` correctly for browser uploads.
+- Ensure PayFast env vars are set (`PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, optional `PAYFAST_PASSPHRASE`, and `PAYFAST_SANDBOX=false` for live).
+
+## Note about TypeScript checks
+- `pnpm build` is the production gate. `pnpm typecheck` may fail due to existing strict-TS issues in non-critical areas.
 
 ## Why these steps
 

@@ -52,6 +52,10 @@ pnpm install --frozen-lockfile
 # Apply schema changes to Postgres (project convention)
 pnpm exec prisma db push
 
+# Optional: run setup only if you explicitly want it
+# (By default, avoid any demo seeding on production.)
+# RUN_SETUP=true SEED_DEMO_DATA=false SKIP_MINIO_SETUP=true pnpm exec tsx src/server/scripts/setup.ts
+
 # Build the production output (.output/*)
 pnpm build
 
@@ -63,7 +67,20 @@ for i in 1 2 3 4 5; do
   curl -fsS --max-time 10 http://127.0.0.1:3000/health/health && break || true
   sleep 3
 done
+
+## Post-deploy verification (quick)
+- Verify uploads via nginx MinIO proxy: upload a file (artisan before pictures / supplier slip) and confirm it succeeds.
+- Verify PayFast ITN endpoint is reachable publicly: `POST https://www.square15management.co.za/api/payments/payfast/notify/payfast-notify`.
+- Verify quotation review/approval works in admin portal.
 ```
+
+## Critical production configuration checks
+- Ensure `BASE_URL` is set to the real production domain (e.g. `https://www.square15management.co.za`). Uploads and PayFast ITN callbacks rely on it.
+- MinIO uploads must be reachable from browsers via the nginx `/minio` proxy in production.
+- PayFast live requires the correct `PAYFAST_*` env vars (`PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, and optionally `PAYFAST_PASSPHRASE`).
+
+## Notes about TypeScript checks
+- This repo can currently build successfully via `pnpm build` even if `pnpm typecheck` fails. Do not add `pnpm typecheck` as a production deployment gate unless you intend to fix the existing strict-TS issues first.
 
 ## Verify it’s live
 On the server:
