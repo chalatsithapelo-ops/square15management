@@ -1,4 +1,4 @@
-import { defineEventHandler, getMethod } from "h3";
+import { eventHandler, getMethod } from "h3";
 
 interface LogEntry {
   level: string;
@@ -14,7 +14,7 @@ interface ClientLogRequest {
   logs: LogEntry[];
 }
 
-export default defineEventHandler(async (event) => {
+export default eventHandler(async (event) => {
   const req = event.node.req;
   const res = event.node.res;
 

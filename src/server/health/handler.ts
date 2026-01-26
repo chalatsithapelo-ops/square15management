@@ -1,4 +1,4 @@
-import { defineEventHandler } from "h3";
+import { eventHandler } from "h3";
 import { db } from "~/server/db";
 
 let dbConnectionEstablished = false;
@@ -6,7 +6,7 @@ let lastHealthCheckTime: Date | null = null;
 let consecutiveFailures = 0;
 let lastError: string | null = null;
 
-export default defineEventHandler(async (event) => {
+export default eventHandler(async (event) => {
   const startTime = Date.now();
   
   try {

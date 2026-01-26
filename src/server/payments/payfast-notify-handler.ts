@@ -1,4 +1,4 @@
-import { defineEventHandler, getMethod } from "h3";
+import { eventHandler, getMethod } from "h3";
 import { db } from "~/server/db";
 import { env } from "~/server/env";
 import { verifyPayfastSignature } from "~/server/payments/payfast";
@@ -44,7 +44,7 @@ function parseCustomerPaymentId(mPaymentId: string | undefined): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-export default defineEventHandler(async (event: any) => {
+export default eventHandler(async (event: any) => {
   try {
     const res = event.node?.res;
     if (!res) {

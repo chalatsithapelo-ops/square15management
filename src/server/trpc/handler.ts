@@ -1,10 +1,10 @@
-import { defineEventHandler } from "h3";
+import { eventHandler } from "h3";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
-export default defineEventHandler(async (event) => {
+export default eventHandler(async (event) => {
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (
