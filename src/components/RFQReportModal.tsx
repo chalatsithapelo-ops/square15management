@@ -67,7 +67,8 @@ export function RFQReportModal({
       DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800" },
       PENDING_ARTISAN_REVIEW: { label: "Pending Artisan Review", className: "bg-yellow-100 text-yellow-800" },
       IN_PROGRESS: { label: "In Progress", className: "bg-blue-100 text-blue-800" },
-      READY_FOR_REVIEW: { label: "Ready for Admin Review", className: "bg-orange-100 text-orange-800" },
+      PENDING_JUNIOR_MANAGER_REVIEW: { label: "Ready for Admin Review", className: "bg-orange-100 text-orange-800" },
+      PENDING_SENIOR_MANAGER_REVIEW: { label: "Pending Senior Admin Review", className: "bg-orange-100 text-orange-800" },
       APPROVED: { label: "Approved", className: "bg-green-100 text-green-800" },
       REJECTED: { label: "Rejected", className: "bg-red-100 text-red-800" },
     };

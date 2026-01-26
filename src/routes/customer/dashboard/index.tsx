@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import {
   Package,
@@ -596,6 +596,7 @@ function CustomerDashboard() {
                 onExportPdf={handleExportInvoicePdf}
                 generatingPdfId={generatingInvoicePdfId}
                 isGenerating={generateInvoicePdfMutation.isPending}
+                token={token || ""}
               />
             )}
             {activeTab === "statements" && (
@@ -871,7 +872,8 @@ function QuotationsTab({
       DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800" },
       PENDING_ARTISAN_REVIEW: { label: "Being Reviewed", className: "bg-yellow-100 text-yellow-800" },
       IN_PROGRESS: { label: "In Progress", className: "bg-blue-100 text-blue-800" },
-      READY_FOR_REVIEW: { label: "Under Review", className: "bg-orange-100 text-orange-800" },
+      PENDING_JUNIOR_MANAGER_REVIEW: { label: "Under Review", className: "bg-orange-100 text-orange-800" },
+      PENDING_SENIOR_MANAGER_REVIEW: { label: "Under Review", className: "bg-orange-100 text-orange-800" },
       APPROVED: { label: "Approved", className: "bg-green-100 text-green-800" },
       REJECTED: { label: "Rejected", className: "bg-red-100 text-red-800" },
       SUBMITTED: { label: "Submitted", className: "bg-blue-100 text-blue-800" }, // Deprecated
@@ -997,12 +999,29 @@ function InvoicesTab({
   onExportPdf,
   generatingPdfId,
   isGenerating,
+  token,
 }: { 
   invoices: any[];
   onExportPdf: (invoiceId: number) => void;
   generatingPdfId: number | null;
   isGenerating: boolean;
+  token: string;
 }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const setMyInvoiceDisputeStatusMutation = useMutation(
+    trpc.setMyInvoiceDisputeStatus.mutationOptions({
+      onSuccess: (res: any) => {
+        toast.success(res?.message || "Updated dispute status");
+        queryClient.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to update dispute status");
+      },
+    })
+  );
+
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; className: string; icon: any }> = {
       DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800", icon: FileText },
@@ -1011,6 +1030,7 @@ function InvoicesTab({
       SENT: { label: "Sent", className: "bg-blue-100 text-blue-800", icon: Clock },
       PAID: { label: "Paid", className: "bg-green-100 text-green-800", icon: CheckCircle2 },
       OVERDUE: { label: "Overdue", className: "bg-red-100 text-red-800", icon: AlertCircle },
+      DISPUTED: { label: "Disputed", className: "bg-rose-100 text-rose-800", icon: AlertCircle },
       CANCELLED: { label: "Cancelled", className: "bg-gray-100 text-gray-800", icon: XCircle },
       REJECTED: { label: "Rejected", className: "bg-red-100 text-red-800", icon: XCircle },
     };
@@ -1040,6 +1060,7 @@ function InvoicesTab({
     <div className="space-y-4">
       {invoices.map((invoice) => {
         const items = Array.isArray(invoice.items) ? invoice.items : [];
+        const effectiveStatus = (invoice as any).isDisputed ? "DISPUTED" : invoice.status;
         
         return (
           <div
@@ -1063,7 +1084,7 @@ function InvoicesTab({
                   </p>
                 )}
               </div>
-              {getStatusBadge(invoice.status)}
+              {getStatusBadge(effectiveStatus)}
             </div>
 
             {invoice.order && (
@@ -1128,8 +1149,8 @@ function InvoicesTab({
               </div>
             )}
 
-            {["SENT", "OVERDUE", "PAID"].includes(invoice.status) && (
-              <div className="mt-4">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {['SENT', 'OVERDUE', 'PAID'].includes(invoice.status) && (
                 <button
                   onClick={() => onExportPdf(invoice.id)}
                   disabled={isGenerating && generatingPdfId === invoice.id}
@@ -1147,8 +1168,32 @@ function InvoicesTab({
                     </>
                   )}
                 </button>
-              </div>
-            )}
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!token) {
+                    toast.error("Authentication required");
+                    return;
+                  }
+                  setMyInvoiceDisputeStatusMutation.mutate({
+                    token,
+                    invoiceId: invoice.id,
+                    isDisputed: effectiveStatus !== "DISPUTED",
+                  });
+                }}
+                disabled={!token || setMyInvoiceDisputeStatusMutation.isPending}
+                className={
+                  effectiveStatus === "DISPUTED"
+                    ? "w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors disabled:opacity-50"
+                    : "w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50"
+                }
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                {effectiveStatus === "DISPUTED" ? "Resolve Dispute" : "Dispute Invoice"}
+              </button>
+            </div>
           </div>
         );
       })}

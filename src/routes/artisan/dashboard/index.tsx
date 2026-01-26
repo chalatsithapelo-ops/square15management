@@ -554,7 +554,12 @@ function ArtisanDashboard() {
   );
   
   const completedQuotations = useMemo(() => 
-    quotations.filter((q) => q.status === "READY_FOR_REVIEW" || q.status === "APPROVED"),
+    quotations.filter(
+      (q) =>
+        q.status === "PENDING_JUNIOR_MANAGER_REVIEW" ||
+        q.status === "PENDING_SENIOR_MANAGER_REVIEW" ||
+        q.status === "APPROVED"
+    ),
     [quotations]
   );
 
@@ -971,7 +976,7 @@ function ArtisanDashboard() {
     updateQuotationStatusMutation.mutate({
       token: token!,
       quotationId: completeQuotationId!,
-      status: "READY_FOR_REVIEW",
+      status: "PENDING_JUNIOR_MANAGER_REVIEW",
       expenseSlips: quotationExpenseSlips,
       materialCost: totalMaterialCost,
       numPeopleNeeded: parseFloat(numPeopleNeeded),

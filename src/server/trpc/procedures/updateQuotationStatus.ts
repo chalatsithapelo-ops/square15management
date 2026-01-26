@@ -83,19 +83,19 @@ export const updateQuotationStatus = baseProcedure
 
       // For contractor quotations, use similar approval workflow as invoices
       // Map quotation statuses to invoice-like workflow:
-      // DRAFT -> PENDING_ARTISAN_REVIEW (junior approval) -> READY_FOR_REVIEW (senior approval) -> APPROVED (sent)
+      // DRAFT -> PENDING_JUNIOR_MANAGER_REVIEW -> PENDING_SENIOR_MANAGER_REVIEW -> APPROVED -> SENT_TO_CUSTOMER
       if (isContractorQuotation) {
-        // Junior Manager can move from DRAFT to PENDING_ARTISAN_REVIEW or READY_FOR_REVIEW
+        // Junior Manager can move from DRAFT to PENDING_JUNIOR_MANAGER_REVIEW
         if (user.role === "CONTRACTOR_JUNIOR_MANAGER") {
           if (existingQuotation.status === "DRAFT" && 
-              (input.status === "PENDING_ARTISAN_REVIEW" || input.status === "READY_FOR_REVIEW")) {
+              input.status === "PENDING_JUNIOR_MANAGER_REVIEW") {
             // Valid transition
           } else if (input.status === "REJECTED" || input.status === "DRAFT") {
             // Can reject or send back to draft
           } else {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "Junior Manager can only move quotations from DRAFT to PENDING_ARTISAN_REVIEW or READY_FOR_REVIEW",
+              message: "Junior Manager can only move quotations from DRAFT to PENDING_JUNIOR_MANAGER_REVIEW",
             });
           }
         }
@@ -121,7 +121,7 @@ export const updateQuotationStatus = baseProcedure
         }
       }
 
-      if (input.status === "READY_FOR_REVIEW") {
+      if (input.status === "PENDING_JUNIOR_MANAGER_REVIEW" || input.status === "PENDING_SENIOR_MANAGER_REVIEW") {
         updateData.endTime = new Date();
         
         // Store artisan's quotation line items

@@ -52,7 +52,8 @@ const quotationStatuses = [
   { value: "DRAFT", label: "Draft", color: "bg-gray-100 text-gray-800" },
   { value: "PENDING_ARTISAN_REVIEW", label: "Pending Artisan Review", color: "bg-yellow-100 text-yellow-800" },
   { value: "IN_PROGRESS", label: "In Progress (Artisan)", color: "bg-blue-100 text-blue-800" },
-  { value: "READY_FOR_REVIEW", label: "Ready for Admin Review", color: "bg-orange-100 text-orange-800" },
+  { value: "PENDING_JUNIOR_MANAGER_REVIEW", label: "Ready for Admin Review", color: "bg-orange-100 text-orange-800" },
+  { value: "PENDING_SENIOR_MANAGER_REVIEW", label: "Pending Senior Admin Review", color: "bg-orange-100 text-orange-800" },
   { value: "APPROVED", label: "Approved", color: "bg-green-100 text-green-800" },
   { value: "SENT_TO_CUSTOMER", label: "Sent to Customer", color: "bg-purple-100 text-purple-800" },
   { value: "REJECTED", label: "Rejected", color: "bg-red-100 text-red-800" },
@@ -62,8 +63,11 @@ function getAvailableStatusTransitions(currentStatus: string, userRole: string) 
   const transitions: Record<string, string[]> = {
     DRAFT: ["PENDING_ARTISAN_REVIEW"],
     PENDING_ARTISAN_REVIEW: ["IN_PROGRESS", "DRAFT"],
-    IN_PROGRESS: ["READY_FOR_REVIEW", "PENDING_ARTISAN_REVIEW"],
-    READY_FOR_REVIEW: userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN"
+    IN_PROGRESS: ["PENDING_JUNIOR_MANAGER_REVIEW", "PENDING_ARTISAN_REVIEW"],
+    PENDING_JUNIOR_MANAGER_REVIEW: userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN"
+      ? ["PENDING_SENIOR_MANAGER_REVIEW", "APPROVED", "REJECTED", "IN_PROGRESS"]
+      : [],
+    PENDING_SENIOR_MANAGER_REVIEW: userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN"
       ? ["APPROVED", "REJECTED", "IN_PROGRESS"]
       : [],
     APPROVED: ["SENT_TO_CUSTOMER"],
@@ -958,8 +962,12 @@ function QuotationsPage() {
                       </div>
                     )}
 
-                    {/* Artisan Work Details - Show for READY_FOR_REVIEW and APPROVED statuses */}
-                    {(quotation.status === "READY_FOR_REVIEW" || quotation.status === "APPROVED") && (
+                    {/* Artisan Work Details - Show for review and approved statuses */}
+                    {(
+                      quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" ||
+                      quotation.status === "PENDING_SENIOR_MANAGER_REVIEW" ||
+                      quotation.status === "APPROVED"
+                    ) && (
                       <div className="mt-4 space-y-4">
                         {/* Quotation Line Items */}
                         {quotation.quotationLineItems && Array.isArray(quotation.quotationLineItems) && (quotation.quotationLineItems as any[]).length > 0 && (
@@ -1116,7 +1124,7 @@ function QuotationsPage() {
                     )}
                   </div>
                   <div className="ml-4 flex space-x-2">
-                    {(quotation.status === "READY_FOR_REVIEW" || quotation.status === "IN_PROGRESS") && (
+                    {(quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW" || quotation.status === "IN_PROGRESS") && (
                       <button
                         onClick={() => {
                           setSelectedRFQReportQuotation(quotation);
@@ -1175,13 +1183,13 @@ function QuotationsPage() {
                         
                         if (statusValue === "PENDING_ARTISAN_REVIEW" && quotation.status === "DRAFT") {
                           displayLabel = "→ Assign to Artisan";
-                        } else if (statusValue === "APPROVED" && quotation.status === "READY_FOR_REVIEW") {
+                        } else if (statusValue === "APPROVED" && (quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW")) {
                           displayLabel = "✓ Approve";
                         } else if (statusValue === "SENT_TO_CUSTOMER" && quotation.status === "APPROVED") {
                           displayLabel = "📧 Send to Customer";
                         } else if (statusValue === "REJECTED") {
                           displayLabel = "✗ Reject";
-                        } else if (statusValue === "IN_PROGRESS" && quotation.status === "READY_FOR_REVIEW") {
+                        } else if (statusValue === "IN_PROGRESS" && (quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW")) {
                           displayLabel = "← Send Back to Artisan";
                         } else if (statusValue === "DRAFT") {
                           displayLabel = "← Back to Draft";
