@@ -6,7 +6,7 @@ let lastHealthCheckTime: Date | null = null;
 let consecutiveFailures = 0;
 let lastError: string | null = null;
 
-export default eventHandler(async (event) => {
+const handler = eventHandler(async (event) => {
   const startTime = Date.now();
   
   try {
@@ -106,3 +106,7 @@ export default eventHandler(async (event) => {
     };
   }
 });
+
+(handler as any).__is_handler__ = true;
+
+export default handler;

@@ -14,7 +14,7 @@ interface ClientLogRequest {
   logs: LogEntry[];
 }
 
-export default eventHandler(async (event) => {
+const handler = eventHandler(async (event) => {
   const req = event.node.req;
   const res = event.node.res;
 
@@ -113,3 +113,9 @@ export default eventHandler(async (event) => {
     });
   });
 });
+
+// NOTE: Nitro/h3 in production currently expects this marker to avoid
+// emitting the "Implicit event handler conversion" deprecation warning.
+(handler as any).__is_handler__ = true;
+
+export default handler;

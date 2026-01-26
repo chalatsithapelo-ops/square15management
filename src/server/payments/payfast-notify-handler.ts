@@ -44,7 +44,7 @@ function parseCustomerPaymentId(mPaymentId: string | undefined): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-export default eventHandler(async (event: any) => {
+const handler = eventHandler(async (event: any) => {
   try {
     const res = event.node?.res;
     if (!res) {
@@ -169,3 +169,7 @@ export default eventHandler(async (event: any) => {
     return "Internal Server Error";
   }
 });
+
+(handler as any).__is_handler__ = true;
+
+export default handler;

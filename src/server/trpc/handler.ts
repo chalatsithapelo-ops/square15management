@@ -4,7 +4,7 @@ import { appRouter } from "./root";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
-export default eventHandler(async (event) => {
+const handler = eventHandler(async (event) => {
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (
@@ -132,3 +132,7 @@ export default eventHandler(async (event) => {
     );
   }
 });
+
+(handler as any).__is_handler__ = true;
+
+export default handler;
