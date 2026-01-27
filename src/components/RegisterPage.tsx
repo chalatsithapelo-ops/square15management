@@ -109,14 +109,14 @@ export function RegisterPage() {
 
   const paymentOptions = useMemo(
     () => [
-      { key: 'CARD' as const, label: 'Card', icon: CreditCard, hint: 'Visa / Mastercard' },
-      { key: 'S_PAY' as const, label: 'S Pay', icon: Wallet, hint: 'Bank wallet checkout (major banks)' },
       {
         key: 'INSTANT_EFT' as const,
         label: 'Instant EFT',
         icon: Landmark,
         hint: 'Pay via bank login (FNB, ABSA, Standard Bank, Nedbank, Capitec, etc.)',
       },
+      { key: 'CARD' as const, label: 'Card', icon: CreditCard, hint: 'Visa / Mastercard' },
+      { key: 'S_PAY' as const, label: 'S Pay', icon: Wallet, hint: 'Bank wallet checkout (major banks)' },
       { key: 'SNAPSCAN' as const, label: 'SnapScan', icon: QrCode, hint: 'Scan & pay' },
       { key: 'ZAPPER' as const, label: 'Zapper', icon: QrCode, hint: 'Scan & pay' },
       { key: 'MASTERPASS' as const, label: 'Masterpass', icon: Wallet, hint: 'Wallet checkout' },
@@ -332,7 +332,23 @@ export function RegisterPage() {
   }
 
   if (isOnPaymentStep) {
-    const paymentStyleByKey = {
+    type PaymentOptionKey = (typeof paymentOptions)[number]['key'];
+    type PaymentStyle = {
+      chip: string;
+      icon: string;
+      ring: string;
+      border: string;
+      hover: string;
+      arrow: string;
+      arrowHover: string;
+      bar: string;
+      label: string;
+      labelHover: string;
+      badge?: string;
+      badgeText?: string;
+    };
+
+    const paymentStyleByKey: Record<PaymentOptionKey, PaymentStyle> = {
       CARD: {
         chip: 'bg-gradient-to-br from-blue-50 to-indigo-50',
         icon: 'text-indigo-700',
@@ -340,9 +356,10 @@ export function RegisterPage() {
         border: 'border-indigo-200',
         hover: 'hover:border-indigo-300 hover:bg-indigo-50/40',
         arrow: 'text-indigo-500',
+        arrowHover: 'group-hover:text-indigo-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-indigo-500',
         label: 'text-indigo-900',
-        labelHover: 'text-indigo-900',
+        labelHover: 'group-hover:text-indigo-900',
       },
       S_PAY: {
         chip: 'bg-gradient-to-br from-emerald-50 to-teal-50',
@@ -351,9 +368,10 @@ export function RegisterPage() {
         border: 'border-emerald-200',
         hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
         arrow: 'text-emerald-500',
+        arrowHover: 'group-hover:text-emerald-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-emerald-500',
         label: 'text-emerald-900',
-        labelHover: 'text-emerald-900',
+        labelHover: 'group-hover:text-emerald-900',
       },
       INSTANT_EFT: {
         chip: 'bg-gradient-to-br from-sky-50 to-cyan-50',
@@ -362,9 +380,10 @@ export function RegisterPage() {
         border: 'border-cyan-200',
         hover: 'hover:border-cyan-300 hover:bg-cyan-50/40',
         arrow: 'text-cyan-500',
+        arrowHover: 'group-hover:text-cyan-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-cyan-500',
         label: 'text-cyan-900',
-        labelHover: 'text-cyan-900',
+        labelHover: 'group-hover:text-cyan-900',
         badge: 'bg-cyan-600 text-white',
         badgeText: 'Recommended',
       },
@@ -375,9 +394,10 @@ export function RegisterPage() {
         border: 'border-red-200',
         hover: 'hover:border-red-300 hover:bg-red-50/40',
         arrow: 'text-red-500',
+        arrowHover: 'group-hover:text-red-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-red-500',
         label: 'text-red-900',
-        labelHover: 'text-red-900',
+        labelHover: 'group-hover:text-red-900',
       },
       ZAPPER: {
         chip: 'bg-gradient-to-br from-emerald-50 to-lime-50',
@@ -386,9 +406,10 @@ export function RegisterPage() {
         border: 'border-emerald-200',
         hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
         arrow: 'text-emerald-500',
+        arrowHover: 'group-hover:text-emerald-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-emerald-500',
         label: 'text-emerald-900',
-        labelHover: 'text-emerald-900',
+        labelHover: 'group-hover:text-emerald-900',
       },
       MASTERPASS: {
         chip: 'bg-gradient-to-br from-orange-50 to-amber-50',
@@ -397,9 +418,10 @@ export function RegisterPage() {
         border: 'border-orange-200',
         hover: 'hover:border-orange-300 hover:bg-orange-50/40',
         arrow: 'text-orange-500',
+        arrowHover: 'group-hover:text-orange-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-orange-500',
         label: 'text-orange-900',
-        labelHover: 'text-orange-900',
+        labelHover: 'group-hover:text-orange-900',
       },
       FNB_PAY: {
         chip: 'bg-gradient-to-br from-sky-50 to-blue-50',
@@ -408,26 +430,12 @@ export function RegisterPage() {
         border: 'border-sky-200',
         hover: 'hover:border-sky-300 hover:bg-sky-50/40',
         arrow: 'text-sky-500',
+        arrowHover: 'group-hover:text-sky-500',
         bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-sky-500',
         label: 'text-sky-900',
-        labelHover: 'text-sky-900',
+        labelHover: 'group-hover:text-sky-900',
       },
-    } satisfies Record<
-      (typeof paymentOptions)[number]['key'],
-      {
-        chip: string;
-        icon: string;
-        ring: string;
-        border: string;
-        hover: string;
-        arrow: string;
-        bar: string;
-        label: string;
-        labelHover: string;
-        badge?: string;
-        badgeText?: string;
-      }
-    >;
+    };
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 p-4 py-12">
@@ -497,7 +505,7 @@ export function RegisterPage() {
                       <div className="text-left">
                         <div
                           className={`font-semibold ${
-                            selected ? style.label : `text-gray-900 group-hover:${style.labelHover}`
+                            selected ? style.label : `text-gray-900 ${style.labelHover}`
                           }`}
                         >
                           {opt.label}
@@ -512,7 +520,7 @@ export function RegisterPage() {
                         </span>
                       ) : null}
                       <span
-                        className={`text-gray-400 transition-colors ${selected ? style.arrow : 'group-hover:' + style.arrow}`}
+                        className={`text-gray-400 transition-colors ${selected ? style.arrow : style.arrowHover}`}
                       >
                         →
                       </span>
