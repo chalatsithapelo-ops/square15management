@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { Building2, Briefcase, Check, Calculator, CreditCard, QrCode, Landmark, Wallet, ArrowLeft } from 'lucide-react';
+import { Building2, Briefcase, Check, Calculator, CreditCard, QrCode, Landmark, Wallet, ArrowLeft, Lock } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 
 export function RegisterPage() {
@@ -340,6 +340,9 @@ export function RegisterPage() {
         border: 'border-indigo-200',
         hover: 'hover:border-indigo-300 hover:bg-indigo-50/40',
         arrow: 'text-indigo-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-indigo-500',
+        label: 'text-indigo-900',
+        labelHover: 'text-indigo-900',
       },
       S_PAY: {
         chip: 'bg-gradient-to-br from-emerald-50 to-teal-50',
@@ -348,6 +351,9 @@ export function RegisterPage() {
         border: 'border-emerald-200',
         hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
         arrow: 'text-emerald-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-emerald-500',
+        label: 'text-emerald-900',
+        labelHover: 'text-emerald-900',
       },
       INSTANT_EFT: {
         chip: 'bg-gradient-to-br from-sky-50 to-cyan-50',
@@ -356,30 +362,44 @@ export function RegisterPage() {
         border: 'border-cyan-200',
         hover: 'hover:border-cyan-300 hover:bg-cyan-50/40',
         arrow: 'text-cyan-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-cyan-500',
+        label: 'text-cyan-900',
+        labelHover: 'text-cyan-900',
+        badge: 'bg-cyan-600 text-white',
+        badgeText: 'Recommended',
       },
       SNAPSCAN: {
-        chip: 'bg-gradient-to-br from-amber-50 to-yellow-50',
-        icon: 'text-amber-700',
-        ring: 'ring-amber-500/30',
-        border: 'border-amber-200',
-        hover: 'hover:border-amber-300 hover:bg-amber-50/40',
-        arrow: 'text-amber-500',
+        chip: 'bg-gradient-to-br from-rose-50 to-red-50',
+        icon: 'text-red-700',
+        ring: 'ring-red-500/30',
+        border: 'border-red-200',
+        hover: 'hover:border-red-300 hover:bg-red-50/40',
+        arrow: 'text-red-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-red-500',
+        label: 'text-red-900',
+        labelHover: 'text-red-900',
       },
       ZAPPER: {
-        chip: 'bg-gradient-to-br from-fuchsia-50 to-pink-50',
-        icon: 'text-fuchsia-700',
-        ring: 'ring-fuchsia-500/30',
-        border: 'border-fuchsia-200',
-        hover: 'hover:border-fuchsia-300 hover:bg-fuchsia-50/40',
-        arrow: 'text-fuchsia-500',
+        chip: 'bg-gradient-to-br from-emerald-50 to-lime-50',
+        icon: 'text-emerald-700',
+        ring: 'ring-emerald-500/30',
+        border: 'border-emerald-200',
+        hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
+        arrow: 'text-emerald-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-emerald-500',
+        label: 'text-emerald-900',
+        labelHover: 'text-emerald-900',
       },
       MASTERPASS: {
-        chip: 'bg-gradient-to-br from-violet-50 to-purple-50',
-        icon: 'text-violet-700',
-        ring: 'ring-violet-500/30',
-        border: 'border-violet-200',
-        hover: 'hover:border-violet-300 hover:bg-violet-50/40',
-        arrow: 'text-violet-500',
+        chip: 'bg-gradient-to-br from-orange-50 to-amber-50',
+        icon: 'text-orange-700',
+        ring: 'ring-orange-500/30',
+        border: 'border-orange-200',
+        hover: 'hover:border-orange-300 hover:bg-orange-50/40',
+        arrow: 'text-orange-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-orange-500',
+        label: 'text-orange-900',
+        labelHover: 'text-orange-900',
       },
       FNB_PAY: {
         chip: 'bg-gradient-to-br from-sky-50 to-blue-50',
@@ -388,6 +408,9 @@ export function RegisterPage() {
         border: 'border-sky-200',
         hover: 'hover:border-sky-300 hover:bg-sky-50/40',
         arrow: 'text-sky-500',
+        bar: 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-sky-500',
+        label: 'text-sky-900',
+        labelHover: 'text-sky-900',
       },
     } satisfies Record<
       (typeof paymentOptions)[number]['key'],
@@ -398,6 +421,11 @@ export function RegisterPage() {
         border: string;
         hover: string;
         arrow: string;
+        bar: string;
+        label: string;
+        labelHover: string;
+        badge?: string;
+        badgeText?: string;
       }
     >;
 
@@ -425,6 +453,20 @@ export function RegisterPage() {
               Select a payment method to complete your registration payment.
             </p>
 
+            <div className="mb-6 rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/70 border border-orange-200 flex items-center justify-center">
+                  <Lock className="h-5 w-5 text-orange-700" />
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">Secure checkout</div>
+                  <div className="text-xs text-gray-600">
+                    You’ll be redirected to PayFast to complete payment.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-4">
               {paymentOptions.map((opt) => {
                 const Icon = opt.icon;
@@ -436,10 +478,10 @@ export function RegisterPage() {
                     type="button"
                     onClick={() => startPayfastCheckout(opt.key)}
                     disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
-                    className={`group w-full rounded-2xl border px-5 py-4 flex items-center justify-between transition-all bg-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm hover:shadow-md ${
+                    className={`group relative overflow-hidden w-full rounded-2xl border px-5 py-4 flex items-center justify-between transition-all bg-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm hover:shadow-md ${
                       selected
-                        ? `ring-2 ${style.ring} ${style.border}`
-                        : `border-gray-200 ${style.hover}`
+                        ? `ring-2 ${style.ring} ${style.border} ${style.bar}`
+                        : `border-gray-200 ${style.hover} ${style.bar}`
                     }`}
                   >
                     <div className="flex items-center gap-4">
@@ -453,11 +495,28 @@ export function RegisterPage() {
                         />
                       </div>
                       <div className="text-left">
-                        <div className="font-semibold text-gray-900">{opt.label}</div>
+                        <div
+                          className={`font-semibold ${
+                            selected ? style.label : `text-gray-900 group-hover:${style.labelHover}`
+                          }`}
+                        >
+                          {opt.label}
+                        </div>
                         <div className="text-xs text-gray-500">{opt.hint}</div>
                       </div>
                     </div>
-                    <span className={`text-gray-400 transition-colors ${selected ? style.arrow : 'group-hover:' + style.arrow}`}>→</span>
+                    <div className="flex items-center gap-3">
+                      {style.badgeText ? (
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${style.badge}`}>
+                          {style.badgeText}
+                        </span>
+                      ) : null}
+                      <span
+                        className={`text-gray-400 transition-colors ${selected ? style.arrow : 'group-hover:' + style.arrow}`}
+                      >
+                        →
+                      </span>
+                    </div>
                   </button>
                 );
               })}
