@@ -332,6 +332,75 @@ export function RegisterPage() {
   }
 
   if (isOnPaymentStep) {
+    const paymentStyleByKey = {
+      CARD: {
+        chip: 'bg-gradient-to-br from-blue-50 to-indigo-50',
+        icon: 'text-indigo-700',
+        ring: 'ring-indigo-500/30',
+        border: 'border-indigo-200',
+        hover: 'hover:border-indigo-300 hover:bg-indigo-50/40',
+        arrow: 'text-indigo-500',
+      },
+      S_PAY: {
+        chip: 'bg-gradient-to-br from-emerald-50 to-teal-50',
+        icon: 'text-emerald-700',
+        ring: 'ring-emerald-500/30',
+        border: 'border-emerald-200',
+        hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
+        arrow: 'text-emerald-500',
+      },
+      INSTANT_EFT: {
+        chip: 'bg-gradient-to-br from-sky-50 to-cyan-50',
+        icon: 'text-cyan-700',
+        ring: 'ring-cyan-500/30',
+        border: 'border-cyan-200',
+        hover: 'hover:border-cyan-300 hover:bg-cyan-50/40',
+        arrow: 'text-cyan-500',
+      },
+      SNAPSCAN: {
+        chip: 'bg-gradient-to-br from-amber-50 to-yellow-50',
+        icon: 'text-amber-700',
+        ring: 'ring-amber-500/30',
+        border: 'border-amber-200',
+        hover: 'hover:border-amber-300 hover:bg-amber-50/40',
+        arrow: 'text-amber-500',
+      },
+      ZAPPER: {
+        chip: 'bg-gradient-to-br from-fuchsia-50 to-pink-50',
+        icon: 'text-fuchsia-700',
+        ring: 'ring-fuchsia-500/30',
+        border: 'border-fuchsia-200',
+        hover: 'hover:border-fuchsia-300 hover:bg-fuchsia-50/40',
+        arrow: 'text-fuchsia-500',
+      },
+      MASTERPASS: {
+        chip: 'bg-gradient-to-br from-violet-50 to-purple-50',
+        icon: 'text-violet-700',
+        ring: 'ring-violet-500/30',
+        border: 'border-violet-200',
+        hover: 'hover:border-violet-300 hover:bg-violet-50/40',
+        arrow: 'text-violet-500',
+      },
+      FNB_PAY: {
+        chip: 'bg-gradient-to-br from-sky-50 to-blue-50',
+        icon: 'text-sky-700',
+        ring: 'ring-sky-500/30',
+        border: 'border-sky-200',
+        hover: 'hover:border-sky-300 hover:bg-sky-50/40',
+        arrow: 'text-sky-500',
+      },
+    } satisfies Record<
+      (typeof paymentOptions)[number]['key'],
+      {
+        chip: string;
+        icon: string;
+        ring: string;
+        border: string;
+        hover: string;
+        arrow: string;
+      }
+    >;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 p-4 py-12">
         <div className="max-w-lg mx-auto">
@@ -350,7 +419,7 @@ export function RegisterPage() {
             Back
           </button>
 
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 border border-white/60">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Choose payment option</h1>
             <p className="text-sm text-gray-600 mb-6">
               Select a payment method to complete your registration payment.
@@ -360,26 +429,35 @@ export function RegisterPage() {
               {paymentOptions.map((opt) => {
                 const Icon = opt.icon;
                 const selected = paymentOptionSelected === opt.key;
+                const style = paymentStyleByKey[opt.key];
                 return (
                   <button
                     key={opt.key}
                     type="button"
                     onClick={() => startPayfastCheckout(opt.key)}
                     disabled={isRedirectingToPayfast || payfastCheckoutMutation.isPending}
-                    className={`w-full rounded-full border-2 px-5 py-4 flex items-center justify-between transition-colors bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed ${
-                      selected ? 'border-cyan-500' : 'border-gray-200'
+                    className={`group w-full rounded-2xl border px-5 py-4 flex items-center justify-between transition-all bg-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm hover:shadow-md ${
+                      selected
+                        ? `ring-2 ${style.ring} ${style.border}`
+                        : `border-gray-200 ${style.hover}`
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${selected ? 'bg-cyan-50' : 'bg-gray-50'}`}>
-                        <Icon className={`h-5 w-5 ${selected ? 'text-cyan-700' : 'text-gray-600'}`} />
+                      <div
+                        className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${style.chip} ${
+                          selected ? style.border : 'border-gray-200'
+                        }`}
+                      >
+                        <Icon
+                          className={`h-5 w-5 ${style.icon} transition-transform group-hover:scale-110`}
+                        />
                       </div>
                       <div className="text-left">
                         <div className="font-semibold text-gray-900">{opt.label}</div>
                         <div className="text-xs text-gray-500">{opt.hint}</div>
                       </div>
                     </div>
-                    <span className="text-gray-400">→</span>
+                    <span className={`text-gray-400 transition-colors ${selected ? style.arrow : 'group-hover:' + style.arrow}`}>→</span>
                   </button>
                 );
               })}
