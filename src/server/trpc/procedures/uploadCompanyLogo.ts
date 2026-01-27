@@ -37,14 +37,14 @@ export const uploadCompanyLogo = baseProcedure
       10 * 60 // 10 minutes
     );
 
-    // If running behind nginx in Docker, rewrite the internal MinIO hostname to the external proxy URL.
-    const appBaseUrl = getBaseUrl().replace(/\/$/, "");
-    const minioProxyPrefix = `${appBaseUrl}/minio`;
-    const browserPresignedUrl = presignedUrl.replace("http://minio:9000", minioProxyPrefix);
+    // Always return a browser-safe relative proxy URL.
+    // (The presigned URL hostname might be http://minio:9000 OR http://localhost:9000 depending on runtime.)
+    const presigned = new URL(presignedUrl);
+    const browserPresignedUrl = `/minio${presigned.pathname}${presigned.search}`;
 
-    // Construct the final URL that will be used to access the file
-    // Store an externally reachable URL (via nginx /minio proxy)
-    const logoUrl = `${minioProxyPrefix}/property-management/${objectName}`;
+    // Store an externally reachable URL (absolute) for server-side consumers (PDF/logo fetch).
+    const appBaseUrl = getBaseUrl().replace(/\/$/, "");
+    const logoUrl = `${appBaseUrl}/minio/property-management/${objectName}`;
 
     // Store the logo URL in system settings
     await db.systemSettings.upsert({

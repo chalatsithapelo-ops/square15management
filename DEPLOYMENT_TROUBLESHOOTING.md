@@ -85,6 +85,31 @@ This guide documents common deployment and preview issues and their solutions.
 - Verify MinIO is accessible at `http://minio:9000` from within Docker network
 - Check MinIO console at `http://localhost:9001` (login: admin / ADMIN_PASSWORD)
 
+### 2b. Uploads Fail: "Failed to generate upload URL"
+
+**Symptoms:**
+- Upload UI errors immediately (e.g., Contractor portal uploads, Admin uploads, external submission uploads)
+- Server returns `INTERNAL_SERVER_ERROR: Failed to generate upload URL`
+
+**What changed / expected behavior:**
+- The API now returns browser-safe URLs that start with `/minio/...` (relative), so the browser always uploads through the website’s Nginx proxy.
+
+**Most common root cause:**
+- The server cannot authenticate to MinIO when generating presigned URLs (wrong access key/secret), or it is using the wrong internal MinIO URL.
+
+**Fix:**
+1. Ensure MinIO is reachable from the app process.
+   - Docker: `MINIO_INTERNAL_URL=http://minio:9000`
+   - Non-Docker / port-mapped: `MINIO_INTERNAL_URL=http://127.0.0.1:9000`
+2. Ensure MinIO credentials match the MinIO deployment:
+   - `MINIO_ACCESS_KEY`
+   - `MINIO_SECRET_KEY`
+   - If not set, the app defaults to access key `admin` and secret key `ADMIN_PASSWORD`.
+3. Restart the app after updating `.env`.
+
+**Where to check logs:**
+- App logs will include the underlying presign error (network/auth/bucket/etc).
+
 ### 3. Health Check Timeout
 
 **Symptoms:**
@@ -217,6 +242,11 @@ docker compose exec app pnpm exec tsx -e "
 - `BASE_URL`: Base URL for the application (default: `http://localhost:8000`)
 - `BASE_URL_OTHER_PORT`: Template for other ports (default: `http://localhost:[PORT]`)
 - `SEED_DEMO_DATA`: Set to `true` to seed demo data on startup (default: not set)
+
+#### Optional MinIO Variables
+- `MINIO_ACCESS_KEY`: Overrides MinIO access key (default: `admin`)
+- `MINIO_SECRET_KEY`: Overrides MinIO secret key (default: `ADMIN_PASSWORD`)
+- `MINIO_INTERNAL_URL`: Overrides internal MinIO URL used by the server for presigning (default: auto-detected; usually `http://minio:9000` in Docker)
 
 ## Performance Tips
 

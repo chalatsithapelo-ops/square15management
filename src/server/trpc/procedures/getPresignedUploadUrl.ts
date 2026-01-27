@@ -38,8 +38,8 @@ export const getPresignedUploadUrl = baseProcedure
         endPoint: urlObj.hostname,
         port: parseInt(urlObj.port || '9000', 10),
         useSSL: internalBaseUrl.startsWith("https://"),
-        accessKey: "admin",
-        secretKey: env.ADMIN_PASSWORD,
+        accessKey: env.MINIO_ACCESS_KEY ?? "admin",
+        secretKey: env.MINIO_SECRET_KEY ?? env.ADMIN_PASSWORD,
       });
 
       // Generate presigned URL using internal MinIO connection

@@ -76,13 +76,13 @@ export function SubscriptionManagement({
     enabled: !!token,
   });
 
-  const subscriptionsQuery = useQuery({
-    ...trpc.getAllSubscriptions.queryOptions({ token: token! }),
+  const rosterQuery = useQuery({
+    ...trpc.getSubscriptionRoster.queryOptions({ token: token! }),
     enabled: !!token,
   });
 
   const forbiddenError =
-    (subscriptionsQuery.isError && (subscriptionsQuery.error as any)?.data?.code === 'FORBIDDEN' && subscriptionsQuery.error) ||
+    (rosterQuery.isError && (rosterQuery.error as any)?.data?.code === 'FORBIDDEN' && rosterQuery.error) ||
     (packagesQuery.isError && (packagesQuery.error as any)?.data?.code === 'FORBIDDEN' && packagesQuery.error);
 
   if (forbiddenError) {
@@ -90,7 +90,7 @@ export function SubscriptionManagement({
   }
 
   const firstNonForbiddenError =
-    (subscriptionsQuery.isError && subscriptionsQuery.error) || (packagesQuery.isError && packagesQuery.error) || null;
+    (rosterQuery.isError && rosterQuery.error) || (packagesQuery.isError && packagesQuery.error) || null;
 
   if (firstNonForbiddenError) {
     return (
@@ -157,26 +157,48 @@ export function SubscriptionManagement({
         </nav>
       </div>
 
-      {selectedTab === 'subscriptions' && <SubscriptionsTab subscriptions={subscriptionsQuery.data} />}
+      {selectedTab === 'subscriptions' && (
+        <SubscriptionsTab roster={rosterQuery.data} packages={packagesQuery.data} />
+      )}
       {selectedTab === 'packages' && <PackagesTab packages={packagesQuery.data} />}
     </div>
   );
 }
 
-function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined }) {
+function deriveExpectedPackageType(role: string | undefined): 'CONTRACTOR' | 'PROPERTY_MANAGER' | 'UNKNOWN' {
+  if (!role) return 'UNKNOWN';
+  if (role === 'PROPERTY_MANAGER') return 'PROPERTY_MANAGER';
+  if (role.startsWith('CONTRACTOR')) return 'CONTRACTOR';
+  return 'UNKNOWN';
+}
+
+function SubscriptionsTab({
+  roster,
+  packages,
+}: {
+  roster: any[] | undefined;
+  packages: any[] | undefined;
+}) {
   const trpc = useTRPC();
   const { token } = useAuthStore();
   const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
+
+  const invalidateSubscriptionQueries = async () => {
+    if (!token) return;
+    await queryClient.invalidateQueries({ queryKey: trpc.getSubscriptionRoster.queryKey({ token }) });
+    await queryClient.invalidateQueries({ queryKey: trpc.getUserSubscription.queryKey({ token }) });
+    await queryClient.invalidateQueries({ queryKey: trpc.getAllSubscriptions.queryKey({ token }) });
+  };
 
   const activateMutation = useMutation(
     trpc.activateSubscription.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.getAllSubscriptions.queryKey({ token: token! }),
-        });
+        await invalidateSubscriptionQueries();
         alert('Subscription activated successfully');
       },
     })
@@ -185,52 +207,97 @@ function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined 
   const suspendMutation = useMutation(
     trpc.suspendSubscription.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.getAllSubscriptions.queryKey({ token: token! }),
-        });
+        await invalidateSubscriptionQueries();
         alert('Subscription suspended');
       },
     })
   );
 
+  const createSubscriptionMutation = useMutation(
+    trpc.createSubscription.mutationOptions({
+      onSuccess: async () => {
+        await invalidateSubscriptionQueries();
+        alert('Subscription created successfully');
+      },
+    })
+  );
+
+  const updatePackageMutation = useMutation(
+    trpc.updateSubscriptionPackage.mutationOptions({
+      onSuccess: async () => {
+        await invalidateSubscriptionQueries();
+        alert('Subscription updated successfully');
+      },
+    })
+  );
+
   const enriched = useMemo(() => {
-    const list = (subscriptions ?? []).map((s) => {
-      const monthlyCharge = computeMonthlyCharge(s);
-      const amountDue = computeAmountDue(s);
+    const list = (roster ?? []).map((row) => {
+      const subscription = row.subscription ?? null;
+      const expectedType = deriveExpectedPackageType(row.user?.role);
+      const packageType = subscription?.package?.type ?? expectedType;
+      const monthlyCharge = subscription ? computeMonthlyCharge(subscription) : 0;
+      const amountDue = subscription ? computeAmountDue(subscription) : 0;
+
       return {
-        ...s,
+        ...row,
+        __expectedPackageType: expectedType,
+        __packageType: packageType ?? 'UNKNOWN',
         __monthlyCharge: monthlyCharge,
         __amountDue: amountDue,
-        __packageType: s.package?.type ?? 'UNKNOWN',
+        __status: subscription?.status ?? 'NONE',
       };
     });
 
-    const filtered = list.filter((s) => statusFilter === 'all' || s.status === statusFilter);
+    const q = search.trim().toLowerCase();
+    const filtered = list.filter((r: any) => {
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'NONE' ? !r.subscription : r.subscription?.status === statusFilter);
+
+      if (!matchesStatus) return false;
+      if (!q) return true;
+
+      const email = String(r.user?.email ?? '').toLowerCase();
+      const name = `${r.user?.firstName ?? ''} ${r.user?.lastName ?? ''}`.trim().toLowerCase();
+      return email.includes(q) || name.includes(q);
+    });
 
     filtered.sort((a: any, b: any) => {
       const typeCmp = packageTypeSortKey(a.__packageType) - packageTypeSortKey(b.__packageType);
       if (typeCmp !== 0) return typeCmp;
 
-      const pkgCmp = compareStrings(a.package?.displayName ?? '', b.package?.displayName ?? '');
+      const pkgCmp = compareStrings(a.subscription?.package?.displayName ?? '', b.subscription?.package?.displayName ?? '');
       if (pkgCmp !== 0) return pkgCmp;
 
-      const areaCmp = compareStrings(a.user?.email ?? '', b.user?.email ?? '');
-      if (areaCmp !== 0) return areaCmp;
-
-      return compareStrings(`${a.user?.lastName ?? ''} ${a.user?.firstName ?? ''}`, `${b.user?.lastName ?? ''} ${b.user?.firstName ?? ''}`);
+      return compareStrings(a.user?.email ?? '', b.user?.email ?? '');
     });
 
     return filtered;
-  }, [subscriptions, statusFilter]);
+  }, [roster, search, statusFilter]);
 
-  const selected =
-    selectedSubscriptionId != null ? enriched.find((s: any) => s.id === selectedSubscriptionId) ?? null : null;
+  const selected = useMemo(() => {
+    if (selectedUserId == null) return null;
+    return enriched.find((r: any) => r.user?.id === selectedUserId) ?? null;
+  }, [enriched, selectedUserId]);
+
+  const compatiblePackages = useMemo(() => {
+    const expected = selected?.__expectedPackageType as 'CONTRACTOR' | 'PROPERTY_MANAGER' | 'UNKNOWN' | undefined;
+    const all = packages ?? [];
+    if (!expected || expected === 'UNKNOWN') return all;
+    return all.filter((p: any) => p.type === expected);
+  }, [packages, selected]);
 
   const summary = useMemo(() => {
-    const active = enriched.filter((s: any) => s.status === 'ACTIVE' || s.status === 'TRIAL');
-    const totalMrr = active.reduce((sum: number, s: any) => sum + (s.__monthlyCharge ?? 0), 0);
-    const totalDue = enriched.reduce((sum: number, s: any) => sum + (s.__amountDue ?? 0), 0);
-    return { totalMrr, totalDue, activeCount: active.length, totalCount: enriched.length };
+    const withSubscription = enriched.filter((r: any) => !!r.subscription);
+    const active = enriched.filter((r: any) => r.subscription?.status === 'ACTIVE' || r.subscription?.status === 'TRIAL');
+    const totalDue = withSubscription.reduce((sum: number, r: any) => sum + (r.__amountDue ?? 0), 0);
+    return {
+      totalUsers: enriched.length,
+      withSubscription: withSubscription.length,
+      activeOrTrial: active.length,
+      totalDue,
+    };
   }, [enriched]);
 
   return (
@@ -238,16 +305,16 @@ function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
-            <div className="text-xs text-gray-500">Subscriptions</div>
-            <div className="text-lg font-semibold text-gray-900">{summary.totalCount}</div>
+            <div className="text-xs text-gray-500">Users</div>
+            <div className="text-lg font-semibold text-gray-900">{summary.totalUsers}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">With subscription</div>
+            <div className="text-lg font-semibold text-gray-900">{summary.withSubscription}</div>
           </div>
           <div>
             <div className="text-xs text-gray-500">Active/Trial</div>
-            <div className="text-lg font-semibold text-gray-900">{summary.activeCount}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Estimated MRR</div>
-            <div className="text-lg font-semibold text-gray-900">{formatMoneyZAR(summary.totalMrr)}</div>
+            <div className="text-lg font-semibold text-gray-900">{summary.activeOrTrial}</div>
           </div>
           <div>
             <div className="text-xs text-gray-500">Amount Due (now)</div>
@@ -256,70 +323,101 @@ function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined 
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Status:</label>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setSelectedSubscriptionId(null);
-          }}
-          className="rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 sm:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="TRIAL">Trial</option>
-          <option value="ACTIVE">Active</option>
-          <option value="SUSPENDED">Suspended</option>
-          <option value="EXPIRED">Expired</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Status:</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setSelectedUserId(null);
+            }}
+            className="rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 sm:text-sm"
+          >
+            <option value="all">All</option>
+            <option value="NONE">No subscription</option>
+            <option value="TRIAL">Trial</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+
+        <div className="w-full sm:w-80">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or email"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="lg:col-span-7">
           <div className="rounded-lg border border-gray-200 bg-white">
             <div className="border-b border-gray-200 px-4 py-3">
-              <div className="text-sm font-medium text-gray-900">Subscriptions</div>
-              <div className="text-xs text-gray-500">Sorted by type, package, and area</div>
+              <div className="text-sm font-medium text-gray-900">Users</div>
+              <div className="text-xs text-gray-500">Includes users without subscriptions</div>
             </div>
 
             <div className="divide-y divide-gray-200">
-              {enriched.map((sub: any) => {
-                const isSelected = sub.id === selectedSubscriptionId;
-                return (
-                  <button
-                    key={sub.id}
-                    onClick={() => setSelectedSubscriptionId(sub.id)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${isSelected ? 'bg-cyan-50' : ''}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900 truncate">
-                          {sub.user?.firstName} {sub.user?.lastName}
-                        </div>
-                        <div className="text-sm text-gray-600 truncate">{sub.user?.email}</div>
-                        <div className="text-xs text-gray-500 truncate">
-                              {sub.package?.type ?? 'UNKNOWN'} . {sub.package?.displayName ?? 'Unknown package'}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(sub.status)}`}>
-                          {sub.status}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-700">Due: {formatMoneyZAR(sub.__amountDue ?? 0)}</div>
-                        {sub.nextBillingDate && (
-                          <div className="text-xs text-gray-500">
-                            Next: {new Date(sub.nextBillingDate).toLocaleDateString()}
+              {enriched.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">No users found</div>
+              ) : (
+                enriched.map((row: any) => {
+                  const sub = row.subscription;
+                  const isSelected = row.user?.id === selectedUserId;
+                  return (
+                    <button
+                      key={row.user?.id}
+                      onClick={() => {
+                        setSelectedUserId(row.user?.id);
+                        const currentPackageId = sub?.package?.id ?? sub?.packageId ?? null;
+                        const expected = deriveExpectedPackageType(row.user?.role);
+                        const options = (packages ?? []).filter((p: any) =>
+                          expected === 'UNKNOWN' ? true : p.type === expected
+                        );
+                        setSelectedPackageId(currentPackageId ?? options[0]?.id ?? null);
+                      }}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${isSelected ? 'bg-cyan-50' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {row.user?.firstName} {row.user?.lastName}
                           </div>
-                        )}
+                          <div className="text-sm text-gray-600 truncate">{row.user?.email}</div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {row.__packageType ?? 'UNKNOWN'} · {sub?.package?.displayName ?? 'No package'}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {sub ? (
+                            <>
+                              <div
+                                className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
+                                  sub.status
+                                )}`}
+                              >
+                                {sub.status}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-700">Due: {formatMoneyZAR(row.__amountDue ?? 0)}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                                NONE
+                              </div>
+                              <div className="mt-1 text-xs text-gray-500">No subscription</div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-
-              {!enriched.length && (
-                <div className="text-center py-12 text-gray-500">No subscriptions found</div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -329,11 +427,11 @@ function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined 
           <div className="rounded-lg border border-gray-200 bg-white">
             <div className="border-b border-gray-200 px-4 py-3">
               <div className="text-sm font-medium text-gray-900">Details</div>
-              <div className="text-xs text-gray-500">Select a subscription to manage it</div>
+              <div className="text-xs text-gray-500">Select a user to manage their subscription</div>
             </div>
 
             {!selected ? (
-              <div className="px-4 py-10 text-center text-sm text-gray-500">No subscription selected</div>
+              <div className="px-4 py-10 text-center text-sm text-gray-500">No user selected</div>
             ) : (
               <div className="px-4 py-4 space-y-4">
                 <div>
@@ -341,62 +439,101 @@ function SubscriptionsTab({ subscriptions }: { subscriptions: any[] | undefined 
                     {selected.user?.firstName} {selected.user?.lastName}
                   </div>
                   <div className="text-sm text-gray-600">{selected.user?.email}</div>
+                  <div className="mt-1 text-xs text-gray-500">Role: {selected.user?.role ?? 'Unknown'}</div>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Type</span>
-                    <span className="font-medium">{selected.package?.type ?? 'UNKNOWN'}</span>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                  <div className="text-xs text-gray-500">Current</div>
+                  <div className="text-sm text-gray-900">
+                    {selected.subscription
+                      ? `${selected.subscription.package?.displayName ?? 'Unknown package'} (${selected.subscription.status})`
+                      : 'No subscription'}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Package</span>
-                    <span className="font-medium">{selected.package?.displayName ?? 'Unknown'}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Monthly Charge</span>
-                    <span className="font-medium">{formatMoneyZAR(selected.__monthlyCharge ?? 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Amount Due</span>
-                    <span className="font-medium">{formatMoneyZAR(selected.__amountDue ?? 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Users</span>
-                    <span className="font-medium">{selected.currentUsers} / {selected.maxUsers}</span>
-                  </div>
-                  {selected.trialEndsAt && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Trial Ends</span>
-                      <span className="font-medium">{new Date(selected.trialEndsAt).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  {selected.nextBillingDate && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Next Billing</span>
-                      <span className="font-medium">{new Date(selected.nextBillingDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex gap-2">
-                  {selected.status === 'SUSPENDED' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Assign package</label>
+                  <select
+                    value={selectedPackageId ?? ''}
+                    onChange={(e) => setSelectedPackageId(e.target.value ? Number(e.target.value) : null)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 sm:text-sm"
+                  >
+                    {compatiblePackages.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.type} · {p.displayName} ({formatMoneyZAR(p.basePrice ?? 0)})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-1 text-xs text-gray-500">
+                    If the user has no subscription, one will be created as ACTIVE/TRIAL based on the package.
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {!selected.subscription ? (
                     <button
-                      onClick={() => activateMutation.mutate({ token: token!, subscriptionId: selected.id })}
-                      className="flex-1 rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                      onClick={() => {
+                        if (!token) return;
+                        if (!selectedPackageId) {
+                          alert('Select a package first');
+                          return;
+                        }
+                        createSubscriptionMutation.mutate({
+                          token,
+                          userId: selected.user.id,
+                          packageId: selectedPackageId,
+                          additionalUsers: 0,
+                        });
+                      }}
+                      className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+                      disabled={createSubscriptionMutation.isPending}
+                    >
+                      Create subscription
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (!token) return;
+                        if (!selectedPackageId) {
+                          alert('Select a package first');
+                          return;
+                        }
+                        updatePackageMutation.mutate({
+                          token,
+                          subscriptionId: selected.subscription.id,
+                          packageId: selectedPackageId,
+                        });
+                      }}
+                      className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+                      disabled={updatePackageMutation.isPending}
+                    >
+                      Update package
+                    </button>
+                  )}
+
+                  {selected.subscription && selected.subscription.status === 'SUSPENDED' && (
+                    <button
+                      onClick={() => {
+                        if (!token) return;
+                        activateMutation.mutate({ token, subscriptionId: selected.subscription.id });
+                      }}
+                      className="rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                       disabled={activateMutation.isPending || suspendMutation.isPending}
                     >
                       Activate
                     </button>
                   )}
-                  {(selected.status === 'ACTIVE' || selected.status === 'TRIAL') && (
+
+                  {selected.subscription && (selected.subscription.status === 'ACTIVE' || selected.subscription.status === 'TRIAL') && (
                     <button
                       onClick={() => {
+                        if (!token) return;
                         const reason = prompt('Reason for suspension:');
                         if (reason) {
-                          suspendMutation.mutate({ token: token!, subscriptionId: selected.id, reason });
+                          suspendMutation.mutate({ token, subscriptionId: selected.subscription.id, reason });
                         }
                       }}
-                      className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                      className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                       disabled={activateMutation.isPending || suspendMutation.isPending}
                     >
                       Suspend

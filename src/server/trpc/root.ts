@@ -304,7 +304,7 @@ import { generateProjectInsights } from "~/server/trpc/procedures/generateProjec
 import { generateAccountsInsights } from "~/server/trpc/procedures/generateAccountsInsights";
 
 // Subscriptions
-import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions } from "~/server/trpc/procedures/subscriptions";
+import { getPackages, getUserSubscription, createSubscription, updateSubscriptionPackage, updatePackagePricing, activateSubscription, suspendSubscription, getAllSubscriptions, getSubscriptionRoster } from "~/server/trpc/procedures/subscriptions";
 import {
   createPendingRegistration,
   createPendingRegistrationPayfastCheckout,
@@ -694,6 +694,7 @@ export const appRouter = createTRPCRouter({
   activateSubscription,
   suspendSubscription,
   getAllSubscriptions,
+  getSubscriptionRoster,
   
   // Self-Registration
   createPendingRegistration,

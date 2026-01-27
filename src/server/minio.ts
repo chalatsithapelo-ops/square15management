@@ -21,14 +21,19 @@ function getMinioClient(): Client {
       endPoint: urlObj.hostname,
       port: parseInt(urlObj.port || '9000', 10),
       useSSL: baseUrl.startsWith("https://"),
-      accessKey: "admin",
-      secretKey: env.ADMIN_PASSWORD,
+      accessKey: env.MINIO_ACCESS_KEY ?? "admin",
+      secretKey: env.MINIO_SECRET_KEY ?? env.ADMIN_PASSWORD,
     });
   }
   return _minioClient;
 }
 
 export function getInternalMinioBaseUrl(): string {
+  // Allow explicit override (useful when the app is not running inside Docker)
+  if (env.MINIO_INTERNAL_URL) {
+    return env.MINIO_INTERNAL_URL;
+  }
+
   // Check multiple indicators that we're running in Docker
   const isDocker = 
     // Check if Prisma's DATABASE_URL uses Docker service name

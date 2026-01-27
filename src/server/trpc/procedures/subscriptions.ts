@@ -545,3 +545,88 @@ export const getAllSubscriptions = baseProcedure
 
     return subscriptions;
   });
+
+export const getSubscriptionRoster = baseProcedure
+  .input(
+    z.object({
+      token: z.string(),
+      includeRoles: z.array(z.string()).optional(),
+    })
+  )
+  .query(async ({ input }) => {
+    const adminUser = await authenticateUser(input.token);
+
+    if (!canManageSubscriptions(adminUser)) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Access denied',
+      });
+    }
+
+    // Defaults keep the list focused on accounts that actually use subscriptions.
+    const defaultRoles = [
+      'CONTRACTOR',
+      'CONTRACTOR_SENIOR_MANAGER',
+      'CONTRACTOR_JUNIOR_MANAGER',
+      'PROPERTY_MANAGER',
+    ];
+
+    const roles = (input.includeRoles && input.includeRoles.length > 0
+      ? input.includeRoles
+      : defaultRoles
+    ).filter(Boolean);
+
+    const users = await db.user.findMany({
+      where: {
+        role: {
+          in: roles,
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    const userIds = users.map((u) => u.id);
+
+    const subscriptions = userIds.length
+      ? await db.subscription.findMany({
+          where: {
+            userId: { in: userIds },
+          },
+          include: {
+            package: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        })
+      : [];
+
+    const byUserId = new Map<number, any[]>();
+    for (const sub of subscriptions) {
+      const list = byUserId.get(sub.userId) ?? [];
+      list.push(sub);
+      byUserId.set(sub.userId, list);
+    }
+
+    const roster = users.map((user) => {
+      const list = byUserId.get(user.id) ?? [];
+      const activeOrTrial = list.find((s) => s.status === 'ACTIVE' || s.status === 'TRIAL') ?? null;
+      const latest = list[0] ?? null;
+      const current = activeOrTrial ?? latest;
+
+      return {
+        user,
+        subscription: current,
+      };
+    });
+
+    return roster;
+  });

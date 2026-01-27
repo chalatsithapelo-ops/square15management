@@ -181,6 +181,17 @@ All scripts respect the `.env` file in the project root. Key variables:
 - `DATABASE_URL`: PostgreSQL connection string
 - `SEED_DEMO_DATA`: Whether to seed demo data (true/false)
 
+### MinIO (Uploads)
+
+By default, the app connects to MinIO with:
+- access key: `admin`
+- secret key: `ADMIN_PASSWORD`
+
+If your MinIO credentials or internal URL differ (common in non-Docker setups), set:
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `MINIO_INTERNAL_URL` (example: `http://minio:9000` in Docker, or `http://127.0.0.1:9000` if port-mapped)
+
 ---
 
 ## Viewing Logs

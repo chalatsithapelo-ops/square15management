@@ -62,6 +62,12 @@ const envSchema = z.object({
   // Prisma reads DATABASE_URL directly; validate it early to avoid intermittent boot/login failures.
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   ADMIN_PASSWORD: z.string(),
+  // MinIO (optional overrides)
+  // Defaults are accessKey="admin" and secretKey=ADMIN_PASSWORD.
+  MINIO_ACCESS_KEY: optionalTrimmedString,
+  MINIO_SECRET_KEY: optionalTrimmedString,
+  // When set, this should be a server-reachable URL like "http://minio:9000" (Docker) or "http://127.0.0.1:9000".
+  MINIO_INTERNAL_URL: optionalTrimmedString,
   JWT_SECRET: z.string(),
   GEMINI_API_KEY: z.string(),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string(),
