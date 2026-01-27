@@ -56,6 +56,7 @@ import { getCustomerPayments } from "~/server/trpc/procedures/getCustomerPayment
 import { getPropertyManagerPayments } from "~/server/trpc/procedures/getPropertyManagerPayments";
 import { approveCustomerPayment } from "~/server/trpc/procedures/approveCustomerPayment";
 import { rejectCustomerPayment } from "~/server/trpc/procedures/rejectCustomerPayment";
+import { getPublicPaymentGatewayStatus } from "~/server/trpc/procedures/getPublicPaymentGatewayStatus";
 import { getStatements } from "~/server/trpc/procedures/getStatements";
 import { generateStatementPdf } from "~/server/trpc/procedures/generateStatementPdf";
 import { updateStatementDetails } from "~/server/trpc/procedures/updateStatementDetails";
@@ -682,6 +683,7 @@ export const appRouter = createTRPCRouter({
   getPropertyManagerPayments,
   approveCustomerPayment,
   rejectCustomerPayment,
+  getPublicPaymentGatewayStatus,
   
   // Subscriptions & Billing
   getPackages,

@@ -38,6 +38,11 @@ export function RegisterPage() {
   });
   const packages = packagesQuery.data;
 
+  const paymentGatewayStatusQuery = useQuery({
+    ...trpc.getPublicPaymentGatewayStatus.queryOptions(),
+  });
+  const payfastConfigured = paymentGatewayStatusQuery.data?.payfast.configured ?? true;
+
   const registerMutation = useMutation(
     trpc.createPendingRegistration.mutationOptions({
       onSuccess: (data) => {
@@ -71,7 +76,11 @@ export function RegisterPage() {
       },
       onError: (error) => {
         setIsRedirectingToPayfast(false);
-        alert(`Payment setup failed: ${error.message}`);
+        const message =
+          error.message.includes('PayFast is not configured')
+            ? 'Payment is temporarily unavailable. Please try again later or contact support.'
+            : error.message;
+        alert(`Payment setup failed: ${message}`);
       },
     })
   );
@@ -101,18 +110,29 @@ export function RegisterPage() {
   const paymentOptions = useMemo(
     () => [
       { key: 'CARD' as const, label: 'Card', icon: CreditCard, hint: 'Visa / Mastercard' },
-      { key: 'S_PAY' as const, label: 'S Pay', icon: Wallet, hint: 'Bank wallet checkout' },
-      { key: 'INSTANT_EFT' as const, label: 'Instant EFT', icon: Landmark, hint: 'Pay via bank login' },
+      { key: 'S_PAY' as const, label: 'S Pay', icon: Wallet, hint: 'Bank wallet checkout (major banks)' },
+      {
+        key: 'INSTANT_EFT' as const,
+        label: 'Instant EFT',
+        icon: Landmark,
+        hint: 'Pay via bank login (FNB, ABSA, Standard Bank, Nedbank, Capitec, etc.)',
+      },
       { key: 'SNAPSCAN' as const, label: 'SnapScan', icon: QrCode, hint: 'Scan & pay' },
       { key: 'ZAPPER' as const, label: 'Zapper', icon: QrCode, hint: 'Scan & pay' },
       { key: 'MASTERPASS' as const, label: 'Masterpass', icon: Wallet, hint: 'Wallet checkout' },
-      { key: 'FNB_PAY' as const, label: 'FNB Pay', icon: Wallet, hint: 'FNB app payment' },
+      { key: 'FNB_PAY' as const, label: 'FNB Pay', icon: Wallet, hint: 'FNB app payment (FNB customers)' },
     ],
     []
   );
 
   const startPayfastCheckout = (option: (typeof paymentOptions)[number]['key']) => {
     if (!registrationId) return;
+
+    if (!payfastConfigured) {
+      alert('Payment is temporarily unavailable. Please try again later or contact support.');
+      return;
+    }
+
     setPaymentOptionSelected(option);
     setIsRedirectingToPayfast(true);
 
