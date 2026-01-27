@@ -82,15 +82,24 @@ export function buildPayfastCheckout(fields: Omit<PayfastCheckoutFields, "signat
   endpoint: string;
   fields: PayfastCheckoutFields;
 } {
-  if (!env.PAYFAST_MERCHANT_ID || !env.PAYFAST_MERCHANT_KEY) {
+  const merchantId = env.PAYFAST_MERCHANT_ID?.trim();
+  const merchantKey = env.PAYFAST_MERCHANT_KEY?.trim();
+
+  if (!merchantId || !merchantKey) {
     throw new Error(
       "PayFast is not configured. Set PAYFAST_MERCHANT_ID and PAYFAST_MERCHANT_KEY in .env."
     );
   }
 
+  if (merchantKey.length !== 13) {
+    throw new Error(
+      "PayFast is misconfigured: PAYFAST_MERCHANT_KEY must be 13 characters (check for extra spaces / wrong value)."
+    );
+  }
+
   const fullFields: PayfastCheckoutFields = {
-    merchant_id: env.PAYFAST_MERCHANT_ID,
-    merchant_key: env.PAYFAST_MERCHANT_KEY,
+    merchant_id: merchantId,
+    merchant_key: merchantKey,
     ...fields,
   };
 

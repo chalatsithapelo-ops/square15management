@@ -77,7 +77,8 @@ export function RegisterPage() {
       onError: (error) => {
         setIsRedirectingToPayfast(false);
         const message =
-          error.message.includes('PayFast is not configured')
+          error.message.includes('PayFast is not configured') ||
+          error.message.includes('PayFast is misconfigured')
             ? 'Payment is temporarily unavailable. Please try again later or contact support.'
             : error.message;
         alert(`Payment setup failed: ${message}`);

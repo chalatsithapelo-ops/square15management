@@ -46,6 +46,15 @@ const result = dotenvConfig({ path: envPath });
 console.log('[env.ts] Dotenv result:', result.error ? `ERROR: ${result.error.message}` : `Loaded ${Object.keys(result.parsed || {}).length} vars`);
 console.log('[env.ts] BRAND_PRIMARY_COLOR from process.env:', process.env.BRAND_PRIMARY_COLOR);
 
+const optionalTrimmedString = z.preprocess(
+  (val) => {
+    if (typeof val !== 'string') return val;
+    const trimmed = val.trim();
+    return trimmed.length ? trimmed : undefined;
+  },
+  z.string().optional()
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]),
   BASE_URL: z.string(),
@@ -97,9 +106,9 @@ const envSchema = z.object({
   VAPID_SUBJECT: z.string().email().optional(),
 
   // PayFast (optional - required only if using PayFast checkout)
-  PAYFAST_MERCHANT_ID: z.string().optional(),
-  PAYFAST_MERCHANT_KEY: z.string().optional(),
-  PAYFAST_PASSPHRASE: z.string().optional(),
+  PAYFAST_MERCHANT_ID: optionalTrimmedString,
+  PAYFAST_MERCHANT_KEY: optionalTrimmedString,
+  PAYFAST_PASSPHRASE: optionalTrimmedString,
   PAYFAST_SANDBOX: z
     .string()
     .optional()
