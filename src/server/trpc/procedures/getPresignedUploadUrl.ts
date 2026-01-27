@@ -47,16 +47,17 @@ export const getPresignedUploadUrl = baseProcedure
         10 * 60 // 10 minutes
       );
 
-      // Replace the internal Docker hostname with the externally reachable nginx proxy URL.
-      // Nginx forwards the request to MinIO and sets the Host header to `minio:9000`
-      // so MinIO signature validation still passes.
+      // Always return a browser-reachable URL via the app's nginx proxy.
+      // Browsers cannot reach internal hosts like `minio:9000` or `localhost:9000` on the server.
       const appBaseUrl = getBaseUrl().replace(/\/$/, "");
       const minioProxyPrefix = `${appBaseUrl}/minio`;
-      const nginxProxyUrl = presignedUrl.replace("http://minio:9000", minioProxyPrefix);
+
+      const presigned = new URL(presignedUrl);
+      const nginxProxyUrl = `${minioProxyPrefix}${presigned.pathname}${presigned.search}`;
 
       return {
         presignedUrl: nginxProxyUrl,
-        fileUrl: nginxProxyUrl.split('?')[0], // Remove query params for file URL
+        fileUrl: `${minioProxyPrefix}${presigned.pathname}`, // Stable URL without query params
       };
     } catch (error) {
       console.error("getPresignedUploadUrl error:", error);

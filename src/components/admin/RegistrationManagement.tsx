@@ -5,7 +5,7 @@ import { AccessDenied } from "~/components/AccessDenied";
 import { useAuthStore } from "~/stores/auth";
 import { useTRPC } from "~/trpc/react";
 
-type RegistrationsTab = "pending" | "approved" | "active";
+type RegistrationsTab = "pending" | "approved" | "active" | "rejected";
 
 type ApprovalItemKind = "REGISTRATION" | "PM_CONTRACTOR_PACKAGE_REQUEST";
 
@@ -36,6 +36,7 @@ export function RegistrationManagement() {
 
   const [selectedTab, setSelectedTab] = useState<RegistrationsTab>("pending");
   const [selectedRegistrationId, setSelectedRegistrationId] = useState<number | null>(null);
+  const [lastRejectionEmailById, setLastRejectionEmailById] = useState<Record<number, boolean>>({});
 
   const registrationsQuery = useQuery({
     ...trpc.getAllRegistrations.queryOptions({ token: token! }),
@@ -63,14 +64,21 @@ export function RegistrationManagement() {
 
   const rejectMutation = useMutation(
     trpc.rejectPendingRegistration.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (data, variables) => {
         await queryClient.invalidateQueries({
           queryKey: trpc.getAllRegistrations.queryKey({ token: token! }),
         });
         await queryClient.invalidateQueries({
           queryKey: trpc.getPendingRegistrations.queryKey({ token: token!, isApproved: false }),
         });
-        alert("Registration rejected");
+
+        const emailSent = Boolean((data as any)?.emailSent);
+        setLastRejectionEmailById((prev) => ({ ...prev, [variables.registrationId]: emailSent }));
+        alert(
+          emailSent
+            ? "Registration rejected. Rejection email sent to applicant."
+            : "Registration rejected. Rejection email could not be sent (check SMTP settings/logs)."
+        );
       },
     })
   );
@@ -115,6 +123,27 @@ export function RegistrationManagement() {
     return <AccessDenied message={(forbiddenError as any)?.message || "Access denied"} returnPath="/" />;
   }
 
+  if (registrationsQuery.isError) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="max-w-xl rounded-lg border border-red-200 bg-red-50 p-6 text-left">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+            <div>
+              <div className="text-sm font-semibold text-red-900">Failed to load registrations</div>
+              <div className="mt-1 text-sm text-red-800">
+                {(registrationsQuery.error as any)?.message ?? "Unknown error"}
+              </div>
+              <div className="mt-2 text-xs text-red-700">
+                This usually means the server query errored. Check server logs for the exact stack trace.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!token) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -132,11 +161,13 @@ export function RegistrationManagement() {
   const pendingCount = registrations.filter((r: any) => r.derivedStatus === "PENDING").length;
   const approvedCount = registrations.filter((r: any) => r.derivedStatus === "APPROVED").length;
   const activeCount = registrations.filter((r: any) => r.derivedStatus === "ACTIVE").length;
+  const rejectedCount = registrations.filter((r: any) => r.derivedStatus === "REJECTED").length;
 
   const filteredRegistrations = useMemo(() => {
     const filtered = registrations.filter((r: any) => {
       if (selectedTab === "pending") return r.derivedStatus === "PENDING";
       if (selectedTab === "approved") return r.derivedStatus === "APPROVED";
+      if (selectedTab === "rejected") return r.derivedStatus === "REJECTED";
       return r.derivedStatus === "ACTIVE";
     });
 
@@ -182,6 +213,11 @@ export function RegistrationManagement() {
     selectedRegistrationId != null
       ? registrations.find((r: any) => r.id === selectedRegistrationId) ?? null
       : null;
+
+  const selectedRejectionEmailSent =
+    selectedRegistration && typeof selectedRegistration.id === "number"
+      ? lastRejectionEmailById[selectedRegistration.id]
+      : undefined;
 
   const handleApprove = (regId: number) => {
     const password = prompt("Set initial password for user (min 6 characters):");
@@ -233,6 +269,7 @@ export function RegistrationManagement() {
     { id: "pending", label: "Pending", count: pendingCount, icon: Clock },
     { id: "approved", label: "Approved", count: approvedCount, icon: CheckCircle },
     { id: "active", label: "Active", count: activeCount, icon: CheckCircle },
+    { id: "rejected", label: "Rejected", count: rejectedCount, icon: XCircle },
   ];
 
   return (
@@ -383,6 +420,25 @@ export function RegistrationManagement() {
                       </div>
                     </div>
 
+                    {selectedRegistration.derivedStatus === "REJECTED" && (
+                      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                        <div className="font-semibold">Rejected</div>
+                        {selectedRegistration.rejectedAt && (
+                          <div className="mt-1 text-xs text-red-700">
+                            Rejected on {new Date(selectedRegistration.rejectedAt).toLocaleString()}
+                          </div>
+                        )}
+                        {selectedRegistration.rejectionReason && (
+                          <div className="mt-2 whitespace-pre-wrap text-red-900">{selectedRegistration.rejectionReason}</div>
+                        )}
+                        {typeof selectedRejectionEmailSent === "boolean" && (
+                          <div className="mt-2 text-xs text-red-800">
+                            Rejection email: {selectedRejectionEmailSent ? "Sent" : "Failed"}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {selectedRegistration.subscription && (
                       <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
                         <div className="text-sm font-medium text-gray-900">Contractor Subscription</div>
@@ -477,6 +533,25 @@ export function RegistrationManagement() {
                         </span>
                       </div>
                     </div>
+
+                    {selectedRegistration.derivedStatus === "REJECTED" && (
+                      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                        <div className="font-semibold">Rejected</div>
+                        {selectedRegistration.rejectedAt && (
+                          <div className="mt-1 text-xs text-red-700">
+                            Rejected on {new Date(selectedRegistration.rejectedAt).toLocaleString()}
+                          </div>
+                        )}
+                        {selectedRegistration.rejectionReason && (
+                          <div className="mt-2 whitespace-pre-wrap text-red-900">{selectedRegistration.rejectionReason}</div>
+                        )}
+                        {typeof selectedRejectionEmailSent === "boolean" && (
+                          <div className="mt-2 text-xs text-red-800">
+                            Rejection email: {selectedRejectionEmailSent ? "Sent" : "Failed"}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {selectedRegistration.subscription && (
                       <div className="rounded-md border border-gray-200 bg-gray-50 p-3">

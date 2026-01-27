@@ -239,29 +239,9 @@ export function NotificationDropdown() {
   };
 
   const getNotificationLink = (notification: Notification): string | null => {
-    if (!notification.relatedEntityType || !notification.relatedEntityId) {
-      return null;
-    }
-
-    // Map entity types to routes
-    switch (notification.relatedEntityType) {
-      case "ORDER":
-        return `/admin/operations`; // Orders are on the operations page
-      case "PROJECT":
-        return `/admin/projects`;
-      case "INVOICE":
-        return `/admin/invoices`;
-      case "QUOTATION":
-        return `/admin/quotations`;
-      case "PAYMENT_REQUEST":
-        return `/admin/payment-requests`;
-      case "STATEMENT":
-        return `/admin/statements`;
-      case "LEAD":
-        return `/admin/crm`;
-      default:
-        return null;
-    }
+    // Always route to the global notifications page.
+    // Deep-linking directly into /admin/* breaks for non-admin portals.
+    return `/notifications/?focus=${notification.id}`;
   };
 
   const formatTimestamp = (date: Date) => {
@@ -451,20 +431,16 @@ export function NotificationDropdown() {
 
                               return (
                                 <Menu.Item key={notification.id}>
-                                  {link ? (
-                                    <Link
-                                      to={link}
-                                      onClick={() => {
-                                        if (!notification.isRead) {
-                                          handleMarkAsRead(notification.id);
-                                        }
-                                      }}
-                                    >
-                                      {NotificationContent}
-                                    </Link>
-                                  ) : (
-                                    <div>{NotificationContent}</div>
-                                  )}
+                                  <Link
+                                    to={link ?? "/notifications/"}
+                                    onClick={() => {
+                                      if (!notification.isRead) {
+                                        handleMarkAsRead(notification.id);
+                                      }
+                                    }}
+                                  >
+                                    {NotificationContent}
+                                  </Link>
                                 </Menu.Item>
                               );
                             })}
@@ -475,7 +451,7 @@ export function NotificationDropdown() {
                       {notifications.length > 0 && (
                         <div className="p-3 border-t border-gray-200 text-center">
                           <Link
-                            to="/notifications"
+                            to="/notifications/"
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                           >
                             View all notifications

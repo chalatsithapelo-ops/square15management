@@ -89,6 +89,28 @@ export function SubscriptionManagement({
     return <AccessDenied message={(forbiddenError as any)?.message || 'Access denied'} returnPath="/" />;
   }
 
+  const firstNonForbiddenError =
+    (subscriptionsQuery.isError && subscriptionsQuery.error) || (packagesQuery.isError && packagesQuery.error) || null;
+
+  if (firstNonForbiddenError) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="max-w-xl rounded-lg border border-red-200 bg-red-50 p-6 text-left">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+            <div>
+              <div className="text-sm font-semibold text-red-900">Failed to load subscriptions/packages</div>
+              <div className="mt-1 text-sm text-red-800">
+                {(firstNonForbiddenError as any)?.message ?? 'Unknown error'}
+              </div>
+              <div className="mt-2 text-xs text-red-700">Check server logs for the full error details.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!token) {
     return (
       <div className="flex items-center justify-center py-12">

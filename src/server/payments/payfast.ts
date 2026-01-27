@@ -15,7 +15,11 @@ export type PayfastCheckoutFields = Record<string, string>;
 function pfEncode(value: string): string {
   // PayFast expects URL encoding similar to query-string encoding.
   // Replace %20 with '+' to match typical form encoding.
-  return encodeURIComponent(value).replace(/%20/g, "+");
+  // `encodeURIComponent` is close, but PayFast examples are typically based on PHP's `urlencode`.
+  // This ensures characters like ! ' ( ) * are percent-encoded and spaces become '+'.
+  return encodeURIComponent(value)
+    .replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/%20/g, "+");
 }
 
 function buildSignature(fields: PayfastCheckoutFields, passphrase?: string): string {

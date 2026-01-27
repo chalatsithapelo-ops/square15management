@@ -7,6 +7,9 @@ import { hash } from 'bcryptjs';
 import { assertNotRestrictedDemoAccountAccessDenied, isRestrictedDemoAccount } from '~/server/utils/demoAccounts';
 import { buildPayfastCheckout, mapPayfastPaymentMethod } from '~/server/payments/payfast';
 import { env } from '~/server/env';
+import { sendEmail } from '~/server/utils/email';
+import { notifyAdmins } from '~/server/utils/notifications';
+import { NotificationType } from '@prisma/client';
 
 const isAdminRole = (role: string | undefined) =>
   role === 'ADMIN' || role === 'SENIOR_ADMIN' || role === 'JUNIOR_ADMIN';
@@ -48,6 +51,7 @@ export const createPendingRegistration = baseProcedure
       where: {
         email: input.email,
         isApproved: false,
+        rejectedAt: null,
       },
     });
 
@@ -69,6 +73,14 @@ export const createPendingRegistration = baseProcedure
         additionalTenants: input.additionalTenants,
         additionalContractors: input.additionalContractors,
       },
+    });
+
+    // In-app notification for admins/junior admins (best-effort)
+    await notifyAdmins({
+      message: `New registration pending approval: ${input.firstName} ${input.lastName} (${input.email})`,
+      type: NotificationType.SYSTEM_ALERT,
+      relatedEntityId: pendingReg.id,
+      relatedEntityType: 'REGISTRATION',
     });
 
     return {
@@ -180,6 +192,7 @@ export const getPendingRegistrations = baseProcedure
 
     const registrations = await db.pendingRegistration.findMany({
       where: {
+        rejectedAt: null,
         ...(input.isApproved !== undefined && { isApproved: input.isApproved }),
         ...(input.hasPaid !== undefined && { hasPaid: input.hasPaid }),
       },
@@ -279,11 +292,15 @@ export const getAllRegistrations = baseProcedure
       const pkg = packagesById.get(reg.packageId) ?? null;
       const subscription = typeof reg.createdUserId === 'number' ? latestSubscriptionByUserId.get(reg.createdUserId) : null;
 
+      const subscriptionPackage = subscription?.package ?? pkg;
+
       const monthlyCharge = subscription
-        ? subscription.package.basePrice +
-          subscription.additionalUsers * subscription.package.additionalUserPrice +
-          (subscription.additionalTenants ?? 0) * (subscription.package.additionalTenantPrice ?? 0) +
-          (subscription.additionalContractors ?? 0) * (subscription.package.additionalUserPrice ?? 0)
+        ? subscriptionPackage
+          ? subscriptionPackage.basePrice +
+            subscription.additionalUsers * subscriptionPackage.additionalUserPrice +
+            (subscription.additionalTenants ?? 0) * (subscriptionPackage.additionalTenantPrice ?? 0) +
+            (subscription.additionalContractors ?? 0) * (subscriptionPackage.additionalUserPrice ?? 0)
+          : null
         : null;
 
       const isInTrial = !!subscription?.trialEndsAt && subscription.trialEndsAt.getTime() > now;
@@ -294,11 +311,13 @@ export const getAllRegistrations = baseProcedure
 
       const amountDue = subscription && monthlyCharge != null && isBillingDue ? monthlyCharge : 0;
 
-      const derivedStatus = !reg.isApproved
-        ? 'PENDING'
-        : subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
-          ? 'ACTIVE'
-          : 'APPROVED';
+      const derivedStatus = reg.rejectedAt
+        ? 'REJECTED'
+        : !reg.isApproved
+          ? 'PENDING'
+          : subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
+            ? 'ACTIVE'
+            : 'APPROVED';
 
       return {
         kind: 'REGISTRATION' as const,
@@ -314,7 +333,7 @@ export const getAllRegistrations = baseProcedure
               nextBillingDate: subscription.nextBillingDate,
               lastPaymentDate: subscription.lastPaymentDate,
               isPaymentOverdue: subscription.isPaymentOverdue,
-              package: subscription.package,
+              package: subscriptionPackage,
               monthlyCharge,
               amountDue,
             }
@@ -353,6 +372,8 @@ export const getAllRegistrations = baseProcedure
       const derivedStatus =
         req.status === 'PENDING'
           ? 'PENDING'
+          : req.status === 'REJECTED'
+            ? 'REJECTED'
           : createdUserSub && (createdUserSub.status === 'ACTIVE' || createdUserSub.status === 'TRIAL')
             ? 'ACTIVE'
             : 'APPROVED';
@@ -730,9 +751,39 @@ export const rejectPendingRegistration = baseProcedure
       },
     });
 
+    let emailSent = false;
+    try {
+      const supportEmail = env.COMPANY_EMAIL && env.COMPANY_EMAIL.trim().length ? env.COMPANY_EMAIL : env.SMTP_USER;
+      const subject = 'Your Square 15 registration was not approved';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+          <p>Hi ${registration.firstName ?? ''} ${registration.lastName ?? ''},</p>
+          <p>Thank you for your registration on Square 15. Unfortunately, your registration was not approved at this time.</p>
+          <p><strong>Reason:</strong></p>
+          <p style="white-space: pre-wrap;">${input.reason}</p>
+          <p><strong>Next steps:</strong></p>
+          <ul>
+            <li>If you can address the reason above, you may submit a new registration.</li>
+            <li>If you believe this is an error, contact us at <a href="mailto:${supportEmail}">${supportEmail}</a>.</li>
+          </ul>
+          <p>Regards,<br/>Square 15 Team</p>
+        </div>
+      `;
+
+      await sendEmail({
+        to: registration.email,
+        subject,
+        html,
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error('Failed to send rejection email:', err);
+    }
+
     return {
       success: true,
       message: 'Registration rejected',
+      emailSent,
     };
   });
 
