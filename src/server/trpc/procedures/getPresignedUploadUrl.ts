@@ -5,7 +5,9 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { Client } from "minio";
 import { getInternalMinioBaseUrl } from "~/server/minio";
-import { getBaseUrl } from "~/server/utils/base-url";
+// NOTE: Upload URLs must be browser-reachable. Returning absolute URLs can
+// accidentally point at the wrong host (www vs non-www) or scheme, causing CORS
+// or mixed-content failures. Prefer returning a relative proxy path.
 
 export const getPresignedUploadUrl = baseProcedure
   .input(
@@ -47,12 +49,8 @@ export const getPresignedUploadUrl = baseProcedure
         10 * 60 // 10 minutes
       );
 
-      // Always return a browser-reachable URL via the app's nginx proxy.
-      // Browsers cannot reach internal hosts like `minio:9000` or `localhost:9000` on the server.
-      const appBaseUrl = getBaseUrl().replace(/\/$/, "");
-      const minioProxyPrefix = `${appBaseUrl}/minio`;
-
       const presigned = new URL(presignedUrl);
+      const minioProxyPrefix = "/minio";
       const nginxProxyUrl = `${minioProxyPrefix}${presigned.pathname}${presigned.search}`;
 
       return {

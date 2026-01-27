@@ -67,10 +67,18 @@ function ContractorDashboard() {
       token: token!,
     }),
     enabled: !!token,
+    staleTime: 60_000,
+    retry: 1,
   });
 
   const subscriptionPackage = (subscriptionQuery.data as any)?.package;
-  const hasFeature = (featureKey: string) => subscriptionPackage?.[featureKey] === true;
+  const hasSubscriptionInfo = subscriptionQuery.isSuccess && !!subscriptionPackage;
+  const hasFeature = (featureKey: string) => {
+    // IMPORTANT: If subscription info is temporarily unavailable (network/server hiccup),
+    // do not hide the entire portal. Keep tools visible to avoid the "all tools are gone" regression.
+    if (!hasSubscriptionInfo) return true;
+    return subscriptionPackage?.[featureKey] === true;
+  };
 
   const canUseCRM = hasFeature("hasCRM");
   const canUseOperations = hasFeature("hasOperations");
@@ -535,6 +543,11 @@ function ContractorDashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {(!hasSubscriptionInfo || subscriptionQuery.isError) && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Subscription features are temporarily unavailable. Tools are shown in full while we reconnect.
+          </div>
+        )}
         {activeTab === "overview" && (
           <OverviewTab
             contractor={contractor}

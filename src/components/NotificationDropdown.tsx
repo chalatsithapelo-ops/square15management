@@ -238,11 +238,8 @@ export function NotificationDropdown() {
     }
   };
 
-  const getNotificationLink = (notification: Notification): string | null => {
-    // Always route to the global notifications page.
-    // Deep-linking directly into /admin/* breaks for non-admin portals.
-    return `/notifications/?focus=${notification.id}`;
-  };
+  // Always route to the global notifications page.
+  // Deep-linking directly into /admin/* breaks for non-admin portals.
 
   const formatTimestamp = (date: Date) => {
     const now = new Date();
@@ -391,7 +388,6 @@ export function NotificationDropdown() {
                         ) : (
                           <div className="divide-y divide-gray-100">
                             {notifications.map((notification) => {
-                              const link = getNotificationLink(notification);
                               const NotificationContent = (
                                 <div
                                   className={`p-4 hover:bg-gray-50 transition-colors ${
@@ -432,7 +428,8 @@ export function NotificationDropdown() {
                               return (
                                 <Menu.Item key={notification.id}>
                                   <Link
-                                    to={link ?? "/notifications/"}
+                                    to="/notifications/"
+                                    search={{ focus: notification.id }}
                                     onClick={() => {
                                       if (!notification.isRead) {
                                         handleMarkAsRead(notification.id);

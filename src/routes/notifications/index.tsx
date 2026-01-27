@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from "zod";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, CheckCheck, Clock } from "lucide-react";
@@ -7,6 +8,12 @@ import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
 
 export const Route = createFileRoute('/notifications/')({
+  validateSearch: (search) =>
+    z
+      .object({
+        focus: z.coerce.number().int().positive().optional(),
+      })
+      .parse(search),
   component: RouteComponent,
 })
 
@@ -18,14 +25,7 @@ function RouteComponent() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [limit, setLimit] = useState(100);
 
-  const focusId = (() => {
-    if (typeof window === "undefined") return null;
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get("focus");
-    if (!raw) return null;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : null;
-  })();
+  const { focus: focusId } = Route.useSearch();
 
   const unreadCountQuery = useQuery({
     ...trpc.getUnreadNotificationCount.queryOptions({ token: token! }),
