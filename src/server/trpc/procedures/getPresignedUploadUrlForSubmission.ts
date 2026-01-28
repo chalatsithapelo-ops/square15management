@@ -6,6 +6,44 @@ import { Client } from "minio";
 import { getInternalMinioBaseUrl } from "~/server/minio";
 import { getValidExternalTokenRecord } from "~/server/utils/external-submissions";
 
+function buildMinioClient(baseUrl: string) {
+  const urlObj = new URL(baseUrl);
+  return new Client({
+    endPoint: urlObj.hostname,
+    port: parseInt(urlObj.port || "9000", 10),
+    useSSL: baseUrl.startsWith("https://"),
+    accessKey: env.MINIO_ACCESS_KEY ?? "admin",
+    secretKey: env.MINIO_SECRET_KEY ?? env.ADMIN_PASSWORD,
+  });
+}
+
+function buildMinioFallbackUrls(primary: string): string[] {
+  const candidates: string[] = [];
+
+  const add = (u: string | undefined) => {
+    if (!u) return;
+    const trimmed = u.trim();
+    if (!trimmed) return;
+    if (!candidates.includes(trimmed)) candidates.push(trimmed);
+  };
+
+  add(env.MINIO_INTERNAL_URL);
+  add(primary);
+
+  if (primary.includes("minio:9000")) {
+    add("http://127.0.0.1:9000");
+    add("http://localhost:9000");
+  } else if (primary.includes("127.0.0.1")) {
+    add(primary.replace("127.0.0.1", "localhost"));
+    add("http://minio:9000");
+  } else if (primary.includes("localhost")) {
+    add(primary.replace("localhost", "127.0.0.1"));
+    add("http://minio:9000");
+  }
+
+  return candidates;
+}
+
 export const getPresignedUploadUrlForSubmission = baseProcedure
   .input(
     z.object({
@@ -32,21 +70,37 @@ export const getPresignedUploadUrlForSubmission = baseProcedure
       const objectName = `public/external-submissions/${record.type.toLowerCase()}/${timestamp}-${sanitizedFileName}`;
 
       const internalBaseUrl = getInternalMinioBaseUrl();
-      const urlObj = new URL(internalBaseUrl);
+      const candidateInternalUrls = buildMinioFallbackUrls(internalBaseUrl);
 
-      const minioClient = new Client({
-        endPoint: urlObj.hostname,
-        port: parseInt(urlObj.port || "9000", 10),
-        useSSL: internalBaseUrl.startsWith("https://"),
-        accessKey: env.MINIO_ACCESS_KEY ?? "admin",
-        secretKey: env.MINIO_SECRET_KEY ?? env.ADMIN_PASSWORD,
-      });
+      let presignedUrl: string | null = null;
+      let lastError: unknown = null;
 
-      const presignedUrl = await minioClient.presignedPutObject(
-        "property-management",
-        objectName,
-        10 * 60
-      );
+      for (const candidateUrl of candidateInternalUrls) {
+        try {
+          const minioClient = buildMinioClient(candidateUrl);
+          presignedUrl = await minioClient.presignedPutObject(
+            "property-management",
+            objectName,
+            10 * 60
+          );
+          break;
+        } catch (err) {
+          lastError = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("ECONNREFUSED") || msg.includes("ENOTFOUND") || msg.includes("EAI_AGAIN")) {
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (!presignedUrl) {
+        const msg = lastError instanceof Error ? lastError.message : String(lastError ?? "Unknown error");
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to generate upload URL: ${msg}. MinIO may be down/unreachable; verify MinIO is running and MINIO_INTERNAL_URL is correct.`,
+        });
+      }
 
       // Always return browser-safe proxy URLs as relative paths.
       const presigned = new URL(presignedUrl);

@@ -7,7 +7,9 @@ let _minioClient: Client | null = null;
 
 function getMinioBaseUrl(): string {
   if (_minioBaseUrl === null) {
-    _minioBaseUrl = getBaseUrl({ port: 9000 });
+    // Browser-facing MinIO access should go through nginx proxy.
+    // This avoids exposing MinIO directly and keeps URLs consistent across environments.
+    _minioBaseUrl = `${getBaseUrl().replace(/\/$/, "")}/minio`;
   }
   return _minioBaseUrl;
 }
@@ -60,8 +62,9 @@ export function getInternalMinioBaseUrl(): string {
     return 'http://minio:9000';
   }
   
-  // For local development, use localhost
-  return 'http://localhost:9000';
+  // For local development / host-based runtime, prefer IPv4 localhost.
+  // Some environments resolve "localhost" to IPv6 ::1, while Docker binds to 127.0.0.1.
+  return 'http://127.0.0.1:9000';
 }
 
 export function getInternalMinioUrl(externalUrl: string): string {
