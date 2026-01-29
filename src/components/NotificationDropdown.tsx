@@ -276,6 +276,7 @@ export function NotificationDropdown() {
               <Transition
                 as={Fragment}
                 show={open}
+                unmount={false}
                 enter="transition ease-out duration-100"
                 enterFrom="transform opacity-0 scale-95"
                 enterTo="transform opacity-100 scale-100"
@@ -284,6 +285,7 @@ export function NotificationDropdown() {
                 leaveTo="transform opacity-0 scale-95"
               >
                 <Menu.Items
+                  static
                   className="fixed w-full sm:w-96 max-w-[calc(100vw-2rem)] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none"
                   style={{
                     top: PIN_TOP_RIGHT_DEBUG

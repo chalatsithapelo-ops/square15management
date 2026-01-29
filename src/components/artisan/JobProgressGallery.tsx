@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, MapPin, Calendar, Briefcase, Clock, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { SignedMinioImage } from "~/components/SignedMinioUrl";
 
 interface Order {
   id: number;
@@ -150,8 +151,8 @@ export function JobProgressGallery({ orders }: JobProgressGalleryProps) {
                           onClick={() => openLightbox(order.beforePictures, index, `${order.orderNumber} - Before Pictures`)}
                           className="relative group aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
-                          <img
-                            src={url}
+                          <SignedMinioImage
+                            url={url}
                             alt={`Before ${index + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -182,8 +183,8 @@ export function JobProgressGallery({ orders }: JobProgressGalleryProps) {
                           onClick={() => openLightbox(order.afterPictures, index, `${order.orderNumber} - After Pictures`)}
                           className="relative group aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-green-500 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                         >
-                          <img
-                            src={url}
+                          <SignedMinioImage
+                            url={url}
                             alt={`After ${index + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -247,8 +248,8 @@ export function JobProgressGallery({ orders }: JobProgressGalleryProps) {
 
             {/* Image Container */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <img
-                src={currentImages[currentImageIndex]}
+              <SignedMinioImage
+                url={currentImages[currentImageIndex]}
                 alt={`Image ${currentImageIndex + 1}`}
                 className="max-w-full max-h-full object-contain"
               />

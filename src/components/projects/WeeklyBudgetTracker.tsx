@@ -17,6 +17,7 @@ import {
   Download,
 } from "lucide-react";
 import { PhotoUpload } from "~/components/PhotoUpload";
+import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import ItemizedExpenseTracker from "~/components/projects/ItemizedExpenseTracker";
 
 interface WeeklyBudgetTrackerProps {
@@ -636,9 +637,9 @@ export default function WeeklyBudgetTracker({
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Progress Photos</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {update.imagesDone.map((imageUrl, idx) => (
-                      <img
+                      <SignedMinioImage
                         key={idx}
-                        src={imageUrl}
+                        url={imageUrl}
                         alt={`Progress ${idx + 1}`}
                         className="w-full h-32 object-cover rounded-lg border border-gray-200"
                       />

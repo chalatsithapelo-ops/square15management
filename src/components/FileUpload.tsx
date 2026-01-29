@@ -4,6 +4,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import { FileText, X, Loader2, Upload, Image } from "lucide-react";
 import toast from "react-hot-toast";
+import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 
 interface FileUploadProps {
   onFilesUploaded: (urls: string[]) => void;
@@ -292,12 +293,13 @@ export function FileUpload({
                 >
                   <div className="flex items-center space-x-3">
                     {isImage ? (
-                      <img
-                        src={url}
-                        alt={`Upload ${index + 1}`}
-                        className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-75"
-                        onClick={() => window.open(url, '_blank')}
-                      />
+                      <SignedMinioLink url={url} target="_blank" rel="noopener noreferrer">
+                        <SignedMinioImage
+                          url={url}
+                          alt={`Upload ${index + 1}`}
+                          className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-75"
+                        />
+                      </SignedMinioLink>
                     ) : (
                       <div className="h-12 w-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
                         {getFileIcon(fileName)}
@@ -307,14 +309,14 @@ export function FileUpload({
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xs">
                         {fileName}
                       </p>
-                      <a
-                        href={url}
+                      <SignedMinioLink
+                        url={url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
                       >
                         View file
-                      </a>
+                      </SignedMinioLink>
                     </div>
                   </div>
                   <button

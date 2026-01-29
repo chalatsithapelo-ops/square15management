@@ -7,6 +7,7 @@ import * as z from "zod";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
+import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import {
   Plus,
   Send,
@@ -644,8 +645,8 @@ function CustomerMaintenancePage() {
                     <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {uploadedPhotos.map((photoUrl, index) => (
                         <div key={index} className="relative group">
-                          <img
-                            src={photoUrl}
+                          <SignedMinioImage
+                            url={photoUrl}
                             alt={`Maintenance photo ${index + 1}`}
                             className="w-full h-24 object-cover rounded-lg border border-gray-200"
                           />

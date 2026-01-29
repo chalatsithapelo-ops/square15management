@@ -31,6 +31,7 @@ import { updateOrderDetails } from "~/server/trpc/procedures/updateOrderDetails"
 import { updateOrderNotes } from "~/server/trpc/procedures/updateOrderNotes";
 import { getMinioBaseUrl } from "~/server/trpc/procedures/getMinioBaseUrl";
 import { getPresignedUploadUrl } from "~/server/trpc/procedures/getPresignedUploadUrl";
+import { getPresignedDownloadUrl } from "~/server/trpc/procedures/getPresignedDownloadUrl";
 import { getArtisans } from "~/server/trpc/procedures/getArtisans";
 import { getAdmins } from "~/server/trpc/procedures/getAdmins";
 import { getProjects } from "~/server/trpc/procedures/getProjects";
@@ -637,6 +638,7 @@ export const appRouter = createTRPCRouter({
   // Utils
   getMinioBaseUrl,
   getPresignedUploadUrl,
+  getPresignedDownloadUrl,
   getPresignedUploadUrlForSubmission,
   uploadCompanyLogo,
   deleteCompanyLogo,

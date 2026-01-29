@@ -32,6 +32,7 @@ import {
   TrendingDown,
   AlertOctagon,
 } from "lucide-react";
+import { SignedMinioLink } from "~/components/SignedMinioUrl";
 import WeeklyBudgetTracker from "~/components/projects/WeeklyBudgetTracker";
 import GanttChart from "~/components/projects/GanttChart";
 
@@ -1076,15 +1077,15 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
                             </label>
                             {material.supplierQuotationUrl ? (
                               <div className="flex items-center space-x-2">
-                                <a
-                                  href={material.supplierQuotationUrl}
+                                <SignedMinioLink
+                                  url={material.supplierQuotationUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex-1 px-3 py-2 text-sm bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-colors flex items-center"
                                 >
                                   <FileText className="h-4 w-4 mr-2" />
                                   View Quotation
-                                </a>
+                                </SignedMinioLink>
                                 <button
                                   type="button"
                                   onClick={() => updateMaterial(index, "supplierQuotationUrl", "")}

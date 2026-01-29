@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import RFQReportModal from "~/components/RFQReportModal";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
@@ -1203,19 +1204,19 @@ function QuotationsPage() {
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           {quotation.beforePictures.map((url: string, idx: number) => (
-                            <a
+                            <SignedMinioLink
                               key={idx}
-                              href={url}
+                              url={url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="block"
                             >
-                              <img
-                                src={url}
+                              <SignedMinioImage
+                                url={url}
                                 alt={`Assessment ${idx + 1}`}
                                 className="w-full h-20 object-cover rounded border border-gray-200 hover:border-brand-primary-500 transition-colors"
                               />
-                            </a>
+                            </SignedMinioLink>
                           ))}
                         </div>
                       </div>

@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
+import { SignedMinioLink } from "~/components/SignedMinioUrl";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -1376,15 +1377,15 @@ function OperationsPage() {
                             </label>
                             {material.supplierQuotationUrl ? (
                               <div className="flex items-center space-x-2">
-                                <a
-                                  href={material.supplierQuotationUrl}
+                                <SignedMinioLink
+                                  url={material.supplierQuotationUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex-1 px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-lg text-green-700 hover:bg-green-100 transition-colors flex items-center"
                                 >
                                   <FileText className="h-4 w-4 mr-2" />
                                   View Quotation
-                                </a>
+                                </SignedMinioLink>
                                 <button
                                   type="button"
                                   onClick={() => updateMaterial(index, "supplierQuotationUrl", "")}

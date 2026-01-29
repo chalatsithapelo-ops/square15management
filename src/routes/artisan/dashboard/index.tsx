@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import toast from "react-hot-toast";
+import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import { useState, useEffect, useMemo } from "react";
 import {
   Briefcase,
@@ -1935,9 +1936,9 @@ function ArtisanDashboard() {
                             <p className="text-sm font-medium text-gray-700 mb-2">Before Pictures:</p>
                             <div className="grid grid-cols-3 gap-2">
                               {order.beforePictures.map((url, idx) => (
-                                <img
+                                <SignedMinioImage
                                   key={idx}
-                                  src={url}
+                                  url={url}
                                   alt={`Before ${idx + 1}`}
                                   className="w-full h-24 object-cover rounded-lg border border-gray-200"
                                 />
