@@ -12,12 +12,9 @@ export function FileAttachment({ url, isOwnMessage }: FileAttachmentProps) {
   const { token } = useAuthStore();
   const trpc = useTRPC();
 
-  const fileName = url.split("/").pop() || "file";
+  const fileName = (url.split("/").pop() || "file").split("?")[0] || "file";
   const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
 
-  const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(
-    fileExtension
-  );
   const isPDF = fileExtension === "pdf";
 
   const isMinioProxyUrl = url.startsWith("/minio/") || url.includes("/minio/");
@@ -39,30 +36,11 @@ export function FileAttachment({ url, isOwnMessage }: FileAttachmentProps) {
 
   const effectiveUrl = signedUrlQuery.data?.url ?? url;
 
-  if (isImage) {
-    return (
-      <a
-        href={effectiveUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block mt-2 rounded-lg overflow-hidden max-w-xs hover:opacity-90 transition-opacity"
-      >
-        <img
-          src={effectiveUrl}
-          alt={fileName}
-          className="w-full h-auto object-cover"
-          loading="lazy"
-        />
-      </a>
-    );
-  }
-
   return (
     <a
       href={effectiveUrl}
       target="_blank"
       rel="noopener noreferrer"
-      download
       className={`mt-2 flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
         isOwnMessage
           ? "bg-blue-700 hover:bg-blue-800"

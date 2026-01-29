@@ -172,6 +172,12 @@ export function FileUpload({
     onFilesUploaded(newUploadedUrls);
   };
 
+  const getDisplayFileName = (url: string, fallback: string) => {
+    const last = url.split("/").pop();
+    const raw = (last || fallback).split("?")[0];
+    return raw || fallback;
+  };
+
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
@@ -240,15 +246,9 @@ export function FileUpload({
                 className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
               >
                 <div className="flex items-center space-x-3">
-                  {fileObj.previewUrl ? (
-                    <img
-                      src={fileObj.previewUrl}
-                      alt={`Preview ${index + 1}`}
-                      className="h-12 w-12 object-cover rounded"
-                    />
-                  ) : (
-                    getFileIcon(fileObj.name)
-                  )}
+                  <div className="h-12 w-12 flex items-center justify-center bg-white/60 dark:bg-gray-800/40 rounded">
+                    {getFileIcon(fileObj.name)}
+                  </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xs">
                       {fileObj.name}
@@ -283,8 +283,7 @@ export function FileUpload({
               )}
             </p>
             {uploadedUrls.map((url, index) => {
-              const fileName = url.split('/').pop() || `File ${index + 1}`;
-              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+              const fileName = getDisplayFileName(url, `File ${index + 1}`);
               
               return (
                 <div
@@ -292,19 +291,9 @@ export function FileUpload({
                   className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
                 >
                   <div className="flex items-center space-x-3">
-                    {isImage ? (
-                      <SignedMinioLink url={url} target="_blank" rel="noopener noreferrer">
-                        <SignedMinioImage
-                          url={url}
-                          alt={`Upload ${index + 1}`}
-                          className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-75"
-                        />
-                      </SignedMinioLink>
-                    ) : (
-                      <div className="h-12 w-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
-                        {getFileIcon(fileName)}
-                      </div>
-                    )}
+                    <div className="h-12 w-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
+                      {getFileIcon(fileName)}
+                    </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xs">
                         {fileName}
@@ -315,7 +304,7 @@ export function FileUpload({
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
                       >
-                        View file
+                        Open file
                       </SignedMinioLink>
                     </div>
                   </div>
