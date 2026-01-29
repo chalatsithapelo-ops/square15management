@@ -79,6 +79,36 @@ done
 - MinIO uploads must be reachable from browsers via the nginx `/minio` proxy in production.
 - PayFast live requires the correct `PAYFAST_*` env vars (`PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, and optionally `PAYFAST_PASSPHRASE`).
 
+## If uploads fail (MinIO quick checks)
+Uploads across all portals depend on MinIO being reachable from the app on `127.0.0.1:9000`.
+
+On the production server:
+
+```bash
+# MinIO should respond with "OK"
+curl -sS --max-time 3 http://127.0.0.1:9000/minio/health/live
+
+# Confirm something is listening on 9000
+ss -ltnp | grep ':9000' || true
+```
+
+If MinIO is down and you're using the repo's Docker Compose stack, restart it with the correct env file:
+
+```bash
+cd /root/square15management
+
+# IMPORTANT: compose variable substitution uses the current working directory's .env.
+# Use the explicit env file so MINIO_ROOT_PASSWORD is set.
+docker compose --env-file docker/.env -f docker/compose.yaml up -d minio
+```
+
+If MinIO is crash-looping, check logs:
+
+```bash
+docker logs --tail 200 docker-minio-1
+```
+
+
 ## Notes about TypeScript checks
 - This repo can currently build successfully via `pnpm build` even if `pnpm typecheck` fails. Do not add `pnpm typecheck` as a production deployment gate unless you intend to fix the existing strict-TS issues first.
 
