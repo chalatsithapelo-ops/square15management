@@ -1,11 +1,10 @@
-import { Menu, Transition, Portal } from "@headlessui/react";
+import { Menu } from "@headlessui/react";
 import { Bell, Check, CheckCheck, Clock, X, BellRing, BellOff, Settings } from "lucide-react";
-import { Fragment, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
-import { Link } from "@tanstack/react-router";
 import toast from "react-hot-toast";
 import { usePushNotificationStore } from "~/stores/push-notifications";
 import {
@@ -165,7 +164,6 @@ export function NotificationDropdown() {
       }
 
       // Get VAPID public key
-      const queryClient = trpc.getQueryClient();
       const vapidResult = await queryClient.fetchQuery(
         trpc.getVapidPublicKey.queryOptions({ token: token! })
       );
@@ -272,36 +270,24 @@ export function NotificationDropdown() {
               )}
             </Menu.Button>
 
-            <Portal>
-              <Transition
-                as={Fragment}
-                show={open}
-                unmount={false}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
+            {open && (
+              <Menu.Items
+                className="fixed w-full sm:w-96 max-w-[calc(100vw-2rem)] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none"
+                style={{
+                  top: PIN_TOP_RIGHT_DEBUG
+                    ? 80
+                    : buttonRef.current
+                      ? buttonRef.current.getBoundingClientRect().bottom + 8
+                      : 80,
+                  left: PIN_TOP_RIGHT_DEBUG
+                    ? undefined
+                    : buttonRef.current
+                      ? Math.max(buttonRef.current.getBoundingClientRect().left - 320 + 40, 16)
+                      : undefined,
+                  right: PIN_TOP_RIGHT_DEBUG || !buttonRef.current ? 16 : undefined,
+                  zIndex: 99999,
+                }}
               >
-                <Menu.Items
-                  static
-                  className="fixed w-full sm:w-96 max-w-[calc(100vw-2rem)] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none"
-                  style={{
-                    top: PIN_TOP_RIGHT_DEBUG
-                      ? 80
-                      : buttonRef.current
-                        ? buttonRef.current.getBoundingClientRect().bottom + 8
-                        : 80,
-                    left: PIN_TOP_RIGHT_DEBUG
-                      ? undefined
-                      : buttonRef.current
-                        ? Math.max(buttonRef.current.getBoundingClientRect().left - 320 + 40, 16)
-                        : undefined,
-                    right: PIN_TOP_RIGHT_DEBUG || !buttonRef.current ? 16 : undefined,
-                    zIndex: 99999,
-                  }}
-                >
                       <div className="absolute -top-2 right-6 w-3 h-3 bg-white rotate-45 shadow-md" style={{ zIndex: 99999 }} />
                       
                       <div className="p-4 border-b border-gray-200">
@@ -426,9 +412,8 @@ export function NotificationDropdown() {
 
                               return (
                                 <Menu.Item key={notification.id}>
-                                  <Link
-                                    to="/notifications/"
-                                    search={{ focus: notification.id }}
+                                  <a
+                                    href={`/notifications/?focus=${notification.id}`}
                                     onClick={() => {
                                       if (!notification.isRead) {
                                         handleMarkAsRead(notification.id);
@@ -436,7 +421,7 @@ export function NotificationDropdown() {
                                     }}
                                   >
                                     {NotificationContent}
-                                  </Link>
+                                  </a>
                                 </Menu.Item>
                               );
                             })}
@@ -446,17 +431,16 @@ export function NotificationDropdown() {
 
                       {notifications.length > 0 && (
                         <div className="p-3 border-t border-gray-200 text-center">
-                          <Link
-                            to="/notifications/"
+                          <a
+                            href="/notifications/"
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                           >
                             View all notifications
-                          </Link>
+                          </a>
                         </div>
                       )}
-                </Menu.Items>
-              </Transition>
-            </Portal>
+              </Menu.Items>
+            )}
           </>
         )}
       </Menu>

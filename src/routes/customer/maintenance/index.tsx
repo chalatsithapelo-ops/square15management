@@ -604,7 +604,7 @@ function CustomerMaintenancePage() {
                             });
 
                             // Upload to MinIO
-                            await fetch(result.uploadUrl, {
+                            await fetch(result.presignedUrl, {
                               method: "PUT",
                               body: file,
                               headers: {

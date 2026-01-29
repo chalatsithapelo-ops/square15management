@@ -32,8 +32,14 @@ export function SignedMinioLink({ url, children, ...rest }: SignedMinioLinkProps
 
   const effectiveUrl = signedUrlQuery.data?.url ?? url;
 
+  // IMPORTANT: If we navigate to /minio/* in the same tab, TanStack Router may
+  // treat it as an internal route and render the app's Not Found page.
+  // Default to opening in a new tab unless the caller explicitly overrides.
+  const target = rest.target ?? "_blank";
+  const rel = rest.rel ?? "noopener noreferrer";
+
   return (
-    <a href={effectiveUrl} {...rest}>
+    <a href={effectiveUrl} {...rest} target={target} rel={rel}>
       {children}
     </a>
   );
