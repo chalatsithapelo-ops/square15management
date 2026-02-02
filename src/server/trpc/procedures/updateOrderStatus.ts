@@ -591,10 +591,15 @@ export const updateOrderStatus = baseProcedure
       if (input.status === "COMPLETED") {
         // Get company details for custom prefix
         const companyDetails = await getCompanyDetails();
-        
-        // Generate unique invoice number with custom prefix
-        const invoiceCount = await db.invoice.count();
-        const invoiceNumber = `${companyDetails.invoicePrefix}-${String(invoiceCount + 1).padStart(5, "0")}`;
+
+        // Generate an invoice number that is safe under concurrency.
+        // (Counting + 1 can collide when two invoices are created at the same time.)
+        const createInvoiceNumber = async (attempt: number) => {
+          const invoiceCount = await db.invoice.count();
+          const pmInvoiceCount = await db.propertyManagerInvoice.count();
+          const next = invoiceCount + pmInvoiceCount + 1 + attempt;
+          return `${companyDetails.invoicePrefix}-${String(next).padStart(5, "0")}`;
+        };
 
         // Build line items from order details
         const items = [];
@@ -646,47 +651,77 @@ export const updateOrderStatus = baseProcedure
         // Create the appropriate invoice type based on order type
         if (input.isPMOrder && pmOrder) {
           // Create PropertyManagerInvoice for PM orders with SENT_TO_PM status
-          await db.propertyManagerInvoice.create({
-            data: {
-              invoiceNumber,
-              customerName,
-              customerEmail,
-              customerPhone,
-              address,
-              items: items,
-              subtotal: subtotal,
-              tax: tax,
-              total: total,
-              status: "SENT_TO_PM",
-              pmOrderId: updatedOrder.id,
-              propertyManagerId: updatedOrder.propertyManagerId,
-              notes: `Auto-generated invoice for completed PM order ${updatedOrder.orderNumber}`,
-              companyMaterialCost: updatedOrder.materialCost || 0,
-              companyLabourCost: updatedOrder.labourCost || 0,
-              estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
-            },
-          });
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const invoiceNumber = await createInvoiceNumber(attempt);
+            try {
+              await db.propertyManagerInvoice.create({
+                data: {
+                  invoiceNumber,
+                  customerName,
+                  customerEmail,
+                  customerPhone,
+                  address,
+                  items: items,
+                  subtotal: subtotal,
+                  tax: tax,
+                  total: total,
+                  status: "SENT_TO_PM",
+                  pmOrderId: updatedOrder.id,
+                  propertyManagerId: updatedOrder.propertyManagerId,
+                  notes: `Auto-generated invoice for completed PM order ${updatedOrder.orderNumber}`,
+                  companyMaterialCost: updatedOrder.materialCost || 0,
+                  companyLabourCost: updatedOrder.labourCost || 0,
+                  estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
+                },
+              });
+              break;
+            } catch (err) {
+              const code = (err as any)?.code;
+              const target = (err as any)?.meta?.target;
+              const isInvoiceNumberCollision =
+                code === "P2002" && Array.isArray(target) && target.includes("invoiceNumber");
+
+              if (!isInvoiceNumberCollision || attempt === 9) {
+                throw err;
+              }
+            }
+          }
         } else {
           // Create regular Invoice for standard orders with PENDING_REVIEW status
-          await db.invoice.create({
-            data: {
-              invoiceNumber,
-              customerName,
-              customerEmail,
-              customerPhone,
-              address,
-              items: items,
-              subtotal: subtotal,
-              tax: tax,
-              total: total,
-              status: "PENDING_REVIEW",
-              orderId: updatedOrder.id,
-              notes: `Auto-generated invoice for completed order ${updatedOrder.orderNumber}`,
-              companyMaterialCost: updatedOrder.materialCost || 0,
-              companyLabourCost: updatedOrder.labourCost || 0,
-              estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
-            },
-          });
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const invoiceNumber = await createInvoiceNumber(attempt);
+            try {
+              await db.invoice.create({
+                data: {
+                  invoiceNumber,
+                  customerName,
+                  customerEmail,
+                  customerPhone,
+                  address,
+                  items: items,
+                  subtotal: subtotal,
+                  tax: tax,
+                  total: total,
+                  status: "PENDING_REVIEW",
+                  orderId: updatedOrder.id,
+                  notes: `Auto-generated invoice for completed order ${updatedOrder.orderNumber}`,
+                  companyMaterialCost: updatedOrder.materialCost || 0,
+                  companyLabourCost: updatedOrder.labourCost || 0,
+                  estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
+                },
+              });
+              break;
+            } catch (err) {
+              const code = (err as any)?.code;
+              const target = (err as any)?.meta?.target;
+              const isInvoiceNumberCollision =
+                code === "P2002" && Array.isArray(target) && target.includes("invoiceNumber");
+
+              if (!isInvoiceNumberCollision || attempt === 9) {
+                throw err;
+              }
+            }
+          }
         }
       }
 
