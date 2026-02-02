@@ -2,7 +2,7 @@ import { Star, MessageSquare, Award, Clock, ThumbsUp } from "lucide-react";
 
 interface Review {
   id: number;
-  createdAt: string;
+  createdAt: string | Date;
   rating: number;
   comment: string | null;
   serviceQuality: number | null;

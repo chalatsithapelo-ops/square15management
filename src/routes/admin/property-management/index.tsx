@@ -534,7 +534,7 @@ function PropertyManagementPage() {
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto scrollbar-none touch-pan-x">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>

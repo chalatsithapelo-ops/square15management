@@ -467,7 +467,7 @@ function CRMPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Link
                 to="/contractor/dashboard"
@@ -483,10 +483,10 @@ function CRMPage() {
                 <p className="text-sm text-gray-600">{leads.length} total leads</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Link
                 to="/contractor/crm/campaigns"
-                className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all"
               >
                 <Mail className="h-5 w-5 mr-2" />
                 Campaigns
@@ -497,7 +497,7 @@ function CRMPage() {
                   setEditingLead(null);
                   reset();
                 }}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition-all"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add Lead
@@ -509,7 +509,7 @@ function CRMPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-          <Tab.List className="flex space-x-1 rounded-xl bg-blue-100 p-1 mb-6">
+          <Tab.List className="flex space-x-1 rounded-xl bg-blue-100 p-1 mb-6 overflow-x-auto scrollbar-none touch-pan-x">
             <Tab as={Fragment}>
               {({ selected }) => (
                 <button

@@ -534,7 +534,7 @@ function PropertyManagerSettings() {
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
+          <div className="flex border-b border-gray-200 overflow-x-auto scrollbar-none touch-pan-x">
             <button
               onClick={() => setActiveTab("profile")}
               className={`flex-1 px-4 sm:px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${

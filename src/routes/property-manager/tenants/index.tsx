@@ -438,7 +438,7 @@ function PropertyManagerTenantsPage() {
                   <p className="text-sm text-slate-600 mt-1">Try a different search or status filter.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto scrollbar-none touch-pan-x">
                   <table className="w-full">
                     <thead className="bg-slate-50/70 border-y border-slate-200">
                       <tr>
@@ -649,7 +649,7 @@ function PropertyManagerTenantsPage() {
               {invoicesIssuedQuery.isLoading ? (
                 <div className="p-10 text-center text-slate-500">Loading invoices...</div>
               ) : visibleIssuedInvoices.length ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto scrollbar-none touch-pan-x">
                   <table className="w-full">
                     <thead className="bg-slate-50/70 border-b border-slate-200">
                       <tr>
@@ -1294,7 +1294,7 @@ function PropertyManagerTenantsPage() {
                       <h3 className="font-semibold text-gray-900">Rent Invoices</h3>
                       {tenantRentHistoryQuery.isLoading && <span className="text-sm text-gray-500">Loading...</span>}
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto scrollbar-none touch-pan-x">
                       <table className="w-full">
                         <thead className="bg-gray-50">
                           <tr>

@@ -589,7 +589,7 @@ function QuotationsPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Link
                 to="/contractor/dashboard"
@@ -609,7 +609,7 @@ function QuotationsPage() {
             </div>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-secondary-600 to-brand-secondary-700 hover:from-brand-secondary-700 hover:to-brand-secondary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-secondary-500 shadow-md transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-secondary-600 to-brand-secondary-700 hover:from-brand-secondary-700 hover:to-brand-secondary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-secondary-500 shadow-md transition-all"
             >
               <Plus className="h-5 w-5 mr-2" />
               Create Quotation

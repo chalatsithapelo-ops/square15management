@@ -520,7 +520,7 @@ function PropertyManagerStatementsPage() {
             )}
 
             {!isLoading && !error && statements.length > 0 && (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-none touch-pan-x">
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-gray-600 border-b">

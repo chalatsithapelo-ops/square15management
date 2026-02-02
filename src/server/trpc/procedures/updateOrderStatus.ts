@@ -592,13 +592,30 @@ export const updateOrderStatus = baseProcedure
         // Get company details for custom prefix
         const companyDetails = await getCompanyDetails();
 
+        const MAX_INVOICE_NUMBER_ATTEMPTS = 25;
+
+        const isInvoiceNumberCollisionError = (err: unknown) => {
+          const code = (err as any)?.code;
+          if (code !== "P2002") return false;
+
+          const target = (err as any)?.meta?.target;
+          if (Array.isArray(target)) return target.includes("invoiceNumber");
+          if (typeof target === "string") return target.includes("invoiceNumber");
+
+          const message = (err as any)?.message;
+          return typeof message === "string" && message.includes("invoiceNumber");
+        };
+
         // Generate an invoice number that is safe under concurrency.
         // (Counting + 1 can collide when two invoices are created at the same time.)
         const createInvoiceNumber = async (attempt: number) => {
           const invoiceCount = await db.invoice.count();
           const pmInvoiceCount = await db.propertyManagerInvoice.count();
           const next = invoiceCount + pmInvoiceCount + 1 + attempt;
-          return `${companyDetails.invoicePrefix}-${String(next).padStart(5, "0")}`;
+          const base = `${companyDetails.invoicePrefix}-${String(next).padStart(5, "0")}`;
+          // If counts are stale (e.g. deletions), we might still collide.
+          // Add a deterministic suffix on later attempts to guarantee uniqueness.
+          return attempt < 10 ? base : `${base}-${attempt}`;
         };
 
         // Build line items from order details
@@ -651,7 +668,7 @@ export const updateOrderStatus = baseProcedure
         // Create the appropriate invoice type based on order type
         if (input.isPMOrder && pmOrder) {
           // Create PropertyManagerInvoice for PM orders with SENT_TO_PM status
-          for (let attempt = 0; attempt < 10; attempt++) {
+          for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
             const invoiceNumber = await createInvoiceNumber(attempt);
             try {
               await db.propertyManagerInvoice.create({
@@ -676,19 +693,16 @@ export const updateOrderStatus = baseProcedure
               });
               break;
             } catch (err) {
-              const code = (err as any)?.code;
-              const target = (err as any)?.meta?.target;
-              const isInvoiceNumberCollision =
-                code === "P2002" && Array.isArray(target) && target.includes("invoiceNumber");
+              const isInvoiceNumberCollision = isInvoiceNumberCollisionError(err);
 
-              if (!isInvoiceNumberCollision || attempt === 9) {
+              if (!isInvoiceNumberCollision || attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
                 throw err;
               }
             }
           }
         } else {
           // Create regular Invoice for standard orders with PENDING_REVIEW status
-          for (let attempt = 0; attempt < 10; attempt++) {
+          for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
             const invoiceNumber = await createInvoiceNumber(attempt);
             try {
               await db.invoice.create({
@@ -712,12 +726,9 @@ export const updateOrderStatus = baseProcedure
               });
               break;
             } catch (err) {
-              const code = (err as any)?.code;
-              const target = (err as any)?.meta?.target;
-              const isInvoiceNumberCollision =
-                code === "P2002" && Array.isArray(target) && target.includes("invoiceNumber");
+              const isInvoiceNumberCollision = isInvoiceNumberCollisionError(err);
 
-              if (!isInvoiceNumberCollision || attempt === 9) {
+              if (!isInvoiceNumberCollision || attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
                 throw err;
               }
             }

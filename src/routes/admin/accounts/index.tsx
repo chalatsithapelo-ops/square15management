@@ -545,7 +545,7 @@ function AccountsPage() {
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="border-b border-gray-200">
-              <div className="flex overflow-x-auto">
+              <div className="flex overflow-x-auto scrollbar-none touch-pan-x">
                 {[
                   { id: 'ai-insights', label: 'AI Insights', icon: Sparkles },
                   { id: 'profit-dashboard', label: 'Profit Dashboard', icon: TrendingUp },

@@ -329,7 +329,7 @@ function ConversationPage() {
         <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           {/* Selected Files Preview */}
           {selectedFiles.length > 0 && (
-            <div className="mb-2 flex flex-nowrap gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+            <div className="mb-2 flex flex-nowrap gap-2 overflow-x-auto scrollbar-none touch-pan-x pb-2 -mx-1 px-1">
               {selectedFiles.map((file, index) => (
                 <div
                   key={index}

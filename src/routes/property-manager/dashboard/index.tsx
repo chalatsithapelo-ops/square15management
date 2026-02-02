@@ -28,6 +28,8 @@ import {
   Download,
   Search,
   FolderKanban,
+  Menu,
+  X,
 } from "lucide-react";
 import { useState, useMemo, Fragment } from "react";
 import { MetricCard } from "~/components/MetricCard";
@@ -66,6 +68,7 @@ function PropertyManagerDashboard() {
   const { user, token } = useAuthStore();
   const navigate = useNavigate();
   const trpc = useTRPC();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     | "overview"
     | "rfqs"
@@ -199,8 +202,8 @@ function PropertyManagerDashboard() {
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
         </div>
         
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-4">
               <div className="bg-white/20 p-3 rounded-2xl shadow-lg backdrop-blur-md border border-white/30">
                 <Building2 className="h-8 w-8 text-white" />
@@ -213,40 +216,98 @@ function PropertyManagerDashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="w-full sm:w-auto">
+              {/* Desktop actions */}
+              <div className="hidden sm:flex items-center space-x-4">
+                <Link
+                  to="/property-manager/tenants"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-colors shadow-sm"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Tenant Management</span>
+                </Link>
+                {canUseAIAgent && (
+                  <Link
+                    to="/property-manager/ai-agent"
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg transition-colors shadow-sm"
+                  >
+                    <Bot className="h-4 w-4" />
+                    <span>AI Agent</span>
+                  </Link>
+                )}
+                <Link
+                  to="/property-manager/settings"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Settings"
+                >
+                  <Settings className="h-5 w-5" />
+                </Link>
+                <NotificationDropdown />
+                <Link
+                  to="/"
+                  onClick={() => useAuthStore.getState().clearAuth()}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Logout
+                </Link>
+              </div>
+
+              {/* Mobile actions */}
+              <div className="flex sm:hidden items-center justify-end gap-3">
+                <NotificationDropdown />
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen((v) => !v)}
+                  className="inline-flex items-center justify-center p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-sm transition-all"
+                  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                >
+                  {mobileMenuOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile menu panel */}
+          {mobileMenuOpen && (
+            <div className="sm:hidden mt-4 grid grid-cols-1 gap-2">
               <Link
                 to="/property-manager/tenants"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-colors shadow-sm"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 transition-all"
               >
                 <Users className="h-4 w-4" />
-                <span>Tenant Management</span>
+                Tenant Management
               </Link>
               {canUseAIAgent && (
                 <Link
                   to="/property-manager/ai-agent"
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg transition-colors shadow-sm"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 transition-all"
                 >
                   <Bot className="h-4 w-4" />
-                  <span>AI Agent</span>
+                  AI Agent
                 </Link>
               )}
               <Link
                 to="/property-manager/settings"
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 transition-all"
               >
-                <Settings className="h-5 w-5" />
+                <Settings className="h-4 w-4" />
+                Settings
               </Link>
-              <NotificationDropdown />
               <Link
                 to="/"
-                onClick={() => useAuthStore.getState().clearAuth()}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  useAuthStore.getState().clearAuth();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 transition-all"
               >
                 Logout
               </Link>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -289,7 +350,7 @@ function PropertyManagerDashboard() {
         {/* Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-8">
           <div className="p-2">
-            <nav className="flex gap-2 overflow-x-auto">
+            <nav className="flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -1536,7 +1597,7 @@ function MaintenanceTab() {
 
               {/* Photos */}
               {request.photos && request.photos.length > 0 && (
-                <div className="mt-3 flex gap-2 overflow-x-auto">
+                <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
                   {request.photos.slice(0, 3).map((photo: string, idx: number) => (
                     <img
                       key={idx}

@@ -814,7 +814,7 @@ function ContractorSettings() {
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-none touch-pan-x">
                 {employeesQuery.data && employeesQuery.data.length > 0 ? (
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1171,7 +1171,7 @@ function ContractorSettings() {
             {/* Permission Matrix */}
             <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Permission Matrix</h3>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-none touch-pan-x">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-100">
                     <tr>

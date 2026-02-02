@@ -755,7 +755,7 @@ PERFORMANCE METRICS
                 <p className="text-sm text-gray-600">No payslips found for this employee</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-none touch-pan-x">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>

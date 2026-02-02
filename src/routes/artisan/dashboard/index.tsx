@@ -615,7 +615,11 @@ function ArtisanDashboard() {
     }
   };
 
-  const updateQuotationLineItem = (index: number, field: string, value: string) => {
+  const updateQuotationLineItem = (
+    index: number,
+    field: "description" | "category" | "quantity" | "notes",
+    value: string
+  ) => {
     const newItems = [...quotationLineItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setQuotationLineItems(newItems);
@@ -1545,7 +1549,7 @@ function ArtisanDashboard() {
               </div>
             </div>
             <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Link
                   to="/messages"
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center"
@@ -1566,7 +1570,7 @@ function ArtisanDashboard() {
                   Gallery
                 </Link>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <NotificationDropdown />
                 <Link
                   to="/"
@@ -1627,7 +1631,7 @@ function ArtisanDashboard() {
 
         {/* Tabbed Interface */}
         <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
-          <Tab.List className="flex gap-2 rounded-2xl bg-white p-2 shadow-lg border border-gray-100 mb-6 overflow-x-auto">
+          <Tab.List className="flex gap-2 rounded-2xl bg-white p-2 shadow-lg border border-gray-100 mb-6 overflow-x-auto scrollbar-none touch-pan-x">
             <Tab
               className={({ selected }) =>
                 `w-full sm:w-auto flex-1 sm:flex-none rounded-xl py-3 px-5 text-sm font-medium leading-5 transition-all transform whitespace-nowrap ${
@@ -1794,7 +1798,7 @@ function ArtisanDashboard() {
                           <div className="mb-4">
                             <p className="text-sm font-medium text-gray-700 mb-2">Order Documents:</p>
                             <div className="space-y-1">
-                              {order.documents.map((docUrl, idx) => (
+                              {order.documents.map((docUrl: string, idx: number) => (
                                 <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
                               ))}
                             </div>
@@ -1909,7 +1913,7 @@ function ArtisanDashboard() {
                           <div className="mb-4">
                             <p className="text-sm font-medium text-gray-700 mb-2">Order Documents:</p>
                             <div className="space-y-1">
-                              {order.documents.map((docUrl, idx) => (
+                              {order.documents.map((docUrl: string, idx: number) => (
                                 <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
                               ))}
                             </div>
@@ -1935,7 +1939,7 @@ function ArtisanDashboard() {
                           <div className="mb-4">
                             <p className="text-sm font-medium text-gray-700 mb-2">Before Pictures:</p>
                             <div className="grid grid-cols-3 gap-2">
-                              {order.beforePictures.map((url, idx) => (
+                              {order.beforePictures.map((url: string, idx: number) => (
                                 <SignedMinioImage
                                   key={idx}
                                   url={url}
@@ -2033,7 +2037,7 @@ function ArtisanDashboard() {
                           <div className="mb-4">
                             <p className="text-xs font-medium text-gray-700 mb-2">Order Documents:</p>
                             <div className="space-y-1">
-                              {order.documents.map((docUrl, idx) => (
+                              {order.documents.map((docUrl: string, idx: number) => (
                                 <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
                               ))}
                             </div>

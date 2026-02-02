@@ -22,6 +22,8 @@ import {
   Home,
   User,
   BarChart3,
+  Menu,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -58,6 +60,7 @@ function CustomerDashboard() {
   const hasHandledAuthErrorRef = useRef(false);
   const [activeTab, setActiveTab] = useState<"orders" | "quotations" | "invoices" | "projects" | "messages" | "statements">("orders");
   const [showMetrics, setShowMetrics] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [generatingQuotePdfId, setGeneratingQuotePdfId] = useState<number | null>(null);
   const [generatingInvoicePdfId, setGeneratingInvoicePdfId] = useState<number | null>(null);
   const [generatingStatementPdfId, setGeneratingStatementPdfId] = useState<number | null>(null);
@@ -438,7 +441,7 @@ function CustomerDashboard() {
       {/* Header with Gradient */}
       <header className="bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 relative z-10">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl">
                 <Home className="h-8 w-8 text-white" />
@@ -448,7 +451,8 @@ function CustomerDashboard() {
                 <p className="text-sm text-purple-100">Welcome, {user?.firstName}!</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            {/* Desktop actions */}
+            <div className="hidden sm:flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => setShowMetrics(!showMetrics)}
                 className="relative inline-flex items-center justify-center p-2 rounded-lg text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-200"
@@ -486,7 +490,69 @@ function CustomerDashboard() {
                 Logout
               </Link>
             </div>
+
+            {/* Mobile actions */}
+            <div className="flex sm:hidden items-center justify-end gap-3">
+              <button
+                onClick={() => setShowMetrics(!showMetrics)}
+                className="relative inline-flex items-center justify-center p-2 rounded-lg text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-200"
+                title="Toggle Metrics"
+              >
+                <BarChart3 className="h-6 w-6" />
+              </button>
+              <NotificationDropdown />
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                className="inline-flex items-center justify-center p-2 rounded-lg text-white bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile menu panel */}
+          {mobileMenuOpen && (
+            <div className="sm:hidden mt-3 grid grid-cols-1 gap-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setPaymentModalOpen(true);
+                }}
+                className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 flex items-center justify-center gap-2 transition-all duration-200"
+              >
+                <DollarSign className="h-4 w-4" />
+                Payments
+              </button>
+              <Link
+                to="/customer/maintenance"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 flex items-center justify-center gap-2 transition-all duration-200"
+              >
+                <Wrench className="h-4 w-4" />
+                Maintenance
+              </Link>
+              <Link
+                to="/customer/feedback"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 flex items-center justify-center gap-2 transition-all duration-200"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Complaints &amp; Compliments
+              </Link>
+              <Link
+                to="/"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  useAuthStore.getState().clearAuth();
+                }}
+                className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/20 flex items-center justify-center transition-all duration-200"
+              >
+                Logout
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
@@ -543,7 +609,7 @@ function CustomerDashboard() {
         {/* Modern Pill-style Tabs */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-8 overflow-hidden">
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-100">
-            <nav className="flex gap-2 overflow-x-auto">
+            <nav className="flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}

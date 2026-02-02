@@ -89,7 +89,7 @@ function ArtisanGallery() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Link
                 to="/artisan/dashboard"
@@ -105,7 +105,7 @@ function ArtisanGallery() {
                 <p className="text-sm text-gray-600">Your portfolio of completed work</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="w-full sm:w-auto flex items-center justify-end space-x-4">
               <Link
                 to="/"
                 onClick={() => useAuthStore.getState().clearAuth()}

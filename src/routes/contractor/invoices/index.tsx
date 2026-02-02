@@ -65,10 +65,10 @@ const invoiceSchema = z.object({
   address: z.string().min(1, "Address is required"),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
-  invoiceNumber: z.preprocess(
-    (val) => val === "" ? undefined : val,
-    z.string().min(1).optional()
-  ),
+  invoiceNumber: z
+    .string()
+    .optional()
+    .transform((val) => (val?.trim() ? val : undefined)),
 });
 
 type InvoiceForm = z.infer<typeof invoiceSchema>;
@@ -552,6 +552,11 @@ function InvoicesPage() {
 
   const handleGenerateDescription = (index: number) => {
     const item = lineItems[index];
+
+    if (!item) {
+      toast.error("Line item not found");
+      return;
+    }
     
     if (!item.description || item.description.trim().length < 3) {
       toast.error("Please enter at least a brief description (3+ characters) to generate AI content");
@@ -586,14 +591,19 @@ function InvoicesPage() {
   };
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
-    const newItems = [...lineItems];
-    newItems[index] = { ...newItems[index], [field]: value };
-    
-    if (field === "quantity" || field === "unitPrice") {
-      newItems[index].total = newItems[index].quantity * newItems[index].unitPrice;
-    }
-    
-    setLineItems(newItems);
+    setLineItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+
+        const nextItem = { ...item, [field]: value } as LineItem;
+
+        if (field === "quantity" || field === "unitPrice") {
+          nextItem.total = Number(nextItem.quantity) * Number(nextItem.unitPrice);
+        }
+
+        return nextItem;
+      })
+    );
   };
 
   const calculateSubtotal = () => {
@@ -844,7 +854,7 @@ function InvoicesPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Link
                 to="/contractor/dashboard"
@@ -864,7 +874,7 @@ function InvoicesPage() {
             </div>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-danger-600 to-brand-danger-700 hover:from-brand-danger-700 hover:to-brand-danger-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-danger-500 shadow-md transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-danger-600 to-brand-danger-700 hover:from-brand-danger-700 hover:to-brand-danger-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-danger-500 shadow-md transition-all"
             >
               <Plus className="h-5 w-5 mr-2" />
               Create Invoice
@@ -1540,7 +1550,7 @@ function InvoicesPage() {
                         {isExpanded && items.length > 0 && (
                           <div className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
                             <h4 className="text-sm font-semibold text-gray-900 mb-3">Detailed Line Items</h4>
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto scrollbar-none touch-pan-x">
                               <table className="min-w-full divide-y divide-gray-200">
                                 <thead>
                                   <tr className="bg-gray-100">

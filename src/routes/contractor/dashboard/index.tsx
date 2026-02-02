@@ -503,7 +503,7 @@ function ContractorDashboard() {
       {/* Modern Navigation Tabs with Pills Design */}
       <div className="bg-white/80 backdrop-blur-md shadow-md border-b border-gray-200/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-2 sm:space-x-3 overflow-x-auto py-3">
+          <nav className="flex space-x-2 sm:space-x-3 overflow-x-auto py-3 scrollbar-none touch-pan-x">
             {navItems.map((tab: any) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
