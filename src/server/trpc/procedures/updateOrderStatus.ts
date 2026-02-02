@@ -310,7 +310,7 @@ export const updateOrderStatus = baseProcedure
           // Get the assigned artisan ID from the order
           const pmOrderForActivity = await db.propertyManagerOrder.findUnique({
             where: { id: input.orderId },
-            select: { assignedToId: true },
+            select: { assignedToId: true, startTime: true },
           });
 
           if (pmOrderForActivity?.assignedToId) {
@@ -318,10 +318,16 @@ export const updateOrderStatus = baseProcedure
               ? input.hoursWorked * 60 
               : (input.daysWorked || 0) * 8 * 60; // Assume 8 hours per day
 
+            const now = new Date();
+            const startTime =
+              pmOrderForActivity.startTime ??
+              (duration > 0 ? new Date(now.getTime() - Math.round(duration) * 60 * 1000) : now);
+
             await db.propertyManagerOrderJobActivity.create({
               data: {
                 orderId: input.orderId,
                 artisanId: pmOrderForActivity.assignedToId,
+                startTime,
                 activityType: input.hoursWorked ? 'Hourly Work' : 'Daily Work',
                 duration: Math.round(duration),
                 hourlyRate: input.hourlyRate || null,
@@ -347,7 +353,7 @@ export const updateOrderStatus = baseProcedure
           // Get the assigned artisan ID from the order
           const regularOrderForActivity = await db.order.findUnique({
             where: { id: input.orderId },
-            select: { assignedToId: true },
+            select: { assignedToId: true, startTime: true },
           });
 
           if (regularOrderForActivity?.assignedToId) {
@@ -355,10 +361,16 @@ export const updateOrderStatus = baseProcedure
               ? input.hoursWorked * 60 
               : (input.daysWorked || 0) * 8 * 60; // Assume 8 hours per day
 
+            const now = new Date();
+            const startTime =
+              regularOrderForActivity.startTime ??
+              (duration > 0 ? new Date(now.getTime() - Math.round(duration) * 60 * 1000) : now);
+
             await db.jobActivity.create({
               data: {
                 orderId: input.orderId,
                 artisanId: regularOrderForActivity.assignedToId,
+                startTime,
                 activityType: input.hoursWorked ? 'Hourly Work' : 'Daily Work',
                 duration: Math.round(duration),
                 hourlyRate: input.hourlyRate || null,
