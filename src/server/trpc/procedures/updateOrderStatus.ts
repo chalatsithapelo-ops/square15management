@@ -323,15 +323,20 @@ export const updateOrderStatus = baseProcedure
               pmOrderForActivity.startTime ??
               (duration > 0 ? new Date(now.getTime() - Math.round(duration) * 60 * 1000) : now);
 
+            const durationMinutes = Math.round(duration);
+            const hoursWorked = input.hoursWorked ?? (input.daysWorked ? input.daysWorked * 8 : null);
+            const rate = input.hoursWorked ? (input.hourlyRate ?? null) : (input.dailyRate ?? null);
+            const description = input.hoursWorked ? "Hourly work" : "Daily work";
+
             await db.propertyManagerOrderJobActivity.create({
               data: {
                 orderId: input.orderId,
                 artisanId: pmOrderForActivity.assignedToId,
                 startTime,
-                activityType: input.hoursWorked ? 'Hourly Work' : 'Daily Work',
-                duration: Math.round(duration),
-                hourlyRate: input.hourlyRate || null,
-                dailyRate: input.dailyRate || null,
+                durationMinutes,
+                description,
+                hoursWorked,
+                rate,
               },
             });
 
@@ -366,15 +371,18 @@ export const updateOrderStatus = baseProcedure
               regularOrderForActivity.startTime ??
               (duration > 0 ? new Date(now.getTime() - Math.round(duration) * 60 * 1000) : now);
 
+            const durationMinutes = Math.round(duration);
+            const description = input.hoursWorked
+              ? `Hourly work${input.hourlyRate ? ` @ R${input.hourlyRate}/hr` : ""}`
+              : `Daily work${input.dailyRate ? ` @ R${input.dailyRate}/day` : ""}`;
+
             await db.jobActivity.create({
               data: {
                 orderId: input.orderId,
                 artisanId: regularOrderForActivity.assignedToId,
                 startTime,
-                activityType: input.hoursWorked ? 'Hourly Work' : 'Daily Work',
-                duration: Math.round(duration),
-                hourlyRate: input.hourlyRate || null,
-                dailyRate: input.dailyRate || null,
+                durationMinutes,
+                description,
               },
             });
 
