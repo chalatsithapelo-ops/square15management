@@ -108,29 +108,32 @@ export const createOrder = baseProcedure
       },
     });
 
-    // Send email notification to customer
-    try {
-      await sendOrderNotificationEmail({
-        customerEmail: order.customerEmail,
-        customerName: order.customerName,
-        orderNumber: order.orderNumber,
-        orderDescription: order.description,
-        assignedToName: order.assignedTo ? `${order.assignedTo.firstName} ${order.assignedTo.lastName}` : undefined,
-        userId: user.id, // Send from the user who created the order
+    // Send email notification to customer (best effort, non-blocking)
+    void sendOrderNotificationEmail({
+      customerEmail: order.customerEmail,
+      customerName: order.customerName,
+      orderNumber: order.orderNumber,
+      orderDescription: order.description,
+      assignedToName: order.assignedTo ? `${order.assignedTo.firstName} ${order.assignedTo.lastName}` : undefined,
+      userId: user.id, // Send from the user who created the order
+    })
+      .then(() => {
+        console.log(`Order notification email sent to ${order.customerEmail}`);
+      })
+      .catch((emailError) => {
+        console.error("Failed to send order notification email:", emailError);
       });
-      console.log(`Order notification email sent to ${order.customerEmail}`);
-    } catch (emailError) {
-      console.error("Failed to send order notification email:", emailError);
-      // Don't fail the operation if email fails
-    }
 
     // Only notify admins if an admin created the order without assigning it.
     if ((user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN") && !input.assignedToId) {
-      await notifyAdmins({
+      // Best effort, non-blocking
+      void notifyAdmins({
         message: `New order ${order.orderNumber} created by ${user.firstName} ${user.lastName}`,
         type: "PM_ORDER_SUBMITTED",
         relatedEntityId: order.id,
         relatedEntityType: "ORDER",
+      }).catch((notifyError) => {
+        console.error("Failed to notify admins about new order:", notifyError);
       });
     }
 

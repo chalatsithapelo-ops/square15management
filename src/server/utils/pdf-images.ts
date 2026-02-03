@@ -1,4 +1,26 @@
 import { minioClient, getInternalMinioUrl } from "~/server/minio";
+import { getBaseUrl } from "~/server/utils/base-url";
+
+function toAbsoluteUrl(inputUrl: string): string {
+  if (/^https?:\/\//i.test(inputUrl)) return inputUrl;
+
+  // Common in this app: stored as relative nginx proxy paths like `/minio/<bucket>/<object>`
+  if (inputUrl.startsWith("/")) {
+    return `${getBaseUrl().replace(/\/$/, "")}${inputUrl}`;
+  }
+
+  return inputUrl;
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, redirect: "follow" });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 /**
  * Fetch an image from a URL and return as Buffer with validation.
@@ -11,10 +33,14 @@ import { minioClient, getInternalMinioUrl } from "~/server/minio";
  */
 export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
   try {
+    const absoluteUrl = toAbsoluteUrl(url);
     console.log(`[fetchImageAsBuffer] Starting fetch for: ${url}`);
+    if (absoluteUrl !== url) {
+      console.log(`[fetchImageAsBuffer] Normalized to absolute URL: ${absoluteUrl}`);
+    }
     
     // Try internal URL first (for Docker environment)
-    const internalUrl = getInternalMinioUrl(url);
+    const internalUrl = getInternalMinioUrl(absoluteUrl);
     console.log(`[fetchImageAsBuffer] Internal URL: ${internalUrl}`);
     
     let response: Response | null = null;
@@ -23,7 +49,7 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     // Try internal URL first
     try {
       console.log(`[fetchImageAsBuffer] Attempting internal URL fetch...`);
-      const internalResponse = await fetch(internalUrl);
+      const internalResponse = await fetchWithTimeout(internalUrl, 10_000);
       
       if (internalResponse.ok) {
         const arrayBuffer = await internalResponse.arrayBuffer();
@@ -39,9 +65,9 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     
     // If internal URL fails, try the original external URL
     if (!buffer) {
-      console.log(`[fetchImageAsBuffer] Attempting external URL fetch: ${url}`);
+      console.log(`[fetchImageAsBuffer] Attempting external URL fetch: ${absoluteUrl}`);
       try {
-        const externalResponse = await fetch(url);
+        const externalResponse = await fetchWithTimeout(absoluteUrl, 10_000);
         
         if (externalResponse.ok) {
           const arrayBuffer = await externalResponse.arrayBuffer();
@@ -62,12 +88,20 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
       try {
         // Extract bucket and object name from URL
         // Expected format: http://host:port/bucket-name/path/to/object
-        const urlObj = new URL(url);
+        const urlObj = new URL(absoluteUrl);
         const pathParts = urlObj.pathname.split('/').filter(p => p);
         
         if (pathParts.length >= 2) {
-          const bucketName = pathParts[0]!;
-          const objectName = pathParts.slice(1).join('/');
+          // Support nginx proxy format: `/minio/<bucket>/<object>`
+          const effectiveParts = pathParts[0] === "minio" ? pathParts.slice(1) : pathParts;
+
+          if (effectiveParts.length < 2) {
+            console.error(`[fetchImageAsBuffer] Could not parse bucket/object from URL path: ${urlObj.pathname}`);
+            return null;
+          }
+
+          const bucketName = effectiveParts[0]!;
+          const objectName = effectiveParts.slice(1).join('/');
           
           console.log(`[fetchImageAsBuffer] Generating presigned URL for bucket: ${bucketName}, object: ${objectName}`);
           
@@ -76,7 +110,7 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
           console.log(`[fetchImageAsBuffer] Generated presigned URL: ${presignedUrl.substring(0, 100)}...`);
           
           // Try to fetch using presigned URL
-          const presignedResponse = await fetch(presignedUrl);
+          const presignedResponse = await fetchWithTimeout(presignedUrl, 10_000);
           
           if (presignedResponse.ok) {
             const arrayBuffer = await presignedResponse.arrayBuffer();

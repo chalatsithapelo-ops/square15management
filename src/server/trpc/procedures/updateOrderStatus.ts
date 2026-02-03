@@ -736,29 +736,30 @@ export const updateOrderStatus = baseProcedure
         }
       }
 
-      // If order is completed, send completion report email to customer
+      // If order is completed, send completion report email to customer (best effort, non-blocking)
       if (input.status === "COMPLETED") {
-        try {
-          // Generate the Order PDF for the customer
-          console.log(`[updateOrderStatus] Generating Order PDF for customer email...`);
-          
-          // We need to generate the PDF inline here since we need the Buffer
-          // This is similar to generateOrderPdf but returns Buffer directly
-          const pdfDoc = new PDFDocument({ margin: 50 });
-          const pdfChunks: Buffer[] = [];
+        void (async () => {
+          try {
+            // Generate the Order PDF for the customer
+            console.log(`[updateOrderStatus] Generating Order PDF for customer email...`);
+            
+            // We need to generate the PDF inline here since we need the Buffer
+            // This is similar to generateOrderPdf but returns Buffer directly
+            const pdfDoc = new PDFDocument({ margin: 50 });
+            const pdfChunks: Buffer[] = [];
 
-          pdfDoc.on("data", (chunk) => pdfChunks.push(chunk));
+            pdfDoc.on("data", (chunk) => pdfChunks.push(chunk));
 
-          const pdfBufferPromise = new Promise<Buffer>((resolve, reject) => {
-            pdfDoc.on("end", () => {
-              const buffer = Buffer.concat(pdfChunks);
-              resolve(buffer);
+            const pdfBufferPromise = new Promise<Buffer>((resolve, reject) => {
+              pdfDoc.on("end", () => {
+                const buffer = Buffer.concat(pdfChunks);
+                resolve(buffer);
+              });
+              pdfDoc.on("error", reject);
             });
-            pdfDoc.on("error", reject);
-          });
 
-          // Generate the PDF content (reusing logic from generateOrderPdf.ts)
-          const pdfCompanyDetails = await getCompanyDetails();
+            // Generate the PDF content (reusing logic from generateOrderPdf.ts)
+            const pdfCompanyDetails = await getCompanyDetails();
 
           // ===== HEADER SECTION WITH BRAND BANNER =====
           pdfDoc.rect(0, 0, 595, 140).fill(env.BRAND_PRIMARY_COLOR);
@@ -1110,32 +1111,33 @@ export const updateOrderStatus = baseProcedure
               { align: "center", width: 495 }
             );
 
-          pdfDoc.end();
+            pdfDoc.end();
 
-          // Wait for PDF generation to complete
-          const pdfBuffer = await pdfBufferPromise;
-          
-          console.log(`[updateOrderStatus] Order PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+            // Wait for PDF generation to complete
+            const pdfBuffer = await pdfBufferPromise;
+            
+            console.log(`[updateOrderStatus] Order PDF generated successfully, size: ${pdfBuffer.length} bytes`);
 
-          // Send the completion email
-          await sendCompletionReportEmail({
-            customerEmail: updatedOrder.customerEmail,
-            customerName: updatedOrder.customerName,
-            completionType: "ORDER",
-            completionTitle: updatedOrder.orderNumber,
-            completionDate: new Date(),
-            pdfBuffer,
-            pdfFilename: `Order_${updatedOrder.orderNumber}_Completion_Report.pdf`,
-            additionalDetails: updatedOrder.serviceType,
-          });
+            // Send the completion email
+            await sendCompletionReportEmail({
+              customerEmail: updatedOrder.customerEmail,
+              customerName: updatedOrder.customerName,
+              completionType: "ORDER",
+              completionTitle: updatedOrder.orderNumber,
+              completionDate: new Date(),
+              pdfBuffer,
+              pdfFilename: `Order_${updatedOrder.orderNumber}_Completion_Report.pdf`,
+              additionalDetails: updatedOrder.serviceType,
+            });
 
-          console.log(`[updateOrderStatus] Completion report email sent successfully to ${updatedOrder.customerEmail}`);
-        } catch (emailError) {
-          // Log the error but don't fail the order update
-          console.error("[updateOrderStatus] Failed to send completion report email:", emailError);
-          // We don't throw here because the order update was successful
-          // The email failure shouldn't rollback the order completion
-        }
+            console.log(`[updateOrderStatus] Completion report email sent successfully to ${updatedOrder.customerEmail}`);
+          } catch (emailError) {
+            // Log the error but don't fail the order update
+            console.error("[updateOrderStatus] Failed to send completion report email:", emailError);
+          }
+        })().catch((unhandledError) => {
+          console.error("[updateOrderStatus] Completion report task crashed:", unhandledError);
+        });
       }
 
       return updatedOrder;
