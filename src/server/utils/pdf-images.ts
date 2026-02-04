@@ -1,5 +1,6 @@
 import { minioClient, getInternalMinioUrl } from "~/server/minio";
 import { getBaseUrl } from "~/server/utils/base-url";
+import sharp from "sharp";
 
 function parseBucketAndObjectFromUrl(inputUrl: string): { bucketName: string; objectName: string } | null {
   const trimmed = inputUrl.trim();
@@ -48,6 +49,25 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
     return await fetch(url, { signal: controller.signal, redirect: "follow" });
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+async function normalizeImageForPdfKit(buffer: Buffer, contentType: string | null): Promise<Buffer> {
+  // pdfkit supports JPEG and PNG. Convert other formats (WebP, GIF, etc.) to PNG.
+  const isJPEG = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+
+  if (isJPEG || isPNG) return buffer;
+
+  const lowerType = (contentType || "").toLowerCase();
+  const looksLikeImage = lowerType.startsWith("image/") || lowerType === "application/octet-stream" || lowerType === "";
+  if (!looksLikeImage) return buffer;
+
+  try {
+    return await sharp(buffer, { animated: true }).png().toBuffer();
+  } catch (error) {
+    console.warn("[fetchImageAsBuffer] Image conversion failed; using original buffer:", error instanceof Error ? error.message : error);
+    return buffer;
   }
 }
 
@@ -155,6 +175,9 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
       console.error(`[fetchImageAsBuffer] ✗ All fetch attempts failed for: ${rawUrl}`);
       return null;
     }
+
+    // Convert to a pdfkit-compatible format if needed
+    buffer = await normalizeImageForPdfKit(buffer, response?.headers.get("content-type") ?? null);
     
     // Validate buffer
     if (buffer.length === 0) {

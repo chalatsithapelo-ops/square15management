@@ -149,6 +149,7 @@ export const getInvoices = baseProcedure
               id: true,
               orderNumber: true,
               serviceType: true,
+              documents: true,
             },
           },
           project: {

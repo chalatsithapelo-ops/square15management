@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { PDFDocument } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import {
   ArrowLeft,
   Plus,
@@ -480,25 +480,123 @@ function InvoicesPage() {
       return;
     }
 
+    const orderDocs: string[] = Array.isArray(invoice?.order?.documents) ? invoice.order.documents : [];
+    if (orderDocs.length === 0) {
+      toast.error("No order document uploaded for this job.");
+      return;
+    }
+
     setDownloadingMergedInvoiceId(invoice.id);
     try {
-      const [invoiceData, orderData, jobCardData] = await Promise.all([
+      const [invoiceData, jobCardData] = await Promise.all([
         generateInvoicePdfRawMutation.mutateAsync({ token, invoiceId: invoice.id }),
-        generateOrderPdfRawMutation.mutateAsync({ token, orderId: invoice.order.id, isPMOrder: false }),
         generateJobCardPdfRawMutation.mutateAsync({ token, orderId: invoice.order.id, isPMOrder: false }),
       ]);
 
       const mergedPdf = await PDFDocument.create();
 
-      for (const pdfBytes of [
-        base64ToUint8Array(invoiceData.pdf),
-        base64ToUint8Array(orderData.pdf),
-        base64ToUint8Array(jobCardData.pdf),
-      ]) {
+      const isProbablyBlankPage = (page: any): boolean => {
+        try {
+          const contents = page.node?.Contents?.();
+          if (!contents) return true;
+          const ctx = page.node?.context;
+          const lengthOfStream = (stream: any): number => {
+            if (!stream) return 0;
+            try {
+              if (stream instanceof PDFRawStream) return decodePDFRawStream(stream).length;
+            } catch {
+              // ignore
+            }
+            const raw = (stream as any).contents;
+            return raw && typeof raw.length === "number" ? raw.length : 0;
+          };
+
+          if (contents instanceof PDFArray) {
+            let total = 0;
+            for (let i = 0; i < contents.size(); i++) {
+              const item = contents.get(i);
+              const stream = ctx?.lookup ? ctx.lookup(item) : item;
+              total += lengthOfStream(stream);
+            }
+            return total < 20;
+          }
+
+          const stream = ctx?.lookup ? ctx.lookup(contents) : contents;
+          return lengthOfStream(stream) < 20;
+        } catch {
+          return false;
+        }
+      };
+
+      const appendPdfBytes = async (pdfBytes: Uint8Array) => {
         const src = await PDFDocument.load(pdfBytes);
-        const copiedPages = await mergedPdf.copyPages(src, src.getPageIndices());
-        copiedPages.forEach((p) => mergedPdf.addPage(p));
+        const pages = src.getPages();
+        const keepIndices = pages
+          .map((p: any, idx: number) => ({ idx, keep: !isProbablyBlankPage(p) }))
+          .filter((p: any) => p.keep)
+          .map((p: any) => p.idx);
+        const indices = keepIndices.length > 0 ? keepIndices : src.getPageIndices();
+        const copied = await mergedPdf.copyPages(src, indices);
+        copied.forEach((p) => mergedPdf.addPage(p));
+      };
+
+      const isPdfBytes = (bytes: Uint8Array): boolean =>
+        bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;
+
+      const appendOrderDocumentUrl = async (url: string) => {
+        const absoluteUrl = url.startsWith("http") ? url : new URL(url, window.location.origin).toString();
+        const resp = await fetch(absoluteUrl, { credentials: "include" });
+        if (!resp.ok) throw new Error(`Failed to fetch order document (${resp.status})`);
+        const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+        const bytes = new Uint8Array(await resp.arrayBuffer());
+
+        if (contentType.includes("application/pdf") || isPdfBytes(bytes)) {
+          await appendPdfBytes(bytes);
+          return;
+        }
+
+        const isImage = contentType.startsWith("image/") || /\.(png|jpg|jpeg|webp)(\?|#|$)/i.test(absoluteUrl);
+        if (!isImage) throw new Error(`Unsupported order document type: ${contentType || "unknown"}`);
+
+        let embedBytes = bytes;
+        let embedAs: "png" | "jpg" = contentType.includes("png") ? "png" : "jpg";
+
+        if (contentType.includes("webp") || /\.webp(\?|#|$)/i.test(absoluteUrl)) {
+          const blob = new Blob([bytes], { type: contentType || "image/webp" });
+          const bitmap = await createImageBitmap(blob);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Failed to create canvas context for image conversion");
+          ctx.drawImage(bitmap, 0, 0);
+          const pngBlob: Blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Image conversion failed"))), "image/png");
+          });
+          embedBytes = new Uint8Array(await pngBlob.arrayBuffer());
+          embedAs = "png";
+        }
+
+        const img = embedAs === "png" ? await mergedPdf.embedPng(embedBytes) : await mergedPdf.embedJpg(embedBytes);
+        const pageWidth = 595.28;
+        const pageHeight = 841.89;
+        const margin = 36;
+        const maxWidth = pageWidth - margin * 2;
+        const maxHeight = pageHeight - margin * 2;
+        const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        const x = (pageWidth - drawWidth) / 2;
+        const y = (pageHeight - drawHeight) / 2;
+        const page = mergedPdf.addPage([pageWidth, pageHeight]);
+        page.drawImage(img, { x, y, width: drawWidth, height: drawHeight });
+      };
+
+      await appendPdfBytes(base64ToUint8Array(invoiceData.pdf));
+      for (const docUrl of orderDocs) {
+        await appendOrderDocumentUrl(docUrl);
       }
+      await appendPdfBytes(base64ToUint8Array(jobCardData.pdf));
 
       const mergedBytes = await mergedPdf.save();
       downloadPdfBytes(mergedBytes, `invoice-order-jobcard-${invoice.invoiceNumber || invoice.id}.pdf`);
