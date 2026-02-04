@@ -2,11 +2,12 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { PDFDocument } from "pdf-lib";
 import {
   ArrowLeft,
   Plus,
@@ -47,6 +48,9 @@ export const Route = createFileRoute("/contractor/invoices/")({
       });
     }
   },
+  validateSearch: z.object({
+    invoiceId: z.number().optional(),
+  }),
   component: InvoicesPageGuarded,
 });
 
@@ -114,6 +118,8 @@ function InvoicesPage() {
   const { token, user } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { invoiceId } = Route.useSearch();
+  const didHandleDeepLinkRef = useRef(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -404,6 +410,107 @@ function InvoicesPage() {
     })
   );
 
+  const generateInvoicePdfRawMutation = useMutation(trpc.generateInvoicePdf.mutationOptions());
+  const generateOrderPdfRawMutation = useMutation(trpc.generateOrderPdf.mutationOptions());
+  const generateJobCardPdfRawMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+
+  const [downloadingJobCardInvoiceId, setDownloadingJobCardInvoiceId] = useState<number | null>(null);
+  const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
+
+  const base64ToUint8Array = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Uint8Array(byteNumbers);
+  };
+
+  const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJobCardForInvoice = async (invoice: any) => {
+    if (!token) return;
+    if (!invoice?.order?.id) {
+      toast.error("No order found for this invoice");
+      return;
+    }
+    if (invoice?.isPropertyManagerInvoice) {
+      toast.error("Job Card download is currently only available for regular orders");
+      return;
+    }
+
+    setDownloadingJobCardInvoiceId(invoice.id);
+    try {
+      const data = await generateJobCardPdfRawMutation.mutateAsync({
+        token,
+        orderId: invoice.order.id,
+        isPMOrder: false,
+      });
+      downloadPdfBytes(
+        base64ToUint8Array(data.pdf),
+        `job-card-${invoice.order.orderNumber || invoice.order.id}.pdf`
+      );
+      toast.success("Job card downloaded successfully!", { duration: 5000 });
+    } catch (error: any) {
+      console.error("Job card download error:", error);
+      toast.error(error?.message || "Failed to download job card.", { duration: 10000 });
+    } finally {
+      setDownloadingJobCardInvoiceId(null);
+    }
+  };
+
+  const handleDownloadMergedPdfForInvoice = async (invoice: any) => {
+    if (!token) return;
+    if (!invoice?.order?.id) {
+      toast.error("No order found for this invoice");
+      return;
+    }
+    if (invoice?.isPropertyManagerInvoice) {
+      toast.error("Merged PDF is currently only available for regular orders");
+      return;
+    }
+
+    setDownloadingMergedInvoiceId(invoice.id);
+    try {
+      const [invoiceData, orderData, jobCardData] = await Promise.all([
+        generateInvoicePdfRawMutation.mutateAsync({ token, invoiceId: invoice.id }),
+        generateOrderPdfRawMutation.mutateAsync({ token, orderId: invoice.order.id, isPMOrder: false }),
+        generateJobCardPdfRawMutation.mutateAsync({ token, orderId: invoice.order.id, isPMOrder: false }),
+      ]);
+
+      const mergedPdf = await PDFDocument.create();
+
+      for (const pdfBytes of [
+        base64ToUint8Array(invoiceData.pdf),
+        base64ToUint8Array(orderData.pdf),
+        base64ToUint8Array(jobCardData.pdf),
+      ]) {
+        const src = await PDFDocument.load(pdfBytes);
+        const copiedPages = await mergedPdf.copyPages(src, src.getPageIndices());
+        copiedPages.forEach((p) => mergedPdf.addPage(p));
+      }
+
+      const mergedBytes = await mergedPdf.save();
+      downloadPdfBytes(mergedBytes, `invoice-order-jobcard-${invoice.invoiceNumber || invoice.id}.pdf`);
+      toast.success("Merged PDF downloaded successfully!", { duration: 5000 });
+    } catch (error: any) {
+      console.error("Merged PDF download error:", error);
+      toast.error(error?.message || "Failed to download merged PDF.", { duration: 10000 });
+    } finally {
+      setDownloadingMergedInvoiceId(null);
+    }
+  };
+
   const toggleInvoiceExpansion = (invoiceId: number) => {
     const newExpanded = new Set(expandedInvoices);
     if (newExpanded.has(invoiceId)) {
@@ -461,9 +568,8 @@ function InvoicesPage() {
       return;
     }
 
-    // Check if it's a PM invoice
-    const invoice = allInvoices.find(inv => inv.id === rejectionInvoiceId);
-    const isPMInvoice = invoice?.isPropertyManagerInvoice || false;
+    const pmInvoice = (pmInvoicesQuery.data || []).find((inv: any) => inv.id === rejectionInvoiceId);
+    const isPMInvoice = !!pmInvoice;
 
     if (isPMInvoice) {
       updatePMInvoiceStatusMutation.mutate({
@@ -812,6 +918,26 @@ function InvoicesPage() {
 
   // Combine regular invoices and PM invoices
   const allInvoices = [...invoices, ...pmInvoices];
+
+  useEffect(() => {
+    if (!invoiceId || didHandleDeepLinkRef.current) return;
+    const target = allInvoices.find((inv: any) => inv.id === invoiceId);
+    if (!target) return;
+
+    didHandleDeepLinkRef.current = true;
+    setExpandedInvoices((prev) => {
+      const next = new Set(prev);
+      next.add(invoiceId);
+      return next;
+    });
+
+    setTimeout(() => {
+      document.getElementById(`invoice-${invoiceId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+  }, [invoiceId, allInvoices]);
   
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1407,7 +1533,7 @@ function InvoicesPage() {
               const hasOrderReference = !!invoice.order;
               
               return (
-                <div key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                <div key={invoice.id} id={`invoice-${invoice.id}`} className="hover:bg-gray-50 transition-colors">
                   <div className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1563,6 +1689,47 @@ function InvoicesPage() {
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
                                       Quantity
                                     </th>
+                                        {hasOrderReference && !invoice.isPropertyManagerInvoice && (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDownloadJobCardForInvoice(invoice)}
+                                              disabled={downloadingJobCardInvoiceId === invoice.id}
+                                              className="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                                            >
+                                              {downloadingJobCardInvoiceId === invoice.id ? (
+                                                <>
+                                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                  Downloading...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Download className="h-4 w-4 mr-1" />
+                                                  Job Card
+                                                </>
+                                              )}
+                                            </button>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDownloadMergedPdfForInvoice(invoice)}
+                                              disabled={downloadingMergedInvoiceId === invoice.id}
+                                              className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                                            >
+                                              {downloadingMergedInvoiceId === invoice.id ? (
+                                                <>
+                                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                  Preparing...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Download className="h-4 w-4 mr-1" />
+                                                  Merged PDF
+                                                </>
+                                              )}
+                                            </button>
+                                          </>
+                                        )}
                                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
                                       Unit Price
                                     </th>

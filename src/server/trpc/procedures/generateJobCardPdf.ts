@@ -112,21 +112,24 @@ export const generateJobCardPdf = baseProcedure
       // Authorization: Artisans must be assigned to the order, Contractors can access their orders
       const isArtisan = user.role === "ARTISAN";
       const isContractor = user.role === "CONTRACTOR" || user.role === "CONTRACTOR_JUNIOR_MANAGER" || user.role === "CONTRACTOR_SENIOR_MANAGER";
+      const isAdminPortalUser = user.role === "ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN";
       
-      if (isArtisan && order.assignedToId !== parsed.userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not assigned to this order",
-        });
-      }
-      
-      // For PM orders, verify contractor has access
-      if (input.isPMOrder && isContractor) {
-        if (order.contractorId !== parsed.userId) {
+      if (!isAdminPortalUser) {
+        if (isArtisan && order.assignedToId !== parsed.userId) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "You do not have access to this order",
+            message: "You are not assigned to this order",
           });
+        }
+
+        // For PM orders, verify contractor has access
+        if (input.isPMOrder && isContractor) {
+          if (order.contractorId !== parsed.userId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You do not have access to this order",
+            });
+          }
         }
       }
 

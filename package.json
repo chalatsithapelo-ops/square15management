@@ -53,6 +53,7 @@
     "minio": "^8.0.5",
     "nodemailer": "^7.0.10",
     "pdfkit": "^0.17.2",
+    "pdf-lib": "^1.17.1",
     "postcss": "^8.5.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

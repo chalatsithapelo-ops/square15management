@@ -708,6 +708,7 @@ export const updateOrderStatus = baseProcedure
               await db.invoice.create({
                 data: {
                   invoiceNumber,
+                  createdById: tokenUserId,
                   customerName,
                   customerEmail,
                   customerPhone,

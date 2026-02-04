@@ -1,6 +1,35 @@
 import { minioClient, getInternalMinioUrl } from "~/server/minio";
 import { getBaseUrl } from "~/server/utils/base-url";
 
+function parseBucketAndObjectFromUrl(inputUrl: string): { bucketName: string; objectName: string } | null {
+  const trimmed = inputUrl.trim();
+
+  // Relative nginx proxy format: `/minio/<bucket>/<object>`
+  if (trimmed.startsWith("/minio/")) {
+    const parts = trimmed.split("/").filter(Boolean);
+    // parts: ["minio", "bucket", "path", ...]
+    if (parts.length < 3) return null;
+    return {
+      bucketName: parts[1]!,
+      objectName: parts.slice(2).join("/"),
+    };
+  }
+
+  // Absolute URL formats
+  if (/^https?:\/\//i.test(trimmed)) {
+    const urlObj = new URL(trimmed);
+    const pathParts = urlObj.pathname.split("/").filter((p) => p);
+    const effectiveParts = pathParts[0] === "minio" ? pathParts.slice(1) : pathParts;
+    if (effectiveParts.length < 2) return null;
+    return {
+      bucketName: effectiveParts[0]!,
+      objectName: effectiveParts.slice(1).join("/"),
+    };
+  }
+
+  return null;
+}
+
 function toAbsoluteUrl(inputUrl: string): string {
   if (/^https?:\/\//i.test(inputUrl)) return inputUrl;
 
@@ -33,9 +62,10 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
  */
 export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
   try {
-    const absoluteUrl = toAbsoluteUrl(url);
-    console.log(`[fetchImageAsBuffer] Starting fetch for: ${url}`);
-    if (absoluteUrl !== url) {
+    const rawUrl = url.trim();
+    const absoluteUrl = toAbsoluteUrl(rawUrl);
+    console.log(`[fetchImageAsBuffer] Starting fetch for: ${rawUrl}`);
+    if (absoluteUrl !== rawUrl) {
       console.log(`[fetchImageAsBuffer] Normalized to absolute URL: ${absoluteUrl}`);
     }
     
@@ -65,20 +95,24 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     
     // If internal URL fails, try the original external URL
     if (!buffer) {
-      console.log(`[fetchImageAsBuffer] Attempting external URL fetch: ${absoluteUrl}`);
-      try {
-        const externalResponse = await fetchWithTimeout(absoluteUrl, 10_000);
+      if (!/^https?:\/\//i.test(absoluteUrl)) {
+        console.warn(`[fetchImageAsBuffer] Skipping external fetch (not an absolute URL): ${absoluteUrl}`);
+      } else {
+        console.log(`[fetchImageAsBuffer] Attempting external URL fetch: ${absoluteUrl}`);
+        try {
+          const externalResponse = await fetchWithTimeout(absoluteUrl, 10_000);
         
-        if (externalResponse.ok) {
-          const arrayBuffer = await externalResponse.arrayBuffer();
-          buffer = Buffer.from(arrayBuffer);
-          response = externalResponse;
-          console.log(`[fetchImageAsBuffer] ✓ Successfully loaded from external URL (${buffer.length} bytes)`);
-        } else {
-          console.warn(`[fetchImageAsBuffer] External URL failed: ${externalResponse.status} ${externalResponse.statusText}`);
+          if (externalResponse.ok) {
+            const arrayBuffer = await externalResponse.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+            response = externalResponse;
+            console.log(`[fetchImageAsBuffer] ✓ Successfully loaded from external URL (${buffer.length} bytes)`);
+          } else {
+            console.warn(`[fetchImageAsBuffer] External URL failed: ${externalResponse.status} ${externalResponse.statusText}`);
+          }
+        } catch (externalError) {
+          console.warn(`[fetchImageAsBuffer] External URL error:`, externalError instanceof Error ? externalError.message : externalError);
         }
-      } catch (externalError) {
-        console.warn(`[fetchImageAsBuffer] External URL error:`, externalError instanceof Error ? externalError.message : externalError);
       }
     }
     
@@ -86,23 +120,11 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     if (!buffer) {
       console.log(`[fetchImageAsBuffer] Direct URLs failed, attempting presigned URL...`);
       try {
-        // Extract bucket and object name from URL
-        // Expected format: http://host:port/bucket-name/path/to/object
-        const urlObj = new URL(absoluteUrl);
-        const pathParts = urlObj.pathname.split('/').filter(p => p);
-        
-        if (pathParts.length >= 2) {
-          // Support nginx proxy format: `/minio/<bucket>/<object>`
-          const effectiveParts = pathParts[0] === "minio" ? pathParts.slice(1) : pathParts;
+        const parsed = parseBucketAndObjectFromUrl(rawUrl) ?? parseBucketAndObjectFromUrl(absoluteUrl);
 
-          if (effectiveParts.length < 2) {
-            console.error(`[fetchImageAsBuffer] Could not parse bucket/object from URL path: ${urlObj.pathname}`);
-            return null;
-          }
+        if (parsed) {
+          const { bucketName, objectName } = parsed;
 
-          const bucketName = effectiveParts[0]!;
-          const objectName = effectiveParts.slice(1).join('/');
-          
           console.log(`[fetchImageAsBuffer] Generating presigned URL for bucket: ${bucketName}, object: ${objectName}`);
           
           // Generate presigned GET URL (expires in 5 minutes)
@@ -121,7 +143,7 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
             console.error(`[fetchImageAsBuffer] Presigned URL failed: ${presignedResponse.status} ${presignedResponse.statusText}`);
           }
         } else {
-          console.error(`[fetchImageAsBuffer] Could not parse bucket and object name from URL: ${url}`);
+          console.error(`[fetchImageAsBuffer] Could not parse bucket and object name from URL: ${rawUrl}`);
         }
       } catch (presignedError) {
         console.error(`[fetchImageAsBuffer] Presigned URL error:`, presignedError instanceof Error ? presignedError.message : presignedError);
@@ -130,7 +152,7 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     
     // If all attempts failed, return null
     if (!buffer) {
-      console.error(`[fetchImageAsBuffer] ✗ All fetch attempts failed for: ${url}`);
+      console.error(`[fetchImageAsBuffer] ✗ All fetch attempts failed for: ${rawUrl}`);
       return null;
     }
     
@@ -173,7 +195,7 @@ export async function fetchImageAsBuffer(url: string): Promise<Buffer | null> {
     
     return buffer;
   } catch (error) {
-    console.error(`[fetchImageAsBuffer] ✗ Error fetching image from ${url}:`, error);
+    console.error(`[fetchImageAsBuffer] ✗ Error fetching image from ${url.trim()}:`, error);
     if (error instanceof Error) {
       console.error(`[fetchImageAsBuffer] Error details:`, {
         message: error.message,

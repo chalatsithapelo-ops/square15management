@@ -129,7 +129,7 @@ export const getOrders = baseProcedure
           materials: true,
           jobActivities: true,
           expenseSlips: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ARTISAN",
-          invoice: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" ? {
+          invoice: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ADMIN" || isContractorRole ? {
             select: {
               id: true,
               invoiceNumber: true,

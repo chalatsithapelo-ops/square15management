@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
+import { PDFDocument } from "pdf-lib";
 
 export const Route = createFileRoute("/contractor/operations/")({
   component: OperationsPageGuarded,
@@ -117,6 +118,7 @@ function OperationsPage() {
   const [selectedOrderForPdf, setSelectedOrderForPdf] = useState<number | null>(null);
   const [downloadingSummaryId, setDownloadingSummaryId] = useState<number | null>(null);
   const [downloadingJobCardId, setDownloadingJobCardId] = useState<number | null>(null);
+  const [downloadingMergedPdfId, setDownloadingMergedPdfId] = useState<number | null>(null);
   const [editingOrder, setEditingOrder] = useState<number | null>(null);
   const [editingPMOrder, setEditingPMOrder] = useState<boolean>(false);
   const [pendingDocuments, setPendingDocuments] = useState<string[]>([]);
@@ -375,6 +377,31 @@ function OperationsPage() {
   const downloadJobCardMutation = useMutation(
     trpc.generateJobCardPdf.mutationOptions()
   );
+
+  const generateInvoicePdfRawMutation = useMutation(
+    trpc.generateInvoicePdf.mutationOptions()
+  );
+
+  const base64ToUint8Array = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Uint8Array(byteNumbers);
+  };
+
+  const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
 
   const [artisanQueryParams, setArtisanQueryParams] = useState<{
     token: string;
@@ -795,6 +822,51 @@ function OperationsPage() {
       toast.error(error.message || "Failed to download job card.", { duration: 10000 });
     } finally {
       setDownloadingJobCardId(null);
+    }
+  };
+
+  const handleDownloadMergedPdf = async (order: any) => {
+    if (!token) return;
+    if (!(order as any)?.invoice?.id) {
+      toast.error("No invoice found for this order");
+      return;
+    }
+    if ((order as any)?.isPropertyManagerOrder) {
+      toast.error("Merged PDF is currently only available for regular orders");
+      return;
+    }
+
+    setDownloadingMergedPdfId(order.id);
+    try {
+      const [invoiceData, orderData, jobCardData] = await Promise.all([
+        generateInvoicePdfRawMutation.mutateAsync({ token, invoiceId: (order as any).invoice.id }),
+        downloadOrderSummaryMutation.mutateAsync({ token, orderId: order.id, isPMOrder: false }),
+        downloadJobCardMutation.mutateAsync({ token, orderId: order.id, isPMOrder: false }),
+      ]);
+
+      const invoiceBytes = base64ToUint8Array(invoiceData.pdf);
+      const orderBytes = base64ToUint8Array(orderData.pdf);
+      const jobCardBytes = base64ToUint8Array(jobCardData.pdf);
+
+      const mergedPdf = await PDFDocument.create();
+
+      for (const pdfBytes of [invoiceBytes, orderBytes, jobCardBytes]) {
+        const src = await PDFDocument.load(pdfBytes);
+        const copiedPages = await mergedPdf.copyPages(src, src.getPageIndices());
+        copiedPages.forEach((p) => mergedPdf.addPage(p));
+      }
+
+      const mergedBytes = await mergedPdf.save();
+      downloadPdfBytes(
+        mergedBytes,
+        `invoice-order-jobcard-${(order as any).invoice.invoiceNumber || order.id}.pdf`
+      );
+      toast.success("Merged PDF downloaded successfully!", { duration: 5000 });
+    } catch (error: any) {
+      console.error("Merged PDF download error:", error);
+      toast.error(error?.message || "Failed to download merged PDF.", { duration: 10000 });
+    } finally {
+      setDownloadingMergedPdfId(null);
     }
   };
 
@@ -1961,13 +2033,35 @@ function OperationsPage() {
                           </p>
                         </div>
                       </div>
-                      <Link
-                        to="/contractor/invoices"
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                      >
-                        View Invoice
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Link>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                        <Link
+                          to="/contractor/invoices"
+                          search={{ invoiceId: (order as any).invoice.id }}
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                        >
+                          View Invoice
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadMergedPdf(order)}
+                          disabled={downloadingMergedPdfId === order.id}
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {downloadingMergedPdfId === order.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Preparing...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3 w-3 mr-1" />
+                              Merged PDF
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

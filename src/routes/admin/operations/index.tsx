@@ -106,6 +106,8 @@ function OperationsPage() {
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const [selectedOrderForDocs, setSelectedOrderForDocs] = useState<number | null>(null);
   const [selectedOrderForPdf, setSelectedOrderForPdf] = useState<number | null>(null);
+  const [downloadingJobCardId, setDownloadingJobCardId] = useState<number | null>(null);
+  const [downloadingMergedPdfId, setDownloadingMergedPdfId] = useState<number | null>(null);
   const [editingOrder, setEditingOrder] = useState<number | null>(null);
   const [pendingDocuments, setPendingDocuments] = useState<string[]>([]);
   const [classifyingService, setClassifyingService] = useState(false);
@@ -224,6 +226,87 @@ function OperationsPage() {
       },
     })
   );
+
+  const generateOrderPdfRawMutation = useMutation(trpc.generateOrderPdf.mutationOptions());
+  const generateJobCardPdfMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+  const generateInvoicePdfMutation = useMutation(trpc.generateInvoicePdf.mutationOptions());
+
+  const base64ToUint8Array = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Uint8Array(byteNumbers);
+  };
+
+  const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJobCard = async (orderId: number) => {
+    setDownloadingJobCardId(orderId);
+    try {
+      const jobCardData = await generateJobCardPdfMutation.mutateAsync({
+        token: token!,
+        orderId,
+      });
+      downloadPdfBytes(base64ToUint8Array(jobCardData.pdf), `job-card-${orderId}.pdf`);
+      toast.success("Job card downloaded successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download job card");
+    } finally {
+      setDownloadingJobCardId(null);
+    }
+  };
+
+  const handleDownloadMergedPdf = async (order: any) => {
+    if (!order?.invoice?.id) {
+      toast.error("No invoice found for this order");
+      return;
+    }
+
+    setDownloadingMergedPdfId(order.id);
+    const toastId = toast.loading("Preparing combined PDF...");
+    try {
+      const [{ PDFDocument }] = await Promise.all([import("pdf-lib")]);
+
+      const [invoicePdf, orderPdf, jobCardPdf] = await Promise.all([
+        generateInvoicePdfMutation.mutateAsync({ token: token!, invoiceId: order.invoice.id }),
+        generateOrderPdfRawMutation.mutateAsync({ token: token!, orderId: order.id, isPMOrder: false }),
+        generateJobCardPdfMutation.mutateAsync({ token: token!, orderId: order.id, isPMOrder: false }),
+      ]);
+
+      const merged = await PDFDocument.create();
+
+      const append = async (base64: string) => {
+        const src = await PDFDocument.load(base64ToUint8Array(base64));
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      };
+
+      // Required order: Invoice (top) -> Customer Order Summary -> Job Card
+      await append(invoicePdf.pdf);
+      await append(orderPdf.pdf);
+      await append(jobCardPdf.pdf);
+
+      const bytes = await merged.save();
+      downloadPdfBytes(bytes, `invoice-order-jobcard-${order.invoice.invoiceNumber || order.id}.pdf`);
+      toast.success("Combined PDF downloaded!", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate combined PDF", { id: toastId });
+    } finally {
+      setDownloadingMergedPdfId(null);
+    }
+  };
 
   const classifyServiceMutation = useMutation(
     trpc.classifyServiceType.mutationOptions({
@@ -1681,7 +1764,8 @@ function OperationsPage() {
                         </div>
                       </div>
                       <Link
-                        to="/admin/invoices"
+                        to="/admin/invoices/"
+                        search={{ invoiceId: order.invoice.id }}
                         className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                       >
                         View Invoice
@@ -1725,6 +1809,48 @@ function OperationsPage() {
                       </>
                     )}
                   </button>
+
+                  {order.status === "COMPLETED" && (
+                    <>
+                      <button
+                        onClick={() => handleDownloadJobCard(order.id)}
+                        disabled={downloadingJobCardId === order.id}
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {downloadingJobCardId === order.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <Receipt className="h-4 w-4 mr-1" />
+                            Job Card
+                          </>
+                        )}
+                      </button>
+
+                      {order.invoice && (
+                        <button
+                          onClick={() => handleDownloadMergedPdf(order)}
+                          disabled={downloadingMergedPdfId === order.id}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {downloadingMergedPdfId === order.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Preparing...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="h-4 w-4 mr-1" />
+                              Invoice + Order + Job Card
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )}
                   
                   <label className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer">
                     {uploadingDocs && selectedOrderForDocs === order.id ? (

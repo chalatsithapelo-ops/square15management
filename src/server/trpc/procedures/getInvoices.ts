@@ -102,17 +102,42 @@ export const getInvoices = baseProcedure
           select: { id: true },
         });
         const contractorIds = contractors.map(c => c.id);
-        
-        // CRITICAL: Explicitly exclude all contractor-created invoices
-        // AND require createdById to be set (no legacy nulls)
-        if (contractorIds.length > 0) {
-          where.AND = [
-            { createdById: { not: null } }, // Must have a createdById
-            { createdById: { notIn: contractorIds } } // Not created by contractors
-          ];
+
+        // Admin Portal: Exclude contractor-created invoices.
+        // Also include auto-generated invoices that may have legacy `createdById: null`.
+        const adminVisibilityFilter = contractorIds.length > 0
+          ? {
+              OR: [
+                // Normal case: createdById is set and is not a contractor
+                { createdById: { notIn: contractorIds, not: null } },
+                // Legacy/auto-generated case: createdById is null but invoice is linked to an order
+                {
+                  AND: [
+                    { createdById: null },
+                    { orderId: { not: null } },
+                    { notes: { contains: "Auto-generated invoice for completed order" } },
+                  ],
+                },
+              ],
+            }
+          : {
+              OR: [
+                { createdById: { not: null } },
+                {
+                  AND: [
+                    { createdById: null },
+                    { orderId: { not: null } },
+                    { notes: { contains: "Auto-generated invoice for completed order" } },
+                  ],
+                },
+              ],
+            };
+
+        if (where.status) {
+          where.AND = [{ status: where.status }, adminVisibilityFilter];
+          delete where.status;
         } else {
-          // No contractors exist, just ensure createdById is not null
-          where.createdById = { not: null };
+          Object.assign(where, adminVisibilityFilter);
         }
       }
 

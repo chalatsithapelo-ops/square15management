@@ -70,6 +70,12 @@ export function getInternalMinioBaseUrl(): string {
 export function getInternalMinioUrl(externalUrl: string): string {
   const externalBaseUrl = getMinioBaseUrl();
   const internalBaseUrl = getInternalMinioBaseUrl();
+
+  // Common server-side case: stored as relative nginx proxy paths like `/minio/<bucket>/<object>`.
+  // Convert these directly to the internal MinIO base URL.
+  if (externalUrl.startsWith("/minio/")) {
+    return `${internalBaseUrl.replace(/\/$/, "")}/${externalUrl.replace(/^\/minio\//, "")}`;
+  }
   
   // Replace the external base URL with the internal one
   if (externalUrl.startsWith(externalBaseUrl)) {

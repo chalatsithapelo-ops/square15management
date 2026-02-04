@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +28,9 @@ import {
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 
 export const Route = createFileRoute("/admin/invoices/")({
+  validateSearch: z.object({
+    invoiceId: z.coerce.number().optional(),
+  }),
   component: InvoicesPage,
 });
 
@@ -87,6 +90,7 @@ function InvoicesPage() {
   const { token, user } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { invoiceId } = Route.useSearch();
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -104,6 +108,8 @@ function InvoicesPage() {
   const [generatingDescriptionIndex, setGeneratingDescriptionIndex] = useState<number | null>(null);
   const [referencedOrder, setReferencedOrder] = useState<any | null>(null);
   const [downloadingOrderPdf, setDownloadingOrderPdf] = useState(false);
+  const [downloadingJobCardInvoiceId, setDownloadingJobCardInvoiceId] = useState<number | null>(null);
+  const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -252,6 +258,10 @@ function InvoicesPage() {
     })
   );
 
+  const generateInvoicePdfRawMutation = useMutation(trpc.generateInvoicePdf.mutationOptions());
+  const generateOrderPdfRawMutation = useMutation(trpc.generateOrderPdf.mutationOptions());
+  const generateJobCardPdfRawMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+
   const generateDescriptionMutation = useMutation(
     trpc.generateInvoiceDescription.mutationOptions({
       onSuccess: (data, variables) => {
@@ -296,6 +306,27 @@ function InvoicesPage() {
       },
     })
   );
+
+  const base64ToUint8Array = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Uint8Array(byteNumbers);
+  };
+
+  const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
 
   const generatePMOrderPdfMutation = useMutation(
     trpc.generatePropertyManagerOrderPdf.mutationOptions({
@@ -450,12 +481,127 @@ function InvoicesPage() {
     setCompanyLabourCost(invoice.companyLabourCost?.toString() || "");
   };
 
+  useEffect(() => {
+    if (!invoiceId) return;
+    const invoices = invoicesQuery.data || [];
+    const invoice = invoices.find((i: any) => i.id === invoiceId);
+    if (!invoice) return;
+
+    setStatusFilter(null);
+    setSearchTerm("");
+    setExpandedInvoices((prev) => {
+      const next = new Set(prev);
+      next.add(invoiceId);
+      return next;
+    });
+
+    handleEditInvoice(invoice);
+
+    // Scroll the invoice into view once it exists in the DOM
+    setTimeout(() => {
+      document.getElementById(`invoice-${invoiceId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+    // Only run when invoices change / invoiceId changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId, invoicesQuery.data]);
+
   const handleExportPdf = (invoiceId: number) => {
     setGeneratingPdfId(invoiceId);
     generateInvoicePdfMutation.mutate({
       token: token!,
       invoiceId,
     });
+  };
+
+  const handleDownloadJobCardForInvoice = async (invoice: any) => {
+    if (!invoice?.order?.id) {
+      toast.error("This invoice is not linked to an order");
+      return;
+    }
+
+    setDownloadingJobCardInvoiceId(invoice.id);
+    try {
+      const jobCardData = await generateJobCardPdfRawMutation.mutateAsync({
+        token: token!,
+        orderId: invoice.order.id,
+        isPMOrder: false,
+      });
+
+      downloadPdfBytes(base64ToUint8Array(jobCardData.pdf), `job-card-${invoice.order.orderNumber || invoice.order.id}.pdf`);
+      toast.success("Job card downloaded!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download job card");
+    } finally {
+      setDownloadingJobCardInvoiceId(null);
+    }
+  };
+
+  const handleDownloadOrderSummaryForInvoice = async (invoice: any) => {
+    if (!invoice?.order?.id) {
+      toast.error("This invoice is not linked to an order");
+      return;
+    }
+
+    setDownloadingOrderPdf(true);
+    try {
+      const orderPdf = await generateOrderPdfRawMutation.mutateAsync({
+        token: token!,
+        orderId: invoice.order.id,
+        isPMOrder: false,
+      });
+
+      downloadPdfBytes(
+        base64ToUint8Array(orderPdf.pdf),
+        `order-${invoice.order.orderNumber || invoice.order.id}.pdf`
+      );
+      toast.success("Order summary downloaded!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download order summary");
+    } finally {
+      setDownloadingOrderPdf(false);
+    }
+  };
+
+  const handleDownloadMergedPdfForInvoice = async (invoice: any) => {
+    if (!invoice?.order?.id) {
+      toast.error("This invoice is not linked to an order");
+      return;
+    }
+
+    setDownloadingMergedInvoiceId(invoice.id);
+    const toastId = toast.loading("Preparing combined PDF...");
+    try {
+      const [{ PDFDocument }] = await Promise.all([import("pdf-lib")]);
+
+      const [invoicePdf, orderPdf, jobCardPdf] = await Promise.all([
+        generateInvoicePdfRawMutation.mutateAsync({ token: token!, invoiceId: invoice.id }),
+        generateOrderPdfRawMutation.mutateAsync({ token: token!, orderId: invoice.order.id, isPMOrder: false }),
+        generateJobCardPdfRawMutation.mutateAsync({ token: token!, orderId: invoice.order.id, isPMOrder: false }),
+      ]);
+
+      const merged = await PDFDocument.create();
+      const append = async (base64: string) => {
+        const src = await PDFDocument.load(base64ToUint8Array(base64));
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      };
+
+      // Required order: Invoice (top) -> Customer Order Summary -> Job Card
+      await append(invoicePdf.pdf);
+      await append(orderPdf.pdf);
+      await append(jobCardPdf.pdf);
+
+      const bytes = await merged.save();
+      downloadPdfBytes(bytes, `invoice-order-jobcard-${invoice.invoiceNumber || invoice.id}.pdf`);
+      toast.success("Combined PDF downloaded!", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate combined PDF", { id: toastId });
+    } finally {
+      setDownloadingMergedInvoiceId(null);
+    }
   };
 
   const handleGenerateDescription = (index: number) => {
@@ -1226,7 +1372,7 @@ function InvoicesPage() {
               const hasOrderReference = !!invoice.order;
               
               return (
-                <div key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                <div id={`invoice-${invoice.id}`} key={invoice.id} className="hover:bg-gray-50 transition-colors">
                   <div className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1439,24 +1585,80 @@ function InvoicesPage() {
                         )}
                       </div>
                       <div className="ml-4 flex space-x-2">
-                        {["SENT", "OVERDUE", "PAID"].includes(invoice.status) && (
-                          <button
-                            onClick={() => handleExportPdf(invoice.id)}
-                            disabled={generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id}
-                            className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                          >
-                            {generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="h-4 w-4 mr-1" />
-                                Export PDF
-                              </>
-                            )}
-                          </button>
+                        <button
+                          onClick={() => handleExportPdf(invoice.id)}
+                          disabled={generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id}
+                          className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                        >
+                          {generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-1" />
+                              Export PDF
+                            </>
+                          )}
+                        </button>
+
+                        {invoice.order && (
+                          <>
+                            <button
+                              onClick={() => handleDownloadOrderSummaryForInvoice(invoice)}
+                              disabled={downloadingOrderPdf}
+                              className="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingOrderPdf ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  Order Summary
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleDownloadJobCardForInvoice(invoice)}
+                              disabled={downloadingJobCardInvoiceId === invoice.id}
+                              className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingJobCardInvoiceId === invoice.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <Receipt className="h-4 w-4 mr-1" />
+                                  Job Card
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleDownloadMergedPdfForInvoice(invoice)}
+                              disabled={downloadingMergedInvoiceId === invoice.id}
+                              className="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingMergedInvoiceId === invoice.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  Preparing...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-4 w-4 mr-1" />
+                                  Invoice + Order + Job Card
+                                </>
+                              )}
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEditInvoice(invoice)}

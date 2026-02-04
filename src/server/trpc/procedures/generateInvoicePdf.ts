@@ -18,7 +18,19 @@ export const generateInvoicePdf = baseProcedure
   .mutation(async ({ input }) => {
     try {
       const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const { userId } = z.object({ userId: z.number() }).parse(verified as any);
+
+      const requestingUser = await db.user.findUnique({
+        where: { id: userId },
+        select: { id: true, role: true, email: true },
+      });
+
+      if (!requestingUser) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "User not found",
+        });
+      }
 
       const invoice = await db.invoice.findUnique({
         where: { id: input.invoiceId },
@@ -70,8 +82,13 @@ export const generateInvoicePdf = baseProcedure
         });
       }
 
-      // Only allow export of sent or overdue invoices
-      if (!["SENT", "OVERDUE", "PAID"].includes(invoice.status)) {
+      const isAdminPortalUser =
+        requestingUser.role === "ADMIN" ||
+        requestingUser.role === "SENIOR_ADMIN" ||
+        requestingUser.role === "JUNIOR_ADMIN";
+
+      // Only allow export of sent/overdue/paid invoices for non-admin users.
+      if (!isAdminPortalUser && !["SENT", "OVERDUE", "PAID"].includes(invoice.status)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Only sent, overdue, or paid invoices can be exported",
