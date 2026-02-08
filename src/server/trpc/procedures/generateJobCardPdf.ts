@@ -421,10 +421,8 @@ export const generateJobCardPdf = baseProcedure
                 .fontSize(9)
                 .fillColor("#ffffff")
                 .font("Helvetica-Bold")
-                .text("MATERIAL", 60, yPos + 7, { width: 220 })
-                .text("QTY", 290, yPos + 7, { width: 50, align: "right" })
-                .text("UNIT PRICE", 350, yPos + 7, { width: 80, align: "right" })
-                .text("TOTAL", 440, yPos + 7, { width: 95, align: "right" });
+                .text("MATERIAL", 60, yPos + 7, { width: 350 })
+                .text("QTY", 420, yPos + 7, { width: 115, align: "right" });
 
               yPos += 30;
 
@@ -441,11 +439,8 @@ export const generateJobCardPdf = baseProcedure
                   .fontSize(9)
                   .fillColor("#333333")
                   .font("Helvetica")
-                  .text(material.name, 60, yPos, { width: 220 })
-                  .text(material.quantity.toString(), 290, yPos, { width: 50, align: "right" })
-                  .text(`R${(material.unitPrice || 0).toFixed(2)}`, 350, yPos, { width: 80, align: "right" })
-                  .font("Helvetica-Bold")
-                  .text(`R${(material.totalCost || 0).toFixed(2)}`, 440, yPos, { width: 95, align: "right" });
+                  .text(material.name, 60, yPos, { width: 350 })
+                  .text(material.quantity.toString(), 420, yPos, { width: 115, align: "right" });
 
                 yPos += 18;
               });

@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  FileText,
 } from "lucide-react";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 
