@@ -37,6 +37,8 @@ import {
   Receipt,
   ExternalLink,
   DollarSign,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
@@ -108,6 +110,7 @@ function OperationsPage() {
   const [selectedOrderForPdf, setSelectedOrderForPdf] = useState<number | null>(null);
   const [downloadingJobCardId, setDownloadingJobCardId] = useState<number | null>(null);
   const [downloadingMergedPdfId, setDownloadingMergedPdfId] = useState<number | null>(null);
+  const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
   const [editingOrder, setEditingOrder] = useState<number | null>(null);
   const [pendingDocuments, setPendingDocuments] = useState<string[]>([]);
   const [classifyingService, setClassifyingService] = useState(false);
@@ -717,6 +720,16 @@ function OperationsPage() {
       toast.error("Failed to upload documents");
       setUploadingDocs(false);
     }
+  };
+
+  const toggleOrderExpansion = (orderId: number) => {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+    }
+    setExpandedOrders(newExpanded);
   };
 
   const handleExportPdf = (orderId: number) => {
@@ -1657,308 +1670,253 @@ function OperationsPage() {
 
         {/* Orders List */}
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
+          {filteredOrders.map((order) => {
+            const isExpanded = expandedOrders.has(order.id);
+            const materialCount = order.materials?.length || 0;
+            const expenseCount = order.expenseSlips?.length || 0;
+            const docCount = order.documents?.length || 0;
+            
+            return (
             <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <h3 className="text-xl font-bold text-gray-900">{order.orderNumber}</h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          orderStatuses.find((s) => s.value === order.status)?.color
-                        }`}
-                      >
-                        {orderStatuses.find((s) => s.value === order.status)?.label}
+              {/* Compact Header */}
+              <div className="px-4 sm:px-6 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <button
+                      onClick={() => toggleOrderExpansion(order.id)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
+                    >
+                      {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+                    </button>
+                    <h3 className="text-sm font-bold text-gray-900 flex-shrink-0">{order.orderNumber}</h3>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                        orderStatuses.find((s) => s.value === order.status)?.color
+                      }`}
+                    >
+                      {orderStatuses.find((s) => s.value === order.status)?.label}
+                    </span>
+                    <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{order.customerName}</span>
+                    <span className="text-xs text-gray-500 hidden md:inline">• {order.serviceType}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-bold text-gray-900">R{order.totalCost.toLocaleString()}</span>
+                    {order.assignedTo && (
+                      <span className="text-xs text-gray-500 hidden lg:inline">
+                        <User className="h-3 w-3 inline mr-0.5" />{order.assignedTo.firstName} {order.assignedTo.lastName}
                       </span>
-                    </div>
-
-                    <div className="text-sm font-medium text-gray-700 mb-3">{order.customerName}</div>
-
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center text-gray-600">
-                          <Mail className="h-4 w-4 mr-2 text-blue-600" />
-                          <span className="break-all">{order.customerEmail}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Phone className="h-4 w-4 mr-2 text-blue-600" />
-                          <span>{order.customerPhone}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600 sm:col-span-2">
-                          <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                          <span>{order.address}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Wrench className="h-4 w-4 mr-2 text-blue-600" />
-                          <span>{order.serviceType}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <DollarSign className="h-4 w-4 mr-2 text-blue-600" />
-                          <span className="font-semibold">R {order.totalCost.toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Calendar className="h-4 w-4 mr-2 text-blue-600" />
-                          <span>{new Date(order.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        {order.assignedTo && (
-                          <div className="flex items-center text-gray-600">
-                            <User className="h-4 w-4 mr-2 text-blue-600" />
-                            <span>Assigned to {order.assignedTo.firstName} {order.assignedTo.lastName}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {order.description && (
-                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs font-semibold text-gray-700 mb-1">Description:</p>
-                        <p className="text-sm text-gray-600">{order.description}</p>
-                      </div>
                     )}
-
-                {order.notes && (
-                  <div className="mt-3 p-3 bg-amber-50 rounded-lg">
-                    <p className="text-xs font-semibold text-amber-700 mb-1">Notes:</p>
-                    <p className="text-sm text-amber-900">{order.notes}</p>
                   </div>
-                )}
+                </div>
 
-                {/* Display materials */}
-                {order.materials && order.materials.length > 0 && (
-                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-green-900 mb-2 flex items-center">
-                      <FileText className="h-4 w-4 mr-1" />
-                      Materials ({order.materials.length})
-                    </p>
-                    <div className="space-y-2">
-                      {order.materials.map((material: any, idx: number) => (
-                        <div key={idx} className="bg-white rounded p-2 text-xs">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="flex-1">
+                {/* Compact info row */}
+                <div className="flex items-center gap-3 mt-1 ml-7 text-xs text-gray-500 flex-wrap">
+                  <span className="sm:hidden">{order.customerName}</span>
+                  <span className="flex items-center"><Mail className="h-3 w-3 mr-1" /><span className="truncate max-w-[150px]">{order.customerEmail}</span></span>
+                  <span className="flex items-center"><Phone className="h-3 w-3 mr-1" />{order.customerPhone}</span>
+                  <span className="flex items-center"><Calendar className="h-3 w-3 mr-1" />{new Date(order.createdAt).toLocaleDateString()}</span>
+                  {materialCount > 0 && <span className="text-green-700 font-medium">{materialCount} material{materialCount !== 1 ? 's' : ''}</span>}
+                  {expenseCount > 0 && <span className="text-purple-700 font-medium">{expenseCount} expense{expenseCount !== 1 ? 's' : ''}</span>}
+                  {docCount > 0 && <span className="text-blue-700 font-medium">{docCount} doc{docCount !== 1 ? 's' : ''}</span>}
+                  {order.status === "COMPLETED" && order.invoice && (
+                    <Link
+                      to="/admin/invoices/"
+                      search={{ invoiceId: order.invoice.id }}
+                      className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+                    >
+                      Invoice #{order.invoice.invoiceNumber}
+                      <ExternalLink className="h-3 w-3 ml-0.5" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {/* Expanded Details */}
+              {isExpanded && (
+                <div className="px-4 sm:px-6 pb-3 space-y-3">
+                  {/* Contact & details grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-600 pt-2 border-t border-gray-100">
+                    <div className="flex items-center"><Mail className="h-3.5 w-3.5 mr-1.5 text-blue-600" /><span className="break-all">{order.customerEmail}</span></div>
+                    <div className="flex items-center"><Phone className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{order.customerPhone}</div>
+                    <div className="flex items-center col-span-2"><MapPin className="h-3.5 w-3.5 mr-1.5 text-blue-600 flex-shrink-0" />{order.address}</div>
+                    <div className="flex items-center"><Wrench className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{order.serviceType}</div>
+                    <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-blue-600" /><span className="font-semibold">R{order.totalCost.toLocaleString()}</span></div>
+                    <div className="flex items-center"><Calendar className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{new Date(order.createdAt).toLocaleDateString()}</div>
+                    {order.assignedTo && (
+                      <div className="flex items-center"><User className="h-3.5 w-3.5 mr-1.5 text-blue-600" />Assigned to {order.assignedTo.firstName} {order.assignedTo.lastName}</div>
+                    )}
+                  </div>
+
+                  {order.description && (
+                    <div className="p-2 bg-gray-50 rounded-lg">
+                      <p className="text-xs font-semibold text-gray-700 mb-0.5">Description:</p>
+                      <p className="text-xs text-gray-600">{order.description}</p>
+                    </div>
+                  )}
+
+                  {order.notes && (
+                    <div className="p-2 bg-amber-50 rounded-lg">
+                      <p className="text-xs font-semibold text-amber-700 mb-0.5">Notes:</p>
+                      <p className="text-xs text-amber-900">{order.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Materials - compact table format */}
+                  {order.materials && order.materials.length > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-green-900 mb-2 flex items-center">
+                        <FileText className="h-3.5 w-3.5 mr-1" />
+                        Materials ({order.materials.length})
+                        <span className="ml-auto font-bold">
+                          Total: R{order.materials.reduce((sum: number, m: any) => sum + m.totalCost, 0).toFixed(2)}
+                        </span>
+                      </p>
+                      <div className="space-y-1">
+                        {order.materials.map((material: any, idx: number) => (
+                          <div key={idx} className="bg-white rounded px-2 py-1.5 text-xs flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
                               <span className="font-semibold text-green-900">{material.name}</span>
-                              {material.supplier && (
-                                <span className="text-gray-600 ml-2">from {material.supplier}</span>
-                              )}
+                              {material.supplier && <span className="text-gray-500 ml-1">from {material.supplier}</span>}
+                              {material.description && <span className="text-gray-500 ml-1">— {material.description}</span>}
                             </div>
-                            <span className="font-bold text-green-900 ml-2">
-                              R{material.totalCost.toFixed(2)}
-                            </span>
+                            <div className="flex items-center gap-3 flex-shrink-0 text-right">
+                              <span className="text-gray-600">Qty: {material.quantity} × R{material.unitPrice.toFixed(2)}</span>
+                              <span className="font-bold text-green-900">R{material.totalCost.toFixed(2)}</span>
+                            </div>
+                            {material.supplierQuotationUrl && (
+                              <a href={material.supplierQuotationUrl} target="_blank" rel="noopener noreferrer" className="text-green-700 hover:text-green-800 flex-shrink-0">
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
                           </div>
-                          <div className="text-gray-600">
-                            Qty: {material.quantity} × R{material.unitPrice.toFixed(2)}
-                          </div>
-                          {material.description && (
-                            <div className="text-gray-600 mt-1">{material.description}</div>
-                          )}
-                          {material.supplierQuotationUrl && (
-                            <a
-                              href={material.supplierQuotationUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-green-700 hover:text-green-800 mt-1"
-                            >
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              View Supplier Quotation
-                              {material.supplierQuotationAmount && (
-                                <span className="ml-1">(R{material.supplierQuotationAmount.toFixed(2)})</span>
-                              )}
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                      <div className="border-t border-green-300 pt-2 mt-2">
-                        <div className="flex justify-between text-sm font-bold text-green-900">
-                          <span>Total Materials Cost:</span>
-                          <span>
-                            R{order.materials
-                              .reduce((sum: number, m: any) => sum + m.totalCost, 0)
-                              .toFixed(2)}
-                          </span>
-                        </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Display uploaded documents */}
-                {order.documents && order.documents.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Attached Documents:</p>
-                    <div className="space-y-1">
-                      {order.documents.map((docUrl, idx) => (
-                        <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
-                      ))}
+                  {/* Documents */}
+                  {order.documents && order.documents.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-700 mb-1">Attached Documents:</p>
+                      <div className="space-y-1">
+                        {order.documents.map((docUrl, idx) => (
+                          <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Display expense slips */}
-                {order.expenseSlips && order.expenseSlips.length > 0 && (
-                  <div className="mt-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-purple-900 mb-2 flex items-center">
-                      <Receipt className="h-4 w-4 mr-1" />
-                      Expense Slips & Purchases
-                    </p>
-                    <div className="space-y-2">
-                      {order.expenseSlips.map((slip: any, idx: number) => {
-                        const categoryLabels: Record<string, string> = {
-                          MATERIALS: "Materials",
-                          TOOLS: "Tools",
-                          TRANSPORTATION: "Transportation",
-                          OTHER: "Other",
-                        };
-                        
-                        return (
-                          <div key={idx} className="bg-white rounded p-2 text-xs">
-                            <div className="flex items-start justify-between mb-1">
-                              <div className="flex-1">
-                                <span className="font-semibold text-purple-900">
-                                  {categoryLabels[slip.category] || slip.category}
-                                </span>
-                                {slip.description && (
-                                  <span className="text-gray-600 ml-2">- {slip.description}</span>
+                  {/* Expense Slips - compact format */}
+                  {order.expenseSlips && order.expenseSlips.length > 0 && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-purple-900 mb-2 flex items-center">
+                        <Receipt className="h-3.5 w-3.5 mr-1" />
+                        Expense Slips & Purchases ({order.expenseSlips.length})
+                        <span className="ml-auto font-bold">
+                          Total: R{order.expenseSlips.reduce((sum: number, slip: any) => sum + (slip.amount || 0), 0).toFixed(2)}
+                        </span>
+                      </p>
+                      <div className="space-y-1">
+                        {order.expenseSlips.map((slip: any, idx: number) => {
+                          const categoryLabels: Record<string, string> = {
+                            MATERIALS: "Materials", TOOLS: "Tools", TRANSPORTATION: "Transportation", OTHER: "Other",
+                          };
+                          return (
+                            <div key={idx} className="bg-white rounded px-2 py-1.5 text-xs">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-semibold text-purple-900">{categoryLabels[slip.category] || slip.category}</span>
+                                  {slip.description && <span className="text-gray-600 ml-1">- {slip.description}</span>}
+                                </div>
+                                {slip.amount !== null && slip.amount !== undefined && (
+                                  <span className="font-bold text-purple-900 flex-shrink-0">R{slip.amount.toFixed(2)}</span>
                                 )}
                               </div>
-                              {slip.amount !== null && slip.amount !== undefined && (
-                                <span className="font-bold text-purple-900 ml-2">
-                                  R{slip.amount.toFixed(2)}
-                                </span>
-                              )}
+                              <FileAttachment url={slip.url} isOwnMessage={false} />
                             </div>
-                            <FileAttachment url={slip.url} isOwnMessage={false} />
-                          </div>
-                        );
-                      })}
-                      <div className="border-t border-purple-300 pt-2 mt-2">
-                        <div className="flex justify-between text-sm font-bold text-purple-900">
-                          <span>Total from Slips:</span>
-                          <span>
-                            R{order.expenseSlips
-                              .reduce((sum: number, slip: any) => sum + (slip.amount || 0), 0)
-                              .toFixed(2)}
-                          </span>
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Invoice Status for Completed Orders */}
-                {order.status === "COMPLETED" && order.invoice && (
-                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center space-x-2">
-                        <Receipt className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  {/* Invoice Status */}
+                  {order.status === "COMPLETED" && order.invoice && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4 text-blue-600 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-blue-900">
-                            Invoice Auto-Generated
-                          </p>
-                          <p className="text-xs text-blue-700">
-                            Invoice #{order.invoice.invoiceNumber} • Status: {order.invoice.status.replace('_', ' ')}
-                          </p>
+                          <span className="text-xs font-semibold text-blue-900">Invoice #{order.invoice.invoiceNumber}</span>
+                          <span className="text-xs text-blue-700 ml-2">Status: {order.invoice.status.replace('_', ' ')}</span>
                         </div>
                       </div>
                       <Link
                         to="/admin/invoices/"
                         search={{ invoiceId: order.invoice.id }}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                       >
-                        View Invoice
-                        <ExternalLink className="h-3 w-3 ml-1" />
+                        View <ExternalLink className="h-3 w-3 ml-1" />
                       </Link>
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  )}
+                </div>
+              )}
 
-          {/* Action Buttons Section */}
-          <div className="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div className="flex flex-wrap gap-2">
-                  {/* Edit button - only show for PENDING and ASSIGNED orders (not yet started) */}
+              {/* Action Buttons - always visible */}
+              <div className="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2">
+                <div className="flex flex-wrap gap-1.5">
                   {(order.status === 'PENDING' || order.status === 'ASSIGNED') && (
                     <button
                       onClick={() => handleEditOrder(order)}
-                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                      className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
                     >
-                      <Wrench className="h-4 w-4 mr-1" />
-                      Edit
+                      <Wrench className="h-3.5 w-3.5 mr-1" />Edit
                     </button>
                   )}
-                  
                   <button
                     onClick={() => handleExportPdf(order.id)}
                     disabled={generatePdfQuery.isPending && selectedOrderForPdf === order.id}
-                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {generatePdfQuery.isPending && selectedOrderForPdf === order.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Generating...
-                      </>
+                      <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Generating...</>
                     ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-1" />
-                        Export PDF
-                      </>
+                      <><Download className="h-3.5 w-3.5 mr-1" />Export PDF</>
                     )}
                   </button>
-
                   {order.status === "COMPLETED" && (
                     <>
                       <button
                         onClick={() => handleDownloadJobCard(order.id)}
                         disabled={downloadingJobCardId === order.id}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
                       >
                         {downloadingJobCardId === order.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            Downloading...
-                          </>
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Downloading...</>
                         ) : (
-                          <>
-                            <Receipt className="h-4 w-4 mr-1" />
-                            Job Card
-                          </>
+                          <><Receipt className="h-3.5 w-3.5 mr-1" />Job Card</>
                         )}
                       </button>
-
                       {order.invoice && (
                         <button
                           onClick={() => handleDownloadMergedPdf(order)}
                           disabled={downloadingMergedPdfId === order.id}
-                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
                         >
                           {downloadingMergedPdfId === order.id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              Preparing...
-                            </>
+                            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Preparing...</>
                           ) : (
-                            <>
-                              <FileText className="h-4 w-4 mr-1" />
-                              Invoice + Order + Job Card
-                            </>
+                            <><FileText className="h-3.5 w-3.5 mr-1" />Invoice + Order + Job Card</>
                           )}
                         </button>
                       )}
                     </>
                   )}
-                  
-                  <label className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer">
+                  <label className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer">
                     {uploadingDocs && selectedOrderForDocs === order.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Uploading...
-                      </>
+                      <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Uploading...</>
                     ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-1" />
-                        Upload Document
-                      </>
+                      <><Upload className="h-3.5 w-3.5 mr-1" />Upload Document</>
                     )}
                     <input
                       type="file"
@@ -1975,7 +1933,8 @@ function OperationsPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
           {filteredOrders.length === 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
               <Wrench className="mx-auto h-12 w-12 text-gray-400" />

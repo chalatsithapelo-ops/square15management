@@ -1468,306 +1468,63 @@ function InvoicesPage() {
               const isExpanded = expandedInvoices.has(invoice.id);
               const items = Array.isArray(invoice.items) ? invoice.items : [];
               const hasOrderReference = !!invoice.order;
+              const totalCostToCompany = (invoice.companyMaterialCost || 0) + (invoice.companyLabourCost || 0);
               
               return (
-                <div id={`invoice-${invoice.id}`} key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                  <div className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{invoice.invoiceNumber}</h3>
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              invoice.status === "SENT" 
-                                ? "bg-blue-100 text-blue-800"
-                                : invoice.status === "OVERDUE"
-                                ? "bg-red-100 text-red-800"
-                                : invoiceStatuses.find((s) => s.value === invoice.status)?.color
-                            }`}
-                          >
-                            {invoice.status === "SENT" 
-                              ? "Sent"
+                <div id={`invoice-${invoice.id}`} key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
+                  {/* Compact Header Row */}
+                  <div className="px-4 sm:px-6 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Left: Key info */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <button
+                          onClick={() => toggleInvoiceExpansion(invoice.id)}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+                        </button>
+                        <h3 className="text-sm font-bold text-gray-900 flex-shrink-0">{invoice.invoiceNumber}</h3>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                            invoice.status === "SENT" 
+                              ? "bg-blue-100 text-blue-800"
                               : invoice.status === "OVERDUE"
-                              ? "Overdue"
-                              : invoiceStatuses.find((s) => s.value === invoice.status)?.label
-                            }
+                              ? "bg-red-100 text-red-800"
+                              : invoiceStatuses.find((s) => s.value === invoice.status)?.color
+                          }`}
+                        >
+                          {invoice.status === "SENT" 
+                            ? "Sent"
+                            : invoice.status === "OVERDUE"
+                            ? "Overdue"
+                            : invoiceStatuses.find((s) => s.value === invoice.status)?.label
+                          }
+                        </span>
+                        {hasOrderReference && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 flex-shrink-0">
+                            From Order
                           </span>
-                          {hasOrderReference && (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              From Order
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600 mb-3">
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2 text-gray-400" />
-                            {invoice.customerName}
-                          </div>
-                          <div className="flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            {invoice.customerEmail}
-                          </div>
-                          <div className="flex items-center">
-                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                            {invoice.customerPhone}
-                          </div>
-                          <div className="flex items-center">
-                            <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                            R{invoice.total.toLocaleString()}
-                          </div>
-                          {isAdmin && invoice.estimatedProfit !== undefined && (
-                            <div className="flex items-center">
-                              <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                              <span className="text-gray-600">Estimated Profit:</span>
-                              <span className={`font-semibold ml-2 ${invoice.estimatedProfit >= 0 ? "text-green-700" : "text-red-700"}`}>
-                                R{invoice.estimatedProfit.toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Internal Cost Breakdown */}
-                        {isAdmin && (invoice.companyMaterialCost !== undefined || invoice.companyLabourCost !== undefined) && (
-                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 mb-3 border border-green-100">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Internal Cost Breakdown</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                              <div>
-                                <span className="text-gray-600">Material Cost:</span>
-                                <div className="font-medium text-gray-900">
-                                  R{invoice.companyMaterialCost?.toFixed(2) || "0.00"}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Labour Cost:</span>
-                                <div className="font-medium text-gray-900">
-                                  R{invoice.companyLabourCost?.toFixed(2) || "0.00"}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Total Cost to Company:</span>
-                                <div className="font-medium text-gray-900">
-                                  R{((invoice.companyMaterialCost || 0) + (invoice.companyLabourCost || 0)).toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="mt-3 pt-3 border-t border-green-200">
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold text-gray-900">Client Invoice Total:</span>
-                                <span className="font-bold text-gray-900">R{invoice.total.toFixed(2)}</span>
-                              </div>
-                            </div>
-                          </div>
                         )}
-                        
-                        {/* Cost to Company Breakdown */}
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-3 border border-blue-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-gray-900">Cost to Company Breakdown</h4>
-                            <button
-                              onClick={() => toggleInvoiceExpansion(invoice.id)}
-                              className="text-sm text-brand-danger-600 hover:text-brand-danger-700 font-medium inline-flex items-center"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <ChevronUp className="h-4 w-4 mr-1" />
-                                  Hide Details
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-4 w-4 mr-1" />
-                                  Show Details
-                                </>
-                              )}
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {(invoice.companyMaterialCost !== undefined && invoice.companyMaterialCost > 0) && (
-                              <div className="bg-white rounded-lg p-3 border border-green-200">
-                                <div className="text-xs text-gray-600 mb-1">Material Cost</div>
-                                <div className="text-lg font-bold text-green-700">R{invoice.companyMaterialCost.toLocaleString()}</div>
-                              </div>
-                            )}
-                            {(invoice.companyLabourCost !== undefined && invoice.companyLabourCost > 0) && (
-                              <div className="bg-white rounded-lg p-3 border border-blue-200">
-                                <div className="text-xs text-gray-600 mb-1">Labour Cost</div>
-                                <div className="text-lg font-bold text-blue-700">R{invoice.companyLabourCost.toLocaleString()}</div>
-                              </div>
-                            )}
-                            {(invoice.companyMaterialCost !== undefined || invoice.companyLabourCost !== undefined) && (
-                              <div className="bg-white rounded-lg p-3 border border-indigo-200">
-                                <div className="text-xs text-gray-600 mb-1">Total Cost to Company</div>
-                                <div className="text-lg font-bold text-indigo-700">
-                                  R{((invoice.companyMaterialCost || 0) + (invoice.companyLabourCost || 0)).toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          {(!invoice.companyMaterialCost && !invoice.companyLabourCost) && (
-                            <div className="text-sm text-gray-500 italic">
-                              No cost breakdown available for this invoice
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Expanded Line Items Details */}
-                        {isExpanded && items.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Detailed Line Items</h4>
-                            <div className="overflow-x-auto scrollbar-none touch-pan-x">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead>
-                                  <tr className="bg-gray-100">
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                      Description
-                                    </th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                      UoM
-                                    </th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                      Quantity
-                                    </th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                      Unit Price
-                                    </th>
-                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                      Total
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                  {items.map((item: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-gray-50">
-                                      <td className="px-3 py-2 text-sm text-gray-900">{item.description}</td>
-                                      <td className="px-3 py-2 text-sm text-gray-600 text-center">{item.unitOfMeasure || 'Sum'}</td>
-                                      <td className="px-3 py-2 text-sm text-gray-900 text-right">{item.quantity}</td>
-                                      <td className="px-3 py-2 text-sm text-gray-900 text-right">R{item.unitPrice.toFixed(2)}</td>
-                                      <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{item.total.toFixed(2)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                                <tfoot className="bg-gray-50">
-                                  <tr>
-                                    <td colSpan={4} className="px-3 py-2 text-sm font-medium text-gray-700 text-right">Subtotal:</td>
-                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{invoice.subtotal.toFixed(2)}</td>
-                                  </tr>
-                                  <tr>
-                                    <td colSpan={4} className="px-3 py-2 text-sm font-medium text-gray-700 text-right">VAT (15%):</td>
-                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{invoice.tax.toFixed(2)}</td>
-                                  </tr>
-                                  <tr className="border-t-2 border-gray-300">
-                                    <td colSpan={4} className="px-3 py-2 text-base font-bold text-gray-900 text-right">Total:</td>
-                                    <td className="px-3 py-2 text-base font-bold text-brand-danger-600 text-right">R{invoice.total.toFixed(2)}</td>
-                                  </tr>
-                                </tfoot>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-
-                        {invoice.dueDate && (
-                          <div className="text-sm text-gray-600 flex items-center mb-2">
-                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                            Due {new Date(invoice.dueDate).toLocaleDateString()}
-                          </div>
-                        )}
-                        {invoice.order && (
-                          <div className="text-sm text-purple-600 font-medium">
-                            Auto-generated from Order {invoice.order.orderNumber}
-                          </div>
-                        )}
-                        {invoice.rejectionReason && (
-                          <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
-                            <p className="text-sm font-medium text-red-900 mb-1">Rejection Reason:</p>
-                            <p className="text-sm text-red-700">{invoice.rejectionReason}</p>
-                          </div>
-                        )}
+                        <span className="text-sm text-gray-500 truncate hidden sm:inline">
+                          <User className="h-3.5 w-3.5 inline mr-1" />{invoice.customerName}
+                        </span>
+                        <span className="text-sm text-gray-500 truncate hidden md:inline">
+                          {invoice.customerEmail}
+                        </span>
                       </div>
-                      <div className="ml-4 flex space-x-2">
-                        <button
-                          onClick={() => handleExportPdf(invoice.id)}
-                          disabled={generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id}
-                          className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                        >
-                          {generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-4 w-4 mr-1" />
-                              Export PDF
-                            </>
-                          )}
-                        </button>
 
-                        {invoice.order && (
-                          <>
-                            <button
-                              onClick={() => handleDownloadOrderSummaryForInvoice(invoice)}
-                              disabled={downloadingOrderPdf}
-                              className="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                            >
-                              {downloadingOrderPdf ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                  Downloading...
-                                </>
-                              ) : (
-                                <>
-                                  <FileText className="h-4 w-4 mr-1" />
-                                  Order Summary
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleDownloadJobCardForInvoice(invoice)}
-                              disabled={downloadingJobCardInvoiceId === invoice.id}
-                              className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                            >
-                              {downloadingJobCardInvoiceId === invoice.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                  Downloading...
-                                </>
-                              ) : (
-                                <>
-                                  <Receipt className="h-4 w-4 mr-1" />
-                                  Job Card
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleDownloadMergedPdfForInvoice(invoice)}
-                              disabled={downloadingMergedInvoiceId === invoice.id}
-                              className="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                            >
-                              {downloadingMergedInvoiceId === invoice.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                  Preparing...
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="h-4 w-4 mr-1" />
-                                  Invoice + Order + Job Card
-                                </>
-                              )}
-                            </button>
-                          </>
+                      {/* Right: Amount + Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-sm font-bold text-gray-900">R{invoice.total.toLocaleString()}</span>
+                        {isAdmin && invoice.estimatedProfit !== undefined && (
+                          <span className={`text-xs font-semibold ${invoice.estimatedProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            (P: R{invoice.estimatedProfit.toLocaleString()})
+                          </span>
                         )}
-                        <button
-                          onClick={() => handleEditInvoice(invoice)}
-                          className="px-3 py-2 text-sm font-medium text-brand-danger-700 bg-brand-danger-50 hover:bg-brand-danger-100 rounded-lg transition-colors"
-                        >
-                          Edit
-                        </button>
                         <select
                           value={invoice.status}
                           onChange={(e) => handleStatusChange(invoice.id, e.target.value)}
-                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500"
+                          className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500 hidden sm:block"
                         >
                           <option value={invoice.status}>
                             {invoice.status === "SENT" 
@@ -1777,36 +1534,208 @@ function InvoicesPage() {
                               : invoiceStatuses.find((s) => s.value === invoice.status)?.label
                             }
                           </option>
-                          {getAvailableStatusTransitions(invoice.status, user?.role || "").map((statusValue) => {
-                            return (
-                              <option key={statusValue} value={statusValue}>
-                                {statusValue === "SENT" && invoice.status === "PENDING_APPROVAL" 
-                                  ? "✓ Approve (Send to Customer)"
-                                  : statusValue === "SENT"
-                                  ? "Sent"
-                                  : statusValue === "OVERDUE"
-                                  ? "Overdue"
-                                  : statusValue === "PENDING_APPROVAL"
-                                  ? "→ Forward to Sr Admin"
-                                  : statusValue === "REJECTED"
-                                  ? "✗ Reject"
-                                  : statusValue === "CANCELLED"
-                                  ? "Cancel"
-                                  : statusValue === "PAID"
-                                  ? "✓ Mark as Paid"
-                                  : statusValue === "DRAFT"
-                                  ? "← Back to Draft"
-                                  : statusValue === "PENDING_REVIEW"
-                                  ? "Submit for Review"
-                                  : statusValue.replace("_", " ")
-                                }
-                              </option>
-                            );
-                          })}
+                          {getAvailableStatusTransitions(invoice.status, user?.role || "").map((statusValue) => (
+                            <option key={statusValue} value={statusValue}>
+                              {statusValue === "SENT" && invoice.status === "PENDING_APPROVAL" 
+                                ? "✓ Approve (Send to Customer)"
+                                : statusValue === "SENT"
+                                ? "Sent"
+                                : statusValue === "OVERDUE"
+                                ? "Overdue"
+                                : statusValue === "PENDING_APPROVAL"
+                                ? "→ Forward to Sr Admin"
+                                : statusValue === "REJECTED"
+                                ? "✗ Reject"
+                                : statusValue === "CANCELLED"
+                                ? "Cancel"
+                                : statusValue === "PAID"
+                                ? "✓ Mark as Paid"
+                                : statusValue === "DRAFT"
+                                ? "← Back to Draft"
+                                : statusValue === "PENDING_REVIEW"
+                                ? "Submit for Review"
+                                : statusValue.replace("_", " ")
+                              }
+                            </option>
+                          ))}
                         </select>
+                        <button
+                          onClick={() => handleEditInvoice(invoice)}
+                          className="px-2 py-1 text-xs font-medium text-brand-danger-700 bg-brand-danger-50 hover:bg-brand-danger-100 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </button>
                       </div>
                     </div>
+
+                    {/* Compact info line (always visible) */}
+                    <div className="flex items-center gap-3 mt-1 ml-7 text-xs text-gray-500 flex-wrap">
+                      <span className="sm:hidden flex items-center"><User className="h-3 w-3 mr-1" />{invoice.customerName}</span>
+                      <span className="flex items-center"><Phone className="h-3 w-3 mr-1" />{invoice.customerPhone}</span>
+                      {invoice.dueDate && (
+                        <span className="flex items-center"><Calendar className="h-3 w-3 mr-1" />Due {new Date(invoice.dueDate).toLocaleDateString()}</span>
+                      )}
+                      {isAdmin && totalCostToCompany > 0 && (
+                        <span className="text-gray-600">
+                          Cost: <span className="font-medium">R{totalCostToCompany.toLocaleString()}</span>
+                          {invoice.companyMaterialCost ? ` (Mat: R${invoice.companyMaterialCost.toLocaleString()})` : ''}
+                          {invoice.companyLabourCost ? ` (Lab: R${invoice.companyLabourCost.toLocaleString()})` : ''}
+                        </span>
+                      )}
+                      {invoice.order && (
+                        <span className="text-purple-600 font-medium">From Order {invoice.order.orderNumber}</span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <div className="px-4 sm:px-6 pb-4 space-y-3">
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-2 py-2 border-t border-gray-100">
+                        <button
+                          onClick={() => handleExportPdf(invoice.id)}
+                          disabled={generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id}
+                          className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                        >
+                          {generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id ? (
+                            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Generating...</>
+                          ) : (
+                            <><Download className="h-3.5 w-3.5 mr-1" />Export PDF</>
+                          )}
+                        </button>
+
+                        {invoice.order && (
+                          <>
+                            <button
+                              onClick={() => handleDownloadOrderSummaryForInvoice(invoice)}
+                              disabled={downloadingOrderPdf}
+                              className="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingOrderPdf ? (
+                                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Downloading...</>
+                              ) : (
+                                <><FileText className="h-3.5 w-3.5 mr-1" />Order Summary</>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDownloadJobCardForInvoice(invoice)}
+                              disabled={downloadingJobCardInvoiceId === invoice.id}
+                              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingJobCardInvoiceId === invoice.id ? (
+                                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Downloading...</>
+                              ) : (
+                                <><Receipt className="h-3.5 w-3.5 mr-1" />Job Card</>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDownloadMergedPdfForInvoice(invoice)}
+                              disabled={downloadingMergedInvoiceId === invoice.id}
+                              className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              {downloadingMergedInvoiceId === invoice.id ? (
+                                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Preparing...</>
+                              ) : (
+                                <><Sparkles className="h-3.5 w-3.5 mr-1" />Invoice + Order + Job Card</>
+                              )}
+                            </button>
+                          </>
+                        )}
+                        {/* Mobile status select */}
+                        <select
+                          value={invoice.status}
+                          onChange={(e) => handleStatusChange(invoice.id, e.target.value)}
+                          className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500 sm:hidden"
+                        >
+                          <option value={invoice.status}>
+                            {invoice.status === "SENT" ? "Sent" : invoice.status === "OVERDUE" ? "Overdue" : invoiceStatuses.find((s) => s.value === invoice.status)?.label}
+                          </option>
+                          {getAvailableStatusTransitions(invoice.status, user?.role || "").map((statusValue) => (
+                            <option key={statusValue} value={statusValue}>
+                              {statusValue === "SENT" && invoice.status === "PENDING_APPROVAL" 
+                                ? "✓ Approve" : statusValue === "PAID" ? "✓ Mark as Paid" : statusValue.replace("_", " ")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Contact Details */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
+                        <div className="flex items-center"><User className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerName}</div>
+                        <div className="flex items-center"><Mail className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerEmail}</div>
+                        <div className="flex items-center"><Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerPhone}</div>
+                        <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-gray-400" />Total: R{invoice.total.toLocaleString()}</div>
+                      </div>
+
+                      {/* Cost Breakdown - compact single section */}
+                      {isAdmin && (invoice.companyMaterialCost !== undefined || invoice.companyLabourCost !== undefined) && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 border border-green-100">
+                          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                            <span className="font-semibold text-gray-900 text-xs uppercase tracking-wide">Cost to Company</span>
+                            <span className="text-gray-600 text-xs">Material: <span className="font-medium text-gray-900">R{invoice.companyMaterialCost?.toFixed(2) || "0.00"}</span></span>
+                            <span className="text-gray-600 text-xs">Labour: <span className="font-medium text-gray-900">R{invoice.companyLabourCost?.toFixed(2) || "0.00"}</span></span>
+                            <span className="text-gray-600 text-xs">Total Cost: <span className="font-bold text-indigo-700">R{totalCostToCompany.toFixed(2)}</span></span>
+                            <span className="text-gray-600 text-xs">Client Total: <span className="font-bold text-gray-900">R{invoice.total.toFixed(2)}</span></span>
+                            <span className={`text-xs font-bold ${invoice.estimatedProfit >= 0 ? "text-green-700" : "text-red-700"}`}>
+                              Profit: R{invoice.estimatedProfit?.toLocaleString() || "0"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Line Items Table */}
+                      {items.length > 0 && (
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <h4 className="text-xs font-semibold text-gray-900 mb-2">Line Items ({items.length})</h4>
+                          <div className="overflow-x-auto scrollbar-none touch-pan-x">
+                            <table className="min-w-full divide-y divide-gray-200 text-xs">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  <th className="px-2 py-1.5 text-left font-medium text-gray-700 uppercase tracking-wider">Description</th>
+                                  <th className="px-2 py-1.5 text-center font-medium text-gray-700 uppercase tracking-wider">UoM</th>
+                                  <th className="px-2 py-1.5 text-right font-medium text-gray-700 uppercase tracking-wider">Qty</th>
+                                  <th className="px-2 py-1.5 text-right font-medium text-gray-700 uppercase tracking-wider">Unit Price</th>
+                                  <th className="px-2 py-1.5 text-right font-medium text-gray-700 uppercase tracking-wider">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {items.map((item: any, idx: number) => (
+                                  <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="px-2 py-1.5 text-gray-900">{item.description}</td>
+                                    <td className="px-2 py-1.5 text-gray-600 text-center">{item.unitOfMeasure || 'Sum'}</td>
+                                    <td className="px-2 py-1.5 text-gray-900 text-right">{item.quantity}</td>
+                                    <td className="px-2 py-1.5 text-gray-900 text-right">R{item.unitPrice.toFixed(2)}</td>
+                                    <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{item.total.toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot className="bg-gray-50">
+                                <tr>
+                                  <td colSpan={4} className="px-2 py-1.5 font-medium text-gray-700 text-right">Subtotal:</td>
+                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{invoice.subtotal.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                  <td colSpan={4} className="px-2 py-1.5 font-medium text-gray-700 text-right">VAT (15%):</td>
+                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{invoice.tax.toFixed(2)}</td>
+                                </tr>
+                                <tr className="border-t-2 border-gray-300">
+                                  <td colSpan={4} className="px-2 py-1.5 text-sm font-bold text-gray-900 text-right">Total:</td>
+                                  <td className="px-2 py-1.5 text-sm font-bold text-brand-danger-600 text-right">R{invoice.total.toFixed(2)}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {invoice.rejectionReason && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                          <p className="text-xs font-medium text-red-900">Rejection: <span className="font-normal text-red-700">{invoice.rejectionReason}</span></p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

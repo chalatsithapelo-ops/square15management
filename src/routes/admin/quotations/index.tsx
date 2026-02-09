@@ -27,6 +27,8 @@ import {
   Loader2,
   Sparkles,
   Wand2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/quotations/")({
@@ -110,6 +112,17 @@ function QuotationsPage() {
   const [selectedRFQReportQuotation, setSelectedRFQReportQuotation] = useState<any | null>(null);
   const [downloadingRFQReportPdfId, setDownloadingRFQReportPdfId] = useState<number | null>(null);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
+  const [expandedQuotations, setExpandedQuotations] = useState<Set<number>>(new Set());
+
+  const toggleQuotationExpansion = (quotationId: number) => {
+    const newExpanded = new Set(expandedQuotations);
+    if (newExpanded.has(quotationId)) {
+      newExpanded.delete(quotationId);
+    } else {
+      newExpanded.add(quotationId);
+    }
+    setExpandedQuotations(newExpanded);
+  };
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -908,310 +921,257 @@ function QuotationsPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="divide-y divide-gray-200">
-            {filteredQuotations.map((quotation) => (
-              <div key={quotation.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{quotation.quoteNumber}</h3>
+            {filteredQuotations.map((quotation) => {
+              const isExpanded = expandedQuotations.has(quotation.id);
+              const hasDetails = (
+                (quotation.quotationLineItems && Array.isArray(quotation.quotationLineItems) && (quotation.quotationLineItems as any[]).length > 0) ||
+                (quotation.numPeopleNeeded && quotation.estimatedDuration) ||
+                (quotation.companyMaterialCost !== undefined || quotation.companyLabourCost !== undefined) ||
+                (quotation.expenseSlips && quotation.expenseSlips.length > 0) ||
+                (quotation.beforePictures && quotation.beforePictures.length > 0)
+              );
+              const totalCostToCompany = (quotation.companyMaterialCost || 0) + (quotation.companyLabourCost || 0);
+              
+              return (
+              <div key={quotation.id} className="hover:bg-gray-50/50 transition-colors">
+                {/* Compact Header */}
+                <div className="px-4 sm:px-6 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {hasDetails && (
+                        <button
+                          onClick={() => toggleQuotationExpansion(quotation.id)}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+                        </button>
+                      )}
+                      <h3 className="text-sm font-bold text-gray-900 flex-shrink-0">{quotation.quoteNumber}</h3>
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
                           quotationStatuses.find((s) => s.value === quotation.status)?.color
                         }`}
                       >
                         {quotationStatuses.find((s) => s.value === quotation.status)?.label || quotation.status}
                       </span>
+                      <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{quotation.customerName}</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-2 text-gray-400" />
-                        {quotation.customerName}
-                      </div>
-                      <div className="flex items-center">
-                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                        {quotation.customerEmail}
-                      </div>
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                        {quotation.customerPhone}
-                      </div>
-                      <div className="flex items-center">
-                        <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                        R{quotation.total.toLocaleString()}
-                      </div>
-                    </div>
-                    {quotation.assignedTo && (
-                      <div className="text-sm text-gray-600 flex items-center mb-2">
-                        <User className="h-4 w-4 mr-2 text-gray-400" />
-                        Assigned to: <span className="font-medium ml-1">{quotation.assignedTo.firstName} {quotation.assignedTo.lastName}</span>
-                      </div>
-                    )}
-                    {isAdmin && quotation.estimatedProfit !== undefined && (
-                      <div className="text-sm flex items-center mb-2">
-                        <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                        <span className="text-gray-600">Estimated Profit:</span>
-                        <span className={`font-semibold ml-2 ${quotation.estimatedProfit >= 0 ? "text-green-700" : "text-red-700"}`}>
-                          R{quotation.estimatedProfit.toLocaleString()}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-sm font-bold text-gray-900">R{quotation.total.toLocaleString()}</span>
+                      {isAdmin && quotation.estimatedProfit !== undefined && (
+                        <span className={`text-xs font-semibold ${quotation.estimatedProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          (P: R{quotation.estimatedProfit.toLocaleString()})
                         </span>
+                      )}
+                      {/* Inline actions */}
+                      <div className="hidden sm:flex items-center gap-1">
+                        {(quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW" || quotation.status === "IN_PROGRESS") && (
+                          <button
+                            onClick={() => { setSelectedRFQReportQuotation(quotation); setShowRFQReportModal(true); }}
+                            className="px-2 py-1 text-xs font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg transition-colors inline-flex items-center"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" />RFQ
+                          </button>
+                        )}
+                        {quotation.status === "APPROVED" && (
+                          <button
+                            onClick={() => handleExportPdf(quotation.id)}
+                            disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
+                            className="px-2 py-1 text-xs font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                          >
+                            {generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id ? (
+                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />PDF</>
+                            ) : (
+                              <><Download className="h-3.5 w-3.5 mr-1" />PDF</>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEditQuotation(quotation)}
+                          className="px-2 py-1 text-xs font-medium text-brand-secondary-700 bg-brand-secondary-50 hover:bg-brand-secondary-100 rounded-lg transition-colors inline-flex items-center"
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1" />Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(quotation.id)}
+                          className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-flex items-center"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        <select
+                          value={quotation.status}
+                          onChange={(e) => handleStatusChange(quotation.id, e.target.value)}
+                          className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                        >
+                          <option value={quotation.status}>
+                            {quotationStatuses.find((s) => s.value === quotation.status)?.label || quotation.status}
+                          </option>
+                          {getAvailableStatusTransitions(quotation.status, user?.role || "").map((statusValue) => {
+                            const statusLabel = quotationStatuses.find((s) => s.value === statusValue)?.label || statusValue;
+                            let displayLabel = statusLabel;
+                            if (statusValue === "PENDING_ARTISAN_REVIEW" && quotation.status === "DRAFT") displayLabel = "→ Assign to Artisan";
+                            else if (statusValue === "APPROVED") displayLabel = "✓ Approve";
+                            else if (statusValue === "SENT_TO_CUSTOMER") displayLabel = "📧 Send to Customer";
+                            else if (statusValue === "REJECTED") displayLabel = "✗ Reject";
+                            else if (statusValue === "IN_PROGRESS") displayLabel = "← Send Back";
+                            else if (statusValue === "DRAFT") displayLabel = "← Back to Draft";
+                            return <option key={statusValue} value={statusValue}>{displayLabel}</option>;
+                          })}
+                        </select>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Compact info row */}
+                  <div className="flex items-center gap-3 mt-1 ml-7 text-xs text-gray-500 flex-wrap">
+                    <span className="sm:hidden">{quotation.customerName}</span>
+                    <span className="flex items-center"><Mail className="h-3 w-3 mr-1" />{quotation.customerEmail}</span>
+                    <span className="flex items-center"><Phone className="h-3 w-3 mr-1" />{quotation.customerPhone}</span>
+                    {quotation.assignedTo && (
+                      <span className="flex items-center"><User className="h-3 w-3 mr-1" />{quotation.assignedTo.firstName} {quotation.assignedTo.lastName}</span>
                     )}
                     {quotation.validUntil && (
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                        Valid until {new Date(quotation.validUntil).toLocaleDateString()}
-                      </div>
+                      <span className="flex items-center"><Calendar className="h-3 w-3 mr-1" />Valid until {new Date(quotation.validUntil).toLocaleDateString()}</span>
                     )}
-                    {quotation.rejectionReason && (
-                      <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-sm font-medium text-red-900 mb-1">Rejection Reason:</p>
-                        <p className="text-sm text-red-700">{quotation.rejectionReason}</p>
-                      </div>
-                    )}
-
-                    {/* Artisan Work Details - Show for review and approved statuses */}
-                    {(
-                      quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" ||
-                      quotation.status === "PENDING_SENIOR_MANAGER_REVIEW" ||
-                      quotation.status === "APPROVED"
-                    ) && (
-                      <div className="mt-4 space-y-4">
-                        {/* Quotation Line Items */}
-                        {quotation.quotationLineItems && Array.isArray(quotation.quotationLineItems) && (quotation.quotationLineItems as any[]).length > 0 && (
-                          <div className="bg-brand-primary-50 rounded-lg p-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Artisan's Scope of Work</h4>
-                            <div className="space-y-2">
-                              {(quotation.quotationLineItems as any[]).map((item: any, idx: number) => (
-                                <div key={idx} className="bg-white rounded p-3 text-sm">
-                                  <div className="flex justify-between items-start mb-1">
-                                    <span className="font-medium text-gray-900">{item.description}</span>
-                                    <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                                      {item.category}
-                                    </span>
-                                  </div>
-                                  {item.quantity && (
-                                    <div className="text-xs text-gray-600">Quantity: {item.quantity}</div>
-                                  )}
-                                  {item.notes && (
-                                    <div className="text-xs text-gray-600 mt-1">{item.notes}</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Labour Estimation */}
-                        {quotation.numPeopleNeeded && quotation.estimatedDuration && quotation.durationUnit && (
-                          <div className="bg-green-50 rounded-lg p-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Labour Estimation</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">People Needed:</span>
-                                <div className="font-medium text-gray-900">{quotation.numPeopleNeeded}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Estimated Duration:</span>
-                                <div className="font-medium text-gray-900">
-                                  {quotation.estimatedDuration} {quotation.durationUnit === "HOURLY" ? "hours" : "days"}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Rate Amount:</span>
-                                <div className="font-medium text-gray-900">
-                                  R{quotation.labourRate?.toFixed(2) || "0.00"}/{quotation.durationUnit === "HOURLY" ? "hr" : "day"}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Total Labour Cost:</span>
-                                <div className="font-medium text-gray-900">
-                                  R{quotation.companyLabourCost?.toFixed(2) || ((quotation.numPeopleNeeded || 0) * (quotation.estimatedDuration || 0) * (quotation.labourRate || 0)).toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Cost Breakdown */}
-                        {isAdmin && (quotation.companyMaterialCost !== undefined || quotation.companyLabourCost !== undefined) && (
-                          <div className="bg-brand-secondary-50 rounded-lg p-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Cost Breakdown (Company)</h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Material Cost:</span>
-                                <span className="font-medium text-gray-900">
-                                  R{quotation.companyMaterialCost?.toFixed(2) || "0.00"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Labour Cost:</span>
-                                <span className="font-medium text-gray-900">
-                                  R{quotation.companyLabourCost?.toFixed(2) || "0.00"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between border-t border-brand-secondary-200 pt-2">
-                                <span className="font-semibold text-gray-900">Total Cost to Company:</span>
-                                <span className="font-bold text-gray-900">
-                                  R{((quotation.companyMaterialCost || 0) + (quotation.companyLabourCost || 0)).toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between border-t border-brand-secondary-200 pt-2">
-                                <span className="font-semibold text-gray-900">Client Quote Total:</span>
-                                <span className="font-bold text-gray-900">
-                                  R{quotation.total.toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Expense Slips */}
-                        {quotation.expenseSlips && quotation.expenseSlips.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">
-                              Supplier Quotations ({quotation.expenseSlips.length})
-                            </h4>
-                            <div className="space-y-2">
-                              {quotation.expenseSlips.map((slip: any, idx: number) => (
-                                <div key={idx} className="bg-white rounded p-3 text-sm flex justify-between items-center">
-                                  <div>
-                                    <div className="font-medium text-gray-900">
-                                      {slip.category}
-                                      {slip.description && ` - ${slip.description}`}
-                                    </div>
-                                    {slip.amount && (
-                                      <div className="text-xs text-gray-600 mt-1">
-                                        Amount: R{slip.amount.toFixed(2)}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <a
-                                    href={slip.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-brand-primary-600 hover:text-brand-primary-700 text-xs font-medium"
-                                  >
-                                    View
-                                  </a>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Pictures */}
-                        {quotation.beforePictures.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Assessment Photos</h4>
-                            <div>
-                              <div className="text-xs font-medium text-gray-700 mb-2">
-                                Site Assessment ({quotation.beforePictures.length})
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {quotation.beforePictures.map((url: string, idx: number) => (
-                                  <SignedMinioLink
-                                    key={idx}
-                                    url={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block"
-                                  >
-                                    <SignedMinioImage
-                                      url={url}
-                                      alt={`Assessment ${idx + 1}`}
-                                      className="w-full h-20 object-cover rounded border border-gray-200 hover:border-brand-primary-500 transition-colors"
-                                    />
-                                  </SignedMinioLink>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                    {isAdmin && totalCostToCompany > 0 && (
+                      <span className="text-gray-600">
+                        Cost: <span className="font-medium">R{totalCostToCompany.toLocaleString()}</span>
+                      </span>
                     )}
                   </div>
-                  <div className="ml-4 flex space-x-2">
+
+                  {/* Mobile actions row */}
+                  <div className="flex flex-wrap gap-1.5 mt-2 sm:hidden">
                     {(quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW" || quotation.status === "IN_PROGRESS") && (
                       <button
-                        onClick={() => {
-                          setSelectedRFQReportQuotation(quotation);
-                          setShowRFQReportModal(true);
-                        }}
-                        className="px-3 py-2 text-sm font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg transition-colors inline-flex items-center"
+                        onClick={() => { setSelectedRFQReportQuotation(quotation); setShowRFQReportModal(true); }}
+                        className="px-2 py-1 text-xs font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg"
                       >
-                        <FileText className="h-4 w-4 mr-1" />
-                        View RFQ Report
+                        <FileText className="h-3.5 w-3.5 mr-1 inline" />RFQ Report
                       </button>
                     )}
                     {quotation.status === "APPROVED" && (
                       <button
                         onClick={() => handleExportPdf(quotation.id)}
                         disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
-                        className="px-3 py-2 text-sm font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                        className="px-2 py-1 text-xs font-medium text-brand-primary-700 bg-brand-primary-50 hover:bg-brand-primary-100 rounded-lg disabled:opacity-50"
                       >
-                        {generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-1" />
-                            Export PDF
-                          </>
-                        )}
+                        <Download className="h-3.5 w-3.5 mr-1 inline" />PDF
                       </button>
                     )}
-                    <button
-                      onClick={() => handleEditQuotation(quotation)}
-                      className="px-3 py-2 text-sm font-medium text-brand-secondary-700 bg-brand-secondary-50 hover:bg-brand-secondary-100 rounded-lg transition-colors inline-flex items-center"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                    <button onClick={() => handleEditQuotation(quotation)} className="px-2 py-1 text-xs font-medium text-brand-secondary-700 bg-brand-secondary-50 rounded-lg">
+                      <Edit className="h-3.5 w-3.5 mr-1 inline" />Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteClick(quotation.id)}
-                      className="px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-flex items-center"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
+                    <button onClick={() => handleDeleteClick(quotation.id)} className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-lg">
+                      <Trash2 className="h-3.5 w-3.5 inline" />
                     </button>
                     <select
                       value={quotation.status}
                       onChange={(e) => handleStatusChange(quotation.id, e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                      className="px-2 py-1 text-xs border border-gray-300 rounded-lg"
                     >
-                      <option value={quotation.status}>
-                        {quotationStatuses.find((s) => s.value === quotation.status)?.label || quotation.status}
-                      </option>
+                      <option value={quotation.status}>{quotationStatuses.find((s) => s.value === quotation.status)?.label || quotation.status}</option>
                       {getAvailableStatusTransitions(quotation.status, user?.role || "").map((statusValue) => {
-                        const statusLabel = quotationStatuses.find((s) => s.value === statusValue)?.label || statusValue;
-                        let displayLabel = statusLabel;
-                        
-                        if (statusValue === "PENDING_ARTISAN_REVIEW" && quotation.status === "DRAFT") {
-                          displayLabel = "→ Assign to Artisan";
-                        } else if (statusValue === "APPROVED" && (quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW")) {
-                          displayLabel = "✓ Approve";
-                        } else if (statusValue === "SENT_TO_CUSTOMER" && quotation.status === "APPROVED") {
-                          displayLabel = "📧 Send to Customer";
-                        } else if (statusValue === "REJECTED") {
-                          displayLabel = "✗ Reject";
-                        } else if (statusValue === "IN_PROGRESS" && (quotation.status === "PENDING_JUNIOR_MANAGER_REVIEW" || quotation.status === "PENDING_SENIOR_MANAGER_REVIEW")) {
-                          displayLabel = "← Send Back to Artisan";
-                        } else if (statusValue === "DRAFT") {
-                          displayLabel = "← Back to Draft";
-                        }
-                        
-                        return (
-                          <option key={statusValue} value={statusValue}>
-                            {displayLabel}
-                          </option>
-                        );
+                        let displayLabel = quotationStatuses.find((s) => s.value === statusValue)?.label || statusValue;
+                        if (statusValue === "APPROVED") displayLabel = "✓ Approve";
+                        else if (statusValue === "REJECTED") displayLabel = "✗ Reject";
+                        return <option key={statusValue} value={statusValue}>{displayLabel}</option>;
                       })}
                     </select>
                   </div>
                 </div>
+
+                {/* Rejection reason - always visible if present */}
+                {quotation.rejectionReason && (
+                  <div className="mx-4 sm:mx-6 mb-2 bg-red-50 border border-red-200 rounded-lg p-2">
+                    <p className="text-xs font-medium text-red-900">Rejection: <span className="font-normal text-red-700">{quotation.rejectionReason}</span></p>
+                  </div>
+                )}
+
+                {/* Expanded Details */}
+                {isExpanded && hasDetails && (
+                  <div className="px-4 sm:px-6 pb-4 space-y-3">
+                    {/* Artisan Scope of Work */}
+                    {quotation.quotationLineItems && Array.isArray(quotation.quotationLineItems) && (quotation.quotationLineItems as any[]).length > 0 && (
+                      <div className="bg-brand-primary-50 rounded-lg p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">Artisan's Scope of Work</h4>
+                        <div className="space-y-1">
+                          {(quotation.quotationLineItems as any[]).map((item: any, idx: number) => (
+                            <div key={idx} className="bg-white rounded px-2 py-1.5 text-xs flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900">{item.description}</span>
+                                {item.quantity && <span className="text-gray-500 ml-2">Qty: {item.quantity}</span>}
+                                {item.notes && <span className="text-gray-500 ml-2">— {item.notes}</span>}
+                              </div>
+                              <span className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">{item.category}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Labour Estimation - compact row */}
+                    {quotation.numPeopleNeeded && quotation.estimatedDuration && quotation.durationUnit && (
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">Labour Estimation</h4>
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                          <span className="text-gray-600">People: <span className="font-medium text-gray-900">{quotation.numPeopleNeeded}</span></span>
+                          <span className="text-gray-600">Duration: <span className="font-medium text-gray-900">{quotation.estimatedDuration} {quotation.durationUnit === "HOURLY" ? "hours" : "days"}</span></span>
+                          <span className="text-gray-600">Rate: <span className="font-medium text-gray-900">R{quotation.labourRate?.toFixed(2) || "0.00"}/{quotation.durationUnit === "HOURLY" ? "hr" : "day"}</span></span>
+                          <span className="text-gray-600">Total Labour: <span className="font-bold text-gray-900">R{quotation.companyLabourCost?.toFixed(2) || ((quotation.numPeopleNeeded || 0) * (quotation.estimatedDuration || 0) * (quotation.labourRate || 0)).toFixed(2)}</span></span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cost Breakdown - compact */}
+                    {isAdmin && (quotation.companyMaterialCost !== undefined || quotation.companyLabourCost !== undefined) && (
+                      <div className="bg-brand-secondary-50 rounded-lg p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">Cost Breakdown (Company)</h4>
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
+                          <span className="text-gray-600">Material: <span className="font-medium text-gray-900">R{quotation.companyMaterialCost?.toFixed(2) || "0.00"}</span></span>
+                          <span className="text-gray-600">Labour: <span className="font-medium text-gray-900">R{quotation.companyLabourCost?.toFixed(2) || "0.00"}</span></span>
+                          <span className="text-gray-600 border-l border-gray-300 pl-4">Total Cost: <span className="font-bold text-gray-900">R{totalCostToCompany.toFixed(2)}</span></span>
+                          <span className="text-gray-600">Client Quote: <span className="font-bold text-gray-900">R{quotation.total.toFixed(2)}</span></span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Supplier Quotations */}
+                    {quotation.expenseSlips && quotation.expenseSlips.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">Supplier Quotations ({quotation.expenseSlips.length})</h4>
+                        <div className="space-y-1">
+                          {quotation.expenseSlips.map((slip: any, idx: number) => (
+                            <div key={idx} className="bg-white rounded px-2 py-1.5 text-xs flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900">{slip.category}{slip.description && ` - ${slip.description}`}</span>
+                                {slip.amount && <span className="text-gray-600 ml-2">R{slip.amount.toFixed(2)}</span>}
+                              </div>
+                              <a href={slip.url} target="_blank" rel="noopener noreferrer" className="text-brand-primary-600 hover:text-brand-primary-700 text-xs font-medium flex-shrink-0">View</a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Assessment Photos */}
+                    {quotation.beforePictures.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">Assessment Photos ({quotation.beforePictures.length})</h4>
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+                          {quotation.beforePictures.map((url: string, idx: number) => (
+                            <SignedMinioLink key={idx} url={url} target="_blank" rel="noopener noreferrer" className="block">
+                              <SignedMinioImage url={url} alt={`Assessment ${idx + 1}`} className="w-full h-16 object-cover rounded border border-gray-200 hover:border-brand-primary-500 transition-colors" />
+                            </SignedMinioLink>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
             {filteredQuotations.length === 0 && (
               <div className="p-12 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
