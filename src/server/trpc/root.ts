@@ -327,6 +327,29 @@ import {
   getTenantFeedbackAnalyticsForPM,
 } from "~/server/trpc/procedures/tenantFeedback";
 
+// Task Management
+import { createStaffMember } from "~/server/trpc/procedures/createStaffMember";
+import { getStaffMembers } from "~/server/trpc/procedures/getStaffMembers";
+import { updateStaffMember } from "~/server/trpc/procedures/updateStaffMember";
+import { createPMTask } from "~/server/trpc/procedures/createPMTask";
+import { getPMTasks } from "~/server/trpc/procedures/getPMTasks";
+import { getPMTaskDetail } from "~/server/trpc/procedures/getPMTaskDetail";
+import { updatePMTask } from "~/server/trpc/procedures/updatePMTask";
+import { updatePMTaskStatus } from "~/server/trpc/procedures/updatePMTaskStatus";
+import { addPMTaskComment } from "~/server/trpc/procedures/addPMTaskComment";
+import { addPMTaskMaterial } from "~/server/trpc/procedures/addPMTaskMaterial";
+import { getPMTaskStats } from "~/server/trpc/procedures/getPMTaskStats";
+import { deletePMTask } from "~/server/trpc/procedures/deletePMTask";
+
+// Staff Self-Service Portal
+import { activateStaffAccount } from "~/server/trpc/procedures/activateStaffAccount";
+import { getStaffProfile } from "~/server/trpc/procedures/getStaffProfile";
+import { getStaffTasks } from "~/server/trpc/procedures/getStaffTasks";
+import { getStaffTaskDetail } from "~/server/trpc/procedures/getStaffTaskDetail";
+import { updateStaffTaskStatus } from "~/server/trpc/procedures/updateStaffTaskStatus";
+import { addStaffTaskComment } from "~/server/trpc/procedures/addStaffTaskComment";
+import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTaskChecklist";
+
 export const appRouter = createTRPCRouter({
   // Auth
   login,
@@ -715,6 +738,29 @@ export const appRouter = createTRPCRouter({
   getTenantFeedbackForPM,
   updateTenantFeedbackStatus,
   getTenantFeedbackAnalyticsForPM,
+
+  // Task Management
+  createStaffMember,
+  getStaffMembers,
+  updateStaffMember,
+  createPMTask,
+  getPMTasks,
+  getPMTaskDetail,
+  updatePMTask,
+  updatePMTaskStatus,
+  addPMTaskComment,
+  addPMTaskMaterial,
+  getPMTaskStats,
+  deletePMTask,
+
+  // Staff Self-Service Portal
+  activateStaffAccount,
+  getStaffProfile,
+  getStaffTasks,
+  getStaffTaskDetail,
+  updateStaffTaskStatus,
+  addStaffTaskComment,
+  updateStaffTaskChecklist,
 });
 
 export type AppRouter = typeof appRouter;

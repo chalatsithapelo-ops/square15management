@@ -25,6 +25,7 @@ export const ROLES = {
   CONTRACTOR: "CONTRACTOR",
   CONTRACTOR_SENIOR_MANAGER: "CONTRACTOR_SENIOR_MANAGER",
   CONTRACTOR_JUNIOR_MANAGER: "CONTRACTOR_JUNIOR_MANAGER",
+  STAFF: "STAFF",
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
@@ -47,6 +48,7 @@ const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
   [ROLES.CONTRACTOR]: "/contractor/dashboard",
   [ROLES.CONTRACTOR_SENIOR_MANAGER]: "/contractor/dashboard",
   [ROLES.CONTRACTOR_JUNIOR_MANAGER]: "/contractor/dashboard",
+  [ROLES.STAFF]: "/staff/dashboard",
 };
 
 /**
@@ -75,6 +77,7 @@ export function getRoleLabel(role: string): string {
     [ROLES.CONTRACTOR]: "Contractor",
     [ROLES.CONTRACTOR_SENIOR_MANAGER]: "Senior Manager",
     [ROLES.CONTRACTOR_JUNIOR_MANAGER]: "Junior Manager",
+    [ROLES.STAFF]: "Staff",
   };
   
   return labels[role as Role] || role.split('_').map(word => 
@@ -101,6 +104,7 @@ export function getRoleColor(role: string): string {
     [ROLES.CONTRACTOR]: "bg-amber-100 text-amber-800",
     [ROLES.CONTRACTOR_SENIOR_MANAGER]: "bg-purple-100 text-purple-800",
     [ROLES.CONTRACTOR_JUNIOR_MANAGER]: "bg-blue-100 text-blue-800",
+    [ROLES.STAFF]: "bg-lime-100 text-lime-800",
   };
   
   return colors[role as Role] || "bg-orange-100 text-orange-800";

@@ -30,6 +30,7 @@ import {
   FolderKanban,
   Menu,
   X,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useMemo, Fragment } from "react";
 import { MetricCard } from "~/components/MetricCard";
@@ -45,6 +46,7 @@ import { ComprehensivePMFinancialReporting } from "~/components/property-manager
 import { CreateOrderModal } from "~/components/property-manager/CreateOrderModal";
 import { EditOrderModal } from "~/components/property-manager/EditOrderModal";
 import { RateWorkModal } from "~/components/property-manager/RateWorkModal";
+import { TaskManagement } from "~/components/property-manager/TaskManagement";
 import toast from "react-hot-toast";
 
 export const Route = createFileRoute("/property-manager/dashboard/")({
@@ -76,6 +78,7 @@ function PropertyManagerDashboard() {
     | "invoices"
     | "projects"
     | "maintenance"
+    | "tasks"
     | "buildings"
     | "budgets"
     | "contractors"
@@ -185,6 +188,7 @@ function PropertyManagerDashboard() {
     { id: "invoices" as const, label: "Invoices", count: invoices.length, icon: Receipt },
     { id: "projects" as const, label: "Projects", icon: FolderKanban },
     { id: "maintenance" as const, label: "Maintenance", count: maintenanceRequests.length, icon: Wrench },
+    { id: "tasks" as const, label: "Tasks", icon: ClipboardList },
     { id: "buildings" as const, label: "Buildings", count: buildings.length, icon: Building2 },
     { id: "budgets" as const, label: "Budgets", count: budgets.length, icon: PieChart },
     { id: "contractors" as const, label: "Contractors", icon: Briefcase },
@@ -407,6 +411,7 @@ function PropertyManagerDashboard() {
             {activeTab === "invoices" && <InvoicesTab />}
             {activeTab === "projects" && <ProjectsTab />}
             {activeTab === "maintenance" && <MaintenanceTab />}
+            {activeTab === "tasks" && <TaskManagement />}
             {activeTab === "buildings" && <BuildingsTab />}
             {activeTab === "budgets" && <BudgetsTab />}
             {activeTab === "contractors" && <ContractorManagement />}

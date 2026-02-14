@@ -190,6 +190,59 @@ enum NotificationType {
   CUSTOMER_PAYMENT_REJECTED
   OPERATIONAL_EXPENSE_ADDED
   ALTERNATIVE_REVENUE_ADDED
+  TASK_ASSIGNED
+  TASK_STATUS_UPDATED
+  TASK_COMPLETED
+  TASK_COMMENT_ADDED
+  TASK_OVERDUE
+}
+
+// ===== Task Management Enums =====
+
+enum TaskStatus {
+  DRAFT
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  ON_HOLD
+  PENDING_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskCategory {
+  MAINTENANCE
+  CLEANING
+  GARDENING
+  SECURITY
+  INSPECTION
+  REPAIR
+  PAINTING
+  PLUMBING
+  ELECTRICAL
+  GENERAL
+  INVESTIGATION
+  REPORT
+  ADMINISTRATIVE
+  OTHER
+}
+
+enum StaffRole {
+  ARTISAN
+  BUILDING_MANAGER
+  SECURITY
+  CLEANER
+  GARDENER
+  MAINTENANCE_TECH
+  SUPERVISOR
+  OTHER
 }
 
 enum ExpenseCategory {
@@ -424,6 +477,15 @@ model User {
   // Assets & liabilities (data isolation)
   assetsCreated      Asset[]     @relation("AssetCreator")
   liabilitiesCreated Liability[] @relation("LiabilityCreator")
+
+  // Task Management relations
+  staffMembers           StaffMember[]    @relation("PropertyManagerStaff")
+  pmTasks                PMTask[]         @relation("PropertyManagerTasks")
+  pmTaskCommentsAuthored PMTaskComment[]  @relation("PMTaskCommentsAuthored")
+  pmTaskUpdatesAuthored  PMTaskUpdate[]   @relation("PMTaskUpdatesAuthored")
+
+  // Staff self-service portal link
+  staffProfile           StaffMember?     @relation("StaffUserAccount")
 
   @@index([employerId])
 }
@@ -1996,6 +2058,7 @@ model Building {
   tenants              PropertyManagerCustomer[]     @relation("BuildingTenants")
   payments             CustomerPayment[]             @relation("BuildingPayments")
   tenantFeedback       TenantFeedback[]              @relation("BuildingTenantFeedback")
+  staffMembers         StaffMember[]                 @relation("BuildingStaff")
 
   @@index([propertyManagerId])
 }
@@ -2944,4 +3007,204 @@ model PendingRegistration {
   @@index([email])
   @@index([isApproved])
   @@index([hasPaid])
+}
+
+// ===== Task Management System =====
+
+model StaffMember {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Staff details
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  staffRole StaffRole
+  title     String? // Custom title like "Head Gardener"
+
+  // Linked to Property Manager
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerStaff", fields: [propertyManagerId], references: [id])
+
+  // Optional: linked to a building
+  buildingId Int?
+  building   Building? @relation("BuildingStaff", fields: [buildingId], references: [id])
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Optional user account link (for self-service portal)
+  userId Int?   @unique
+  user   User?  @relation("StaffUserAccount", fields: [userId], references: [id])
+
+  // Relations
+  tasksAssigned PMTask[]           @relation("StaffTaskAssignments")
+  taskComments  PMTaskComment[]    @relation("StaffTaskComments")
+  taskUpdates   PMTaskUpdate[]     @relation("StaffTaskUpdates")
+
+  @@unique([email, propertyManagerId])
+  @@index([propertyManagerId])
+  @@index([staffRole])
+  @@index([buildingId])
+}
+
+model PMTask {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Task identification
+  taskNumber String @unique
+
+  // Property Manager who created the task
+  propertyManagerId Int
+  propertyManager   User @relation("PropertyManagerTasks", fields: [propertyManagerId], references: [id])
+
+  // Assigned staff member
+  assignedToId Int
+  assignedTo   StaffMember @relation("StaffTaskAssignments", fields: [assignedToId], references: [id])
+
+  // Task details
+  title       String
+  description String    @db.Text
+  category    TaskCategory
+  priority    TaskPriority @default(MEDIUM)
+
+  // Location
+  buildingName    String?
+  buildingAddress String?
+  unitNumber      String?
+  specificLocation String? // e.g., "2nd floor lobby", "parking area B"
+
+  // Status & workflow
+  status           TaskStatus @default(DRAFT)
+  progressPercentage Float    @default(0)
+  isPaused          Boolean   @default(false)
+  pausedAt          DateTime?
+  pauseReason       String?
+
+  // Timeline
+  dueDate        DateTime?
+  startDate      DateTime?
+  completedDate  DateTime?
+  acceptedDate   DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+
+  // Job execution fields (similar to artisan workflow)
+  startTime        DateTime?
+  endTime          DateTime?
+  beforePictures   String[]  @default([])
+  afterPictures    String[]  @default([])
+  materialCost     Float     @default(0)
+  labourCost       Float     @default(0)
+
+  // Report / findings
+  findings          String?   @db.Text
+  recommendations   String?   @db.Text
+  reportUrl         String?
+  signedOffBy       String?
+  signedOffDate     DateTime?
+
+  // Recurrence (for recurring tasks)
+  isRecurring       Boolean  @default(false)
+  recurrencePattern String?  // e.g., "DAILY", "WEEKLY", "MONTHLY"
+  nextRecurrenceDate DateTime?
+
+  // Checklist items stored as JSON
+  checklist         String?  @db.Text  // JSON array of {item, completed}
+
+  // Attachments and notes
+  attachments  String[] @default([])
+  notes        String?  @db.Text
+
+  // Relations
+  comments    PMTaskComment[]
+  updates     PMTaskUpdate[]
+  materials   PMTaskMaterial[]
+  expenseSlips PMTaskExpenseSlip[]
+
+  @@index([propertyManagerId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+model PMTaskComment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  taskId Int
+  task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Who commented (PM or staff)
+  authorType    String  // "PM" or "STAFF"
+  authorPMId    Int?
+  authorPM      User?        @relation("PMTaskCommentsAuthored", fields: [authorPMId], references: [id])
+  authorStaffId Int?
+  authorStaff   StaffMember? @relation("StaffTaskComments", fields: [authorStaffId], references: [id])
+
+  message    String @db.Text
+  photos     String[] @default([])
+  documents  String[] @default([])
+
+  @@index([taskId])
+}
+
+model PMTaskUpdate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  taskId Int
+  task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Who made the update
+  updatedByType    String  // "PM" or "STAFF"
+  updatedByPMId    Int?
+  updatedByPM      User?        @relation("PMTaskUpdatesAuthored", fields: [updatedByPMId], references: [id])
+  updatedByStaffId Int?
+  updatedByStaff   StaffMember? @relation("StaffTaskUpdates", fields: [updatedByStaffId], references: [id])
+
+  status             String
+  message            String @db.Text
+  progressPercentage Float?
+
+  photos    String[] @default([])
+  documents String[] @default([])
+
+  @@index([taskId])
+}
+
+model PMTaskMaterial {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  name        String
+  description String?
+  quantity    Float
+  unit        String   @default("unit")
+  unitPrice   Float
+  totalCost   Float
+
+  taskId Int
+  task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model PMTaskExpenseSlip {
+  id          Int          @id @default(autoincrement())
+  createdAt   DateTime     @default(now())
+  url         String
+  category    SlipCategory
+  description String?
+  amount      Float?
+
+  taskId Int
+  task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
 }

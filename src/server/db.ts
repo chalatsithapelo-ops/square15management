@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { env } from "~/server/env";
+// Prisma client regenerated with Task Management models
 
 const createPrismaClient = () => {
   const isDevelopment = env.NODE_ENV === "development";
