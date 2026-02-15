@@ -115,11 +115,13 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       icon: data.icon || "/square15-logo-design.png",
       badge: data.badge || "/square15-logo-design.png",
-      tag: data.tag || "notification",
+      tag: data.tag || "notification-" + Date.now(),
       data: data.data || {},
       requireInteraction: data.requireInteraction || false,
       vibrate: [200, 100, 200],
       silent: false,
+      renotify: true,
+      actions: data.actions || [],
     };
 
     event.waitUntil(self.registration.showNotification(title, options));

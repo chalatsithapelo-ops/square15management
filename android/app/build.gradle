@@ -18,7 +18,7 @@ android {
             hostName   : "www.square15management.co.za",
             defaultUrl : "https://www.square15management.co.za",
             launcherName: "Square 15 Management System",
-            assetStatements: '[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://www.square15management.co.za"}}]'
+            assetStatements: '[{"relation": ["delegate_permission/common.handle_all_urls","delegate_permission/common.use_as_origin","delegate_permission/common.get_login_creds"], "target": {"namespace": "web", "site": "https://www.square15management.co.za"}}]'
         ]
     }
 
@@ -51,5 +51,6 @@ android {
 
 dependencies {
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-    implementation 'androidx.browser:browser:1.7.0'
+    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'androidx.core:core:1.13.1'
 }

@@ -1,11 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.use_as_origin",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "za.co.square15management",
       "sha256_cert_fingerprints": [
-        "DEBUG_FINGERPRINT_WILL_BE_UPDATED_AFTER_FIRST_BUILD"
+        "78:65:34:C0:9D:10:F1:69:1E:75:7A:4A:B0:C2:8B:CE:86:B0:2C:20:06:A2:A3:68:32:EE:15:55:CF:85:3C:06"
       ]
     }
   }
