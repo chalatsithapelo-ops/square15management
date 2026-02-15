@@ -198,6 +198,66 @@ function LoginPage() {
                 </div>
               </div>
             </div>
+
+            {/* Install App Section */}
+            <div className="mt-3">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Get the App</span>
+                </div>
+              </div>
+              <div className="mt-2 bg-[#2D5016]/5 border border-[#2D5016]/20 rounded-xl p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-[#2D5016] rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Install on your phone</p>
+                    <p className="text-xs text-gray-500">Quick access without the browser</p>
+                  </div>
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  <button
+                    type="button"
+                    id="pwa-install-btn"
+                    onClick={() => {
+                      const prompt = (window as any).__pwaInstallPrompt;
+                      if (prompt) {
+                        prompt.prompt();
+                        prompt.userChoice.then((result: any) => {
+                          if (result.outcome === 'accepted') {
+                            console.log('App installed');
+                          }
+                          (window as any).__pwaInstallPrompt = null;
+                          const btn = document.getElementById('pwa-install-btn');
+                          if (btn) btn.style.display = 'none';
+                        });
+                      } else {
+                        // Fallback - show manual instructions
+                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        if (isIOS) {
+                          alert('To install:\n\n1. Tap the Share button (box with arrow) at the bottom of Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+                        } else {
+                          alert('To install:\n\n1. Tap the three-dot menu (⋮) at the top right of Chrome\n2. Tap "Add to Home screen" or "Install app"\n3. Tap "Install"');
+                        }
+                      }
+                    }}
+                    className="w-full bg-[#2D5016] text-white text-sm font-medium py-2 px-3 rounded-lg hover:bg-[#1e3a0f] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Install App
+                  </button>
+                  <p className="text-[10px] text-gray-400 text-center">Works on Android, iPhone &amp; Desktop</p>
+                </div>
+              </div>
+            </div>
           </form>
         </div>
       </div>
