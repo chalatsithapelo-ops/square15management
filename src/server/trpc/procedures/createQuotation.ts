@@ -145,8 +145,30 @@ export const createQuotation = baseProcedure
         },
       });
 
+      // Notify artisan if quotation is assigned to one (and they're not the creator)
+      try {
+        const effectiveAssignedToId = user.role === "CONTRACTOR" ? user.id : (input.assignedToId || null);
+        if (effectiveAssignedToId && effectiveAssignedToId !== parsed.userId) {
+          const assignedUser = await db.user.findUnique({
+            where: { id: effectiveAssignedToId },
+            select: { role: true },
+          });
+          if (assignedUser && assignedUser.role === 'ARTISAN') {
+            const { notifyArtisanQuotationAssigned } = await import('~/server/utils/notifications');
+            await notifyArtisanQuotationAssigned({
+              artisanId: effectiveAssignedToId,
+              quoteNumber: quotation.quoteNumber,
+              quotationId: quotation.id,
+            });
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send quotation assignment notification:', notifError);
+      }
+
       return quotation;
     } catch (error) {
+      if (error instanceof TRPCError) throw error;
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: "Invalid or expired token",

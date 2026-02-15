@@ -53,6 +53,18 @@ export const subscribeToPush = baseProcedure
         },
       });
 
+      // Clean up old/stale subscriptions for this user (different endpoints)
+      try {
+        await db.pushSubscription.deleteMany({
+          where: {
+            userId: user.id,
+            id: { not: subscription.id },
+          },
+        });
+      } catch (cleanupError) {
+        console.error("Failed to clean up old push subscriptions:", cleanupError);
+      }
+
       return { success: true, subscription };
     } catch (error) {
       console.error("Failed to save push subscription:", error);

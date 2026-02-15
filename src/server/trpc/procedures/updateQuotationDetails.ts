@@ -130,6 +130,30 @@ export const updateQuotationDetails = baseProcedure
         },
       });
 
+      // Notify artisan if quotation is being reassigned to a different artisan
+      try {
+        if (
+          input.assignedToId !== undefined &&
+          input.assignedToId !== null &&
+          input.assignedToId !== currentQuotation.assignedToId
+        ) {
+          const assignedUser = await db.user.findUnique({
+            where: { id: input.assignedToId },
+            select: { role: true },
+          });
+          if (assignedUser && assignedUser.role === 'ARTISAN') {
+            const { notifyArtisanQuotationAssigned } = await import('~/server/utils/notifications');
+            await notifyArtisanQuotationAssigned({
+              artisanId: input.assignedToId,
+              quoteNumber: quotation.quoteNumber,
+              quotationId: quotation.id,
+            });
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send quotation reassignment notification:', notifError);
+      }
+
       return quotation;
     } catch (error) {
       if (error instanceof TRPCError) throw error;

@@ -154,19 +154,46 @@ function RootInnerComponent({
           pushStore.setSubscriptionEndpoint(existingSubscription.endpoint);
           pushStore.setEnabled(true);
           
-          // Re-register with server in case it was lost
+          // Always re-register with server to ensure it's up to date
           const subscriptionData = existingSubscription.toJSON();
           
           try {
             await subscribeToPushMutation.mutateAsync({
               token,
-              subscription: subscriptionData,
+              subscription: {
+                endpoint: subscriptionData.endpoint!,
+                keys: {
+                  p256dh: subscriptionData.keys!.p256dh!,
+                  auth: subscriptionData.keys!.auth!,
+                },
+              },
               deviceIdentifier: getDeviceIdentifier(),
             });
             
-            console.log("Push notifications already enabled");
+            console.log("Push subscription re-registered with server");
           } catch (error) {
             console.error("Failed to re-register push subscription:", error);
+            // If re-registration fails, try creating a fresh subscription
+            try {
+              await existingSubscription.unsubscribe();
+              const freshSub = await subscribeToPushNotifications(vapidResult.publicKey);
+              const freshData = freshSub.toJSON();
+              await subscribeToPushMutation.mutateAsync({
+                token,
+                subscription: {
+                  endpoint: freshData.endpoint!,
+                  keys: {
+                    p256dh: freshData.keys!.p256dh!,
+                    auth: freshData.keys!.auth!,
+                  },
+                },
+                deviceIdentifier: getDeviceIdentifier(),
+              });
+              pushStore.setSubscriptionEndpoint(freshSub.endpoint);
+              console.log("Push subscription refreshed successfully");
+            } catch (refreshError) {
+              console.error("Failed to refresh push subscription:", refreshError);
+            }
           }
           return;
         }
@@ -180,7 +207,13 @@ function RootInnerComponent({
         try {
           await subscribeToPushMutation.mutateAsync({
             token,
-            subscription: subscriptionData,
+            subscription: {
+              endpoint: subscriptionData.endpoint!,
+              keys: {
+                p256dh: subscriptionData.keys!.p256dh!,
+                auth: subscriptionData.keys!.auth!,
+              },
+            },
             deviceIdentifier: getDeviceIdentifier(),
           });
           
