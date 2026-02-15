@@ -1,12 +1,101 @@
-// Service Worker for handling push notifications
+// Service Worker for PWA + Push Notifications
+const CACHE_NAME = "square15-v1";
+const STATIC_ASSETS = [
+  "/",
+  "/manifest.json",
+  "/logo.png",
+  "/offline.html",
+];
+
+// Install: pre-cache essential assets
 self.addEventListener("install", (event) => {
   console.log("Service Worker installed");
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log("Pre-caching static assets");
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn("Pre-cache failed for some assets:", err);
+      });
+    })
+  );
   self.skipWaiting();
 });
 
+// Activate: clean up old caches
 self.addEventListener("activate", (event) => {
   console.log("Service Worker activated");
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => {
+            console.log("Removing old cache:", name);
+            return caches.delete(name);
+          })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Fetch: network-first strategy for API calls, cache-first for static assets
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET requests
+  if (request.method !== "GET") return;
+
+  // Skip API/tRPC requests — always go to network
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/trpc/")) {
+    return;
+  }
+
+  // For navigation requests (HTML pages) — network first, fallback to cache
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match("/offline.html");
+          });
+        })
+    );
+    return;
+  }
+
+  // For static assets (JS, CSS, images, fonts) — stale-while-revalidate
+  if (
+    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|gif|woff2?|ttf|eot|ico)$/) ||
+    url.pathname.startsWith("/assets/") ||
+    url.pathname.startsWith("/icons/")
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse.ok) {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, responseToCache);
+              });
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
+      })
+    );
+    return;
+  }
 });
 
 self.addEventListener("push", (event) => {

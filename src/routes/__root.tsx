@@ -17,6 +17,7 @@ import {
   getDeviceIdentifier,
 } from "~/utils/push-notifications";
 import { ErrorBoundary } from "~/components/ErrorBoundary";
+import { InstallPrompt } from "~/components/InstallPrompt";
 
 export const Route = createRootRoute<{
   user: AuthUser | null;
@@ -319,6 +320,7 @@ function RootInnerComponent({
   return (
     <ErrorBoundary>
       <Outlet />
+      <InstallPrompt />
     </ErrorBoundary>
   );
 }
