@@ -113,8 +113,8 @@ self.addEventListener("push", (event) => {
     const title = data.title || "New Notification";
     const options = {
       body: data.body || "",
-      icon: data.icon || "/logo.png",
-      badge: data.badge || "/logo.png",
+      icon: data.icon || "/square15-logo-design.png",
+      badge: data.badge || "/square15-logo-design.png",
       tag: data.tag || "notification",
       data: data.data || {},
       requireInteraction: data.requireInteraction || false,
@@ -134,23 +134,29 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data || {};
   let url = "/";
 
-  // Determine the URL based on the notification data
-  if (data.relatedEntityType && data.relatedEntityId) {
+  // Determine the URL based on the notification data and user role
+  const role = data.recipientRole || "";
+  const isArtisan = role === "ARTISAN";
+  const isContractor = ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER", "CONTRACTOR_JUNIOR_MANAGER", "CONTRACTOR_ACCOUNTANT"].includes(role);
+  const isPropertyManager = ["PROPERTY_MANAGER", "PROPERTY_MANAGER_ADMIN"].includes(role);
+  const isStaff = role === "STAFF";
+
+  if (data.relatedEntityType) {
     switch (data.relatedEntityType) {
       case "ORDER":
-        url = "/admin/operations";
+        url = isArtisan ? "/artisan/dashboard" : isContractor ? "/contractor/orders" : isPropertyManager ? "/property-manager/orders" : "/admin/operations";
         break;
       case "PROJECT":
-        url = "/admin/projects";
+        url = isArtisan ? "/artisan/dashboard" : "/admin/projects";
         break;
       case "INVOICE":
-        url = "/admin/invoices";
+        url = isContractor ? "/contractor/invoices" : isPropertyManager ? "/property-manager/invoices" : "/admin/invoices";
         break;
       case "QUOTATION":
-        url = "/admin/quotations";
+        url = isArtisan ? "/artisan/dashboard" : isContractor ? "/contractor/quotations" : "/admin/quotations";
         break;
       case "PAYMENT_REQUEST":
-        url = "/admin/payment-requests";
+        url = isArtisan ? "/artisan/dashboard" : "/admin/payment-requests";
         break;
       case "STATEMENT":
         url = "/admin/statements";
@@ -159,11 +165,20 @@ self.addEventListener("notificationclick", (event) => {
         url = "/admin/crm";
         break;
       case "MILESTONE":
-        url = "/admin/projects";
+        url = isArtisan ? "/artisan/dashboard" : "/admin/projects";
+        break;
+      case "CONVERSATION":
+        url = isArtisan ? "/artisan/dashboard" : isContractor ? "/contractor/messages" : "/admin/conversations";
+        break;
+      case "TASK":
+        url = isStaff ? "/staff/tasks" : "/admin/tasks";
         break;
       default:
-        url = "/";
+        url = isArtisan ? "/artisan/dashboard" : isContractor ? "/contractor/dashboard" : isPropertyManager ? "/property-manager/dashboard" : "/";
     }
+  } else {
+    // No entity type — route to the user's dashboard
+    url = isArtisan ? "/artisan/dashboard" : isContractor ? "/contractor/dashboard" : isPropertyManager ? "/property-manager/dashboard" : isStaff ? "/staff/dashboard" : "/";
   }
 
   event.waitUntil(

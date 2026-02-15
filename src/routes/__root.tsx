@@ -12,6 +12,7 @@ import { usePushNotificationStore } from "~/stores/push-notifications";
 import {
   isPushNotificationSupported,
   getNotificationPermission,
+  requestNotificationPermission,
   subscribeToPushNotifications,
   getCurrentPushSubscription,
   getDeviceIdentifier,
@@ -121,8 +122,14 @@ function RootInnerComponent({
     
     const initializePushNotifications = async () => {
       try {
-        const permission = getNotificationPermission();
+        let permission = getNotificationPermission();
         pushStore.setPermission(permission);
+        
+        // If permission not yet decided, request it
+        if (permission === "default") {
+          permission = await requestNotificationPermission();
+          pushStore.setPermission(permission);
+        }
         
         // Only proceed if permission is granted
         if (permission !== "granted") {

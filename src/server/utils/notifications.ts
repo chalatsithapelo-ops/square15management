@@ -44,13 +44,14 @@ export async function createNotification(params: {
 
     // Send Web Push notification (non-blocking)
     sendPushNotificationToUser(params.recipientId, {
-      title: "New Notification",
+      title: "Square 15",
       body: params.message,
-      icon: "/logo.png",
-      badge: "/logo.png",
+      icon: "/square15-logo-design.png",
+      badge: "/square15-logo-design.png",
       data: {
         notificationId: notification.id,
         type: params.type,
+        recipientRole: recipient?.role ?? params.recipientRole,
         relatedEntityId: params.relatedEntityId,
         relatedEntityType: params.relatedEntityType,
       },
@@ -118,12 +119,13 @@ export async function notifyAdmins(params: {
     const eligibleAdminIds = eligibleAdmins.map((admin) => admin.id);
     if (eligibleAdminIds.length > 0) {
       sendPushNotificationToUsers(eligibleAdminIds, {
-        title: "Admin Notification",
+        title: "Square 15 - Admin",
         body: params.message,
-        icon: "/logo.png",
-        badge: "/logo.png",
+        icon: "/square15-logo-design.png",
+        badge: "/square15-logo-design.png",
         data: {
           type: params.type,
+          recipientRole: "ADMIN",
           relatedEntityId: params.relatedEntityId,
           relatedEntityType: params.relatedEntityType,
         },
