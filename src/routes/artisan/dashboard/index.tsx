@@ -180,7 +180,11 @@ function ArtisanDashboard() {
     completeQuotationId ||
     completeMilestoneId ||
     updateProgressMilestoneId ||
-    uploadQuotationMilestoneId
+    uploadQuotationMilestoneId ||
+    editingNotesOrderId ||
+    reviewJobOrderId ||
+    editingMilestoneNotesId ||
+    startMilestoneId
   );
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
@@ -190,8 +194,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 60000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -200,8 +204,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 15000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -210,8 +214,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 10000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -220,8 +224,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 30000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -230,8 +234,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 30000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -240,8 +244,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 30000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -251,8 +255,8 @@ function ArtisanDashboard() {
       artisanId: user?.id || 0,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 30000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 
@@ -261,8 +265,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 30000, // Disable polling while modal is open
-      refetchOnWindowFocus: !isAnyModalOpen, // Disable refetch on focus while modal is open
+      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
+      refetchOnWindowFocus: !isAnyModalOpen,
     })
   );
 

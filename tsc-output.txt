@@ -1,0 +1,922 @@
+﻿src/components/admin/CustomRoleManager.tsx(76,12): error TS2532: Object is possibly 'undefined'.
+src/components/admin/CustomRoleManager.tsx(78,19): error TS2532: Object is possibly 'undefined'.
+src/components/admin/CustomRoleManager.tsx(100,32): error TS2339: Property 'employees' does not exist on type '{ id: number; email: string; createdAt: Date; firstName: string; lastName: string; phone: string | null; role: string; hourlyRate: number | null; dailyRate: number | null; monthlySalary: number | null; monthlyPaymentDay: number | null; }[]'.
+src/components/admin/CustomRoleManager.tsx(100,49): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/admin/CustomRoleManager.tsx(107,14): error TS2532: Object is possibly 'undefined'.
+src/components/admin/CustomRoleManager.tsx(109,21): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RegistrationManagement.tsx(426,47): error TS2339: Property 'rejectedAt' does not exist on type '{ kind: "PM_CONTRACTOR_PACKAGE_REQUEST"; id: number; createdAt: Date; updatedAt: Date; derivedStatus: string; requestStatus: ContractorPackageRequestStatus; ... 5 more ...; subscription: { ...; } | null; }'.
+src/components/admin/RegistrationManagement.tsx(428,72): error TS2339: Property 'rejectedAt' does not exist on type '{ kind: "PM_CONTRACTOR_PACKAGE_REQUEST"; id: number; createdAt: Date; updatedAt: Date; derivedStatus: string; requestStatus: ContractorPackageRequestStatus; ... 5 more ...; subscription: { ...; } | null; }'.
+src/components/admin/RegistrationManagement.tsx(431,47): error TS2339: Property 'rejectionReason' does not exist on type '{ kind: "PM_CONTRACTOR_PACKAGE_REQUEST"; id: number; createdAt: Date; updatedAt: Date; derivedStatus: string; requestStatus: ContractorPackageRequestStatus; ... 5 more ...; subscription: { ...; } | null; }'.
+src/components/admin/RegistrationManagement.tsx(432,104): error TS2339: Property 'rejectionReason' does not exist on type '{ kind: "PM_CONTRACTOR_PACKAGE_REQUEST"; id: number; createdAt: Date; updatedAt: Date; derivedStatus: string; requestStatus: ContractorPackageRequestStatus; ... 5 more ...; subscription: { ...; } | null; }'.
+src/components/admin/RolePermissionManager.tsx(31,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(33,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(35,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(37,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(39,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(41,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(43,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(45,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(47,7): error TS2532: Object is possibly 'undefined'.
+src/components/admin/RolePermissionManager.tsx(53,9): error TS2532: Object is possibly 'undefined'.
+src/components/AgentChat.tsx(114,7): error TS2322: Type '{ mimeType: string; data: string | undefined; }[]' is not assignable to type '{ mimeType: string; data: string; }[]'.
+  Type '{ mimeType: string; data: string | undefined; }' is not assignable to type '{ mimeType: string; data: string; }'.
+    Types of property 'data' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/components/AgentChat.tsx(133,13): error TS2345: Argument of type '{ mimeType: string; data: string | undefined; }[]' is not assignable to parameter of type '{ mimeType: string; data: string; }[]'.
+  Type '{ mimeType: string; data: string | undefined; }' is not assignable to type '{ mimeType: string; data: string; }'.
+    Types of property 'data' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/components/AIAgentChat.tsx(141,38): error TS2339: Property 'webkitSpeechRecognition' does not exist on type 'Window & typeof globalThis'.
+src/components/AlternativeRevenueForm.tsx(84,5): error TS2322: Type 'Resolver<{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; source?: string | undefined; ... 4 more ...; recurringPeriod?: string | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; isRecurring: boolean; ... 4 more ...; recurringPeriod?: string | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; isRecurring: boolean; ... 4 more ...; recurringPeriod?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; source?: string | undefined; ... 4 more ...; recurringPeriod?: string | undefined; }>'.
+      Type 'boolean | undefined' is not assignable to type 'boolean'.
+        Type 'undefined' is not assignable to type 'boolean'.
+src/components/AlternativeRevenueForm.tsx(269,38): error TS2345: Argument of type '(data: RevenueForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; isRecurring: boolean; source?: string | undefined; notes?: string | undefined; referenceNumber?: string | undefined; documentUrl?: string | undefined; recurri...'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; date: string; amount: number; category: "OTHER" | "CONSULTING" | "RENTAL_INCOME" | "INTEREST" | "INVESTMENTS" | "GRANTS" | "DONATIONS"; isRecurring: boolean; source?: string | undefined; notes?: string | undefined; referenceNumber?: string | undefined; documentUrl?: string | undefined; recurri...': description, date, amount, category, isRecurring
+src/components/artisan/JobProgressGallery.tsx(252,17): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(77,13): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(78,13): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(81,28): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(113,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Budget Utilization"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(163,76): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(170,76): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/BudgetUtilizationTrendChart.tsx(177,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(74,13): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(75,13): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(78,28): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(111,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Completion Rate"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/CompletionRateTrendChart.tsx(143,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(150,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(157,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CompletionRateTrendChart.tsx(164,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/CustomerTrendsChart.tsx(98,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/CustomerTrendsChart.tsx(98,48): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/CustomerTrendsChart.tsx(103,48): error TS2532: Object is possibly 'undefined'.
+src/components/charts/CustomerTrendsChart.tsx(164,15): error TS2322: Type '(value: number, name: string) => [number, string]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/CustomerTrendsChart.tsx(225,41): error TS2532: Object is possibly 'undefined'.
+src/components/charts/DepartmentExpenseChart.tsx(2,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/DepartmentExpenseChart.tsx(114,15): error TS2322: Type '(value: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/EmployeeResponseTimeChart.tsx(2,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/EmployeeResponseTimeChart.tsx(194,15): error TS2322: Type '(value: number, name: string, props: any) => [JSX.Element, "Avg Response Time"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/EmployeeSalesComparisonChart.tsx(3,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/EmployeeSalesComparisonChart.tsx(207,15): error TS2322: Type '(value: number, name: string, props: any) => [JSX.Element, string]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/ExpenseBreakdownChart.tsx(88,15): error TS2322: Type 'ExpenseDataPoint[]' is not assignable to type 'ChartDataInput[]'.
+  Type 'ExpenseDataPoint' is not assignable to type 'ChartDataInput'.
+    Index signature for type 'string' is missing in type 'ExpenseDataPoint'.
+src/components/charts/ExpenseBreakdownChart.tsx(110,15): error TS2322: Type '(value: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/LeadConversionTrendChart.tsx(56,22): error TS2532: Object is possibly 'undefined'.
+src/components/charts/LeadConversionTrendChart.tsx(63,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/LeadConversionTrendChart.tsx(63,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/LeadConversionTrendChart.tsx(122,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Conversion Rate"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/PayrollTrendChart.tsx(82,15): error TS2322: Type '(value: number) => [string, "Payroll"]' is not assignable to type 'Formatter<number, "Payroll">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/PopularServicesChart.tsx(3,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/PopularServicesChart.tsx(137,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Revenue"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/ProfitMarginChart.tsx(104,15): error TS2322: Type '(value: number, name: string) => [string, string]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/ProfitVarianceChart.tsx(2,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/ProfitVarianceChart.tsx(111,15): error TS2322: Type '(value: number, name: string) => [string, string]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/ProjectHealthTrendChart.tsx(70,40): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/ProjectHealthTrendChart.tsx(85,28): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/ProjectHealthTrendChart.tsx(121,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Health Score"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/ProjectHealthTrendChart.tsx(179,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/ProjectHealthTrendChart.tsx(186,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/ProjectHealthTrendChart.tsx(193,61): error TS18048: 'latestData' is possibly 'undefined'.
+src/components/charts/RevenueByArtisanChart.tsx(2,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/RevenueByArtisanChart.tsx(91,15): error TS2322: Type '(value: number, name: string) => [string, "Revenue"] | [number, "Orders"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/RevenueByClientChart.tsx(2,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/charts/RevenueByClientChart.tsx(91,15): error TS2322: Type '(value: number, name: string) => [string, "Revenue"] | [number, "Invoices"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/RevenueByProjectTypeChart.tsx(100,15): error TS2322: Type '(value: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/RevenueComparisonChart.tsx(101,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/RevenueComparisonChart.tsx(101,48): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/RevenueComparisonChart.tsx(160,15): error TS2322: Type '(value: number, name: string) => [string, "Revenue"] | [number, "Invoices"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/RevenueTrendChart.tsx(82,15): error TS2322: Type '(value: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/SalesPipelineTrendChart.tsx(56,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/SalesPipelineTrendChart.tsx(56,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/SalesPipelineTrendChart.tsx(62,27): error TS2532: Object is possibly 'undefined'.
+src/components/charts/SalesPipelineTrendChart.tsx(64,28): error TS2532: Object is possibly 'undefined'.
+src/components/charts/SalesPipelineTrendChart.tsx(109,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Pipeline Value"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/charts/WinRateTrendChart.tsx(55,22): error TS2532: Object is possibly 'undefined'.
+src/components/charts/WinRateTrendChart.tsx(62,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/WinRateTrendChart.tsx(62,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/charts/WinRateTrendChart.tsx(115,15): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Win Rate"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/crm/CampaignEditor.tsx(186,39): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/components/ErrorBoundary.tsx(86,14): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', 'node20', or 'nodenext'.
+src/components/ExpenseSlipUpload.tsx(84,27): error TS2532: Object is possibly 'undefined'.
+src/components/ExpenseSlipUpload.tsx(116,33): error TS18048: 'slip' is possibly 'undefined'.
+src/components/ExpenseSlipUpload.tsx(139,9): error TS18048: 'slip' is possibly 'undefined'.
+src/components/ExpenseSlipUpload.tsx(140,33): error TS18048: 'slip' is possibly 'undefined'.
+src/components/FeatureGuard.tsx(16,45): error TS2532: Object is possibly 'undefined'.
+src/components/FeatureGuard.tsx(16,45): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/components/FeatureGuard.tsx(119,34): error TS2532: Object is possibly 'undefined'.
+src/components/FeatureGuard.tsx(119,34): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/components/FeatureGuard.tsx(187,34): error TS2532: Object is possibly 'undefined'.
+src/components/FeatureGuard.tsx(187,34): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/components/hr/EmployeePerformanceTrends.tsx(139,15): error TS2322: Type 'number' is not assignable to type '{ value: string; direction: "up" | "down" | "neutral"; }'.
+src/components/hr/EmployeePerformanceTrends.tsx(147,15): error TS2322: Type 'number' is not assignable to type '{ value: string; direction: "up" | "down" | "neutral"; }'.
+src/components/hr/EmployeePerformanceTrends.tsx(279,21): error TS2322: Type '(value: number) => [string, "Conversion Rate"]' is not assignable to type 'Formatter<number, "Conversion Rate">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeePerformanceTrends.tsx(321,21): error TS2322: Type '(value: number) => [string, "Avg Deal Value"]' is not assignable to type 'Formatter<number, "Avg Deal Value">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeePerformanceTrends.tsx(425,21): error TS2322: Type '(value: number) => [string, "Won Value"]' is not assignable to type 'Formatter<number, "Won Value">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeePerformanceTrends.tsx(471,21): error TS2322: Type '(value: number) => [number, "Orders"]' is not assignable to type 'Formatter<number, "Orders">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeePerformanceTrends.tsx(518,21): error TS2322: Type '(value: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue">'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeePerformanceTrends.tsx(564,19): error TS2322: Type '(value: number, name: string) => [number, string] | [string, "Average Rating"]' is not assignable to type 'Formatter<number, string>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/hr/EmployeesTab.tsx(123,5): error TS2322: Type 'Resolver<{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: unknown; dailyRate?: unknown; monthlySalary?: unknown; monthlyPaymentDay?: unknown; }, any, { ...; }>' is not assignable to type 'Resolver<{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; }>' is not assignable to type 'ResolverOptions<{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: unknown; dailyRate?: unknown; monthlySalary?: unknown; monthlyPaymentDay?: unknown; }>'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/components/hr/EmployeesTab.tsx(132,5): error TS2322: Type 'Resolver<{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: unknown; dailyRate?: unknown; monthlySalary?: unknown; monthlyPaymentDay?: unknown; customRole?: string | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; customRole?: string | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; customRole?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: unknown; dailyRate?: unknown; monthlySalary?: unknown; monthlyPaymentDay?: unknown; customRole?: string | undefined; }>'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/components/hr/EmployeesTab.tsx(472,42): error TS2345: Argument of type '(data: EmployeeUpdateForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ firstName: string; lastName: string; role: string; email?: string | undefined; password?: string | undefined; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; }': firstName, lastName, role
+src/components/hr/EmployeesTab.tsx(675,48): error TS2345: Argument of type '(data: EmployeeCreateForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; customRole?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ email: string; password: string; firstName: string; lastName: string; role: string; phone?: string | undefined; hourlyRate?: number | undefined; dailyRate?: number | undefined; monthlySalary?: number | undefined; monthlyPaymentDay?: number | undefined; customRole?: string | undefined; }': email, password, firstName, lastName, role
+src/components/hr/PayslipsTab.tsx(214,22): error TS18048: 'payslip' is possibly 'undefined'.
+src/components/hr/PayslipsTab.tsx(228,36): error TS18048: 'payslip' is possibly 'undefined'.
+src/components/hr/PayslipsTab.tsx(244,52): error TS18048: 'payslip' is possibly 'undefined'.
+src/components/OperationalExpenseForm.tsx(98,5): error TS2719: Type 'import("C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/react-hook-form/dist/types/resolvers").Resolver<{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | "SALARI...' is not assignable to type 'import("C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/react-hook-form/dist/types/resolvers").Resolver<{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | "SALARI...'. Two different types with this name exist, but they are unrelated.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'import("C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/react-hook-form/dist/types/resolvers").ResolverOptions<{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | ...' is not assignable to type 'import("C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/react-hook-form/dist/types/resolvers").ResolverOptions<{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | ...'. Two different types with this name exist, but they are unrelated.
+      Type 'boolean | undefined' is not assignable to type 'boolean'.
+        Type 'undefined' is not assignable to type 'boolean'.
+src/components/OperationalExpenseForm.tsx(283,38): error TS2345: Argument of type '(data: ExpenseForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | "SALARIES" | "MARKETING" | "MAINTENANCE" | "TRAVEL" | "PROFESSIONAL_FEES" | "TELECOMMUNICATIONS" | "SOFTWARE_SUBSCRIPTIONS"; ... 5 more ...; recurringPeriod?: string | undefine...'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; date: string; amount: number; category: "OTHER" | "PETROL" | "OFFICE_SUPPLIES" | "RENT" | "UTILITIES" | "INSURANCE" | "SALARIES" | "MARKETING" | "MAINTENANCE" | "TRAVEL" | "PROFESSIONAL_FEES" | "TELECOMMUNICATIONS" | "SOFTWARE_SUBSCRIPTIONS"; ... 5 more ...; recurringPeriod?: string | undefine...': description, date, amount, category, isRecurring
+src/components/PhotoUpload.tsx(72,27): error TS2532: Object is possibly 'undefined'.
+src/components/projects/MilestoneManager.tsx(135,5): error TS2322: Type 'Resolver<{ name: string; description: string; sequenceOrder: number; startDate?: string | undefined; endDate?: string | undefined; notes?: string | undefined; assignedToId?: number | undefined; ... 7 more ...; otherOperationalCost?: number | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ name: string; description: string; materialCost: number; labourCost: number; sequenceOrder: number; expectedProfit: number; budgetAllocated: number; dieselCost: number; rentCost: number; ... 5 more ...; assignedToId?: number | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ name: string; description: string; materialCost: number; labourCost: number; sequenceOrder: number; expectedProfit: number; budgetAllocated: number; dieselCost: number; rentCost: number; ... 5 more ...; assignedToId?: number | undefined; }>' is not assignable to type 'ResolverOptions<{ name: string; description: string; sequenceOrder: number; startDate?: string | undefined; endDate?: string | undefined; notes?: string | undefined; assignedToId?: number | undefined; ... 7 more ...; otherOperationalCost?: number | undefined; }>'.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/projects/MilestoneManager.tsx(600,5): error TS2322: Type '{ name?: string | undefined; description?: string | undefined; quantity?: string | undefined; unitPrice?: string | undefined; supplier?: string | undefined; supplierQuotationUrl?: string | undefined; supplierQuotationAmount?: string | undefined; }' is not assignable to type '{ name: string; description: string; quantity: string; unitPrice: string; supplier: string; supplierQuotationUrl: string; supplierQuotationAmount: string; }'.
+  Types of property 'name' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/components/projects/MilestoneManager.tsx(783,40): error TS2345: Argument of type '(data: MilestoneForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ name: string; description: string; materialCost: number; labourCost: number; sequenceOrder: number; expectedProfit: number; budgetAllocated: number; dieselCost: number; rentCost: number; adminCost: number; ... 4 more ...; assignedToId?: number | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ name: string; description: string; materialCost: number; labourCost: number; sequenceOrder: number; expectedProfit: number; budgetAllocated: number; dieselCost: number; rentCost: number; adminCost: number; ... 4 more ...; assignedToId?: number | undefined; }': name, description, materialCost, labourCost, and 7 more.
+src/components/projects/MilestoneManager.tsx(1242,21): error TS2322: Type '({ paymentRequests: ({ artisan: { id: number; email: string; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; ... 12 more ...; paidDate: Date | null; })[]; ... 8 more ...; qualityCheckpoints: { ...; }[]; } & { ...; })[]' is not assignable to type 'Milestone[]'.
+  Type '{ paymentRequests: ({ artisan: { id: number; email: string; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; ... 12 more ...; paidDate: Date | null; })[]; ... 8 more ...; qualityCheckpoints: { ...; }[]; } & { ...; }' is not assignable to type 'Milestone'.
+    Types of property 'startDate' are incompatible.
+      Type 'Date | null' is not assignable to type 'string | null'.
+        Type 'Date' is not assignable to type 'string'.
+src/components/projects/WeeklyBudgetTracker.tsx(80,5): error TS2322: Type 'Resolver<{ weekStartDate: string; weekEndDate: string; notes?: string | undefined; progressPercentage?: number | undefined; labourExpenditure?: number | undefined; materialExpenditure?: number | undefined; ... 4 more ...; nextWeekPlan?: string | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ progressPercentage: number; weekStartDate: string; weekEndDate: string; labourExpenditure: number; materialExpenditure: number; otherExpenditure: number; notes?: string | undefined; workDone?: string | undefined; challenges?: string | undefined; successes?: string | undefined; nextWeekPlan?: string | unde...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ progressPercentage: number; weekStartDate: string; weekEndDate: string; labourExpenditure: number; materialExpenditure: number; otherExpenditure: number; notes?: string | undefined; workDone?: string | undefined; challenges?: string | undefined; successes?: string | undefined; nextWeekPlan?: string...' is not assignable to type 'ResolverOptions<{ weekStartDate: string; weekEndDate: string; notes?: string | undefined; progressPercentage?: number | undefined; labourExpenditure?: number | undefined; materialExpenditure?: number | undefined; ... 4 more ...; nextWeekPlan?: string | undefined; }>'.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/projects/WeeklyBudgetTracker.tsx(237,40): error TS2345: Argument of type '(data: WeeklyUpdateForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ progressPercentage: number; weekStartDate: string; weekEndDate: string; labourExpenditure: number; materialExpenditure: number; otherExpenditure: number; notes?: string | undefined; workDone?: string | undefined; challenges?: string | undefined; successes?: string | undefined; nextWeekPlan?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ progressPercentage: number; weekStartDate: string; weekEndDate: string; labourExpenditure: number; materialExpenditure: number; otherExpenditure: number; notes?: string | undefined; workDone?: string | undefined; challenges?: string | undefined; successes?: string | undefined; nextWeekPlan?: string | undefined; }': progressPercentage, weekStartDate, weekEndDate, labourExpenditure, and 2 more.
+src/components/property-manager/BuildingBudgetTracker.tsx(855,29): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/components/property-manager/ComprehensivePMFinancialReporting.tsx(21,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/property-manager/ContractorDetailsModal.tsx(164,43): error TS2339: Property 'onTimeCompletionRate' does not exist on type '{ success: boolean; contractor: { id: number; name: string; companyName: string | null; totalJobsCompleted: number; averageRating: number; totalSpent: number; }; performanceMetrics: { id: number; ... 12 more ...; profitMargin: number; }[]; kpis: { ...; }[]; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(176,43): error TS2339: Property 'qualityScore' does not exist on type '{ success: boolean; contractor: { id: number; name: string; companyName: string | null; totalJobsCompleted: number; averageRating: number; totalSpent: number; }; performanceMetrics: { id: number; ... 12 more ...; profitMargin: number; }[]; kpis: { ...; }[]; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(188,43): error TS2339: Property 'customerSatisfactionScore' does not exist on type '{ success: boolean; contractor: { id: number; name: string; companyName: string | null; totalJobsCompleted: number; averageRating: number; totalSpent: number; }; performanceMetrics: { id: number; ... 12 more ...; profitMargin: number; }[]; kpis: { ...; }[]; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(196,32): error TS2339: Property 'description' does not exist on type '{ success: boolean; contractor: { id: number; name: string; companyName: string | null; totalJobsCompleted: number; averageRating: number; totalSpent: number; }; performanceMetrics: { id: number; ... 12 more ...; profitMargin: number; }[]; kpis: { ...; }[]; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(199,89): error TS2339: Property 'description' does not exist on type '{ success: boolean; contractor: { id: number; name: string; companyName: string | null; totalJobsCompleted: number; averageRating: number; totalSpent: number; }; performanceMetrics: { id: number; ... 12 more ...; profitMargin: number; }[]; kpis: { ...; }[]; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(227,42): error TS2339: Property 'totalSpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'totalSpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(237,90): error TS2339: Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(245,39): error TS2339: Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(245,69): error TS2339: Property 'totalSpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'totalSpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(245,101): error TS2339: Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'numberOfProjects' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(251,29): error TS2339: Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(251,57): error TS2339: Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/ContractorDetailsModal.tsx(255,35): error TS2339: Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; } | { ...; }'.
+  Property 'monthlySpending' does not exist on type '{ success: boolean; type: string; contractor: { id: number; name: string; companyName: string | null; serviceType: string; totalSpent: number; totalJobsCompleted: number; averageJobValue: number; }; summary?: undefined; spendingByServiceType?: undefined; topContractors?: undefined; }'.
+src/components/property-manager/CreateBuildingModal.tsx(66,5): error TS2322: Type 'Resolver<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: unknown; numberOfUnits?: unknown; totalSquareFeet?: unknown; yearBuilt?: unknown; monthlyExpenses?: unknown; }, any, { ...; }>' is not assignable to type 'Resolver<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number | unde...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number...' is not assignable to type 'ResolverOptions<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: unknown; numberOfUnits?: unknown; totalSquareFeet?: unknown; yearBuilt?: unknown; monthlyExpenses?: unknown; }>'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/components/property-manager/CreateBuildingModal.tsx(146,46): error TS2345: Argument of type 'SubmitHandler<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number |...' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number | undefined; }': name, address, buildingType
+src/components/property-manager/CreateBuildingModal.tsx(339,45): error TS2345: Argument of type 'SubmitHandler<{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number |...' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ name: string; address: string; buildingType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "INDUSTRIAL"; notes?: string | undefined; estimatedValue?: number | undefined; numberOfUnits?: number | undefined; totalSquareFeet?: number | undefined; yearBuilt?: number | undefined; monthlyExpenses?: number | undefined; }': name, address, buildingType
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(73,42): error TS2339: Property 'buildings' does not exist on type '({ propertyManager: { id: number; email: string; firstName: string; lastName: string; phone: string | null; }; budgets: { id: number; createdAt: Date; updatedAt: Date; status: string; ... 17 more ...; totalRemaining: number; }[]; maintenanceSchedules: { ...; }[]; } & { ...; })[]'.
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(81,5): error TS2322: Type 'Resolver<{ description: string; title: string; category: string; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; }, any, { description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }>' is not assignable to type 'Resolver<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }, any, { description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }>' is not assignable to type 'ResolverOptions<{ description: string; title: string; category: string; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; }>'.
+      Type '"LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+        Type 'undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(126,7): error TS2353: Object literal may only specify known properties, and 'buildingId' does not exist in type '{ description: string; title: string; customerId: number; category: string; token: string; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; photos?: string[] | undefined; }'.
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(150,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(196,46): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }': description, title, urgency, category
+src/components/property-manager/CreateMaintenanceRequestModal.tsx(424,45): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; }': description, title, urgency, category
+src/components/property-manager/CreateRFQModal.tsx(74,5): error TS2322: Type 'Resolver<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; notes?: string | undefined; buildingName?: string | undefined; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; estimatedBudget?: unknown; }, any, { ...; }>' is not assignable to type 'Resolver<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }>' is not assignable to type 'ResolverOptions<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; notes?: string | undefined; buildingName?: string | undefined; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; estimatedBudget?: unknown; }>'.
+      Type '"LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+        Type 'undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+src/components/property-manager/CreateRFQModal.tsx(187,46): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }': description, title, scopeOfWork, buildingAddress, urgency
+src/components/property-manager/CreateRFQModal.tsx(441,45): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; }': description, title, scopeOfWork, buildingAddress, urgency
+src/components/property-manager/EditRFQModal.tsx(76,5): error TS2322: Type 'Resolver<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }, unknown, unknown>' is not assignable to type 'Resolver<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }, any, { ...; }>'.
+  Type 'ResolverResult<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }, unknown> | Promise<...>' is not assignable to type 'ResolverResult<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }, { ...; }> | Promise<....'.
+    Type 'ResolverSuccess<unknown>' is not assignable to type 'ResolverResult<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }, { ...; }> | Promise<....'.
+      Type 'ResolverSuccess<unknown>' is not assignable to type 'ResolverSuccess<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }>'.
+        Type 'unknown' is not assignable to type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }'.
+src/components/property-manager/EditRFQModal.tsx(76,27): error TS2558: Expected 3 type arguments, but got 1.
+src/components/property-manager/EditRFQModal.tsx(189,46): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }': description, title, scopeOfWork, buildingAddress, urgency
+src/components/property-manager/EditRFQModal.tsx(402,45): error TS2345: Argument of type 'SubmitHandler<{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Type 'TFieldValues' is not assignable to type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }'.
+    Type 'FieldValues' is missing the following properties from type '{ description: string; title: string; scopeOfWork: string; buildingAddress: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; notes?: string | undefined; buildingName?: string | undefined; estimatedBudget?: number | undefined; selectedContractorIds?: number[] | undefined; }': description, title, scopeOfWork, buildingAddress, urgency
+src/components/property-manager/PropertyFinancialReporting.tsx(6,21): error TS7016: Could not find a declaration file for module 'recharts/es6/cartesian/Bar'. 'C:/Users/Thapelo/Downloads/SQR15 Prop Management System (16)/SQR15 Prop Management System 1 12 2025/node_modules/recharts/es6/cartesian/Bar.js' implicitly has an 'any' type.
+  If the 'recharts' package actually exposes this module, try adding a new declaration (.d.ts) file containing `declare module 'recharts/es6/cartesian/Bar';`
+src/components/property-manager/PropertyFinancialReporting.tsx(27,5): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } | { ...; } | { ...; }, TRPCClientErrorLike<...>, { ...; } | ... 1 more ... | { ...; }, TRPCQueryKeyWithoutPrefix>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<...>', gave the following error.
+    Argument of type 'UnusedSkipTokenTRPCQueryOptionsOut<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatemen...' is not assignable to parameter of type 'DefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: unde...'.
+      Type 'UnusedSkipTokenTRPCQueryOptionsOut<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatemen...' is not assignable to type 'DefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: unde...'.
+        Type 'UnusedSkipTokenTRPCQueryOptionsOut<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatemen...' is not assignable to type '{ initialData: { success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } | ...'.
+          Types of property 'initialData' are incompatible.
+            Type '{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { rentalIncome: number; maintenanceFees: number; depositInterest: number; otherIncome: number; totalIncome: number; }; expenses: { ...; };...' is not assignable to type '{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { rentalIncome: number; maintenanceFees: number; depositInterest: number; otherIncome: number; totalIncome: number; }; expenses: { ...; };...'. Two different types with this name exist, but they are unrelated.
+              Type 'undefined' is not assignable to type '{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { rentalIncome: number; maintenanceFees: number; depositInterest: number; otherIncome: number; totalIncome: number; }; expenses: { ...; };...'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } | { ...; } | { ...; }, TRPCClientErrorLike<...>, { ...; } | ... 1 more ... | { ...; }, TRPCQueryKeyWithoutPrefix>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Argument of type 'UnusedSkipTokenTRPCQueryOptionsOut<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatemen...' is not assignable to parameter of type 'UndefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: un...'.
+      Type '{ enabled: false; queryKey: [string]; }' is not assignable to type 'UndefinedInitialDataOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: un...'.
+        Type '{ enabled: false; queryKey: [string]; }' is not assignable to type 'UseQueryOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } |...'.
+          Type at position 0 in source is not compatible with type at position 0 in target.
+            The types of 'queryKey' are incompatible between these types.
+              Type 'string' is not assignable to type 'string[]'.
+  Overload 3 of 3, '(options: UseQueryOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } | { ...; } | { ...; }, TRPCClientErrorLike<...>, { ...; } | ... 1 more ... | { ...; }, TRPCQueryKeyWithoutPrefix>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Argument of type 'UnusedSkipTokenTRPCQueryOptionsOut<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatemen...' is not assignable to parameter of type 'UseQueryOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } |...'.
+      Type '{ enabled: false; queryKey: [string]; }' is not assignable to type 'UseQueryOptions<{ success: boolean; reportType: string; building: { id: number; name: string; address: string; }; incomeStatements: { period: string; periodStart: Date; periodEnd: Date; revenue: { ...; }; expenses: { ...; }; profitAndLoss: { ...; }; }[]; balanceSheets?: undefined; cashFlowStatements?: undefined; } |...'.
+        Type at position 0 in source is not compatible with type at position 0 in target.
+          The types of 'queryKey' are incompatible between these types.
+            Type 'string' is not assignable to type 'string[]'.
+src/components/property-manager/PropertyFinancialReporting.tsx(38,42): error TS2339: Property 'buildings' does not exist on type '({ propertyManager: { id: number; email: string; firstName: string; lastName: string; phone: string | null; }; budgets: { id: number; createdAt: Date; updatedAt: Date; status: string; ... 17 more ...; totalRemaining: number; }[]; maintenanceSchedules: { ...; }[]; } & { ...; })[]'.
+src/components/property-manager/PropertyFinancialReporting.tsx(196,46): error TS18048: 'value' is possibly 'undefined'.
+src/components/property-manager/PropertyFinancialReporting.tsx(340,51): error TS18048: 'value' is possibly 'undefined'.
+src/components/SignatureCapture.tsx(95,15): error TS18048: 'touch' is possibly 'undefined'.
+src/components/SignatureCapture.tsx(96,15): error TS18048: 'touch' is possibly 'undefined'.
+src/components/SignatureCapture.tsx(116,15): error TS18048: 'touch' is possibly 'undefined'.
+src/components/SignatureCapture.tsx(117,15): error TS18048: 'touch' is possibly 'undefined'.
+src/components/SupportChatWidget.tsx(177,24): error TS18048: 'adminUser' is possibly 'undefined'.
+src/routes/__root.tsx(133,34): error TS2339: Property 'getQueryClient' does not exist on type 'TRPCOptionsProxy<BuiltRouter<{ ctx: object; meta: object; errorShape: { data: { zodError: typeToFlattenedError<any, string> | null; code: "PARSE_ERROR" | "BAD_REQUEST" | "INTERNAL_SERVER_ERROR" | ... 17 more ... | "CLIENT_CLOSED_REQUEST"; httpStatus: number; path?: string | undefined; stack?: string | undefined; }; ...'.
+src/routes/__root.tsx(156,15): error TS2322: Type 'PushSubscriptionJSON' is not assignable to type '{ endpoint: string; keys: { p256dh: string; auth: string; }; }'.
+  Types of property 'endpoint' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/__root.tsx(176,13): error TS2322: Type 'PushSubscriptionJSON' is not assignable to type '{ endpoint: string; keys: { p256dh: string; auth: string; }; }'.
+  Types of property 'endpoint' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/accounts/index.tsx(149,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(149,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(154,34): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(154,76): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(159,31): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(159,70): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(164,30): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(164,68): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(170,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(170,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(176,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(176,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/admin/accounts/index.tsx(206,34): error TS2339: Property 'companyMaterialCost' does not exist on type '{ items: string | number | boolean | any[] | JsonObject | null; assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; expenseSlips: { id: number; ... 5 more ...; url: string; }[]; ... 27 more ...; measurements: string | null; }'.
+src/routes/admin/accounts/index.tsx(210,34): error TS2339: Property 'companyLabourCost' does not exist on type '{ items: string | number | boolean | any[] | JsonObject | null; assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; expenseSlips: { id: number; ... 5 more ...; url: string; }[]; ... 27 more ...; measurements: string | null; }'.
+src/routes/admin/accounts/index.tsx(598,80): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { token: string; financialData: { expenses: { total: number; materialCosts: number; labourCosts: number; artisanPayments: number; }; period: string; revenue: { total: number; breakdown?: Record<...> | undefined; }; profitability: { ...; }; cashFlow?: { ...; } | undefined; assets?: ...'.
+src/routes/admin/accounts/index.tsx(613,57): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/routes/admin/accounts/index.tsx(617,50): error TS2304: Cannot find name 'totalAssets'.
+src/routes/admin/accounts/index.tsx(618,55): error TS2552: Cannot find name 'totalLiabilities'. Did you mean 'liabilities'?
+src/routes/admin/accounts/index.tsx(741,50): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/accounts/index.tsx(751,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/accounts/index.tsx(787,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/accounts/index.tsx(796,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/accounts/index.tsx(808,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/crm/index.tsx(173,5): error TS2322: Type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?: strin...' is not assignable to type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceT...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherS...' is not assignable to type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?...'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/routes/admin/crm/index.tsx(576,48): error TS2345: Argument of type '(data: LeadForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...': description, serviceType, customerName, customerEmail, customerPhone
+src/routes/admin/hr/employees/$employeeId/index.tsx(192,39): error TS18048: 'employee' is possibly 'undefined'.
+src/routes/admin/hr/employees/$employeeId/index.tsx(192,61): error TS18048: 'employee' is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(179,5): error TS2322: Type 'Resolver<{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: unknown; dueDate?: string | undefined; }, any, { customerName: string; ... 5 more ...; dueDate?: string | undefined; }>' is not assignable to type 'Resolver<{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: string | undefined; dueDate?: string | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: string | undefined; dueDate?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: unknown; dueDate?: string | undefined; }>'.
+      Type 'unknown' is not assignable to type 'string | undefined'.
+src/routes/admin/invoices/index.tsx(321,28): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/routes/admin/invoices/index.tsx(584,96): error TS1323: Dynamic imports are only supported when the '--module' flag is set to 'es2020', 'es2022', 'esnext', 'commonjs', 'amd', 'system', 'umd', 'node16', 'node18', 'node20', or 'nodenext'.
+src/routes/admin/invoices/index.tsx(601,85): error TS2339: Property 'length' does not exist on type 'StreamType'.
+src/routes/admin/invoices/index.tsx(708,10): error TS18048: 'item' is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(708,30): error TS18048: 'item' is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(717,25): error TS18048: 'item' is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(718,17): error TS18048: 'item' is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(742,5): error TS2322: Type '{ description?: string | undefined; quantity?: number | undefined; unitPrice?: number | undefined; total?: number | undefined; unitOfMeasure?: string | undefined; }' is not assignable to type 'LineItem'.
+  Types of property 'description' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/invoices/index.tsx(745,7): error TS2532: Object is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(745,31): error TS2532: Object is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(745,58): error TS2532: Object is possibly 'undefined'.
+src/routes/admin/invoices/index.tsx(1079,42): error TS2345: Argument of type '(data: InvoiceForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: string | undefined; dueDate?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; invoiceNumber?: string | undefined; dueDate?: string | undefined; }': customerName, customerEmail, customerPhone, address
+src/routes/admin/liabilities/index.tsx(102,10): error TS2551: Property 'createLiability' does not exist on type 'TRPCOptionsProxy<BuiltRouter<{ ctx: object; meta: object; errorShape: { data: { zodError: typeToFlattenedError<any, string> | null; code: "PARSE_ERROR" | "BAD_REQUEST" | "INTERNAL_SERVER_ERROR" | ... 17 more ... | "CLIENT_CLOSED_REQUEST"; httpStatus: number; path?: string | undefined; stack?: string | undefined; }; ...'. Did you mean 'createLiabilities'?
+src/routes/admin/liabilities/index.tsx(109,17): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/routes/admin/liabilities/index.tsx(130,36): error TS2345: Argument of type '{ name: string; amount: number; category: "OTHER" | "LOAN" | "ACCOUNTS_PAYABLE" | "CREDIT_LINE"; description?: string | undefined; notes?: string | undefined; dueDate?: string | undefined; referenceNumber?: string | undefined; creditor?: string | undefined; token: string; }' is not assignable to parameter of type 'void'.
+src/routes/admin/operations/index.tsx(153,5): error TS2322: Type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; orderNumber?: unknown; assignedToId?: number | undefined; ... 5 more ...; otherServiceType?: string | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; callOutFee: number; notes?: string | undefined; orderNumber?: string | undefined; ... 5 more ...; otherServiceType?: string | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; callOutFee: number; notes?: string | undefined; orderNumber?: string | undefined; ... 5 more ...; otherServiceType?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; notes?: string | undefined; orderNumber?: unknown; assignedToId?: number | undefined; ... 5 more ...; otherServiceType?: string | undefined; }>'.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/routes/admin/operations/index.tsx(247,28): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/routes/admin/operations/index.tsx(289,96): error TS1323: Dynamic imports are only supported when the '--module' flag is set to 'es2020', 'es2022', 'esnext', 'commonjs', 'amd', 'system', 'umd', 'node16', 'node18', 'node20', or 'nodenext'.
+src/routes/admin/operations/index.tsx(306,85): error TS2339: Property 'length' does not exist on type 'StreamType'.
+src/routes/admin/operations/index.tsx(426,5): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/routes/admin/operations/index.tsx(427,19): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/routes/admin/operations/index.tsx(440,17): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/routes/admin/operations/index.tsx(499,5): error TS2322: Type '{ name?: string | undefined; description?: string | undefined; quantity?: string | undefined; unitPrice?: string | undefined; supplier?: string | undefined; supplierQuotationUrl?: string | undefined; supplierQuotationAmount?: string | undefined; }' is not assignable to type '{ name: string; description: string; quantity: string; unitPrice: string; supplier: string; supplierQuotationUrl: string; supplierQuotationAmount: string; }'.
+  Types of property 'name' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/admin/operations/index.tsx(618,32): error TS2345: Argument of type '{ token: string; serviceType: string; description: string; address: string | undefined; }' is not assignable to parameter of type 'void'.
+src/routes/admin/operations/index.tsx(917,42): error TS2345: Argument of type '(data: OrderForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; callOutFee: number; notes?: string | undefined; orderNumber?: string | undefined; ... 5 more ...; otherServiceType?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; address: string; callOutFee: number; notes?: string | undefined; orderNumber?: string | undefined; ... 5 more ...; otherServiceType?: string | undefined; }': description, serviceType, customerName, customerEmail, and 3 more.
+src/routes/admin/operations/index.tsx(1723,23): error TS2820: Type '"/admin/invoices/"' is not assignable to type '".." | "." | "/admin/dashboard" | "/admin/accounts" | "/admin/operations" | "/admin/crm" | "/artisan/dashboard" | "/customer/dashboard" | "/property-manager/dashboard" | ... 60 more ... | "/contractor/crm/crm/campaigns"'. Did you mean '"/admin/invoices"'?
+src/routes/admin/operations/index.tsx(1724,33): error TS2353: Object literal may only specify known properties, and 'invoiceId' does not exist in type 'ParamsReducerFn<RouterCore<Route<{ user: AuthUser | null; }, any, "/", "/", string, "__root__", undefined, {}, {}, AnyContext, AnyContext, {}, undefined, RootRouteChildren, FileRouteTypes, unknown, unknown, undefined>, "never", false, RouterHistory, Record<...>>, "SEARCH", string, "/admin/invoices/">'.
+src/routes/admin/operations/index.tsx(1802,47): error TS7006: Parameter 'docUrl' implicitly has an 'any' type.
+src/routes/admin/operations/index.tsx(1802,55): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/routes/admin/operations/index.tsx(1854,25): error TS2820: Type '"/admin/invoices/"' is not assignable to type '".." | "." | "/admin/dashboard" | "/admin/accounts" | "/admin/operations" | "/admin/crm" | "/artisan/dashboard" | "/customer/dashboard" | "/property-manager/dashboard" | ... 60 more ... | "/contractor/crm/crm/campaigns"'. Did you mean '"/admin/invoices"'?
+src/routes/admin/operations/index.tsx(1855,35): error TS2353: Object literal may only specify known properties, and 'invoiceId' does not exist in type 'ParamsReducerFn<RouterCore<Route<{ user: AuthUser | null; }, any, "/", "/", string, "__root__", undefined, {}, {}, AnyContext, AnyContext, {}, undefined, RootRouteChildren, FileRouteTypes, unknown, unknown, undefined>, "never", false, RouterHistory, Record<...>>, "SEARCH", string, "/admin/invoices/">'.
+src/routes/admin/projects/dashboard/index.tsx(278,17): error TS2322: Type '"red" | "gray"' is not assignable to type '"blue" | "amber" | "orange" | "purple" | "green" | "red" | "teal" | "indigo" | "pink" | "yellow" | undefined'.
+  Type '"gray"' is not assignable to type '"blue" | "amber" | "orange" | "purple" | "green" | "red" | "teal" | "indigo" | "pink" | "yellow" | undefined'.
+src/routes/admin/projects/dashboard/index.tsx(284,17): error TS2322: Type '"red" | "gray"' is not assignable to type '"blue" | "amber" | "orange" | "purple" | "green" | "red" | "teal" | "indigo" | "pink" | "yellow" | undefined'.
+  Type '"gray"' is not assignable to type '"blue" | "amber" | "orange" | "purple" | "green" | "red" | "teal" | "indigo" | "pink" | "yellow" | undefined'.
+src/routes/admin/projects/dashboard/index.tsx(350,33): error TS2322: Type '({ assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; milestones: ({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; ... 15 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]; changeOrders...' is not assignable to type 'Project[]'.
+  Type '{ assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; milestones: ({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; ... 15 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]; changeOrders:...' is not assignable to type 'Project'.
+    Types of property 'milestones' are incompatible.
+      Type '({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; updatedAt: Date; ... 11 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]' is not assignable to type '{ id: number; status: string; progressPercentage: number; endDate: string | null; risks?: { id: number; status: string; }[] | undefined; }[]'.
+        Type '{ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; updatedAt: Date; ... 11 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; }' is not assignable to type '{ id: number; status: string; progressPercentage: number; endDate: string | null; risks?: { id: number; status: string; }[] | undefined; }'.
+          Types of property 'endDate' are incompatible.
+            Type 'Date | null' is not assignable to type 'string | null'.
+              Type 'Date' is not assignable to type 'string'.
+src/routes/admin/projects/dashboard/index.tsx(355,41): error TS2322: Type '({ assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; milestones: ({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; ... 15 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]; changeOrders...' is not assignable to type 'Project[]'.
+  Type '{ assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; milestones: ({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; ... 15 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]; changeOrders:...' is not assignable to type 'Project'.
+    Types of property 'milestones' are incompatible.
+      Type '({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; updatedAt: Date; ... 11 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]' is not assignable to type 'Milestone[]'.
+        Type '{ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { id: number; createdAt: Date; hourlyRate: number | null; dailyRate: number | null; updatedAt: Date; ... 11 more ...; paidDate: Date | null; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; }' is not assignable to type 'Milestone'.
+          Types of property 'endDate' are incompatible.
+            Type 'Date | null' is not assignable to type 'string | null'.
+              Type 'Date' is not assignable to type 'string'.
+src/routes/admin/projects/dashboard/index.tsx(364,39): error TS2322: Type '({ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; })[]' is not assignable to type 'PaymentRequest[]'.
+  Type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }' is not assignable to type 'PaymentRequest'.
+    Types of property 'createdAt' are incompatible.
+      Type 'Date' is not assignable to type 'string'.
+src/routes/admin/projects/index.tsx(337,73): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { token: string; projectsData: { summary: { total: number; cancelled: number; planning: number; inProgress: number; onHold: number; completed: number; totalEstimatedBudget: number; totalActualCost: number; }; projects: { ...; }[]; }; }; output: { ...; }; transformer: true; errorSha...'.
+src/routes/admin/settings/index.tsx(389,9): error TS2322: Type '(string | Address)[]' is not assignable to type 'string[]'.
+  Type 'string | Address' is not assignable to type 'string'.
+    Type 'Address' is not assignable to type 'string'.
+src/routes/admin/settings/index.tsx(390,9): error TS2322: Type '(string | Address)[]' is not assignable to type 'string[]'.
+  Type 'string | Address' is not assignable to type 'string'.
+    Type 'Address' is not assignable to type 'string'.
+src/routes/admin/statements/index.tsx(279,18): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/admin/statements/index.tsx(283,91): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/admin/statements/index.tsx(286,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/artisan/dashboard/index.tsx(624,5): error TS2322: Type '{ description?: string | undefined; category?: string | undefined; quantity?: string | undefined; notes?: string | undefined; }' is not assignable to type '{ description: string; category: string; quantity: string; notes: string; }'.
+  Types of property 'description' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(152,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(152,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(157,34): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(157,76): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(162,33): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(162,74): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(167,31): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(167,70): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(172,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(172,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(177,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(177,72): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(219,36): error TS2339: Property 'amount' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(243,58): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { token: string; financialData: { expenses: { total: number; materialCosts: number; labourCosts: number; artisanPayments: number; }; period: string; revenue: { total: number; breakdown?: Record<...> | undefined; }; profitability: { ...; }; cashFlow?: { ...; } | undefined; assets?: ...'.
+src/routes/contractor/accounts/index.tsx(253,70): error TS2339: Property 'type' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(253,128): error TS2339: Property 'amount' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(254,68): error TS2339: Property 'type' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(254,124): error TS2339: Property 'amount' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(255,66): error TS2339: Property 'type' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(255,120): error TS2339: Property 'amount' does not exist on type '{ artisan: { id: number; email: string; firstName: string; lastName: string; phone: string | null; hourlyRate: number | null; dailyRate: number | null; }; } & { id: number; createdAt: Date; ... 14 more ...; paidDate: Date | null; }'.
+src/routes/contractor/accounts/index.tsx(265,55): error TS2339: Property 'value' does not exist on type '{ id: number; name: string; createdAt: Date; updatedAt: Date; description: string | null; notes: string | null; createdById: number | null; category: string; serialNumber: string | null; ... 5 more ...; images: string[]; }'.
+src/routes/contractor/accounts/index.tsx(331,34): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(331,88): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/routes/contractor/accounts/index.tsx(568,50): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(578,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(618,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(627,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(639,19): error TS2322: Type '{ start: string | undefined; end: string | undefined; }' is not assignable to type '{ start: string; end: string; }'.
+  Types of property 'start' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/routes/contractor/accounts/index.tsx(646,18): error TS2741: Property 'quotations' is missing in type '{ orders: any[]; projects: ({ assignedTo: { id: number; email: string; firstName: string; lastName: string; } | null; milestones: ({ paymentRequests: ({ artisan: { id: number; firstName: string; lastName: string; }; } & { ...; })[]; ... 4 more ...; risks: { ...; }[]; } & { ...; })[]; changeOrders: { ...; }[]; } & { ...' but required in type 'BudgetTrackerProps'.
+src/routes/contractor/crm/crm/index.tsx(182,5): error TS2322: Type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?: strin...' is not assignable to type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceT...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherS...' is not assignable to type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?...'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/routes/contractor/crm/crm/index.tsx(585,48): error TS2345: Argument of type '(data: LeadForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...': description, serviceType, customerName, customerEmail, customerPhone
+src/routes/contractor/crm/index.tsx(182,5): error TS2322: Type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?: strin...' is not assignable to type 'Resolver<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceT...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherS...' is not assignable to type 'ResolverOptions<{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: unknown; otherServiceType?...'.
+      Type 'unknown' is not assignable to type 'number | undefined'.
+src/routes/contractor/crm/index.tsx(584,48): error TS2345: Argument of type '(data: LeadForm) => void' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...'.
+      Type 'FieldValues' is missing the following properties from type '{ description: string; serviceType: string; customerName: string; customerEmail: string; customerPhone: string; companyName?: string | undefined; address?: string | undefined; estimatedValue?: number | undefined; nextFollowUpDate?: string | undefined; followUpAssignedToId?: number | undefined; otherServiceType?: str...': description, serviceType, customerName, customerEmail, customerPhone
+src/routes/contractor/invoices/index.tsx(506,85): error TS2339: Property 'length' does not exist on type 'StreamType'.
+src/routes/contractor/operations/index.tsx(863,51): error TS2339: Property 'length' does not exist on type 'StreamType'.
+src/routes/contractor/projects/index.tsx(346,73): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { token: string; projectsData: { summary: { total: number; cancelled: number; planning: number; inProgress: number; onHold: number; completed: number; totalEstimatedBudget: number; totalActualCost: number; }; projects: { ...; }[]; }; }; output: { ...; }; transformer: true; errorSha...'.
+src/routes/contractor/projects/index.tsx(971,25): error TS2820: Type '"/contractor/projects/$projectId/report"' is not assignable to type '".." | "." | "/admin/dashboard" | "/admin/accounts" | "/admin/operations" | "/admin/crm" | "/artisan/dashboard" | "/customer/dashboard" | "/property-manager/dashboard" | ... 60 more ... | "/contractor/crm/crm/campaigns"'. Did you mean '"/admin/projects/$projectId/report"'?
+src/routes/contractor/projects/index.tsx(972,35): error TS2353: Object literal may only specify known properties, and 'projectId' does not exist in type 'ParamsReducerFn<RouterCore<Route<{ user: AuthUser | null; }, any, "/", "/", string, "__root__", undefined, {}, {}, AnyContext, AnyContext, {}, undefined, RootRouteChildren, FileRouteTypes, unknown, unknown, undefined>, "never", false, RouterHistory, Record<...>>, "PATH", string, "/contractor/projects/$projectId/repo...'.
+src/routes/contractor/statements/index.tsx(288,18): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/contractor/statements/index.tsx(292,91): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/contractor/statements/index.tsx(295,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(156,54): error TS2339: Property 'customerProfile' does not exist on type 'AuthenticatedUser'.
+src/routes/customer/dashboard/index.tsx(770,18): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(773,95): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(775,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(951,95): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(952,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1105,18): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1108,95): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1110,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1291,18): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1294,95): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1296,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1512,95): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/dashboard/index.tsx(1513,10): error TS18048: 'badge' is possibly 'undefined'.
+src/routes/customer/maintenance/index.tsx(103,30): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/routes/customer/maintenance/index.tsx(103,30): error TS18048: 'trpc.getContractors.query' is possibly 'undefined'.
+src/routes/customer/maintenance/index.tsx(129,5): error TS2322: Type 'Resolver<{ description: string; title: string; category: string; contractorId?: string | undefined; buildingName?: string | undefined; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; recipientType?: "CONTRACTOR" | ... 1 more ... | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; recipientType: "CONTRACTOR" | "PM"; contractorId?: string | undefined; buildingName?: string | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ description: string; title: string; urgency: "LOW" | "HIGH" | "URGENT" | "NORMAL"; category: string; recipientType: "CONTRACTOR" | "PM"; contractorId?: string | undefined; buildingName?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ description: string; title: string; category: string; contractorId?: string | undefined; buildingName?: string | undefined; urgency?: "LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined; recipientType?: "CONTRACTOR" | ... 1 more ... | undefined; }>'.
+      Type '"LOW" | "HIGH" | "URGENT" | "NORMAL" | undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+        Type 'undefined' is not assignable to type '"LOW" | "HIGH" | "URGENT" | "NORMAL"'.
+src/routes/customer/onboarding/index.tsx(58,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/routes/customer/onboarding/index.tsx(58,28): error TS18048: 'trpc.getBuildingsForOnboarding.query' is possibly 'undefined'.
+src/routes/customer/onboarding/index.tsx(88,24): error TS2339: Property 'name' does not exist on type 'AuthUser'.
+src/routes/customer/onboarding/index.tsx(89,23): error TS2339: Property 'name' does not exist on type 'AuthUser'.
+src/routes/customer/onboarding/index.tsx(97,56): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { email: string; firstName: string; lastName: string; propertyManagerId: number; buildingId: number; token: string; phoneNumber: string; unitNumber?: string | undefined; leaseStartDate?: string | undefined; ... 5 more ...; gasMeterNumber?: string | undefined; }; output: { ...; }; t...'.
+src/routes/customer/onboarding/index.tsx(132,42): error TS2339: Property 'data' does not exist on type 'never'.
+src/routes/messages/$conversationId/index.tsx(268,19): error TS2532: Object is possibly 'undefined'.
+src/routes/property-manager/projects/index.tsx(400,73): error TS2339: Property 'mutate' does not exist on type 'DecorateMutationProcedure<{ input: { token: string; projectsData: { summary: { total: number; cancelled: number; planning: number; inProgress: number; onHold: number; completed: number; totalEstimatedBudget: number; totalActualCost: number; }; projects: { ...; }[]; }; }; output: { ...; }; transformer: true; errorSha...'.
+src/routes/property-manager/projects/index.tsx(1061,25): error TS2820: Type '"/contractor/projects/$projectId/report"' is not assignable to type '".." | "." | "/admin/dashboard" | "/admin/accounts" | "/admin/operations" | "/admin/crm" | "/artisan/dashboard" | "/customer/dashboard" | "/property-manager/dashboard" | ... 60 more ... | "/contractor/crm/crm/campaigns"'. Did you mean '"/admin/projects/$projectId/report"'?
+src/routes/property-manager/projects/index.tsx(1062,35): error TS2353: Object literal may only specify known properties, and 'projectId' does not exist in type 'ParamsReducerFn<RouterCore<Route<{ user: AuthUser | null; }, any, "/", "/", string, "__root__", undefined, {}, {}, AnyContext, AnyContext, {}, undefined, RootRouteChildren, FileRouteTypes, unknown, unknown, undefined>, "never", false, RouterHistory, Record<...>>, "PATH", string, "/contractor/projects/$projectId/repo...'.
+src/routes/property-manager/settings/index.tsx(91,13): error TS2339: Property 'getUserProfile' does not exist on type 'TRPCOptionsProxy<BuiltRouter<{ ctx: object; meta: object; errorShape: { data: { zodError: typeToFlattenedError<any, string> | null; code: "PARSE_ERROR" | "BAD_REQUEST" | "INTERNAL_SERVER_ERROR" | ... 17 more ... | "CLIENT_CLOSED_REQUEST"; httpStatus: number; path?: string | undefined; stack?: string | undefined; }; ...'.
+src/routes/property-manager/settings/index.tsx(154,40): error TS2339: Property 'firstName' does not exist on type '{}'.
+src/routes/property-manager/settings/index.tsx(155,39): error TS2339: Property 'lastName' does not exist on type '{}'.
+src/routes/property-manager/settings/index.tsx(156,36): error TS2339: Property 'email' does not exist on type '{}'.
+src/routes/property-manager/settings/index.tsx(157,36): error TS2339: Property 'phone' does not exist on type '{}'.
+src/routes/property-manager/settings/index.tsx(781,51): error TS2339: Property 'logoUrl' does not exist on type 'never'.
+src/routes/property-manager/settings/index.tsx(785,60): error TS2339: Property 'logoUrl' does not exist on type 'never'.
+src/routes/property-manager/settings/index.tsx(849,37): error TS2339: Property 'logoUrl' does not exist on type 'never'.
+src/routes/settings/subscription.tsx(12,45): error TS2532: Object is possibly 'undefined'.
+src/routes/settings/subscription.tsx(12,45): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/routes/settings/subscription.tsx(13,30): error TS2532: Object is possibly 'undefined'.
+src/routes/settings/subscription.tsx(13,30): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/routes/settings/subscription.tsx(46,6): error TS7006: Parameter 'pkg' implicitly has an 'any' type.
+src/routes/settings/subscription.tsx(63,74): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ TRIAL: string; ACTIVE: string; SUSPENDED: string; CANCELLED: string; EXPIRED: string; }'.
+src/routes/settings/subscription.tsx(183,37): error TS7006: Parameter 'pkg' implicitly has an 'any' type.
+src/routes/settings/subscription.tsx(255,45): error TS7006: Parameter 'payment' implicitly has an 'any' type.
+src/routes/user-email-setup/index.tsx(239,65): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(243,65): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(247,65): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(252,26): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(255,22): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(259,37): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(263,22): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/routes/user-email-setup/index.tsx(267,37): error TS18048: 'emailStatusQuery.data' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(18,15): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(19,15): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(22,5): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(23,5): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(24,5): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(41,11): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(42,11): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(97,9): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(98,9): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(102,9): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(103,9): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(110,7): error TS18048: 'res' is possibly 'undefined'.
+src/server/debug/client-logs-handler.ts(111,7): error TS18048: 'res' is possibly 'undefined'.
+src/server/health/handler.ts(35,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(35,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/health/handler.ts(36,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(36,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/health/handler.ts(37,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(37,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/health/handler.ts(85,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(85,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/health/handler.ts(86,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(86,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/health/handler.ts(87,5): error TS18048: 'event.node' is possibly 'undefined'.
+src/server/health/handler.ts(87,5): error TS18048: 'event.node.res' is possibly 'undefined'.
+src/server/scripts/create-monthly-salary-payments.ts(129,33): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', 'node20', or 'nodenext'.
+src/server/scripts/seed-quick-data.ts(65,9): error TS2353: Object literal may only specify known properties, and 'orderType' does not exist in type '(Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput)'.
+src/server/scripts/seed-quick-data.ts(85,9): error TS2353: Object literal may only specify known properties, and 'orderType' does not exist in type '(Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput)'.
+src/server/scripts/seed-quick-data.ts(106,9): error TS2322: Type '"APPROVED"' is not assignable to type 'OrderStatus | undefined'.
+src/server/scripts/seed-quick-data.ts(231,9): error TS2322: Type '"PENDING"' is not assignable to type 'QuotationStatus | undefined'.
+src/server/scripts/seed-quick-data.ts(243,9): error TS2561: Object literal may only specify known properties, but 'projectName' does not exist in type '(Without<ProjectCreateInput, ProjectUncheckedCreateInput> & ProjectUncheckedCreateInput) | (Without<...> & ProjectCreateInput)'. Did you mean to write 'projectNumber'?
+src/server/scripts/seed-quick-data.ts(298,9): error TS2353: Object literal may only specify known properties, and 'leadNumber' does not exist in type '(Without<LeadCreateInput, LeadUncheckedCreateInput> & LeadUncheckedCreateInput) | (Without<...> & LeadCreateInput)'.
+src/server/scripts/setup.ts(146,36): error TS2339: Property 'SEED_SENIOR_ADMIN_EMAIL' does not exist on type '{ BRAND_PRIMARY_COLOR: string; NODE_ENV: "development" | "production"; BASE_URL: string; DATABASE_URL: string; ADMIN_PASSWORD: string; JWT_SECRET: string; GEMINI_API_KEY: string; GOOGLE_GENERATIVE_AI_API_KEY: string; ... 37 more ...; PAYFAST_PASSPHRASE?: string | undefined; }'.
+src/server/scripts/setup.ts(387,42): error TS2339: Property 'SEED_SENIOR_ADMIN_EMAIL' does not exist on type '{ BRAND_PRIMARY_COLOR: string; NODE_ENV: "development" | "production"; BASE_URL: string; DATABASE_URL: string; ADMIN_PASSWORD: string; JWT_SECRET: string; GEMINI_API_KEY: string; GOOGLE_GENERATIVE_AI_API_KEY: string; ... 37 more ...; PAYFAST_PASSPHRASE?: string | undefined; }'.
+src/server/scripts/setup.ts(388,45): error TS2339: Property 'SEED_SENIOR_ADMIN_PASSWORD' does not exist on type '{ BRAND_PRIMARY_COLOR: string; NODE_ENV: "development" | "production"; BASE_URL: string; DATABASE_URL: string; ADMIN_PASSWORD: string; JWT_SECRET: string; GEMINI_API_KEY: string; GOOGLE_GENERATIVE_AI_API_KEY: string; ... 37 more ...; PAYFAST_PASSPHRASE?: string | undefined; }'.
+src/server/scripts/setup.ts(711,15): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/server/scripts/setup.ts(761,15): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/server/scripts/setup.ts(893,15): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/server/scripts/setup.ts(931,15): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/server/services/aiAgentService.ts(426,11): error TS2322: Type '{ role: string; content: string; }[]' is not assignable to type 'CoreMessage[] | Omit<Message, "id">[] | undefined'.
+  Type '{ role: string; content: string; }[]' is not assignable to type 'CoreMessage[]'.
+    Type '{ role: string; content: string; }' is not assignable to type 'CoreMessage'.
+      Type '{ role: string; content: string; }' is not assignable to type 'CoreToolMessage'.
+        Types of property 'role' are incompatible.
+          Type 'string' is not assignable to type '"tool"'.
+src/server/services/aiAgentService.ts(461,45): error TS2554: Expected 2 arguments, but got 1.
+src/server/services/aiAgentTools.ts(106,11): error TS2322: Type '{ firstName: any; lastName: any; email: any; phone: any; role: string; }' is not assignable to type '(Without<UserCreateInput, UserUncheckedCreateInput> & UserUncheckedCreateInput) | (Without<...> & UserCreateInput)'.
+  Type '{ firstName: any; lastName: any; email: any; phone: any; role: string; }' is not assignable to type 'Without<UserUncheckedCreateInput, UserCreateInput> & UserCreateInput'.
+    Property 'password' is missing in type '{ firstName: any; lastName: any; email: any; phone: any; role: string; }' but required in type 'UserCreateInput'.
+src/server/services/aiAgentTools.ts(176,13): error TS2353: Object literal may only specify known properties, and 'priority' does not exist in type '(Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput)'.
+src/server/services/aiAgentTools.ts(323,13): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type '(Without<FinancialReportCreateInput, FinancialReportUncheckedCreateInput> & FinancialReportUncheckedCreateInput) | (Without<...> & FinancialReportCreateInput)'.
+src/server/services/aiAgentTools.ts(363,15): error TS2353: Object literal may only specify known properties, and 'amount' does not exist in type 'InvoiceSumAggregateInputType'.
+src/server/services/aiAgentTools.ts(366,29): error TS18048: 'invoices._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(366,43): error TS2339: Property 'amount' does not exist on type '{ id?: number | null | undefined; subtotal?: number | null | undefined; tax?: number | null | undefined; total?: number | null | undefined; companyMaterialCost?: number | null | undefined; ... 4 more ...; createdById?: number | ... 1 more ... | undefined; }'.
+src/server/services/aiAgentTools.ts(415,13): error TS2322: Type '"DRAFT"' is not assignable to type 'StatementStatus | undefined'.
+src/server/services/aiAgentTools.ts(554,13): error TS2353: Object literal may only specify known properties, and 'orders' does not exist in type 'ProjectInclude<DefaultArgs>'.
+src/server/services/aiAgentTools.ts(612,13): error TS2353: Object literal may only specify known properties, and 'amount' does not exist in type 'InvoiceSumAggregateInputType'.
+src/server/services/aiAgentTools.ts(618,37): error TS18048: 'invoices._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(618,51): error TS2339: Property 'amount' does not exist on type '{ id?: number | null | undefined; subtotal?: number | null | undefined; tax?: number | null | undefined; total?: number | null | undefined; companyMaterialCost?: number | null | undefined; ... 4 more ...; createdById?: number | ... 1 more ... | undefined; }'.
+src/server/services/aiAgentTools.ts(763,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<AssetCreateInput, AssetUncheckedCreateInput> & AssetUncheckedCreateInput) | (Without<...> & AssetCreateInput)'.
+src/server/services/aiAgentTools.ts(827,13): error TS2353: Object literal may only specify known properties, and 'remainingAmount' does not exist in type '(Without<LiabilityCreateInput, LiabilityUncheckedCreateInput> & LiabilityUncheckedCreateInput) | (Without<...> & LiabilityCreateInput)'.
+src/server/services/aiAgentTools.ts(889,13): error TS2353: Object literal may only specify known properties, and 'employeeId' does not exist in type '(Without<PaymentRequestCreateInput, PaymentRequestUncheckedCreateInput> & PaymentRequestUncheckedCreateInput) | (Without<...> & PaymentRequestCreateInput)'.
+src/server/services/aiAgentTools.ts(918,13): error TS2353: Object literal may only specify known properties, and 'employee' does not exist in type 'PaymentRequestInclude<DefaultArgs>'.
+src/server/services/aiAgentTools.ts(961,20): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'LiabilityWhereInput'.
+src/server/services/aiAgentTools.ts(962,19): error TS2353: Object literal may only specify known properties, and 'remainingAmount' does not exist in type 'LiabilitySumAggregateInputType'.
+src/server/services/aiAgentTools.ts(967,19): error TS2353: Object literal may only specify known properties, and 'amount' does not exist in type 'PaymentRequestSumAggregateInputType'.
+src/server/services/aiAgentTools.ts(972,20): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'AssetWhereInput'.
+src/server/services/aiAgentTools.ts(982,35): error TS18048: 'liabilities._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(982,52): error TS2339: Property 'remainingAmount' does not exist on type '{ id?: number | null | undefined; amount?: number | null | undefined; createdById?: number | null | undefined; }'.
+src/server/services/aiAgentTools.ts(982,77): error TS18048: 'paymentRequests._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(982,98): error TS2339: Property 'amount' does not exist on type '{ id?: number | null | undefined; artisanId?: number | null | undefined; orderIds?: number[] | undefined; milestoneId?: number | null | undefined; hoursWorked?: number | null | undefined; daysWorked?: number | ... 1 more ... | undefined; hourlyRate?: number | ... 1 more ... | undefined; dailyRate?: number | ... 1 mo...'.
+src/server/services/aiAgentTools.ts(983,29): error TS18048: 'assets._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(1030,19): error TS2353: Object literal may only specify known properties, and 'amount' does not exist in type 'PaymentRequestSumAggregateInputType'.
+src/server/services/aiAgentTools.ts(1036,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'LiabilityWhereInput'.
+src/server/services/aiAgentTools.ts(1045,30): error TS18048: 'pendingPayments._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(1045,51): error TS2339: Property 'amount' does not exist on type '{ id?: number | null | undefined; artisanId?: number | null | undefined; orderIds?: number[] | undefined; milestoneId?: number | null | undefined; hoursWorked?: number | null | undefined; daysWorked?: number | ... 1 more ... | undefined; hourlyRate?: number | ... 1 more ... | undefined; dailyRate?: number | ... 1 mo...'.
+src/server/services/aiAgentTools.ts(1055,23): error TS18048: 'pendingPayments._sum' is possibly 'undefined'.
+src/server/services/aiAgentTools.ts(1055,44): error TS2339: Property 'amount' does not exist on type '{ id?: number | null | undefined; artisanId?: number | null | undefined; orderIds?: number[] | undefined; milestoneId?: number | null | undefined; hoursWorked?: number | null | undefined; daysWorked?: number | ... 1 more ... | undefined; hourlyRate?: number | ... 1 more ... | undefined; dailyRate?: number | ... 1 mo...'.
+src/server/trpc/procedures/getEmployeeSalesPerformance.ts(58,24): error TS2532: Object is possibly 'undefined'.
+src/server/trpc/procedures/getPMFinancialReport.ts(119,26): error TS2532: Object is possibly 'undefined'.
+src/server/trpc/procedures/getPMFinancialReport.ts(119,75): error TS2532: Object is possibly 'undefined'.
+src/server/trpc/procedures/getPMFinancialReport.ts(120,34): error TS2532: Object is possibly 'undefined'.
+src/server/trpc/procedures/getPMFinancialReport.ts(121,28): error TS2532: Object is possibly 'undefined'.
+src/server/trpc/procedures/updateCustomRole.ts(68,5): error TS2322: Type '{ permissions?: string[] | undefined; defaultRoute?: string | undefined; description?: string | undefined; color?: string | undefined; label?: string | undefined; name?: string | undefined; }' is not assignable to type 'CustomRole'.
+  Types of property 'name' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/server/trpc/procedures/updateOrderStatus.ts(580,20): error TS2367: This comparison appears to be unintentional because the types '"CANCELLED" | "PENDING" | "ASSIGNED"' and '"IN_PROGRESS"' have no overlap.
+src/server/trpc/procedures/updateOrderStatus.ts(677,19): error TS2353: Object literal may only specify known properties, and 'customerName' does not exist in type '(Without<PropertyManagerInvoiceCreateInput, PropertyManagerInvoiceUncheckedCreateInput> & PropertyManagerInvoiceUncheckedCreateInput) | (Without<...> & PropertyManagerInvoiceCreateInput)'.

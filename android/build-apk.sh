@@ -20,6 +20,11 @@ echo "=== SDK SETUP COMPLETE ==="
 # Build APK
 cd /root/square15management/android
 
+# Copy foreground icons (same as ic_launcher but used by adaptive icon)
+for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+  cp "app/src/main/res/mipmap-${density}/ic_launcher.png" "app/src/main/res/mipmap-${density}/ic_launcher_foreground.png" 2>/dev/null || true
+done
+
 # Create local.properties
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 
@@ -49,7 +54,9 @@ chmod +x gradlew
 # Build debug APK
 ./gradlew assembleDebug --no-daemon
 
-# Copy APK to public directory
+# Copy APK to public directory and download directory
 cp app/build/outputs/apk/debug/app-debug.apk /root/square15management/public/square15-app.apk
+cp app/build/outputs/apk/debug/app-debug.apk /var/www/downloads/square15-app.apk
 echo "=== APK BUILD COMPLETE ==="
 ls -la /root/square15management/public/square15-app.apk
+ls -la /var/www/downloads/square15-app.apk

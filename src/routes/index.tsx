@@ -7,7 +7,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import toast from "react-hot-toast";
 import { Lock, Mail } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getDefaultRoute } from "~/utils/roles";
 
 export const Route = createFileRoute("/")({
@@ -25,6 +25,13 @@ function LoginPage() {
   const navigate = useNavigate();
   const trpc = useTRPC();
   const { setAuth, user } = useAuthStore();
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    // Detect if app is running as installed PWA/TWA (standalone mode)
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
+  }, []);
 
   const {
     register,
@@ -199,8 +206,8 @@ function LoginPage() {
               </div>
             </div>
 
-            {/* Install App Section */}
-            <div className="mt-3">
+            {/* Install App Section - hidden when opened as standalone app */}
+            {!isStandalone && <div className="mt-3">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300" />
@@ -217,7 +224,7 @@ function LoginPage() {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Download Android App</p>
+                    <p className="text-sm font-semibold text-gray-900">Download App</p>
                     <p className="text-xs text-gray-500">Install the Square 15 app on your phone</p>
                   </div>
                 </div>
@@ -230,12 +237,12 @@ function LoginPage() {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Download APK
+                    Download App
                   </a>
                   <p className="text-[10px] text-gray-400 text-center">Android 5.0+ required &bull; After download, tap the file to install</p>
                 </div>
               </div>
-            </div>
+            </div>}
           </form>
         </div>
       </div>

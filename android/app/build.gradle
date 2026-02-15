@@ -17,7 +17,7 @@ android {
         manifestPlaceholders = [
             hostName   : "www.square15management.co.za",
             defaultUrl : "https://www.square15management.co.za",
-            launcherName: "Square 15",
+            launcherName: "Square 15 Management System",
             assetStatements: '[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://www.square15management.co.za"}}]'
         ]
     }
