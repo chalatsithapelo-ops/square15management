@@ -212,49 +212,27 @@ function LoginPage() {
               <div className="mt-2 bg-[#2D5016]/5 border border-[#2D5016]/20 rounded-xl p-3">
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0 w-10 h-10 bg-[#2D5016] rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.523 2.277l-1.929 3.339c1.587.909 2.753 2.282 3.311 3.884H3.095c.558-1.602 1.724-2.975 3.311-3.884L4.477 2.277a.3.3 0 01.109-.41.3.3 0 01.41.109l1.953 3.382A10.19 10.19 0 0112 4.354c1.907 0 3.67.506 5.051 1.404l1.953-3.382a.3.3 0 01.41-.109.3.3 0 01.109.41zM8.5 8.5a.75.75 0 100-1.5.75.75 0 000 1.5zm7 0a.75.75 0 100-1.5.75.75 0 000 1.5zM3 13.5h18v-2.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 10 3 10.56 3 11.25V13.5zm0 1v5.25C3 20.44 3.56 21 4.25 21h15.5c.69 0 1.25-.56 1.25-1.25V14.5H3z"/>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Install on your phone</p>
-                    <p className="text-xs text-gray-500">Quick access without the browser</p>
+                    <p className="text-sm font-semibold text-gray-900">Download Android App</p>
+                    <p className="text-xs text-gray-500">Install the Square 15 app on your phone</p>
                   </div>
                 </div>
                 <div className="mt-2 space-y-1.5">
-                  <button
-                    type="button"
-                    id="pwa-install-btn"
-                    onClick={() => {
-                      const prompt = (window as any).__pwaInstallPrompt;
-                      if (prompt) {
-                        prompt.prompt();
-                        prompt.userChoice.then((result: any) => {
-                          if (result.outcome === 'accepted') {
-                            console.log('App installed');
-                          }
-                          (window as any).__pwaInstallPrompt = null;
-                          const btn = document.getElementById('pwa-install-btn');
-                          if (btn) btn.style.display = 'none';
-                        });
-                      } else {
-                        // Fallback - show manual instructions
-                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                        if (isIOS) {
-                          alert('To install:\n\n1. Tap the Share button (box with arrow) at the bottom of Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
-                        } else {
-                          alert('To install:\n\n1. Tap the three-dot menu (⋮) at the top right of Chrome\n2. Tap "Add to Home screen" or "Install app"\n3. Tap "Install"');
-                        }
-                      }
-                    }}
-                    className="w-full bg-[#2D5016] text-white text-sm font-medium py-2 px-3 rounded-lg hover:bg-[#1e3a0f] transition-colors flex items-center justify-center gap-2"
+                  <a
+                    href="/square15-app.apk"
+                    download="Square15.apk"
+                    className="w-full bg-[#2D5016] text-white text-sm font-medium py-2.5 px-3 rounded-lg hover:bg-[#1e3a0f] transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Install App
-                  </button>
-                  <p className="text-[10px] text-gray-400 text-center">Works on Android, iPhone &amp; Desktop</p>
+                    Download APK
+                  </a>
+                  <p className="text-[10px] text-gray-400 text-center">Android 5.0+ required &bull; After download, tap the file to install</p>
                 </div>
               </div>
             </div>

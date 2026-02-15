@@ -1,0 +1,94 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate debug keystore
+        run: |
+          keytool -genkey -v \
+            -keystore android/app/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Square 15, OU=Dev, O=Square15, L=Johannesburg, ST=Gauteng, C=ZA"
+
+      - name: Make gradlew executable
+        run: |
+          cd android
+          # Download gradle wrapper if not present
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.5
+          fi
+          chmod +x gradlew
+
+      - name: Install Gradle wrapper
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build debug APK
+        run: |
+          cd android
+          cat > local.properties << EOF
+          sdk.dir=$ANDROID_HOME
+          EOF
+          
+          # Create a gradle wrapper
+          gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
+          
+          # Build the debug APK
+          ./gradlew assembleDebug --no-daemon
+          
+          # Copy APK to a known location
+          cp app/build/outputs/apk/debug/app-debug.apk ../square15-app.apk
+          echo "APK built successfully!"
+          ls -la ../square15-app.apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: square15-app
+          path: square15-app.apk
+          retention-days: 90
+
+      - name: Deploy APK to production server
+        if: github.ref == 'refs/heads/main'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          if [ -n "$SSH_PRIVATE_KEY" ]; then
+            mkdir -p ~/.ssh
+            echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H ${SERVER_HOST:-161.35.30.169} >> ~/.ssh/known_hosts 2>/dev/null
+            
+            scp square15-app.apk root@${SERVER_HOST:-161.35.30.169}:/root/square15management/public/square15-app.apk
+            echo "APK deployed to production server!"
+          else
+            echo "SSH_PRIVATE_KEY not set, skipping deployment. Download the APK from the artifacts above."
+          fi

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Square15" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/navigationColor</item>
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+
+    <style name="Theme.Square15.Splash" parent="Theme.Square15">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>
