@@ -140,17 +140,25 @@ export const createQuotationFromPMRFQ = baseProcedure
         },
       });
 
-      // Notify the Property Manager
-      await db.notification.create({
-        data: {
-          recipientId: rfq.propertyManager.id,
-          message: `${user.firstName} ${user.lastName} has submitted a quotation (${quotation.quoteNumber}) for your RFQ ${rfq.rfqNumber}.`,
-          type: "RFQ_QUOTED" as any,
-          relatedEntityId: quotation.id,
-          relatedEntityType: "QUOTATION",
-          recipientRole: "PROPERTY_MANAGER",
-        },
+      // Notify the Property Manager (using createNotification for push support)
+      const { createNotification, notifyArtisanQuotationAssigned } = await import('~/server/utils/notifications');
+      await createNotification({
+        recipientId: rfq.propertyManager.id,
+        recipientRole: "PROPERTY_MANAGER",
+        message: `${user.firstName} ${user.lastName} has submitted a quotation (${quotation.quoteNumber}) for your RFQ ${rfq.rfqNumber}.`,
+        type: "RFQ_QUOTED" as any,
+        relatedEntityId: quotation.id,
+        relatedEntityType: "QUOTATION",
       });
+
+      // Notify the artisan if quotation is assigned to one
+      if (input.assignedToId && input.assignedToId !== user.id) {
+        await notifyArtisanQuotationAssigned({
+          artisanId: input.assignedToId,
+          quoteNumber: quotation.quoteNumber,
+          quotationId: quotation.id,
+        }).catch((err: any) => console.error('Failed to notify artisan about quotation:', err));
+      }
 
       // Send email notification to Property Manager
       try {

@@ -33,6 +33,9 @@ export function SupportChatWidget() {
   const conversationsQuery = useQuery(
     trpc.getConversations.queryOptions({
       token: token!,
+    }, {
+      enabled: !!token,
+      retry: 1,
     })
   );
 
@@ -44,6 +47,7 @@ export function SupportChatWidget() {
       },
       {
         enabled: !!selectedConversationId && !!token,
+        retry: 1,
       }
     )
   );
@@ -51,6 +55,10 @@ export function SupportChatWidget() {
   const adminsQuery = useQuery(
     trpc.getAdmins.queryOptions({
       token: token!,
+    }, {
+      enabled: !!token,
+      retry: false,
+      refetchOnWindowFocus: false,
     })
   );
 

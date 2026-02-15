@@ -4,7 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
-import { notifyAdmins } from "~/server/utils/notifications";
+import { notifyAdmins, notifyArtisanOrderAssigned } from "~/server/utils/notifications";
 import { sendOrderNotificationEmail } from "~/server/utils/email";
 
 export const createOrder = baseProcedure
@@ -123,6 +123,17 @@ export const createOrder = baseProcedure
       .catch((emailError) => {
         console.error("Failed to send order notification email:", emailError);
       });
+
+    // Notify the assigned artisan about the new order
+    if (assignedToId && assignedToId !== user.id) {
+      void notifyArtisanOrderAssigned({
+        artisanId: assignedToId,
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+      }).catch((notifyError) => {
+        console.error("Failed to notify artisan about order assignment:", notifyError);
+      });
+    }
 
     // Only notify admins if an admin created the order without assigning it.
     if ((user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN") && !input.assignedToId) {

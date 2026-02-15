@@ -359,6 +359,19 @@ export const sendJobToArtisanTool = tool({
       
       console.log('[sendJobToArtisanTool] Job assigned successfully:', order.orderNumber, 'to', artisan.firstName, artisan.lastName);
       
+      // Notify the artisan about the assignment
+      try {
+        const { notifyArtisanOrderAssigned } = await import('~/server/utils/notifications');
+        await notifyArtisanOrderAssigned({
+          artisanId: artisan.id,
+          orderNumber: order.orderNumber,
+          orderId: order.id,
+        });
+        console.log('[sendJobToArtisanTool] Artisan notification sent');
+      } catch (notifyError) {
+        console.error('[sendJobToArtisanTool] Failed to notify artisan:', notifyError);
+      }
+      
       return {
         success: true,
         message: `✓ Job ${order.orderNumber} successfully assigned to ${artisan.firstName} ${artisan.lastName}! The job status has been updated to ASSIGNED.`,

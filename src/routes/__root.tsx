@@ -6,7 +6,7 @@ import {
 import { Toaster } from "react-hot-toast";
 import { TRPCReactProvider, useTRPC } from "~/trpc/react";
 import { AuthUser, useAuthStore } from "~/stores/auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { usePushNotificationStore } from "~/stores/push-notifications";
 import {
@@ -46,6 +46,7 @@ function RootInnerComponent({
 }) {
   const { token, setAuth, clearAuth } = useAuthStore();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const pushStore = usePushNotificationStore();
 
   const subscribeToPushMutation = useMutation(
@@ -137,7 +138,6 @@ function RootInnerComponent({
         }
         
         // Get VAPID public key from server
-        const queryClient = trpc.getQueryClient();
         const vapidResult = await queryClient.fetchQuery(
           trpc.getVapidPublicKey.queryOptions({ token })
         );

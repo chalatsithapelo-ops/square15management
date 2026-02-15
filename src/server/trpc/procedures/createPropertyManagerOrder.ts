@@ -389,19 +389,18 @@ export const createPropertyManagerOrder = baseProcedure
       // --- NOTIFICATION LOGIC ---
       console.log("--- Determining Notification Path ---");
       if (contractorUserId) {
-        // Contractor has portal access, send in-app notification
-        console.log(`Contractor has User ID ${contractorUserId}. Sending in-app notification.`);
-        await db.notification.create({
-          data: {
-            recipientId: contractorUserId,
-            message: `New order ${order.orderNumber} assigned to you by ${user.firstName} ${user.lastName}`,
-            type: "ORDER_ASSIGNED",
-            relatedEntityId: order.id,
-            relatedEntityType: "PROPERTY_MANAGER_ORDER",
-            recipientRole: "CONTRACTOR",
-          },
+        // Contractor has portal access, send in-app notification with push support
+        console.log(`Contractor has User ID ${contractorUserId}. Sending in-app + push notification.`);
+        const { createNotification } = await import('~/server/utils/notifications');
+        await createNotification({
+          recipientId: contractorUserId,
+          recipientRole: "CONTRACTOR",
+          message: `New order ${order.orderNumber} assigned to you by ${user.firstName} ${user.lastName}`,
+          type: "ORDER_ASSIGNED",
+          relatedEntityId: order.id,
+          relatedEntityType: "PROPERTY_MANAGER_ORDER",
         });
-        console.log("In-app notification sent.");
+        console.log("In-app + push notification sent.");
 
         // Also send email notification
         if (contractorDetails) {

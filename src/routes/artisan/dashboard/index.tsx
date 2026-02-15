@@ -195,7 +195,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -205,7 +205,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -215,7 +215,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -225,7 +225,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -235,7 +235,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -245,7 +245,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -256,7 +256,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
@@ -266,7 +266,7 @@ function ArtisanDashboard() {
     }, {
       enabled: !!token,
       refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: !isAnyModalOpen,
+      refetchOnWindowFocus: false,
     })
   );
 
