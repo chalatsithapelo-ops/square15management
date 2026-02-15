@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { db } from "~/server/db";
+import { createNotification } from "~/server/utils/notifications";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { getValidExternalTokenRecord } from "~/server/utils/external-submissions";
 
@@ -89,15 +90,13 @@ export const submitExternalRFQQuotation = baseProcedure
       },
     });
 
-    await db.notification.create({
-      data: {
-        recipientId: rfq.propertyManagerId,
-        recipientRole: "PROPERTY_MANAGER",
-        message: `A quotation (${quotation.quoteNumber}) was submitted for RFQ ${rfq.rfqNumber} by ${record.email}.`,
-        type: "RFQ_QUOTED" as any,
-        relatedEntityId: quotation.id,
-        relatedEntityType: "QUOTATION",
-      },
+    await createNotification({
+      recipientId: rfq.propertyManagerId,
+      recipientRole: "PROPERTY_MANAGER",
+      message: `A quotation (${quotation.quoteNumber}) was submitted for RFQ ${rfq.rfqNumber} by ${record.email}.`,
+      type: "RFQ_QUOTED" as any,
+      relatedEntityId: quotation.id,
+      relatedEntityType: "QUOTATION",
     });
 
     await db.externalSubmissionToken.update({

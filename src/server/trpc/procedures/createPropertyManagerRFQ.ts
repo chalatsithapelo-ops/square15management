@@ -4,7 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
-import { notifyAdmins } from "~/server/utils/notifications";
+import { createNotification, notifyAdmins } from "~/server/utils/notifications";
 import { sendRFQNotificationEmail } from "~/server/utils/email";
 import { createExternalSubmissionInvite } from "~/server/utils/external-invites";
 
@@ -134,17 +134,15 @@ export const createPropertyManagerRFQ = baseProcedure
       console.log("--- Determining Notification Path ---");
       if (contractorUserIds.length > 0) {
         // Notify contractors with portal access
-        console.log(`Sending in-app notifications to ${contractorUserIds.length} users.`);
+        console.log(`Sending in-app + push notifications to ${contractorUserIds.length} users.`);
         for (const userId of contractorUserIds) {
-          await db.notification.create({
-            data: {
-              recipientId: userId,
-              message: `You have received a new RFQ (${rfq.rfqNumber}) from ${user.firstName} ${user.lastName}.`,
-              type: "RFQ_SUBMITTED",
-              relatedEntityId: rfq.id,
-              relatedEntityType: "PROPERTY_MANAGER_RFQ",
-              recipientRole: "CONTRACTOR",
-            },
+          await createNotification({
+            recipientId: userId,
+            recipientRole: "CONTRACTOR",
+            message: `You have received a new RFQ (${rfq.rfqNumber}) from ${user.firstName} ${user.lastName}.`,
+            type: "RFQ_SUBMITTED",
+            relatedEntityId: rfq.id,
+            relatedEntityType: "PROPERTY_MANAGER_RFQ",
           });
 
           // Also send email notification

@@ -22,6 +22,19 @@ interface AuthState {
   clearAuth: () => void;
 }
 
+/**
+ * Detect if running in standalone/TWA mode (installed app).
+ * Uses a different localStorage key so the installed app and browser
+ * maintain completely independent login sessions.
+ */
+function getAuthStorageKey(): string {
+  if (typeof window === "undefined") return "prop-management-auth";
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as any).standalone === true;
+  return isStandalone ? "prop-management-auth-app" : "prop-management-auth";
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -31,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
       clearAuth: () => set({ token: null, user: null }),
     }),
     {
-      name: "prop-management-auth",
+      name: getAuthStorageKey(),
       storage: createJSONStorage(() => {
         if (typeof window === "undefined") {
           return {
