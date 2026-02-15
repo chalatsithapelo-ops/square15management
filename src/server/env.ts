@@ -109,7 +109,7 @@ const envSchema = z.object({
   // Web Push Notifications (VAPID keys)
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
-  VAPID_SUBJECT: z.string().email().optional(),
+  VAPID_SUBJECT: z.string().optional(),
 
   // PayFast (optional - required only if using PayFast checkout)
   PAYFAST_MERCHANT_ID: optionalTrimmedString,
