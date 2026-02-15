@@ -33,6 +33,7 @@ function RootComponent() {
     <TRPCReactProvider>
       <Toaster position="top-right" />
       <RootInnerComponent isFetching={isFetching} locationHref={locationHref} />
+      <InstallPrompt />
     </TRPCReactProvider>
   );
 }
@@ -320,7 +321,6 @@ function RootInnerComponent({
   return (
     <ErrorBoundary>
       <Outlet />
-      <InstallPrompt />
     </ErrorBoundary>
   );
 }

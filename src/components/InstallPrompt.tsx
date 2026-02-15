@@ -50,11 +50,19 @@ export function InstallPrompt() {
     }
 
     // Listen for the beforeinstallprompt event (Chrome/Edge/Android)
+    // Check if it was already captured globally before React mounted
+    const captured = (window as any).__pwaInstallPrompt;
+    if (captured) {
+      setDeferredPrompt(captured as BeforeInstallPromptEvent);
+      setTimeout(() => setShowPrompt(true), 1500);
+      (window as any).__pwaInstallPrompt = null;
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Show prompt after a short delay
-      setTimeout(() => setShowPrompt(true), 2000);
+      setTimeout(() => setShowPrompt(true), 1500);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
