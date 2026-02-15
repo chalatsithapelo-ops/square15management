@@ -11,7 +11,7 @@ import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { fetchImageAsBuffer } from "~/server/utils/pdf-images";
 import { authenticateUser } from "~/server/utils/auth";
-import { notifyAdmins, notifyCustomerOrderStatus } from "~/server/utils/notifications";
+import { notifyAdmins, notifyCustomerOrderStatus, createNotification } from "~/server/utils/notifications";
 
 export const updateOrderStatus = baseProcedure
   .input(
@@ -508,6 +508,7 @@ export const updateOrderStatus = baseProcedure
                 lastName: true,
                 email: true,
                 phone: true,
+                role: true,
               },
             },
             materials: true,
@@ -540,6 +541,18 @@ export const updateOrderStatus = baseProcedure
             relatedEntityId: updatedOrder.id,
             relatedEntityType: "ORDER",
           });
+
+          // Notify the assigned artisan about status changes
+          if (updatedOrder.assignedTo && updatedOrder.assignedToId) {
+            await createNotification({
+              recipientId: updatedOrder.assignedToId,
+              recipientRole: updatedOrder.assignedTo.role || "ARTISAN",
+              message: `Order ${updatedOrder.orderNumber} status updated to ${updatedOrder.status}`,
+              type: "ORDER_STATUS_UPDATED",
+              relatedEntityId: updatedOrder.id,
+              relatedEntityType: "ORDER",
+            }).catch((err: any) => console.error("Failed to notify assigned user:", err));
+          }
 
           if (["ASSIGNED", "IN_PROGRESS", "CANCELLED"].includes(updatedOrder.status)) {
             await sendOrderStatusUpdateEmail({

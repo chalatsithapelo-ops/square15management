@@ -185,6 +185,7 @@ export const updateQuotationStatus = baseProcedure
               firstName: true,
               lastName: true,
               email: true,
+              role: true,
             },
           },
           lead: {
@@ -247,6 +248,33 @@ export const updateQuotationStatus = baseProcedure
               quotedDate: new Date()
             }
           });
+        }
+      }
+
+      // Notify the assigned artisan/user about quotation status changes
+      if (quotation.assignedTo && input.status && input.status !== existingQuotation.status) {
+        try {
+          const { createNotification, notifyAdmins } = await import('~/server/utils/notifications');
+          
+          // Notify the assigned user (artisan or contractor)
+          await createNotification({
+            recipientId: quotation.assignedTo.id,
+            recipientRole: quotation.assignedTo.role || 'ARTISAN',
+            message: `Quotation ${quotation.quoteNumber} status updated to ${input.status.replace(/_/g, ' ')}`,
+            type: 'QUOTATION_STATUS_UPDATED',
+            relatedEntityId: quotation.id,
+            relatedEntityType: 'QUOTATION',
+          }).catch((err: any) => console.error('Failed to notify assigned user about quotation status:', err));
+
+          // Notify admins about quotation status changes
+          await notifyAdmins({
+            message: `Quotation ${quotation.quoteNumber} status updated to ${input.status.replace(/_/g, ' ')}`,
+            type: 'QUOTATION_STATUS_UPDATED',
+            relatedEntityId: quotation.id,
+            relatedEntityType: 'QUOTATION',
+          }).catch((err: any) => console.error('Failed to notify admins about quotation status:', err));
+        } catch (notifyError) {
+          console.error('Failed to send quotation status notifications:', notifyError);
         }
       }
 
