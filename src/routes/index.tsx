@@ -29,7 +29,9 @@ function LoginPage() {
 
   useEffect(() => {
     // Detect if app is running as installed PWA/TWA (standalone mode)
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as any).standalone === true
+      || document.referrer.startsWith('android-app://');
     setIsStandalone(standalone);
   }, []);
 

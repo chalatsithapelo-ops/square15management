@@ -105,13 +105,19 @@ function RootInnerComponent({
     pushStore.setSupported(isSupported);
     
     if (!isSupported) {
-      console.log("Push notifications are not supported in this browser");
+      console.log("Push notifications are not supported in this browser", {
+        serviceWorker: "serviceWorker" in navigator,
+        PushManager: "PushManager" in window,
+        Notification: "Notification" in window,
+        referrer: document.referrer,
+      });
       return;
     }
     
     // Update permission state
     const permission = getNotificationPermission();
     pushStore.setPermission(permission);
+    console.log("Push notification support detected, permission:", permission);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
   

@@ -3,14 +3,31 @@
  */
 
 /**
- * Check if the browser supports push notifications
+ * Detect if running inside a TWA (Trusted Web Activity)
+ */
+export function isTWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  // TWA sets document.referrer to android-app://package.name
+  if (document.referrer.startsWith('android-app://')) return true;
+  // Check for standalone display mode (TWA or installed PWA)
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  // iOS standalone
+  if ((window.navigator as any).standalone === true) return true;
+  return false;
+}
+
+/**
+ * Check if the browser supports push notifications.
+ * In TWA context, the Notification API may not be in window,
+ * but PushManager + service worker still work for receiving push.
  */
 export function isPushNotificationSupported(): boolean {
-  return (
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
-  );
+  // Core requirements: service worker + PushManager
+  const hasCore = "serviceWorker" in navigator && "PushManager" in window;
+  if (!hasCore) return false;
+  // In TWA, Notification may not exist in window but push still works
+  // via service worker's self.registration.showNotification()
+  return true;
 }
 
 /**
@@ -20,7 +37,13 @@ export function getNotificationPermission(): NotificationPermission {
   if (!isPushNotificationSupported()) {
     return "denied";
   }
-  return Notification.permission;
+  // Prefer Notification API if available
+  if ("Notification" in window) {
+    return Notification.permission;
+  }
+  // In TWA without Notification API, assume granted
+  // (the Android app handles permission at OS level)
+  return "granted";
 }
 
 /**
@@ -31,8 +54,20 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     throw new Error("Push notifications are not supported in this browser");
   }
 
-  const permission = await Notification.requestPermission();
-  return permission;
+  // Use Notification API if available
+  if ("Notification" in window) {
+    const permission = await Notification.requestPermission();
+    return permission;
+  }
+
+  // In TWA, try using the Permissions API as fallback
+  try {
+    const status = await navigator.permissions.query({ name: 'notifications' as PermissionName });
+    return status.state as NotificationPermission;
+  } catch {
+    // If Permissions API also unavailable, assume granted (TWA handles at OS level)
+    return "granted";
+  }
 }
 
 /**
@@ -46,7 +81,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   try {
     const registration = await navigator.serviceWorker.register("/sw.js", {
       scope: "/",
+      updateViaCache: "none",
     });
+    // Force update check
+    registration.update().catch(() => {});
     console.log("Service Worker registered successfully:", registration);
     return registration;
   } catch (error) {
@@ -144,7 +182,7 @@ export async function unsubscribeFromPushNotifications(): Promise<boolean> {
  * Get the current push subscription
  */
 export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
-  if (!isPushNotificationSupported()) {
+  if (!("serviceWorker" in navigator)) {
     return null;
   }
 

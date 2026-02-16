@@ -1,5 +1,6 @@
 // Service Worker for PWA + Push Notifications
-const CACHE_NAME = "square15-v1";
+// Version 2 - TWA push notification fix
+const CACHE_NAME = "square15-v2";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",

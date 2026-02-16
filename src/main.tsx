@@ -11,8 +11,12 @@ import { createRouter } from "./router";
 // Register service worker early for PWA install prompt
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(
-      (reg) => console.log("SW registered:", reg.scope),
+    navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then(
+      (reg) => {
+        console.log("SW registered:", reg.scope);
+        // Force update check on every page load
+        reg.update().catch(() => {});
+      },
       (err) => console.warn("SW registration failed:", err)
     );
   });

@@ -24,12 +24,13 @@ export function InstallPrompt() {
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
+    // Check if already installed (standalone mode) or running in TWA
     const standalone = window.matchMedia("(display-mode: standalone)").matches
-      || (window.navigator as any).standalone === true;
+      || (window.navigator as any).standalone === true
+      || document.referrer.startsWith('android-app://');
     setIsStandalone(standalone);
 
-    if (standalone) return; // Don't show prompt if already installed
+    if (standalone) return; // Don't show prompt if already installed or in TWA
 
     // Check if user dismissed recently
     const dismissedAt = localStorage.getItem("pwa-install-dismissed");
