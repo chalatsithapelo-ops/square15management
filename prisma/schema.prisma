@@ -1302,13 +1302,14 @@ model PushSubscription {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  endpoint String @unique
+  endpoint String
   p256dh   String
   auth     String
 
   // To track which browser/device the subscription belongs to (optional)
   deviceIdentifier String?
 
+  @@unique([endpoint, userId])
   @@index([userId])
 }
 

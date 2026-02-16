@@ -23,17 +23,19 @@ export const subscribeToPush = baseProcedure
     const user = await authenticateUser(input.token);
 
     try {
-      // Check if subscription already exists for this endpoint
-      const existing = await db.pushSubscription.findUnique({
-        where: { endpoint: input.subscription.endpoint },
+      // Check if subscription already exists for this endpoint + user combo
+      const existing = await db.pushSubscription.findFirst({
+        where: {
+          endpoint: input.subscription.endpoint,
+          userId: user.id,
+        },
       });
 
       if (existing) {
-        // Update existing subscription
+        // Update existing subscription keys
         const updated = await db.pushSubscription.update({
-          where: { endpoint: input.subscription.endpoint },
+          where: { id: existing.id },
           data: {
-            userId: user.id,
             p256dh: input.subscription.keys.p256dh,
             auth: input.subscription.keys.auth,
             deviceIdentifier: input.deviceIdentifier,
@@ -42,7 +44,7 @@ export const subscribeToPush = baseProcedure
         return { success: true, subscription: updated };
       }
 
-      // Create new subscription
+      // Create new subscription (allows same endpoint for different users on shared device)
       const subscription = await db.pushSubscription.create({
         data: {
           userId: user.id,
@@ -53,12 +55,12 @@ export const subscribeToPush = baseProcedure
         },
       });
 
-      // Clean up old/stale subscriptions for this user (different endpoints)
+      // Clean up old/stale subscriptions for this user with DIFFERENT endpoints (old devices)
       try {
         await db.pushSubscription.deleteMany({
           where: {
             userId: user.id,
-            id: { not: subscription.id },
+            endpoint: { not: input.subscription.endpoint },
           },
         });
       } catch (cleanupError) {
