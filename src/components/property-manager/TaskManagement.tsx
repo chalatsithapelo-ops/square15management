@@ -875,7 +875,8 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
   const createMutation = useMutation(
     trpc.createStaffMember.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getStaffMembers"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getStaffMembers.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskStats.queryKey() });
         toast.success("Staff member added!");
         onClose();
       },
@@ -886,7 +887,10 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -1003,7 +1007,7 @@ function CreateTaskModal({ staffMembers, onClose }: { staffMembers: any[]; onClo
   const activeStaff = staffMembers.filter((s: any) => s.isActive);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -1310,7 +1314,7 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-3xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-white z-10 p-6 border-b border-gray-200 rounded-t-2xl">
