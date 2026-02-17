@@ -24,6 +24,7 @@ export const ROLES = {
   
   // Operational Roles
   ARTISAN: "ARTISAN",
+  STAFF: "STAFF",
   
   // External Roles
   CUSTOMER: "CUSTOMER",
@@ -70,6 +71,7 @@ export const ROLE_LEVELS: Record<Role, number> = {
   [ROLES.SUPERVISOR]: 50,
   [ROLES.SALES_AGENT]: 45,
   [ROLES.ARTISAN]: 30,
+  [ROLES.STAFF]: 11,
   [ROLES.PROPERTY_MANAGER]: 15,
   [ROLES.CONTRACTOR_SENIOR_MANAGER]: 14,
   [ROLES.CONTRACTOR_JUNIOR_MANAGER]: 13,
@@ -974,6 +976,12 @@ export const ROLE_METADATA: Record<Role, RoleMetadata> = {
     color: "bg-green-100 text-green-800",
     description: "Field worker with access to assigned jobs and projects",
     defaultRoute: "/artisan/dashboard",
+  },
+  [ROLES.STAFF]: {
+    label: "Staff",
+    color: "bg-lime-100 text-lime-800",
+    description: "Property management staff with access to assigned tasks and property maintenance",
+    defaultRoute: "/staff/dashboard",
   },
   [ROLES.CUSTOMER]: {
     label: "Tenant",

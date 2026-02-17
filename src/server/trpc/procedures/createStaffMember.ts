@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import bcryptjs from "bcryptjs";
 
 const createStaffMemberSchema = z.object({
   token: z.string(),
@@ -22,6 +23,9 @@ const createStaffMemberSchema = z.object({
   ]),
   title: z.string().optional(),
   buildingId: z.number().optional(),
+  // Optional: if provided, creates a User account so staff can log in
+  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  enablePortal: z.boolean().optional(),
 });
 
 export const createStaffMember = baseProcedure
@@ -37,6 +41,8 @@ export const createStaffMember = baseProcedure
     }
 
     try {
+      const wantsPortal = input.enablePortal && input.password && input.email;
+
       // Check for duplicate email if provided
       if (input.email && input.email !== "") {
         const existing = await db.staffMember.findFirst({
@@ -50,6 +56,19 @@ export const createStaffMember = baseProcedure
             code: "CONFLICT",
             message: "A staff member with this email already exists.",
           });
+        }
+
+        // If creating a portal account, also check the User table
+        if (wantsPortal) {
+          const existingUser = await db.user.findFirst({
+            where: { email: { equals: input.email, mode: "insensitive" } },
+          });
+          if (existingUser) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "A user account with this email already exists. Use a different email.",
+            });
+          }
         }
       }
 
@@ -66,6 +85,49 @@ export const createStaffMember = baseProcedure
         }
       }
 
+      // If portal access requested, create both User and StaffMember in a transaction
+      if (wantsPortal) {
+        const hashedPassword = await bcryptjs.hash(input.password!, 10);
+
+        const result = await db.$transaction(async (tx) => {
+          // Create the User account
+          const newUser = await tx.user.create({
+            data: {
+              email: input.email!.toLowerCase().trim(),
+              password: hashedPassword,
+              firstName: input.firstName,
+              lastName: input.lastName,
+              phone: input.phone || "",
+              role: "STAFF",
+            },
+          });
+
+          // Create the StaffMember linked to the User
+          const staffMember = await tx.staffMember.create({
+            data: {
+              firstName: input.firstName,
+              lastName: input.lastName,
+              email: input.email!.toLowerCase().trim(),
+              phone: input.phone || null,
+              staffRole: input.staffRole,
+              title: input.title || null,
+              propertyManagerId: user.id,
+              buildingId: input.buildingId || null,
+              userId: newUser.id,
+            },
+            include: {
+              building: true,
+              user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+            },
+          });
+
+          return staffMember;
+        });
+
+        return result;
+      }
+
+      // Otherwise, just create the StaffMember record (no login account)
       const staffMember = await db.staffMember.create({
         data: {
           firstName: input.firstName,

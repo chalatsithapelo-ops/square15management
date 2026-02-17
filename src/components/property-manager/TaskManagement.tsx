@@ -681,7 +681,7 @@ function StaffList({ staff, isLoading, onAddStaff }: { staff: any[]; isLoading: 
   const updateMutation = useMutation(
     trpc.updateStaffMember.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getStaffMembers"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getStaffMembers.queryKey() });
         toast.success("Staff member updated");
       },
       onError: (error: any) => {
@@ -693,7 +693,7 @@ function StaffList({ staff, isLoading, onAddStaff }: { staff: any[]; isLoading: 
   const activateMutation = useMutation(
     trpc.activateStaffAccount.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getStaffMembers"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getStaffMembers.queryKey() });
         toast.success("Staff portal account activated! They can now log in.");
         setActivatingStaffId(null);
         setAccountEmail("");
@@ -871,13 +871,16 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState("");
   const [staffRole, setStaffRole] = useState<StaffRoleType>("ARTISAN");
   const [title, setTitle] = useState("");
+  const [enablePortal, setEnablePortal] = useState(true);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const createMutation = useMutation(
     trpc.createStaffMember.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: trpc.getStaffMembers.queryKey() });
         queryClient.invalidateQueries({ queryKey: trpc.getPMTaskStats.queryKey() });
-        toast.success("Staff member added!");
+        toast.success(enablePortal ? "Staff member added with portal access!" : "Staff member added!");
         onClose();
       },
       onError: (error: any) => {
@@ -930,14 +933,59 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email {enablePortal ? "*" : ""}</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder={enablePortal ? "Required for portal login" : "Optional"}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
+          </div>
+
+          {/* Portal Access Toggle */}
+          <div className="border border-teal-200 bg-teal-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-teal-600" />
+                <span className="text-sm font-medium text-teal-800">Enable Portal Access</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnablePortal(!enablePortal)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enablePortal ? 'bg-teal-600' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enablePortal ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            <p className="text-xs text-teal-700">
+              {enablePortal
+                ? "Staff member will be able to log in and view/update their assigned tasks."
+                : "Staff member will be tracked in the system but won't have login access. You can enable this later."
+              }
+            </p>
+            {enablePortal && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-teal-800 mb-1">Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 6 characters"
+                    className="w-full px-3 py-2 border border-teal-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
@@ -948,6 +996,16 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
                 toast.error("First and last name are required");
                 return;
               }
+              if (enablePortal) {
+                if (!email) {
+                  toast.error("Email is required for portal access");
+                  return;
+                }
+                if (!password || password.length < 6) {
+                  toast.error("Password must be at least 6 characters");
+                  return;
+                }
+              }
               createMutation.mutate({
                 token: token!,
                 firstName,
@@ -956,6 +1014,8 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
                 phone: phone || undefined,
                 staffRole,
                 title: title || undefined,
+                enablePortal: enablePortal || undefined,
+                password: enablePortal ? password : undefined,
               });
             }}
             disabled={createMutation.isPending}
@@ -981,6 +1041,7 @@ function CreateTaskModal({ staffMembers, onClose }: { staffMembers: any[]; onClo
   const [category, setCategory] = useState<TaskCategoryType>("GENERAL");
   const [priority, setPriority] = useState<TaskPriorityType>("MEDIUM");
   const [assignedToId, setAssignedToId] = useState<number>(0);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<number>(0);
   const [buildingName, setBuildingName] = useState("");
   const [buildingAddress, setBuildingAddress] = useState("");
   const [unitNumber, setUnitNumber] = useState("");
@@ -990,11 +1051,18 @@ function CreateTaskModal({ staffMembers, onClose }: { staffMembers: any[]; onClo
   const [notes, setNotes] = useState("");
   const [checklistItems, setChecklistItems] = useState<string[]>([""]);
 
+  // Fetch PM buildings for the property dropdown
+  const buildingsQuery = useQuery({
+    ...trpc.getBuildings.queryOptions({ token: token! }),
+    enabled: !!token,
+  });
+  const buildings = (buildingsQuery.data as any[]) || [];
+
   const createMutation = useMutation(
     trpc.createPMTask.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPMTasks"] });
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskStats"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTasks.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskStats.queryKey() });
         toast.success("Task created and assigned!");
         onClose();
       },
@@ -1075,16 +1143,54 @@ function CreateTaskModal({ staffMembers, onClose }: { staffMembers: any[]; onClo
             )}
           </div>
 
-          {/* Location */}
+          {/* Location - Property Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              <Building2 className="h-4 w-4 text-teal-500" />
+              Select Property
+            </label>
+            <select
+              value={selectedBuildingId}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setSelectedBuildingId(id);
+                if (id > 0) {
+                  const building = buildings.find((b: any) => b.id === id);
+                  if (building) {
+                    setBuildingName(building.name);
+                    setBuildingAddress(building.address || "");
+                  }
+                } else {
+                  setBuildingName("");
+                  setBuildingAddress("");
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            >
+              <option value={0}>-- Select a property or enter manually --</option>
+              {buildings.map((b: any) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} — {b.address || "No address"}
+                </option>
+              ))}
+            </select>
+            {buildings.length === 0 && !buildingsQuery.isLoading && (
+              <p className="text-xs text-gray-500 mt-1 italic">No properties listed yet. Enter details manually below.</p>
+            )}
+          </div>
+
+          {/* Manual Location Fields (auto-filled when property selected) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Building Name</label>
-              <input type="text" value={buildingName} onChange={(e) => setBuildingName(e.target.value)}
+              <input type="text" value={buildingName} onChange={(e) => { setBuildingName(e.target.value); if (selectedBuildingId) setSelectedBuildingId(0); }}
+                placeholder={selectedBuildingId ? "" : "Enter building name"}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Building Address</label>
-              <input type="text" value={buildingAddress} onChange={(e) => setBuildingAddress(e.target.value)}
+              <input type="text" value={buildingAddress} onChange={(e) => { setBuildingAddress(e.target.value); if (selectedBuildingId) setSelectedBuildingId(0); }}
+                placeholder={selectedBuildingId ? "" : "Enter address"}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
             </div>
           </div>
@@ -1220,9 +1326,9 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   const statusMutation = useMutation(
     trpc.updatePMTaskStatus.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskDetail"] });
-        queryClient.invalidateQueries({ queryKey: ["getPMTasks"] });
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskStats"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskDetail.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTasks.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskStats.queryKey() });
         toast.success("Task status updated!");
       },
       onError: (error: any) => {
@@ -1234,7 +1340,7 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   const commentMutation = useMutation(
     trpc.addPMTaskComment.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskDetail"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskDetail.queryKey() });
         setComment("");
         toast.success("Comment added!");
       },
@@ -1247,8 +1353,8 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   const updateChecklistMutation = useMutation(
     trpc.updatePMTask.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskDetail"] });
-        queryClient.invalidateQueries({ queryKey: ["getPMTasks"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskDetail.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTasks.queryKey() });
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to update checklist");
@@ -1259,8 +1365,8 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   const deleteMutation = useMutation(
     trpc.deletePMTask.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["getPMTasks"] });
-        queryClient.invalidateQueries({ queryKey: ["getPMTaskStats"] });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTasks.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getPMTaskStats.queryKey() });
         toast.success("Task deleted");
         onClose();
       },
