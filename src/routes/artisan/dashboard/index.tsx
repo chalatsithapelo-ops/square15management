@@ -286,6 +286,18 @@ function ArtisanDashboard() {
     })
   );
 
+  const saveJobDraftMutation = useMutation(
+    trpc.saveJobDraft.mutationOptions({
+      onSuccess: () => {
+        toast.success("Draft saved successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to save draft");
+      },
+    })
+  );
+
   const pauseJobMutation = useMutation(
     trpc.pauseJob.mutationOptions({
       onSuccess: () => {
@@ -649,13 +661,7 @@ function ArtisanDashboard() {
     setBeforePictures(urls);
   };
 
-  const handleConfirmStartJob = () => {
-    console.log('=== START JOB DEBUG ===');
-    console.log('beforePictures count:', beforePictures.length);
-    console.log('token exists:', !!token);
-    console.log('token value:', token);
-    console.log('startJobOrderId:', startJobOrderId);
-    
+  const handleConfirmStartJob = async () => {
     if (beforePictures.length < 3) {
       toast.error("Please upload at least 3 before pictures");
       return;
@@ -670,36 +676,119 @@ function ArtisanDashboard() {
     // Find the order to check if it's a PM order
     const order = orders.find((o) => o.id === startJobOrderId);
 
-    const mutationInput = {
-      token,
-      orderId: startJobOrderId!,
-      isPMOrder: order?.isPMOrder || false,
-      status: "IN_PROGRESS" as const,
-      beforePictures: beforePictures,
-    };
-    
-    console.log('mutation input:', mutationInput);
-    
-    updateOrderStatusMutation.mutate(mutationInput);
+    try {
+      await updateOrderStatusMutation.mutateAsync({
+        token,
+        orderId: startJobOrderId!,
+        isPMOrder: order?.isPMOrder || false,
+        status: "IN_PROGRESS" as const,
+        beforePictures: beforePictures,
+      });
 
-    setStartJobOrderId(null);
-    setBeforePictures([]);
+      // Only reset after success so the query invalidation has fired
+      setStartJobOrderId(null);
+      setBeforePictures([]);
+    } catch (error) {
+      console.error("Error starting job:", error);
+    }
   };
 
   const handleCompleteJob = (orderId: number) => {
     setCompleteJobOrderId(orderId);
-    setAfterPictures([]);
-    setSignedJobCardUrl(null);
-    setClientRepName("");
-    setClientRepSignDate("");
-    setMaterialCost("");
-    setExpenseSlips([]);
+
+    // Pre-populate with any saved draft data from the order
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      setAfterPictures(order.afterPictures?.length ? order.afterPictures : []);
+      setSignedJobCardUrl(order.signedJobCardUrl || null);
+      setClientRepName(order.clientRepName || "");
+      setClientRepSignDate(
+        order.clientRepSignDate
+          ? new Date(order.clientRepSignDate).toISOString().split("T")[0]
+          : ""
+      );
+      setMaterialCost(
+        order.materialCost && order.materialCost > 0
+          ? order.materialCost.toString()
+          : ""
+      );
+      // Pre-populate expense slips if available
+      const savedSlips: ExpenseSlip[] = (order.expenseSlips || []).map(
+        (slip: any) => ({
+          url: slip.url,
+          category: slip.category || "MATERIALS",
+          description: slip.description || "",
+          amount: slip.amount || 0,
+        })
+      );
+      setExpenseSlips(savedSlips.length > 0 ? savedSlips : []);
+    } else {
+      setAfterPictures([]);
+      setSignedJobCardUrl(null);
+      setClientRepName("");
+      setClientRepSignDate("");
+      setMaterialCost("");
+      setExpenseSlips([]);
+    }
+
     setPaymentType("hourly");
     setHoursWorked("");
     setDaysWorked("");
     setHourlyRateInput(currentUser?.hourlyRate?.toString() || "");
     setDailyRateInput(currentUser?.dailyRate?.toString() || "");
     setPaymentNotes("");
+  };
+
+  const handleSaveJobDraft = async () => {
+    if (!token) {
+      toast.error("Authentication token missing. Please log in again.");
+      navigate({ to: "/" });
+      return;
+    }
+
+    const order = orders.find((o) => o.id === completeJobOrderId);
+
+    try {
+      await saveJobDraftMutation.mutateAsync({
+        token,
+        orderId: completeJobOrderId!,
+        isPMOrder: order?.isPMOrder || false,
+        afterPictures: afterPictures.length > 0 ? afterPictures : undefined,
+        expenseSlips:
+          expenseSlips.length > 0
+            ? expenseSlips.map((slip) => ({
+                url: slip.url,
+                category: slip.category,
+                description: slip.description || undefined,
+                amount: slip.amount || undefined,
+              }))
+            : undefined,
+        materialCost: materialCost ? parseFloat(materialCost) : undefined,
+        hoursWorked:
+          paymentType === "hourly" && hoursWorked
+            ? parseFloat(hoursWorked)
+            : undefined,
+        daysWorked:
+          paymentType === "daily" && daysWorked
+            ? parseFloat(daysWorked)
+            : undefined,
+        hourlyRate:
+          paymentType === "hourly" && hourlyRateInput
+            ? parseFloat(hourlyRateInput)
+            : undefined,
+        dailyRate:
+          paymentType === "daily" && dailyRateInput
+            ? parseFloat(dailyRateInput)
+            : undefined,
+        paymentType: paymentType || undefined,
+        paymentNotes: paymentNotes || undefined,
+      });
+
+      // Close the modal after saving
+      setCompleteJobOrderId(null);
+    } catch (error) {
+      console.error("Error saving draft:", error);
+    }
   };
 
   const handleAfterPicturesUploaded = (urls: string[]) => {
@@ -3269,6 +3358,11 @@ function ArtisanDashboard() {
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-blue-800">
+                  <strong>Tip:</strong> If the client/supervisor is not available to sign, click{" "}
+                  <strong>"Save Draft"</strong> to save your progress. You can come back later to
+                  get the signature and complete the job.
+                </p>
+                <p className="text-sm text-blue-800 mt-2">
                   <strong>Note:</strong> When you click "Complete Job", the system will:
                 </p>
                 <ul className="list-disc list-inside text-sm text-blue-700 mt-2 space-y-1">
@@ -3299,6 +3393,16 @@ function ArtisanDashboard() {
                   className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={handleSaveJobDraft}
+                  disabled={
+                    saveJobDraftMutation.isPending ||
+                    (afterPictures.length === 0 && expenseSlips.length === 0)
+                  }
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {saveJobDraftMutation.isPending ? "Saving..." : "Save Draft"}
                 </button>
                 <button
                   onClick={handleConfirmCompleteJob}

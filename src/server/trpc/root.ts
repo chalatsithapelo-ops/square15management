@@ -24,6 +24,7 @@ import { deleteCampaign } from "~/server/trpc/procedures/deleteCampaign";
 import { createOrder } from "~/server/trpc/procedures/createOrder";
 import { getOrders } from "~/server/trpc/procedures/getOrders";
 import { updateOrderStatus } from "~/server/trpc/procedures/updateOrderStatus";
+import { saveJobDraft } from "~/server/trpc/procedures/saveJobDraft";
 import { updateCompletedOrderDetails } from "~/server/trpc/procedures/updateCompletedOrderDetails";
 import { pauseJob } from "~/server/trpc/procedures/pauseJob";
 import { resumeJob } from "~/server/trpc/procedures/resumeJob";
@@ -389,6 +390,7 @@ export const appRouter = createTRPCRouter({
   createOrder,
   getOrders,
   updateOrderStatus,
+  saveJobDraft,
   updateCompletedOrderDetails,
   pauseJob,
   resumeJob,
