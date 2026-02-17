@@ -104,7 +104,7 @@ export const getOrders = baseProcedure
           leadId: true,
           startTime: true,
           endTime: true,
-          materialCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
+          materialCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ARTISAN",
           labourCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
           labourRate: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
           callOutFee: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",

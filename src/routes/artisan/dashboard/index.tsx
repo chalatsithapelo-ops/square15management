@@ -704,7 +704,7 @@ function ArtisanDashboard() {
       setClientRepName(order.clientRepName || "");
       setClientRepSignDate(
         order.clientRepSignDate
-          ? new Date(order.clientRepSignDate).toISOString().split("T")[0]
+          ? new Date(order.clientRepSignDate as string).toISOString().split("T")[0] || ""
           : ""
       );
       setMaterialCost(
@@ -3099,6 +3099,7 @@ function ArtisanDashboard() {
                   title="After Pictures"
                   description="Take pictures showing the completed work"
                   isPublic={false}
+                  initialUrls={afterPictures}
                 />
               </div>
 
@@ -3180,6 +3181,7 @@ function ArtisanDashboard() {
                     title="Expense Slips"
                     description="Upload and categorize each expense slip"
                     isPublic={false}
+                    initialSlips={expenseSlips}
                   />
                 </div>
 

@@ -11,6 +11,7 @@ interface PhotoUploadProps {
   title?: string;
   description?: string;
   isPublic?: boolean;
+  initialUrls?: string[];
 }
 
 export function PhotoUpload({
@@ -19,11 +20,12 @@ export function PhotoUpload({
   title = "Upload Photos",
   description = `Please upload at least ${minimumPhotos} photos`,
   isPublic = true,
+  initialUrls,
 }: PhotoUploadProps) {
   const { token } = useAuthStore();
   const trpc = useTRPC();
   const [pendingPhotos, setPendingPhotos] = useState<Array<{ file: File; previewUrl: string }>>([]);
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>(initialUrls || []);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
