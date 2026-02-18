@@ -17,6 +17,11 @@ import {
   DollarSign,
   Calendar,
   Clock,
+  FileText,
+  Download,
+  Hash,
+  Briefcase,
+  Receipt,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 
@@ -72,7 +77,7 @@ function PaymentRequestsPage() {
     return <AccessDenied message="You do not have permission to access Payment Requests." />;
   }
 
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [downloadingJobCard, setDownloadingJobCard] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
@@ -88,6 +93,45 @@ function PaymentRequestsPage() {
       token: token!,
     })
   );
+
+  const generateJobCardMutation = useMutation(
+    trpc.generateJobCardPdf.mutationOptions({
+      onSuccess: (data: any) => {
+        // Download the PDF
+        const byteCharacters = atob(data.pdf);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `job-card.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setDownloadingJobCard(null);
+        toast.success("Job card downloaded!");
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to generate job card");
+        setDownloadingJobCard(null);
+      },
+    })
+  );
+
+  const handleDownloadJobCard = (orderId: number) => {
+    setDownloadingJobCard(orderId);
+    generateJobCardMutation.mutate({
+      token: token!,
+      orderId,
+    });
+  };
+
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const {
     register,
@@ -398,11 +442,15 @@ function PaymentRequestsPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="divide-y divide-gray-200">
-            {filteredPaymentRequests.map((request) => (
+            {filteredPaymentRequests.map((request: any) => {
+              const isSalary = !!(request.payslip);
+              const hasOrders = request.orders && request.orders.length > 0;
+
+              return (
               <div key={request.id} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center flex-wrap gap-2 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">{request.requestNumber}</h3>
                       <span
                         className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -411,7 +459,14 @@ function PaymentRequestsPage() {
                       >
                         {paymentRequestStatuses.find((s) => s.value === request.status)?.label}
                       </span>
+                      {isSalary && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          <Briefcase className="h-3 w-3 inline mr-1" />
+                          Salary / Payslip
+                        </span>
+                      )}
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600 mb-3">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-2 text-gray-400" />
@@ -434,6 +489,67 @@ function PaymentRequestsPage() {
                         R{request.calculatedAmount.toLocaleString()}
                       </div>
                     </div>
+
+                    {/* Order & Invoice Information */}
+                    {hasOrders && (
+                      <div className="mb-3 space-y-2">
+                        {request.orders.map((order: any) => (
+                          <div key={order.id} className="flex items-center flex-wrap gap-2 text-sm">
+                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-medium">
+                              <Hash className="h-3 w-3 mr-1" />
+                              {order.orderNumber}
+                            </span>
+                            <span className="text-gray-500 text-xs">
+                              {order.serviceType} — {order.customerName}
+                            </span>
+                            {order.invoice ? (
+                              <span className="inline-flex items-center px-2 py-1 bg-green-50 border border-green-200 rounded text-green-800 text-xs font-medium">
+                                <Receipt className="h-3 w-3 mr-1" />
+                                Invoiced: {order.invoice.invoiceNumber}
+                                <span className="ml-1 text-green-600">
+                                  ({order.invoice.status === "PAID" ? "Paid" : order.invoice.status === "SENT" ? "Sent" : order.invoice.status})
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 bg-amber-50 border border-amber-200 rounded text-amber-700 text-xs font-medium">
+                                <FileText className="h-3 w-3 mr-1" />
+                                Not yet invoiced
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleDownloadJobCard(order.id)}
+                              disabled={downloadingJobCard === order.id}
+                              className="inline-flex items-center px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-gray-700 text-xs font-medium transition-colors disabled:opacity-50"
+                              title={`Download job card for ${order.orderNumber}`}
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              {downloadingJobCard === order.id ? "..." : "Job Card"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* No orders — salary note */}
+                    {!hasOrders && !isSalary && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-200 rounded text-gray-600 text-xs">
+                          <FileText className="h-3 w-3 mr-1" />
+                          No linked orders
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Salary / Payslip details */}
+                    {isSalary && request.payslip && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center px-2 py-1 bg-purple-50 border border-purple-200 rounded text-purple-800 text-xs font-medium">
+                          <Briefcase className="h-3 w-3 mr-1" />
+                          Payslip: {request.payslip.payslipNumber} — Net Pay: R{request.payslip.netPay?.toLocaleString() || "0"}
+                        </span>
+                      </div>
+                    )}
+
                     {request.notes && (
                       <p className="text-sm text-gray-600 mb-2">{request.notes}</p>
                     )}
@@ -471,7 +587,8 @@ function PaymentRequestsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {filteredPaymentRequests.length === 0 && (
               <div className="p-12 text-center">
                 <CreditCard className="mx-auto h-12 w-12 text-gray-400" />

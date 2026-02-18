@@ -53,11 +53,52 @@ export const getPaymentRequests = baseProcedure
             dailyRate: true,
           },
         },
+        payslip: {
+          select: {
+            id: true,
+            payslipNumber: true,
+            basicSalary: true,
+            netPay: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    return paymentRequests;
+    // Resolve orderIds to actual order data with invoice info
+    const allOrderIds = paymentRequests.flatMap((pr) => pr.orderIds || []);
+    const uniqueOrderIds = [...new Set(allOrderIds)];
+
+    let ordersMap: Record<number, any> = {};
+    if (uniqueOrderIds.length > 0) {
+      const orders = await db.order.findMany({
+        where: { id: { in: uniqueOrderIds } },
+        select: {
+          id: true,
+          orderNumber: true,
+          serviceType: true,
+          status: true,
+          customerName: true,
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              total: true,
+            },
+          },
+        },
+      });
+      ordersMap = Object.fromEntries(orders.map((o) => [o.id, o]));
+    }
+
+    // Attach resolved orders to each payment request
+    const enrichedPaymentRequests = paymentRequests.map((pr) => ({
+      ...pr,
+      orders: (pr.orderIds || []).map((id) => ordersMap[id]).filter(Boolean),
+    }));
+
+    return enrichedPaymentRequests;
   });

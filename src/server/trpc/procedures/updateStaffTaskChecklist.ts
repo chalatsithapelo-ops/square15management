@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { createNotification } from "~/server/utils/notifications";
 
 /**
  * Staff updates the checklist for their assigned task.
@@ -48,6 +49,18 @@ export const updateStaffTaskChecklist = baseProcedure
         checklist: JSON.stringify(input.checklist),
         updatedAt: new Date(),
       },
+    });
+
+    // Notify property manager of checklist update
+    const completedCount = input.checklist.filter(c => c.completed).length;
+    const totalCount = input.checklist.length;
+    await createNotification({
+      recipientId: task.propertyManagerId,
+      recipientRole: "PROPERTY_MANAGER",
+      message: `${staffMember.firstName} ${staffMember.lastName} updated checklist on task "${task.title}" (${completedCount}/${totalCount} done).`,
+      type: "TASK_STATUS_UPDATED" as any,
+      relatedEntityId: task.id,
+      relatedEntityType: "PM_TASK",
     });
 
     return updatedTask;

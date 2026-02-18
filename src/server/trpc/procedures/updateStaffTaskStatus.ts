@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { createNotification } from "~/server/utils/notifications";
 
 /**
  * Allow staff to update their own task status, upload photos, add findings, etc.
@@ -136,6 +137,24 @@ export const updateStaffTaskStatus = baseProcedure
         progressPercentage: input.progressPercentage,
         photos: input.afterPictures || input.beforePictures || [],
       },
+    });
+
+    // Notify the property manager of the status change
+    const statusLabels: Record<string, string> = {
+      ACCEPTED: "accepted",
+      IN_PROGRESS: "started working on",
+      ON_HOLD: "paused",
+      PENDING_REVIEW: "submitted for review",
+      COMPLETED: "completed",
+    };
+    const statusLabel = statusLabels[input.status] || input.status.toLowerCase().replace(/_/g, " ");
+    await createNotification({
+      recipientId: task.propertyManagerId,
+      recipientRole: "PROPERTY_MANAGER",
+      message: `${staffMember.firstName} ${staffMember.lastName} ${statusLabel} task "${task.title}".`,
+      type: "TASK_STATUS_UPDATED" as any,
+      relatedEntityId: task.id,
+      relatedEntityType: "PM_TASK",
     });
 
     return updatedTask;
