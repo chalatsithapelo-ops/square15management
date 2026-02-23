@@ -78,17 +78,23 @@ export const setupUserEmail = baseProcedure
     } catch (error) {
       console.error("Failed to set up user email:", error);
       
-      if (error instanceof Error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to configure email account: ${error.message}`,
-          cause: error,
-        });
-      }
+      if (error instanceof TRPCError) throw error;
       
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      // Provide user-friendly error messages for common SMTP issues
+      let friendlyMessage = `Failed to configure email account: ${errorMessage}`;
+      if (errorMessage.includes("Connection timeout") || errorMessage.includes("ETIMEDOUT")) {
+        friendlyMessage = `Cannot connect to SMTP server "${input.smtpHost}:${input.smtpPort}". The server may be unreachable, or outbound SMTP ports may be blocked by your hosting provider. Try port 465 with SSL, or contact your hosting provider to allow outbound SMTP traffic.`;
+      } else if (errorMessage.includes("ECONNREFUSED")) {
+        friendlyMessage = `Connection refused by SMTP server "${input.smtpHost}:${input.smtpPort}". Please verify the server address and port are correct.`;
+      } else if (errorMessage.includes("Invalid login") || errorMessage.includes("authentication")) {
+        friendlyMessage = `Authentication failed. Please check your SMTP username and password. If using Gmail, you may need to use an App Password.`;
+      }
+
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to configure email account due to an unknown error",
+        message: friendlyMessage,
       });
     }
   });

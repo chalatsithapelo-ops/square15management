@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
-import { Upload, Loader2, ImageIcon, CheckCircle, Building2, CreditCard, Save, Trash2, AlertCircle, Info, X, FileText, Hash, Mail, Send, CheckCircle2, XCircle, Clock, Shield } from "lucide-react";
+import { Upload, Loader2, ImageIcon, CheckCircle, Building2, CreditCard, Save, Trash2, AlertCircle, Info, X, FileText, Hash, Mail, Send, CheckCircle2, XCircle, Clock, Shield, Palette, Layout } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import toast from "react-hot-toast";
 import { AccessDenied } from "~/components/AccessDenied";
@@ -1225,6 +1225,9 @@ function AdminSettings() {
           )}
         </div>
 
+        {/* PDF Template & Theme Settings */}
+        <PdfSettingsSection />
+
         {/* Personal Email Settings (per-user SMTP) */}
         <div className="mt-6">
           <UserEmailSettingsPanel
@@ -1652,6 +1655,269 @@ function AdminSettings() {
             </div>
           </Dialog>
         </Transition>
+      </div>
+    </div>
+  );
+}
+
+// ===== PDF Template & Theme Settings Component =====
+const THEME_SWATCHES: Record<string, { primary: string; accent: string; label: string }> = {
+  olive: { primary: "#556B2F", accent: "#8FBC8F", label: "Olive" },
+  blue: { primary: "#1E3A5F", accent: "#4A90D9", label: "Blue" },
+  green: { primary: "#2D5016", accent: "#5A9A47", label: "Green" },
+  teal: { primary: "#0D4F4F", accent: "#2BBDB1", label: "Teal" },
+  charcoal: { primary: "#2C2C2C", accent: "#888888", label: "Charcoal" },
+  red: { primary: "#8B1A1A", accent: "#D4534D", label: "Red" },
+};
+
+function PdfSettingsSection() {
+  const { token } = useAuthStore();
+  const trpc = useTRPC();
+
+  const pdfSettingsQuery = useQuery({
+    ...trpc.getPdfSettings.queryOptions({ token: token || "" }),
+    enabled: !!token,
+  });
+
+  const updatePdfSettingsMutation = useMutation(
+    trpc.updatePdfSettings.mutationOptions()
+  );
+
+  const [selectedLayout, setSelectedLayout] = useState<string>("");
+  const [selectedTheme, setSelectedTheme] = useState<string>("");
+  const [paymentTerms, setPaymentTerms] = useState<string>("");
+  const [companyTagline, setCompanyTagline] = useState<string>("");
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize form values from query data
+  if (pdfSettingsQuery.data && !initialized) {
+    setSelectedLayout(pdfSettingsQuery.data.templateLayout);
+    setSelectedTheme(pdfSettingsQuery.data.colorTheme);
+    setPaymentTerms(pdfSettingsQuery.data.paymentTerms);
+    setCompanyTagline(pdfSettingsQuery.data.companyTagline);
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    try {
+      await updatePdfSettingsMutation.mutateAsync({
+        token: token || "",
+        templateLayout: selectedLayout as "classic" | "modern",
+        colorTheme: selectedTheme,
+        paymentTerms,
+        companyTagline,
+      });
+      toast.success("PDF settings saved successfully!");
+      pdfSettingsQuery.refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save PDF settings");
+    }
+  };
+
+  if (pdfSettingsQuery.isLoading) {
+    return (
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-500">Loading PDF settings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
+          <FileText className="h-6 w-6 mr-2 text-indigo-600" />
+          PDF Document Settings
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Customize the layout, color theme, and content of your quotation and invoice PDFs.
+        </p>
+      </div>
+
+      {/* Layout Template Selection */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
+          <Layout className="h-4 w-4 mr-1.5 text-gray-500" />
+          Document Layout
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setSelectedLayout("classic")}
+            className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+              selectedLayout === "classic"
+                ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-gray-900">Classic</span>
+              {selectedLayout === "classic" && (
+                <CheckCircle className="h-5 w-5 text-indigo-600" />
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Professional SA accounting layout with FROM/TO sections, detailed line items (Excl. Price, Disc%, VAT%), banking details, and payment terms.
+            </p>
+            {/* Mini preview */}
+            <div className="mt-3 border border-gray-200 rounded-lg p-2 bg-white">
+              <div className="flex justify-between mb-1.5">
+                <div className="w-8 h-3 bg-gray-300 rounded-sm" />
+                <div className="w-12 h-3 bg-gray-200 rounded-sm" />
+              </div>
+              <div className="flex gap-2 mb-1.5">
+                <div className="flex-1 space-y-0.5">
+                  <div className="w-full h-1.5 bg-gray-100 rounded-sm" />
+                  <div className="w-3/4 h-1.5 bg-gray-100 rounded-sm" />
+                </div>
+                <div className="flex-1 space-y-0.5">
+                  <div className="w-full h-1.5 bg-gray-100 rounded-sm" />
+                  <div className="w-3/4 h-1.5 bg-gray-100 rounded-sm" />
+                </div>
+              </div>
+              <div className="w-full h-2 bg-gray-300 rounded-sm mb-1" />
+              <div className="space-y-0.5">
+                <div className="w-full h-1 bg-gray-100 rounded-sm" />
+                <div className="w-full h-1 bg-gray-100 rounded-sm" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedLayout("modern")}
+            className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+              selectedLayout === "modern"
+                ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-gray-900">Modern</span>
+              {selectedLayout === "modern" && (
+                <CheckCircle className="h-5 w-5 text-indigo-600" />
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Branded banner style with colored header, logo, BILL TO box, and colored totals bar. Ideal for modern branding.
+            </p>
+            {/* Mini preview */}
+            <div className="mt-3 border border-gray-200 rounded-lg p-2 bg-white">
+              <div className="w-full h-4 bg-indigo-400 rounded-sm mb-1.5" />
+              <div className="flex gap-2 mb-1.5">
+                <div className="flex-1">
+                  <div className="w-full h-6 border border-gray-200 rounded-sm p-0.5">
+                    <div className="w-1/2 h-1.5 bg-gray-200 rounded-sm" />
+                  </div>
+                </div>
+                <div className="flex-1" />
+              </div>
+              <div className="w-full h-2 bg-indigo-400 rounded-sm mb-1" />
+              <div className="space-y-0.5">
+                <div className="w-full h-1 bg-gray-100 rounded-sm" />
+                <div className="w-full h-1 bg-gray-100 rounded-sm" />
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Color Theme Selection */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
+          <Palette className="h-4 w-4 mr-1.5 text-gray-500" />
+          Color Theme
+        </label>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          {Object.entries(THEME_SWATCHES).map(([key, theme]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSelectedTheme(key)}
+              className={`relative rounded-xl border-2 p-3 text-center transition-all ${
+                selectedTheme === key
+                  ? "border-indigo-500 ring-2 ring-indigo-200 bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              }`}
+            >
+              <div className="flex justify-center gap-1.5 mb-2">
+                <div
+                  className="w-6 h-6 rounded-full border border-gray-200"
+                  style={{ backgroundColor: theme.primary }}
+                />
+                <div
+                  className="w-6 h-6 rounded-full border border-gray-200"
+                  style={{ backgroundColor: theme.accent }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700">{theme.label}</span>
+              {selectedTheme === key && (
+                <div className="absolute -top-1 -right-1">
+                  <CheckCircle className="h-4 w-4 text-indigo-600 bg-white rounded-full" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Company Tagline */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Company Tagline
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Displayed below your company name on PDF documents.
+        </p>
+        <input
+          type="text"
+          value={companyTagline}
+          onChange={(e) => setCompanyTagline(e.target.value)}
+          placeholder="e.g. Unsurpassed Services"
+          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+        />
+      </div>
+
+      {/* Payment Terms */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Payment Terms
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Will appear on all quotation and invoice PDFs. Supports multiple lines.
+        </p>
+        <textarea
+          value={paymentTerms}
+          onChange={(e) => setPaymentTerms(e.target.value)}
+          rows={4}
+          placeholder={`e.g.\n1. 50% deposit required before work commences\n2. Balance due within 30 days of invoice date\n3. Late payments subject to 2% monthly interest`}
+          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500 resize-y"
+        />
+      </div>
+
+      {/* Save Button */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={updatePdfSettingsMutation.isPending}
+          className="inline-flex items-center px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
+        >
+          {updatePdfSettingsMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save PDF Settings
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

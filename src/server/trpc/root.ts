@@ -119,6 +119,7 @@ import { deleteCompanyLogo } from "~/server/trpc/procedures/deleteCompanyLogo";
 import { getCompanyLogoUrl } from "~/server/trpc/procedures/getCompanyLogoUrl";
 import { getCompanyDetails } from "~/server/trpc/procedures/getCompanyDetails";
 import { updateCompanyDetails } from "~/server/trpc/procedures/updateCompanyDetails";
+import { updatePdfSettings, getPdfSettings } from "~/server/trpc/procedures/pdfSettings";
 import { getPropertyManagerCompanyDetails } from "~/server/trpc/procedures/getPropertyManagerCompanyDetails";
 import { updatePropertyManagerCompanyDetails } from "~/server/trpc/procedures/updatePropertyManagerCompanyDetails";
 import { getPropertyManagerBranding } from "~/server/trpc/procedures/getPropertyManagerBranding";
@@ -670,6 +671,8 @@ export const appRouter = createTRPCRouter({
   getCompanyLogoUrl,
   getCompanyDetails,
   updateCompanyDetails,
+  updatePdfSettings,
+  getPdfSettings,
   getPropertyManagerCompanyDetails,
   updatePropertyManagerCompanyDetails,
   getPropertyManagerBranding,

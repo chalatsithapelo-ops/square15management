@@ -147,6 +147,9 @@ export async function testUserEmailConfig(config: UserSmtpConfig): Promise<void>
       user: config.user,
       pass: config.password,
     },
+    connectionTimeout: 10000, // 10 second connection timeout
+    greetingTimeout: 10000,   // 10 second greeting timeout
+    socketTimeout: 10000,     // 10 second socket timeout
   });
 
   // Verify the connection
