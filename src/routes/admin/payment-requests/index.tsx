@@ -63,23 +63,11 @@ function PaymentRequestsPage() {
   const userPermissions = userPermissionsQuery.data?.permissions || [];
   const hasViewPaymentRequests = userPermissions.includes("VIEW_PAYMENT_REQUESTS");
 
-  // Show loading state while checking permissions
-  if (userPermissionsQuery.isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  // Show access denied if user doesn't have permission
-  if (!hasViewPaymentRequests) {
-    return <AccessDenied message="You do not have permission to access Payment Requests." />;
-  }
-
+  // ALL hooks must be declared before any conditional returns
   const [downloadingJobCard, setDownloadingJobCard] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const paymentRequestsQuery = useQuery(
     trpc.getPaymentRequests.queryOptions({
@@ -123,16 +111,6 @@ function PaymentRequestsPage() {
     })
   );
 
-  const handleDownloadJobCard = (orderId: number) => {
-    setDownloadingJobCard(orderId);
-    generateJobCardMutation.mutate({
-      token: token!,
-      orderId,
-    });
-  };
-
-  const [showAddForm, setShowAddForm] = useState(false);
-
   const {
     register,
     handleSubmit,
@@ -142,29 +120,6 @@ function PaymentRequestsPage() {
   } = useForm<PaymentRequestForm>({
     resolver: zodResolver(paymentRequestSchema),
   });
-
-  const selectedArtisanId = watch("artisanId");
-  const hoursWorked = watch("hoursWorked");
-  const daysWorked = watch("daysWorked");
-
-  const selectedArtisan = artisansQuery.data?.find((a) => a.id === Number(selectedArtisanId));
-
-  const calculateAmount = () => {
-    if (!selectedArtisan) return 0;
-    let amount = 0;
-    const formHourlyRate = watch("hourlyRate");
-    const formDailyRate = watch("dailyRate");
-    
-    if (hoursWorked) {
-      const rate = formHourlyRate || selectedArtisan.hourlyRate || 0;
-      amount += hoursWorked * rate;
-    }
-    if (daysWorked) {
-      const rate = formDailyRate || selectedArtisan.dailyRate || 0;
-      amount += daysWorked * rate;
-    }
-    return amount;
-  };
 
   const createPaymentRequestMutation = useMutation(
     trpc.createPaymentRequest.mutationOptions({
@@ -191,6 +146,51 @@ function PaymentRequestsPage() {
       },
     })
   );
+
+  // Show loading state while checking permissions
+  if (userPermissionsQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Show access denied if user doesn't have permission
+  if (!hasViewPaymentRequests) {
+    return <AccessDenied message="You do not have permission to access Payment Requests." />;
+  }
+
+  const handleDownloadJobCard = (orderId: number) => {
+    setDownloadingJobCard(orderId);
+    generateJobCardMutation.mutate({
+      token: token!,
+      orderId,
+    });
+  };
+
+  const selectedArtisanId = watch("artisanId");
+  const hoursWorked = watch("hoursWorked");
+  const daysWorked = watch("daysWorked");
+
+  const selectedArtisan = artisansQuery.data?.find((a) => a.id === Number(selectedArtisanId));
+
+  const calculateAmount = () => {
+    if (!selectedArtisan) return 0;
+    let amount = 0;
+    const formHourlyRate = watch("hourlyRate");
+    const formDailyRate = watch("dailyRate");
+    
+    if (hoursWorked) {
+      const rate = formHourlyRate || selectedArtisan.hourlyRate || 0;
+      amount += hoursWorked * rate;
+    }
+    if (daysWorked) {
+      const rate = formDailyRate || selectedArtisan.dailyRate || 0;
+      amount += daysWorked * rate;
+    }
+    return amount;
+  };
 
   const onSubmit = (data: PaymentRequestForm) => {
     createPaymentRequestMutation.mutate({
