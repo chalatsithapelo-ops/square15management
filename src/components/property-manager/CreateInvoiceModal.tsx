@@ -97,7 +97,7 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
   const vat = subtotal * 0.15; // Automatic 15% VAT
   const total = subtotal + vat;
   const estimatedProfit =
-    total - formData.companyMaterialCost - formData.companyLabourCost;
+    subtotal - formData.companyMaterialCost - formData.companyLabourCost;
 
   const handleItemChange = <K extends keyof InvoiceItem>(
     index: number,

@@ -511,10 +511,10 @@ function QuotationsPage() {
   };
 
   const calculateEstimatedProfit = () => {
-    const total = calculateTotal();
+    const subtotal = calculateSubtotal();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
-    return total - materialCost - labourCost;
+    return subtotal - materialCost - labourCost;
   };
 
   const onSubmit = (data: QuotationForm) => {
@@ -523,7 +523,7 @@ function QuotationsPage() {
     const total = calculateTotal();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
-    const estimatedProfit = total - materialCost - labourCost;
+    const estimatedProfit = subtotal - materialCost - labourCost;
 
     if (editingQuotation) {
       updateQuotationDetailsMutation.mutate({

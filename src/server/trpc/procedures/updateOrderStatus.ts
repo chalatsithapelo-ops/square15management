@@ -701,7 +701,7 @@ export const updateOrderStatus = baseProcedure
                   notes: `Auto-generated invoice for completed PM order ${updatedOrder.orderNumber}`,
                   companyMaterialCost: updatedOrder.materialCost || 0,
                   companyLabourCost: updatedOrder.labourCost || 0,
-                  estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
+                  estimatedProfit: subtotal - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
                 },
               });
               break;
@@ -735,7 +735,7 @@ export const updateOrderStatus = baseProcedure
                   notes: `Auto-generated invoice for completed order ${updatedOrder.orderNumber}`,
                   companyMaterialCost: updatedOrder.materialCost || 0,
                   companyLabourCost: updatedOrder.labourCost || 0,
-                  estimatedProfit: total - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
+                  estimatedProfit: subtotal - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
                 },
               });
               break;

@@ -170,7 +170,7 @@ export const updateQuotationStatus = baseProcedure
         // Recalculate estimated profit if we have all the data
         if (updateData.companyMaterialCost !== undefined && updateData.companyLabourCost !== undefined) {
           const totalCost = updateData.companyMaterialCost + updateData.companyLabourCost;
-          updateData.estimatedProfit = existingQuotation.total - totalCost;
+          updateData.estimatedProfit = existingQuotation.subtotal - totalCost;
         }
       }
 

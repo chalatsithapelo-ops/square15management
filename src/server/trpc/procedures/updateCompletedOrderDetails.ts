@@ -221,7 +221,7 @@ export const updateCompletedOrderDetails = baseProcedure
               tax: newTax,
               total: newTotal,
               companyMaterialCost: updateData.materialCost ?? updatedOrder.materialCost,
-              estimatedProfit: newTotal - (updateData.materialCost ?? updatedOrder.materialCost) - updatedOrder.labourCost,
+              estimatedProfit: newSubtotal - (updateData.materialCost ?? updatedOrder.materialCost) - updatedOrder.labourCost,
             },
           });
         }
