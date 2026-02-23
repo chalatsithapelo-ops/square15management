@@ -174,11 +174,19 @@ export const DEFAULT_THEMES: Record<string, PDFColorTheme> = {
 
 // ===== Fetch PDF Settings from DB =====
 
-let _cachedPdfSettings: { template: PDFTemplateLayout; themeName: string; paymentTerms: string; companyTagline: string } | null = null;
+interface CachedPdfSettings {
+  template: PDFTemplateLayout;
+  themeName: string;
+  paymentTerms: string;
+  companyTagline: string;
+  customBrand?: { primary: string; secondary: string; accent: string };
+}
+
+let _cachedPdfSettings: CachedPdfSettings | null = null;
 let _lastSettingsFetch = 0;
 const SETTINGS_CACHE_MS = 30_000;
 
-export async function getPdfSettings(): Promise<{ template: PDFTemplateLayout; themeName: string; paymentTerms: string; companyTagline: string }> {
+export async function getPdfSettings(): Promise<CachedPdfSettings> {
   const now = Date.now();
   if (_cachedPdfSettings && now - _lastSettingsFetch < SETTINGS_CACHE_MS) {
     return _cachedPdfSettings;
@@ -192,6 +200,9 @@ export async function getPdfSettings(): Promise<{ template: PDFTemplateLayout; t
           "pdf_color_theme",
           "pdf_payment_terms",
           "pdf_company_tagline",
+          "admin_brand_primary",
+          "admin_brand_secondary",
+          "admin_brand_accent",
         ],
       },
     },
@@ -200,11 +211,18 @@ export async function getPdfSettings(): Promise<{ template: PDFTemplateLayout; t
   const map: Record<string, string> = {};
   for (const r of rows) if (r.value) map[r.key] = r.value;
 
+  const customBrand = map.admin_brand_primary ? {
+    primary: map.admin_brand_primary,
+    secondary: map.admin_brand_secondary || "#F4C430",
+    accent: map.admin_brand_accent || "#5A9A47",
+  } : undefined;
+
   _cachedPdfSettings = {
     template: (map.pdf_template_layout || "classic") as PDFTemplateLayout,
     themeName: map.pdf_color_theme || "olive",
     paymentTerms: map.pdf_payment_terms || "",
     companyTagline: map.pdf_company_tagline || "Unsurpassed Services",
+    customBrand,
   };
   _lastSettingsFetch = now;
   return _cachedPdfSettings;
@@ -215,7 +233,26 @@ export function clearPdfSettingsCache(): void {
   _lastSettingsFetch = 0;
 }
 
-export function resolveTheme(themeName: string): PDFColorTheme {
+/**
+ * Build a PDFColorTheme from custom RGB brand colors
+ */
+function buildCustomTheme(brand: { primary: string; secondary: string; accent: string }): PDFColorTheme {
+  return {
+    primary: brand.primary,
+    secondary: brand.secondary,
+    accent: brand.accent,
+    headerText: "#FFFFFF",
+    tableHeaderBg: `${brand.primary}12`,
+    tableHeaderText: brand.primary,
+    lineColor: brand.secondary,
+    tagline: brand.secondary,
+  };
+}
+
+export function resolveTheme(themeName: string, customBrand?: { primary: string; secondary: string; accent: string }): PDFColorTheme {
+  if (themeName === "custom" && customBrand) {
+    return buildCustomTheme(customBrand);
+  }
   return (DEFAULT_THEMES[themeName] || DEFAULT_THEMES["olive"]) as PDFColorTheme;
 }
 

@@ -83,6 +83,8 @@ function AdminSettings() {
     companyName: string;
     companyAddressLine1: string;
     companyAddressLine2: string;
+    companyPostalAddress: string;
+    companyPhysicalAddress: string;
     companyPhone: string;
     companyEmail: string;
     companyVatNumber: string;
@@ -91,6 +93,8 @@ function AdminSettings() {
       companyName: companyDetailsQuery.data.companyName,
       companyAddressLine1: companyDetailsQuery.data.companyAddressLine1,
       companyAddressLine2: companyDetailsQuery.data.companyAddressLine2,
+      companyPostalAddress: companyDetailsQuery.data.companyPostalAddress || "",
+      companyPhysicalAddress: companyDetailsQuery.data.companyPhysicalAddress || "",
       companyPhone: companyDetailsQuery.data.companyPhone,
       companyEmail: companyDetailsQuery.data.companyEmail,
       companyVatNumber: companyDetailsQuery.data.companyVatNumber,
@@ -281,6 +285,8 @@ function AdminSettings() {
     companyName: string;
     companyAddressLine1: string;
     companyAddressLine2: string;
+    companyPostalAddress: string;
+    companyPhysicalAddress: string;
     companyPhone: string;
     companyEmail: string;
     companyVatNumber: string;
@@ -832,6 +838,35 @@ function AdminSettings() {
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="companyPostalAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                      Postal Address
+                    </label>
+                    <p className="text-xs text-gray-500 mb-1">Appears on PDFs under "POSTAL ADDRESS"</p>
+                    <textarea
+                      id="companyPostalAddress"
+                      rows={2}
+                      {...companyInfoForm.register("companyPostalAddress")}
+                      placeholder="e.g. 3 McGowan Avenue"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-y"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="companyPhysicalAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                      Physical Address
+                    </label>
+                    <p className="text-xs text-gray-500 mb-1">Appears on PDFs under "PHYSICAL ADDRESS"</p>
+                    <textarea
+                      id="companyPhysicalAddress"
+                      rows={2}
+                      {...companyInfoForm.register("companyPhysicalAddress")}
+                      placeholder="e.g. Modderfontein, Edenvale, 1619"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-y"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label htmlFor="companyPhone" className="block text-sm font-medium text-gray-700 mb-1">
                     Phone Number
@@ -1227,6 +1262,9 @@ function AdminSettings() {
 
         {/* PDF Template & Theme Settings */}
         <PdfSettingsSection />
+
+        {/* Admin Branding Colors */}
+        <AdminBrandingSection />
 
         {/* Resend Email API Configuration */}
         <ResendConfigSection />
@@ -1918,6 +1956,261 @@ function PdfSettingsSection() {
             <>
               <Save className="h-4 w-4 mr-2" />
               Save PDF Settings
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ===== Admin Branding Colors Component =====
+function AdminBrandingSection() {
+  const { token } = useAuthStore();
+  const trpc = useTRPC();
+
+  const brandingQuery = useQuery({
+    ...trpc.getAdminBranding.queryOptions({ token: token || "" }),
+    enabled: !!token,
+  });
+
+  const updateBrandingMutation = useMutation(
+    trpc.updateAdminBranding.mutationOptions()
+  );
+
+  const [tempColors, setTempColors] = useState({
+    primaryColor: "#2D5016",
+    secondaryColor: "#F4C430",
+    accentColor: "#5A9A47",
+  });
+  const [previewColors, setPreviewColors] = useState({
+    primaryColor: "#2D5016",
+    secondaryColor: "#F4C430",
+    accentColor: "#5A9A47",
+  });
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize from query data
+  if (brandingQuery.data && !initialized) {
+    const d = brandingQuery.data;
+    if (d.primaryColor) {
+      setTempColors({ primaryColor: d.primaryColor, secondaryColor: d.secondaryColor, accentColor: d.accentColor });
+      setPreviewColors({ primaryColor: d.primaryColor, secondaryColor: d.secondaryColor, accentColor: d.accentColor });
+    }
+    setInitialized(true);
+  }
+
+  const handleSaveBranding = async () => {
+    try {
+      await updateBrandingMutation.mutateAsync({
+        token: token || "",
+        primaryColor: previewColors.primaryColor,
+        secondaryColor: previewColors.secondaryColor,
+        accentColor: previewColors.accentColor,
+      });
+      toast.success("Branding colors saved! PDF theme set to custom.");
+      brandingQuery.refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save branding");
+    }
+  };
+
+  if (brandingQuery.isLoading) {
+    return (
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-500">Loading branding settings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
+          <Palette className="h-6 w-6 mr-2 text-amber-600" />
+          Brand Colors
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Customize the colors that appear on your PDFs and documents. Saving sets the PDF color theme to "custom".
+        </p>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">How to use:</p>
+            <ol className="list-decimal list-inside space-y-1 text-blue-700">
+              <li>Click on a color square or type a hex code (e.g., #2D5016)</li>
+              <li>Click the "OK" button to preview the color below</li>
+              <li>Adjust all three colors until you're happy with the result</li>
+              <li>Click "Save Branding" to apply the colors to your PDFs</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      {/* Color Pickers */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Primary Color */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Primary Color
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={tempColors.primaryColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, primaryColor: e.target.value }))}
+              className="h-12 w-12 rounded border border-gray-300 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={tempColors.primaryColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, primaryColor: e.target.value }))}
+              placeholder="#2D5016"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewColors(prev => ({ ...prev, primaryColor: tempColors.primaryColor }))}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              OK
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Used for headers and main accents</p>
+        </div>
+
+        {/* Secondary Color */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Secondary Color
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={tempColors.secondaryColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, secondaryColor: e.target.value }))}
+              className="h-12 w-12 rounded border border-gray-300 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={tempColors.secondaryColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, secondaryColor: e.target.value }))}
+              placeholder="#F4C430"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewColors(prev => ({ ...prev, secondaryColor: tempColors.secondaryColor }))}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              OK
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Used for highlights and borders</p>
+        </div>
+
+        {/* Accent Color */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Accent Color
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={tempColors.accentColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, accentColor: e.target.value }))}
+              className="h-12 w-12 rounded border border-gray-300 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={tempColors.accentColor}
+              onChange={(e) => setTempColors(prev => ({ ...prev, accentColor: e.target.value }))}
+              placeholder="#5A9A47"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewColors(prev => ({ ...prev, accentColor: tempColors.accentColor }))}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              OK
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Used for buttons and status indicators</p>
+        </div>
+      </div>
+
+      {/* Preview Section */}
+      <div className="border-t pt-6 mb-6">
+        <h3 className="text-lg font-medium mb-4">Preview</h3>
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            {/* Preview Header */}
+            <div
+              className="p-4 text-white"
+              style={{ backgroundColor: previewColors.primaryColor }}
+            >
+              <h4 className="text-lg font-bold">Sample PDF Header</h4>
+              <p className="text-sm opacity-90">Your Company Name</p>
+            </div>
+
+            {/* Preview Content */}
+            <div className="p-4 space-y-3">
+              <div
+                className="p-3 rounded border-l-4"
+                style={{
+                  borderColor: previewColors.secondaryColor,
+                  backgroundColor: `${previewColors.secondaryColor}10`,
+                }}
+              >
+                <p className="text-sm font-medium">Important Information</p>
+                <p className="text-xs text-gray-600">Secondary color is used for highlights</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded text-white text-sm font-medium"
+                  style={{ backgroundColor: previewColors.accentColor }}
+                >
+                  Action Button
+                </button>
+                <div
+                  className="px-3 py-2 rounded text-white text-xs font-medium inline-flex items-center"
+                  style={{ backgroundColor: previewColors.accentColor }}
+                >
+                  Status Badge
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleSaveBranding}
+          disabled={updateBrandingMutation.isPending}
+          className="inline-flex items-center px-6 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm font-medium transition-colors"
+        >
+          {updateBrandingMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Branding
             </>
           )}
         </button>

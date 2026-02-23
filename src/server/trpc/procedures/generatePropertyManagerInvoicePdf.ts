@@ -106,7 +106,7 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
       const companyName = contractorDetails.contractorCompanyName || "Your Company";
       const logoBuffer = await getContractorLogo();
       const pdfSettings = await getPdfSettings();
-      const colors = resolveTheme(pdfSettings.themeName);
+      const colors = resolveTheme(pdfSettings.themeName, pdfSettings.customBrand);
 
       // Build line items
       const rawItems = Array.isArray(invoice.items) ? invoice.items : [];

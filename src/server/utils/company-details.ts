@@ -5,6 +5,8 @@ interface CompanyDetails {
   companyName: string;
   companyAddressLine1: string;
   companyAddressLine2: string;
+  companyPostalAddress: string;
+  companyPhysicalAddress: string;
   companyPhone: string;
   companyEmail: string;
   companyVatNumber: string;
@@ -39,6 +41,8 @@ async function loadCompanyDetails(): Promise<CompanyDetails> {
             "company_name",
             "company_address_line1",
             "company_address_line2",
+            "company_postal_address",
+            "company_physical_address",
             "company_phone",
             "company_email",
             "company_vat_number",
@@ -68,6 +72,8 @@ async function loadCompanyDetails(): Promise<CompanyDetails> {
       companyName: settingsMap.company_name || env.COMPANY_NAME,
       companyAddressLine1: settingsMap.company_address_line1 || env.COMPANY_ADDRESS_LINE1,
       companyAddressLine2: settingsMap.company_address_line2 || env.COMPANY_ADDRESS_LINE2,
+      companyPostalAddress: settingsMap.company_postal_address || "",
+      companyPhysicalAddress: settingsMap.company_physical_address || "",
       companyPhone: settingsMap.company_phone || env.COMPANY_PHONE,
       companyEmail: settingsMap.company_email || env.COMPANY_EMAIL,
       companyVatNumber: settingsMap.company_vat_number || env.COMPANY_VAT_NUMBER,
@@ -92,6 +98,8 @@ async function loadCompanyDetails(): Promise<CompanyDetails> {
       companyName: env.COMPANY_NAME,
       companyAddressLine1: env.COMPANY_ADDRESS_LINE1,
       companyAddressLine2: env.COMPANY_ADDRESS_LINE2,
+      companyPostalAddress: "",
+      companyPhysicalAddress: "",
       companyPhone: env.COMPANY_PHONE,
       companyEmail: env.COMPANY_EMAIL,
       companyVatNumber: env.COMPANY_VAT_NUMBER,

@@ -107,7 +107,7 @@ export const generateQuotationPdf = baseProcedure
 
       // Get PDF template settings
       const pdfSettings = await getPdfSettings();
-      const colors = resolveTheme(pdfSettings.themeName);
+      const colors = resolveTheme(pdfSettings.themeName, pdfSettings.customBrand);
 
       // Build line items
       const rawItems = Array.isArray(quotation.items) ? quotation.items : [];
@@ -144,6 +144,8 @@ export const generateQuotationPdf = baseProcedure
           companyTagline: pdfSettings.companyTagline,
           companyAddressLine1: companyDetails.companyAddressLine1,
           companyAddressLine2: companyDetails.companyAddressLine2,
+          postalAddress: companyDetails.companyPostalAddress || undefined,
+          physicalAddress: companyDetails.companyPhysicalAddress || undefined,
           companyPhone: companyDetails.companyPhone,
           companyEmail: companyDetails.companyEmail,
           companyVatNumber: companyDetails.companyVatNumber,
