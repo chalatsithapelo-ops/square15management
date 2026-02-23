@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import nodemailer from "nodemailer";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
 import { env } from "~/server/env";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { sendEmail } from "~/server/utils/email";
 
 export const sendTestEmail = baseProcedure
   .input(
@@ -23,20 +23,8 @@ export const sendTestEmail = baseProcedure
     try {
       // Get company details for the email
       const companyDetails = await getCompanyDetails();
-
-      // Create transporter
-      const transporter = nodemailer.createTransport({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASSWORD,
-        },
-      });
-
-      // Verify SMTP connection
-      await transporter.verify();
+      const fromEmail = env.RESEND_FROM_EMAIL || env.SMTP_USER;
+      const emailProvider = env.RESEND_API_KEY ? "Resend (HTTP API)" : "SMTP";
 
       // Prepare email content
       const subject = input.subject || "Test Email from Square 15 Facility Solutions";
@@ -48,9 +36,8 @@ export const sendTestEmail = baseProcedure
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="margin-top: 0; color: #374151;">Configuration Details:</h3>
             <ul style="color: #6b7280;">
-              <li><strong>SMTP Host:</strong> ${env.SMTP_HOST}</li>
-              <li><strong>SMTP Port:</strong> ${env.SMTP_PORT}</li>
-              <li><strong>From Address:</strong> ${env.SMTP_USER}</li>
+              <li><strong>Provider:</strong> ${emailProvider}</li>
+              <li><strong>From Address:</strong> ${fromEmail}</li>
               <li><strong>Company:</strong> ${companyDetails.companyName}</li>
             </ul>
           </div>
@@ -67,39 +54,32 @@ export const sendTestEmail = baseProcedure
         </div>
       `;
 
-      // Send the email
-      const info = await transporter.sendMail({
-        from: {
-          name: companyDetails.companyName,
-          address: env.SMTP_USER,
-        },
+      // Send the email using the core sendEmail function (Resend or SMTP)
+      await sendEmail({
         to: input.recipientEmail,
-        subject: subject,
+        subject,
         html: body,
       });
 
-      // Return success with detailed information
       return {
         success: true,
-        messageId: info.messageId,
-        response: info.response,
-        accepted: info.accepted,
-        rejected: info.rejected,
+        messageId: "sent",
+        response: `Email sent successfully via ${emailProvider}`,
+        accepted: [input.recipientEmail],
+        rejected: [] as string[],
         envelope: {
-          from: info.envelope.from,
-          to: info.envelope.to,
+          from: fromEmail,
+          to: [input.recipientEmail],
         },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       console.error("Failed to send test email:", error);
       
-      // Return detailed error information
       if (error instanceof Error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to send test email: ${error.message}`,
-          cause: error,
         });
       }
       

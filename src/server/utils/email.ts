@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { env } from "~/server/env";
+import { db } from "~/server/db";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { sendEmailAsUser, getUserSmtpConfig } from "~/server/utils/email-user";
 import { getBaseUrl } from "~/server/utils/base-url";
@@ -16,6 +18,70 @@ interface SendEmailParams {
   html: string;
   attachments?: EmailAttachment[];
   userId?: number; // Optional: if provided, will attempt to send using user's personal email
+}
+
+/**
+ * Get Resend config from DB (SystemSettings) or env vars
+ * DB takes priority over env vars so admin can configure via UI
+ */
+async function getResendConfig(): Promise<{ apiKey: string; fromEmail: string } | null> {
+  try {
+    const rows = await db.systemSettings.findMany({
+      where: { key: { in: ["resend_api_key", "resend_from_email"] } },
+    });
+    const map: Record<string, string> = {};
+    for (const r of rows) if (r.value) map[r.key] = r.value;
+
+    if (map.resend_api_key) {
+      return {
+        apiKey: map.resend_api_key,
+        fromEmail: map.resend_from_email || env.SMTP_USER,
+      };
+    }
+  } catch (e) {
+    console.error("Failed to read Resend config from DB:", e);
+  }
+
+  // Fallback to env vars
+  if (env.RESEND_API_KEY) {
+    return {
+      apiKey: env.RESEND_API_KEY,
+      fromEmail: env.RESEND_FROM_EMAIL || env.SMTP_USER,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Send email via Resend HTTP API (bypasses SMTP port blocks)
+ */
+async function sendViaResend(apiKey: string, params: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  attachments?: EmailAttachment[];
+}): Promise<void> {
+  const resend = new Resend(apiKey);
+
+  const result = await resend.emails.send({
+    from: params.from,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    attachments: params.attachments?.map((att) => ({
+      filename: att.filename,
+      content: att.content,
+      contentType: att.contentType || "application/pdf",
+    })),
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+
+  console.log(`Email sent via Resend to: ${params.to.join(", ")} (id: ${result.data?.id})`);
 }
 
 /**
@@ -47,8 +113,8 @@ function createTransporter() {
 
 /**
  * Send an email with optional attachments
- * If userId is provided, attempts to send using user's personal email configuration
- * Falls back to company email if user email is not configured
+ * Priority: 1) User's personal SMTP 2) Resend HTTP API 3) System SMTP
+ * Resend is preferred over system SMTP because it bypasses port-blocking by hosting providers
  */
 export async function sendEmail(params: SendEmailParams): Promise<void> {
   try {
@@ -65,11 +131,31 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
         });
         return;
       }
-      console.log(`User ${params.userId} has no email configured, falling back to company email`);
+      console.log(`User ${params.userId} has no email configured, falling back to system email`);
     }
 
-    // Fall back to company email
     const companyDetails = await getCompanyDetails();
+    const toArray = Array.isArray(params.to) ? params.to : [params.to];
+
+    // Try Resend first (HTTP-based, bypasses SMTP port blocks)
+    const resendConfig = await getResendConfig();
+    if (resendConfig) {
+      const fromAddress = `${companyDetails.companyName} <${resendConfig.fromEmail}>`;
+      try {
+        await sendViaResend(resendConfig.apiKey, {
+          from: fromAddress,
+          to: toArray,
+          subject: params.subject,
+          html: params.html,
+          attachments: params.attachments,
+        });
+        return;
+      } catch (resendError) {
+        console.error("Resend failed, falling back to SMTP:", resendError);
+      }
+    }
+
+    // Fall back to SMTP
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -77,7 +163,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
         name: companyDetails.companyName,
         address: env.SMTP_USER,
       },
-      to: Array.isArray(params.to) ? params.to.join(", ") : params.to,
+      to: toArray.join(", "),
       subject: params.subject,
       html: params.html,
       attachments: params.attachments?.map((att) => ({
@@ -88,7 +174,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email sent successfully to: ${params.to}`);
+    console.log(`Email sent via SMTP to: ${params.to}`);
   } catch (error) {
     console.error("Failed to send email:", error);
     throw error;

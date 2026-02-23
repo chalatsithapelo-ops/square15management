@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
-import { Upload, Loader2, ImageIcon, CheckCircle, Building2, CreditCard, Save, Trash2, AlertCircle, Info, X, FileText, Hash, Mail, Send, CheckCircle2, XCircle, Clock, Shield, Palette, Layout } from "lucide-react";
+import { Upload, Loader2, ImageIcon, CheckCircle, Building2, CreditCard, Save, Trash2, AlertCircle, Info, X, FileText, Hash, Mail, Send, CheckCircle2, XCircle, Clock, Shield, Palette, Layout, Globe, Eye, EyeOff } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import toast from "react-hot-toast";
 import { AccessDenied } from "~/components/AccessDenied";
@@ -1228,6 +1228,9 @@ function AdminSettings() {
         {/* PDF Template & Theme Settings */}
         <PdfSettingsSection />
 
+        {/* Resend Email API Configuration */}
+        <ResendConfigSection />
+
         {/* Personal Email Settings (per-user SMTP) */}
         <div className="mt-6">
           <UserEmailSettingsPanel
@@ -1919,6 +1922,216 @@ function PdfSettingsSection() {
           )}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ResendConfigSection() {
+  const { token } = useAuthStore();
+  const trpc = useTRPC();
+
+  const resendQuery = useQuery({
+    ...trpc.getResendSettings.queryOptions({ token: token || "" }),
+    enabled: !!token,
+  });
+
+  const updateMutation = useMutation(
+    trpc.updateResendSettings.mutationOptions()
+  );
+
+  const testMutation = useMutation(
+    trpc.testResendConnection.mutationOptions()
+  );
+
+  const [apiKey, setApiKey] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize form values from query data
+  if (resendQuery.data && !initialized) {
+    setApiKey(resendQuery.data.resendApiKey);
+    setFromEmail(resendQuery.data.resendFromEmail);
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        token: token || "",
+        resendApiKey: apiKey,
+        resendFromEmail: fromEmail,
+      });
+      toast.success("Resend email settings saved successfully!");
+      resendQuery.refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save Resend settings");
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+    try {
+      const result = await testMutation.mutateAsync({
+        token: token || "",
+        recipientEmail: testEmail,
+      });
+      toast.success(result.message || "Test email sent successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test email");
+    }
+  };
+
+  if (resendQuery.isLoading) {
+    return (
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-500">Loading email API settings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const isConfigured = resendQuery.data?.isConfigured;
+
+  return (
+    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
+          <Globe className="h-6 w-6 mr-2 text-blue-600" />
+          Email Delivery (Resend API)
+          {isConfigured && (
+            <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Active
+            </span>
+          )}
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Resend uses HTTP to deliver emails, bypassing SMTP port restrictions from hosting providers like DigitalOcean.
+          This is the recommended method for sending system emails (notifications, invoices, statements, etc.).
+        </p>
+      </div>
+
+      {/* Setup Instructions */}
+      {!isConfigured && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2 flex items-center">
+            <Info className="h-4 w-4 mr-1.5" />
+            Setup Instructions
+          </h3>
+          <ol className="text-sm text-blue-700 space-y-1.5 list-decimal list-inside">
+            <li>Go to <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">resend.com</a> and create a free account (100 emails/day)</li>
+            <li>Add your domain (e.g., square15.co.za) under <strong>Domains</strong> and add the DNS records they provide</li>
+            <li>Create an API key under <strong>API Keys</strong></li>
+            <li>Paste the API key and your from email address below</li>
+          </ol>
+        </div>
+      )}
+
+      {/* API Key */}
+      <div className="mb-4">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          Resend API Key
+        </label>
+        <div className="relative">
+          <input
+            type={showApiKey ? "text" : "password"}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 text-sm font-mono focus:border-blue-500 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* From Email */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+          From Email Address
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          The email address that will appear as the sender. Your domain must be verified in Resend.
+        </p>
+        <input
+          type="email"
+          value={fromEmail}
+          onChange={(e) => setFromEmail(e.target.value)}
+          placeholder="e.g. thapelochalatsi@square15.co.za"
+          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Save Button */}
+      <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={updateMutation.isPending || !apiKey}
+          className="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium transition-colors"
+        >
+          {updateMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Email API Settings
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Test Email Section */}
+      {isConfigured && (
+        <div className="mt-6 border-t border-gray-100 pt-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+            <Send className="h-4 w-4 mr-1.5 text-gray-500" />
+            Send Test Email
+          </h3>
+          <div className="flex gap-3">
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="Recipient email address"
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleTestEmail}
+              disabled={testMutation.isPending || !testEmail}
+              className="inline-flex items-center px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              {testMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Test
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -100,12 +100,15 @@ const envSchema = z.object({
   COMPANY_INVOICE_PREFIX: z.string().default("INV"),
   COMPANY_ORDER_PREFIX: z.string().default("ORD"),
   COMPANY_QUOTATION_PREFIX: z.string().default("QUO"),
-  // Email Configuration
+  // Email Configuration (SMTP - used as fallback if Resend is not configured)
   SMTP_HOST: z.string(),
   SMTP_PORT: z.string().transform((val: string) => parseInt(val, 10)),
   SMTP_SECURE: z.string().transform((val: string) => val === "true"),
   SMTP_USER: z.string().email(),
   SMTP_PASSWORD: z.string(),
+  // Resend API (HTTP-based email - primary if configured, bypasses SMTP port blocks)
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().optional(), // e.g. thapelochalatsi@square15.co.za
   // Web Push Notifications (VAPID keys)
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
