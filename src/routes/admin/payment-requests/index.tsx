@@ -69,7 +69,9 @@ function PaymentRequestsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [rejectionModal, setRejectionModal] = useState<{ requestId: number; requestNumber: string } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const paymentRequestsQuery = useQuery(
     trpc.getPaymentRequests.queryOptions({
@@ -154,11 +156,11 @@ function PaymentRequestsPage() {
       onSuccess: () => {
         toast.success("Payment request deleted successfully!");
         queryClient.invalidateQueries({ queryKey: trpc.getPaymentRequests.queryKey() });
-        setDeletingId(null);
+        setDeleteConfirmId(null);
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete payment request");
-        setDeletingId(null);
+        setDeleteConfirmId(null);
       },
     })
   );
@@ -585,13 +587,21 @@ function PaymentRequestsPage() {
                   <div className="ml-4 flex items-center space-x-2">
                     <select
                       value={request.status}
-                      onChange={(e) =>
-                        updatePaymentRequestStatusMutation.mutate({
-                          token: token!,
-                          paymentRequestId: request.id,
-                          status: e.target.value as any,
-                        })
-                      }
+                      onChange={(e) => {
+                        const newStatus = e.target.value as any;
+                        if (newStatus === "REJECTED") {
+                          setRejectionModal({ requestId: request.id, requestNumber: request.requestNumber });
+                          setRejectionReason("");
+                          // Reset the select to current value
+                          e.target.value = request.status;
+                        } else {
+                          updatePaymentRequestStatusMutation.mutate({
+                            token: token!,
+                            paymentRequestId: request.id,
+                            status: newStatus,
+                          });
+                        }
+                      }}
                       className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
                     >
                       {paymentRequestStatuses.map((status) => (
@@ -601,24 +611,9 @@ function PaymentRequestsPage() {
                       ))}
                     </select>
                     <button
-                      onClick={() => {
-                        if (deletingId === request.id) {
-                          deletePaymentRequestMutation.mutate({
-                            token: token!,
-                            paymentRequestId: request.id,
-                          });
-                        } else {
-                          setDeletingId(request.id);
-                          setTimeout(() => setDeletingId((prev) => prev === request.id ? null : prev), 3000);
-                        }
-                      }}
-                      disabled={deletePaymentRequestMutation.isPending}
-                      className={`p-2 rounded-lg transition-colors ${
-                        deletingId === request.id
-                          ? "bg-red-600 text-white hover:bg-red-700"
-                          : "text-gray-400 hover:text-red-600 hover:bg-red-50"
-                      }`}
-                      title={deletingId === request.id ? "Click again to confirm delete" : "Delete payment request"}
+                      onClick={() => setDeleteConfirmId(request.id)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Delete payment request"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -636,6 +631,85 @@ function PaymentRequestsPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Payment Request</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this payment request? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deletePaymentRequestMutation.mutate({
+                    token: token!,
+                    paymentRequestId: deleteConfirmId,
+                  });
+                }}
+                disabled={deletePaymentRequestMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {deletePaymentRequestMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {rejectionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Reject {rejectionModal.requestNumber}</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please provide a reason for rejecting this payment request.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 mb-4"
+              placeholder="Enter rejection reason..."
+              autoFocus
+            />
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setRejectionModal(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!rejectionReason.trim()) {
+                    toast.error("Rejection reason is required");
+                    return;
+                  }
+                  updatePaymentRequestStatusMutation.mutate({
+                    token: token!,
+                    paymentRequestId: rejectionModal.requestId,
+                    status: "REJECTED",
+                    rejectionReason: rejectionReason.trim(),
+                  });
+                  setRejectionModal(null);
+                }}
+                disabled={updatePaymentRequestStatusMutation.isPending || !rejectionReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {updatePaymentRequestStatusMutation.isPending ? "Rejecting..." : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
