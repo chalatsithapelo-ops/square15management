@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { isRestrictedDemoAccount } from "~/server/utils/demoAccounts";
 
 export const getQuotations = baseProcedure
   .input(
@@ -36,6 +37,11 @@ export const getQuotations = baseProcedure
           code: "NOT_FOUND",
           message: "User not found",
         });
+      }
+
+      // Demo accounts should not see production data
+      if (isRestrictedDemoAccount(user)) {
+        return [];
       }
 
       const where: any = {};

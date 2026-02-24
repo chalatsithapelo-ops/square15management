@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
+import { isRestrictedDemoAccount } from "~/server/utils/demoAccounts";
 
 export const getLeads = baseProcedure
   .input(
@@ -13,6 +14,11 @@ export const getLeads = baseProcedure
   .query(async ({ input }) => {
     // Authenticate the user and get their role
     const user = await authenticateUser(input.token);
+
+    // Demo accounts should not see production data
+    if (isRestrictedDemoAccount(user)) {
+      return [];
+    }
 
     // Build the where clause based on user role
     const whereClause: any = {};
