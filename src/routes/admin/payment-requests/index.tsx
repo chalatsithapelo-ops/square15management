@@ -22,6 +22,7 @@ import {
   Hash,
   Briefcase,
   Receipt,
+  Trash2,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 
@@ -68,6 +69,7 @@ function PaymentRequestsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const paymentRequestsQuery = useQuery(
     trpc.getPaymentRequests.queryOptions({
@@ -143,6 +145,20 @@ function PaymentRequestsPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update payment request status");
+      },
+    })
+  );
+
+  const deletePaymentRequestMutation = useMutation(
+    trpc.deletePaymentRequest.mutationOptions({
+      onSuccess: () => {
+        toast.success("Payment request deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getPaymentRequests.queryKey() });
+        setDeletingId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete payment request");
+        setDeletingId(null);
       },
     })
   );
@@ -566,7 +582,7 @@ function PaymentRequestsPage() {
                       {request.paidDate && ` • Paid ${new Date(request.paidDate).toLocaleDateString()}`}
                     </div>
                   </div>
-                  <div className="ml-4">
+                  <div className="ml-4 flex items-center space-x-2">
                     <select
                       value={request.status}
                       onChange={(e) =>
@@ -584,6 +600,28 @@ function PaymentRequestsPage() {
                         </option>
                       ))}
                     </select>
+                    <button
+                      onClick={() => {
+                        if (deletingId === request.id) {
+                          deletePaymentRequestMutation.mutate({
+                            token: token!,
+                            paymentRequestId: request.id,
+                          });
+                        } else {
+                          setDeletingId(request.id);
+                          setTimeout(() => setDeletingId((prev) => prev === request.id ? null : prev), 3000);
+                        }
+                      }}
+                      disabled={deletePaymentRequestMutation.isPending}
+                      className={`p-2 rounded-lg transition-colors ${
+                        deletingId === request.id
+                          ? "bg-red-600 text-white hover:bg-red-700"
+                          : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                      }`}
+                      title={deletingId === request.id ? "Click again to confirm delete" : "Delete payment request"}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>
