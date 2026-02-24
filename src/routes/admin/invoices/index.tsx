@@ -111,6 +111,7 @@ function InvoicesPage() {
   const [downloadingOrderPdf, setDownloadingOrderPdf] = useState(false);
   const [downloadingJobCardInvoiceId, setDownloadingJobCardInvoiceId] = useState<number | null>(null);
   const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
+  const [deleteConfirmInvoiceId, setDeleteConfirmInvoiceId] = useState<number | null>(null);
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -225,6 +226,20 @@ function InvoicesPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update invoice status");
+      },
+    })
+  );
+
+  const deleteInvoiceMutation = useMutation(
+    trpc.deleteInvoice.mutationOptions({
+      onSuccess: () => {
+        toast.success("Invoice deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+        setDeleteConfirmInvoiceId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete invoice");
+        setDeleteConfirmInvoiceId(null);
       },
     })
   );
@@ -1565,6 +1580,13 @@ function InvoicesPage() {
                         >
                           Edit
                         </button>
+                        <button
+                          onClick={() => setDeleteConfirmInvoiceId(invoice.id)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Delete invoice"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -1790,6 +1812,38 @@ function InvoicesPage() {
       <div className="p-4 md:p-8">
         <AlternativeRevenueForm />
       </div>
+
+      {/* Delete Invoice Confirmation Modal */}
+      {deleteConfirmInvoiceId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Invoice</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this invoice? This will also delete all associated line items. This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirmInvoiceId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteInvoiceMutation.mutate({
+                    token: token!,
+                    invoiceId: deleteConfirmInvoiceId,
+                  });
+                }}
+                disabled={deleteInvoiceMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {deleteInvoiceMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

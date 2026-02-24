@@ -5,57 +5,49 @@ import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
 
-export const deletePaymentRequest = baseProcedure
+export const deleteInvoice = baseProcedure
   .input(
     z.object({
       token: z.string(),
-      paymentRequestId: z.number(),
+      invoiceId: z.number(),
     })
   )
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
-    assertNotRestrictedDemoAccount(user, "delete payment requests");
+    assertNotRestrictedDemoAccount(user, "delete invoices");
+
     const isAdmin = user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN";
     const isContractor = user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER";
 
     if (!isAdmin && !isContractor) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "You do not have permission to delete payment requests",
+        message: "You do not have permission to delete invoices",
       });
     }
 
-    // Check payment request exists
-    const paymentRequest = await db.paymentRequest.findUnique({
-      where: { id: input.paymentRequestId },
-      include: { payslip: true },
+    const invoice = await db.invoice.findUnique({
+      where: { id: input.invoiceId },
     });
 
-    if (!paymentRequest) {
+    if (!invoice) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Payment request not found",
+        message: "Invoice not found",
       });
     }
 
-    // Contractors can only delete their own payment requests
-    if (isContractor && paymentRequest.artisanId !== user.id) {
+    // Contractors can only delete their own invoices
+    if (isContractor && invoice.createdById !== user.id) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "You can only delete your own payment requests",
+        message: "You can only delete your own invoices",
       });
     }
 
-    // Delete associated payslip first if exists
-    if (paymentRequest.payslip) {
-      await db.payslip.delete({
-        where: { id: paymentRequest.payslip.id },
-      });
-    }
-
-    // Delete the payment request
-    await db.paymentRequest.delete({
-      where: { id: input.paymentRequestId },
+    // Delete the invoice (cascade handles lineItems)
+    await db.invoice.delete({
+      where: { id: input.invoiceId },
     });
 
     return { success: true };

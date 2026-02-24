@@ -425,177 +425,139 @@ function LiabilitiesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLiabilities.map((liability) => {
-            const categoryInfo = liabilityCategories.find(c => c.value === liability.category);
-            const isOverdue = liability.dueDate && !liability.isPaid && new Date(liability.dueDate) < new Date();
-            
-            return (
-              <div
-                key={liability.id}
-                className={`bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
-                  isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="text-lg font-semibold text-gray-900">{liability.name}</h3>
-                      {liability.isPaid ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{categoryInfo?.label || liability.category}</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (editingLiability === liability.id) {
-                        handleEditSave(liability.id);
-                      } else {
-                        setEditingLiability(liability.id);
-                        setEditValues({
-                          amount: liability.amount,
-                          dueDate: liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "",
-                          creditor: liability.creditor,
-                          referenceNumber: liability.referenceNumber,
-                        });
-                      }
-                    }}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Edit className="h-5 w-5" />
-                  </button>
-                </div>
-
-                {liability.description && (
-                  <p className="text-sm text-gray-600 mb-3">{liability.description}</p>
-                )}
-
-                {isOverdue && (
-                  <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-lg">
-                    <p className="text-xs font-semibold text-red-800">⚠️ OVERDUE</p>
-                  </div>
-                )}
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Amount:</span>
-                    {editingLiability === liability.id ? (
-                      <input
-                        type="number"
-                        value={editValues.amount || liability.amount}
-                        onChange={(e) => setEditValues({ ...editValues, amount: parseFloat(e.target.value) })}
-                        className="w-32 px-2 py-1 border border-gray-300 rounded text-right"
-                      />
-                    ) : (
-                      <span className="font-medium text-gray-900">R{liability.amount.toLocaleString()}</span>
-                    )}
-                  </div>
-
-                  {(liability.dueDate || editingLiability === liability.id) && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        Due Date:
-                      </span>
-                      {editingLiability === liability.id ? (
-                        <input
-                          type="date"
-                          value={editValues.dueDate || (liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "")}
-                          onChange={(e) => setEditValues({ ...editValues, dueDate: e.target.value })}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-900">
-                          {liability.dueDate ? new Date(liability.dueDate).toLocaleDateString() : "N/A"}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {(liability.creditor || editingLiability === liability.id) && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 flex items-center">
-                        <User className="h-4 w-4 mr-1" />
-                        Creditor:
-                      </span>
-                      {editingLiability === liability.id ? (
-                        <input
-                          type="text"
-                          value={editValues.creditor || liability.creditor || ""}
-                          onChange={(e) => setEditValues({ ...editValues, creditor: e.target.value })}
-                          className="w-32 px-2 py-1 border border-gray-300 rounded text-right"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-900">{liability.creditor}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {(liability.referenceNumber || editingLiability === liability.id) && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Reference:</span>
-                      {editingLiability === liability.id ? (
-                        <input
-                          type="text"
-                          value={editValues.referenceNumber || liability.referenceNumber || ""}
-                          onChange={(e) => setEditValues({ ...editValues, referenceNumber: e.target.value })}
-                          className="w-32 px-2 py-1 border border-gray-300 rounded text-right"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-900">{liability.referenceNumber}</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-gray-600">Status:</span>
-                    <button
-                      onClick={() => handleTogglePaid(liability)}
-                      disabled={updateLiabilityMutation.isPending}
-                      className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                        liability.isPaid
-                          ? "bg-green-100 text-green-800 hover:bg-green-200"
-                          : "bg-red-100 text-red-800 hover:bg-red-200"
-                      }`}
-                    >
-                      {liability.isPaid ? "Paid" : "Unpaid"}
-                    </button>
-                  </div>
-
-                  {liability.isPaid && liability.paidDate && (
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>Paid on:</span>
-                      <span>{new Date(liability.paidDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-
-                {editingLiability === liability.id && (
-                  <div className="mt-4 pt-4 border-t flex justify-end space-x-2">
-                    <button
-                      onClick={() => {
-                        setEditingLiability(null);
-                        setEditValues({});
-                      }}
-                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => handleEditSave(liability.id)}
-                      disabled={updateLiabilityMutation.isPending}
-                      className="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
-                    >
-                      {updateLiabilityMutation.isPending ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Category</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Amount</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Due Date</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Creditor</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Reference</th>
+                  <th className="text-center px-4 py-3 font-semibold text-gray-700">Status</th>
+                  <th className="text-center px-4 py-3 font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredLiabilities.map((liability) => {
+                  const categoryInfo = liabilityCategories.find(c => c.value === liability.category);
+                  const isOverdue = liability.dueDate && !liability.isPaid && new Date(liability.dueDate) < new Date();
+                  return (
+                    <tr key={liability.id} className={`hover:bg-gray-50 transition-colors ${isOverdue ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{liability.name}</div>
+                        {liability.description && <div className="text-xs text-gray-500 mt-0.5 max-w-[200px] truncate">{liability.description}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{categoryInfo?.label || liability.category}</td>
+                      <td className="px-4 py-3 text-right">
+                        {editingLiability === liability.id ? (
+                          <input
+                            type="number"
+                            value={editValues.amount || liability.amount}
+                            onChange={(e) => setEditValues({ ...editValues, amount: parseFloat(e.target.value) })}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                          />
+                        ) : (
+                          <span className="font-medium text-gray-900">R{liability.amount.toLocaleString()}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {editingLiability === liability.id ? (
+                          <input
+                            type="date"
+                            value={editValues.dueDate || (liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "")}
+                            onChange={(e) => setEditValues({ ...editValues, dueDate: e.target.value })}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          />
+                        ) : (
+                          <span className={`text-gray-600 ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>
+                            {liability.dueDate ? new Date(liability.dueDate).toLocaleDateString() : "—"}
+                            {isOverdue && <span className="ml-1 text-xs">⚠️</span>}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {editingLiability === liability.id ? (
+                          <input
+                            type="text"
+                            value={editValues.creditor || liability.creditor || ""}
+                            onChange={(e) => setEditValues({ ...editValues, creditor: e.target.value })}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                          />
+                        ) : (
+                          <span className="text-gray-600">{liability.creditor || "—"}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {editingLiability === liability.id ? (
+                          <input
+                            type="text"
+                            value={editValues.referenceNumber || liability.referenceNumber || ""}
+                            onChange={(e) => setEditValues({ ...editValues, referenceNumber: e.target.value })}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                          />
+                        ) : (
+                          <span className="text-gray-600">{liability.referenceNumber || "—"}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handleTogglePaid(liability)}
+                          disabled={updateLiabilityMutation.isPending}
+                          className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                            liability.isPaid
+                              ? "bg-green-100 text-green-800 hover:bg-green-200"
+                              : "bg-red-100 text-red-800 hover:bg-red-200"
+                          }`}
+                        >
+                          {liability.isPaid ? "Paid" : "Unpaid"}
+                        </button>
+                        {liability.isPaid && liability.paidDate && (
+                          <div className="text-xs text-gray-500 mt-1">{new Date(liability.paidDate).toLocaleDateString()}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {editingLiability === liability.id ? (
+                          <div className="flex items-center justify-center space-x-1">
+                            <button
+                              onClick={() => { setEditingLiability(null); setEditValues({}); }}
+                              className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleEditSave(liability.id)}
+                              disabled={updateLiabilityMutation.isPending}
+                              className="px-2 py-1 text-xs text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+                            >
+                              {updateLiabilityMutation.isPending ? "..." : "Save"}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingLiability(liability.id);
+                              setEditValues({
+                                amount: liability.amount,
+                                dueDate: liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "",
+                                creditor: liability.creditor,
+                                referenceNumber: liability.referenceNumber,
+                              });
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {filteredLiabilities.length === 0 && (

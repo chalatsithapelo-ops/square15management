@@ -17,6 +17,7 @@ import {
   DollarSign,
   Calendar,
   Clock,
+  Trash2,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
@@ -60,6 +61,7 @@ function PaymentRequestsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const {
     register,
@@ -113,6 +115,20 @@ function PaymentRequestsPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update payment request status");
+      },
+    })
+  );
+
+  const deletePaymentRequestMutation = useMutation(
+    trpc.deletePaymentRequest.mutationOptions({
+      onSuccess: () => {
+        toast.success("Payment request deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getPaymentRequests.queryKey() });
+        setDeleteConfirmId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete payment request");
+        setDeleteConfirmId(null);
       },
     })
   );
@@ -459,7 +475,7 @@ function PaymentRequestsPage() {
                       {request.paidDate && ` • Paid ${new Date(request.paidDate).toLocaleDateString()}`}
                     </div>
                   </div>
-                  <div className="ml-4">
+                  <div className="ml-4 flex items-center space-x-2">
                     <select
                       value={request.status}
                       onChange={(e) =>
@@ -477,6 +493,13 @@ function PaymentRequestsPage() {
                         </option>
                       ))}
                     </select>
+                    <button
+                      onClick={() => setDeleteConfirmId(request.id)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Delete payment request"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -490,6 +513,38 @@ function PaymentRequestsPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Payment Request Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Payment Request</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this payment request? This will also delete any associated payslip. This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deletePaymentRequestMutation.mutate({
+                    token: token!,
+                    paymentRequestId: deleteConfirmId,
+                  });
+                }}
+                disabled={deletePaymentRequestMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {deletePaymentRequestMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

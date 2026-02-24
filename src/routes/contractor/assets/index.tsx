@@ -387,128 +387,115 @@ function AssetsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAssets.map((asset) => (
-            <div key={asset.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{asset.name}</h3>
-                  <p className="text-sm text-gray-600">{asset.category}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (editingAsset === asset.id) {
-                      handleEditSave(asset.id);
-                    } else {
-                      setEditingAsset(asset.id);
-                      setEditValues({
-                        currentValue: asset.currentValue,
-                        condition: asset.condition,
-                        location: asset.location,
-                      });
-                    }
-                  }}
-                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                >
-                  <Edit className="h-5 w-5" />
-                </button>
-              </div>
-
-              {asset.description && (
-                <p className="text-sm text-gray-600 mb-3">{asset.description}</p>
-              )}
-
-              <div className="space-y-2 text-sm">
-                {asset.serialNumber && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Serial:</span>
-                    <span className="font-medium text-gray-900">{asset.serialNumber}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Purchase Price:</span>
-                  <span className="font-medium text-gray-900">R{asset.purchasePrice.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Current Value:</span>
-                  {editingAsset === asset.id ? (
-                    <input
-                      type="number"
-                      value={editValues.currentValue || asset.currentValue}
-                      onChange={(e) => setEditValues({ ...editValues, currentValue: parseFloat(e.target.value) })}
-                      className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
-                    />
-                  ) : (
-                    <span className="font-medium text-gray-900">R{asset.currentValue.toLocaleString()}</span>
-                  )}
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Condition:</span>
-                  {editingAsset === asset.id ? (
-                    <select
-                      value={editValues.condition || asset.condition}
-                      onChange={(e) => setEditValues({ ...editValues, condition: e.target.value })}
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
-                    >
-                      {assetConditions.map((cond) => (
-                        <option key={cond} value={cond}>
-                          {cond}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="font-medium text-gray-900">{asset.condition}</span>
-                  )}
-                </div>
-                {(asset.location || editingAsset === asset.id) && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 flex items-center">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      Location:
-                    </span>
-                    {editingAsset === asset.id ? (
-                      <input
-                        type="text"
-                        value={editValues.location || asset.location || ""}
-                        onChange={(e) => setEditValues({ ...editValues, location: e.target.value })}
-                        className="w-32 px-2 py-1 border border-gray-300 rounded text-right"
-                      />
-                    ) : (
-                      <span className="font-medium text-gray-900">{asset.location}</span>
-                    )}
-                  </div>
-                )}
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span className="flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    Purchased
-                  </span>
-                  <span>{new Date(asset.purchaseDate).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              {editingAsset === asset.id && (
-                <div className="mt-4 pt-4 border-t flex justify-end space-x-2">
-                  <button
-                    onClick={() => {
-                      setEditingAsset(null);
-                      setEditValues({});
-                    }}
-                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleEditSave(asset.id)}
-                    disabled={updateAssetMutation.isPending}
-                    className="px-3 py-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
-                  >
-                    {updateAssetMutation.isPending ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Category</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Serial #</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Purchase Price</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Current Value</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Condition</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Location</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Purchased</th>
+                  <th className="text-center px-4 py-3 font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredAssets.map((asset) => (
+                  <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{asset.name}</div>
+                      {asset.description && <div className="text-xs text-gray-500 mt-0.5 max-w-[200px] truncate">{asset.description}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{asset.category}</td>
+                    <td className="px-4 py-3 text-gray-600">{asset.serialNumber || "—"}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">R{asset.purchasePrice.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right">
+                      {editingAsset === asset.id ? (
+                        <input
+                          type="number"
+                          value={editValues.currentValue || asset.currentValue}
+                          onChange={(e) => setEditValues({ ...editValues, currentValue: parseFloat(e.target.value) })}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                        />
+                      ) : (
+                        <span className="font-medium text-gray-900">R{asset.currentValue.toLocaleString()}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {editingAsset === asset.id ? (
+                        <select
+                          value={editValues.condition || asset.condition}
+                          onChange={(e) => setEditValues({ ...editValues, condition: e.target.value })}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        >
+                          {assetConditions.map((cond) => (
+                            <option key={cond} value={cond}>{cond}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          asset.condition === "NEW" ? "bg-green-100 text-green-700" :
+                          asset.condition === "GOOD" ? "bg-blue-100 text-blue-700" :
+                          asset.condition === "FAIR" ? "bg-yellow-100 text-yellow-700" :
+                          "bg-red-100 text-red-700"
+                        }`}>{asset.condition}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {editingAsset === asset.id ? (
+                        <input
+                          type="text"
+                          value={editValues.location || asset.location || ""}
+                          onChange={(e) => setEditValues({ ...editValues, location: e.target.value })}
+                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      ) : (
+                        <span className="text-gray-600">{asset.location || "—"}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(asset.purchaseDate).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-center">
+                      {editingAsset === asset.id ? (
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => { setEditingAsset(null); setEditValues({}); }}
+                            className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleEditSave(asset.id)}
+                            disabled={updateAssetMutation.isPending}
+                            className="px-2 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
+                          >
+                            {updateAssetMutation.isPending ? "..." : "Save"}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingAsset(asset.id);
+                            setEditValues({
+                              currentValue: asset.currentValue,
+                              condition: asset.condition,
+                              location: asset.location,
+                            });
+                          }}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {filteredAssets.length === 0 && (

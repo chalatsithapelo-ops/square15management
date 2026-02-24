@@ -38,6 +38,7 @@ import {
   Receipt,
   ExternalLink,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
@@ -138,6 +139,7 @@ function OperationsPage() {
   }>>([]);
   const [uploadingMaterialQuotation, setUploadingMaterialQuotation] = useState<number | null>(null);
   const [showArtisanDropdown, setShowArtisanDropdown] = useState<number | null>(null);
+  const [deleteConfirmOrderId, setDeleteConfirmOrderId] = useState<number | null>(null);
 
   const acceptPMOrderMutation = useMutation(
     trpc.acceptPMOrder.mutationOptions({
@@ -297,6 +299,20 @@ function OperationsPage() {
 
   const getPresignedUrlMutation = useMutation(
     trpc.getPresignedUploadUrl.mutationOptions()
+  );
+
+  const deleteOrderMutation = useMutation(
+    trpc.deleteOrder.mutationOptions({
+      onSuccess: () => {
+        toast.success("Order deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        setDeleteConfirmOrderId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete order");
+        setDeleteConfirmOrderId(null);
+      },
+    })
   );
 
   const generatePdfQuery = useMutation(
@@ -2350,6 +2366,13 @@ function OperationsPage() {
                       />
                     </label>
                   </div>
+                  <button
+                    onClick={() => setDeleteConfirmOrderId(order.id)}
+                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                    title="Delete order"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -2367,6 +2390,38 @@ function OperationsPage() {
           <OperationalExpenseForm />
         </div>
       </main>
+
+      {/* Delete Order Confirmation Modal */}
+      {deleteConfirmOrderId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Order</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this order? This will also delete any associated invoice, materials, and job activities. This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirmOrderId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteOrderMutation.mutate({
+                    token: token!,
+                    orderId: deleteConfirmOrderId,
+                  });
+                }}
+                disabled={deleteOrderMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

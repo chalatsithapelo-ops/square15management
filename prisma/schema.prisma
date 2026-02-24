@@ -897,7 +897,7 @@ model Invoice {
   pmApprovedDate  DateTime?
 
   orderId Int?   @unique
-  order   Order? @relation(fields: [orderId], references: [id])
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   projectId Int?
   project   Project? @relation(fields: [projectId], references: [id])
@@ -1075,7 +1075,7 @@ model Material {
   supplierQuotationAmount Float?
 
   orderId Int
-  order   Order @relation(fields: [orderId], references: [id])
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model JobActivity {
@@ -1087,7 +1087,7 @@ model JobActivity {
   description     String?
 
   orderId Int
-  order   Order @relation(fields: [orderId], references: [id])
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   artisanId Int
   artisan   User @relation(fields: [artisanId], references: [id])
@@ -1102,7 +1102,7 @@ model ExpenseSlip {
   amount      Float?
 
   orderId Int
-  order   Order @relation(fields: [orderId], references: [id])
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model QuotationExpenseSlip {
@@ -1190,7 +1190,7 @@ model Review {
   artisan   User @relation("ArtisanReviews", fields: [artisanId], references: [id])
 
   orderId Int?
-  order   Order? @relation(fields: [orderId], references: [id])
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   projectId Int?
   project   Project? @relation(fields: [projectId], references: [id])
