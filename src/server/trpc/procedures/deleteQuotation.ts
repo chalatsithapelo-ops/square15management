@@ -86,9 +86,17 @@ export const deleteQuotation = baseProcedure
       if (error instanceof TRPCError) {
         throw error;
       }
+      // Check if it's a JWT error vs a database error
+      if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid or expired token",
+        });
+      }
+      console.error("Failed to delete quotation:", error);
       throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid or expired token",
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to delete quotation: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
     }
   });

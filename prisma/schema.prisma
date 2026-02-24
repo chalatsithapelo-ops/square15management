@@ -1114,7 +1114,7 @@ model QuotationExpenseSlip {
   amount      Float?
 
   quotationId Int
-  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
 }
 
 model MilestoneExpenseSlip {
