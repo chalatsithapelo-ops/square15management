@@ -258,7 +258,7 @@ function SubscriptionSettingsPage() {
                       {new Date(payment.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      R{payment.amount.toFixed(2)}
+                      R{(payment.amount || 0).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {payment.method}

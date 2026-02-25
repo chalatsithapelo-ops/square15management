@@ -888,7 +888,7 @@ function ProjectsPage() {
                           <div className="flex items-start">
                             <DollarSign className="h-4 w-4 mr-2 mt-0.5 text-gray-400 flex-shrink-0" />
                             <div>
-                              <span className="font-medium">Budget:</span>&nbsp;R{project.estimatedBudget.toLocaleString()}
+                              <span className="font-medium">Budget:</span>&nbsp;R{(project.estimatedBudget || 0).toLocaleString()}
                             </div>
                           </div>
                         )}
@@ -935,20 +935,20 @@ function ProjectsPage() {
                             <div>
                               <span className="text-gray-600">Budget:</span>
                               <span className="ml-2 font-semibold text-gray-900">
-                                R{project.estimatedBudget.toLocaleString()}
+                                R{(project.estimatedBudget || 0).toLocaleString()}
                               </span>
                             </div>
                             <div>
                               <span className="text-gray-600">Actual:</span>
                               <span className="ml-2 font-semibold text-gray-900">
-                                R{project.actualCost.toLocaleString()}
+                                R{(project.actualCost || 0).toLocaleString()}
                               </span>
                             </div>
                           </div>
                           {(() => {
                             const budgetStatus = getBudgetStatus(project);
                             const percentage = project.estimatedBudget > 0 
-                              ? Math.min((project.actualCost / project.estimatedBudget) * 100, 100)
+                              ? Math.min(((project.actualCost || 0) / project.estimatedBudget) * 100, 100)
                               : 0;
                             
                             return (
@@ -968,13 +968,13 @@ function ProjectsPage() {
                                 {budgetStatus.status !== "no-budget" && (
                                   <div className={`text-xs font-medium ${budgetStatus.color}`}>
                                     {budgetStatus.status === "over-budget" && (
-                                      <>Over budget by R{Math.abs(budgetStatus.variance!).toLocaleString()} ({Math.abs(budgetStatus.variancePercentage!).toFixed(1)}%)</>
+                                      <>Over budget by R{Math.abs(budgetStatus.variance || 0).toLocaleString()} ({Math.abs(budgetStatus.variancePercentage || 0).toFixed(1)}%)</>
                                     )}
                                     {budgetStatus.status === "at-budget" && (
-                                      <>At budget (+R{budgetStatus.variance!.toLocaleString()}, {budgetStatus.variancePercentage!.toFixed(1)}%)</>
+                                      <>At budget (+R{(budgetStatus.variance || 0).toLocaleString()}, {(budgetStatus.variancePercentage || 0).toFixed(1)}%)</>
                                     )}
                                     {budgetStatus.status === "under-budget" && (
-                                      <>Under budget by R{Math.abs(budgetStatus.variance!).toLocaleString()} ({Math.abs(budgetStatus.variancePercentage!).toFixed(1)}%)</>
+                                      <>Under budget by R{Math.abs(budgetStatus.variance || 0).toLocaleString()} ({Math.abs(budgetStatus.variancePercentage || 0).toFixed(1)}%)</>
                                     )}
                                   </div>
                                 )}

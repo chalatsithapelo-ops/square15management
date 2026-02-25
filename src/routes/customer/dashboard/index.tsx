@@ -1001,7 +1001,7 @@ function QuotationsTab({
                       </span>
                     </div>
                     <span className="font-medium text-gray-900">
-                      R{item.total.toLocaleString()}
+                      R{(item.total || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -1010,17 +1010,17 @@ function QuotationsTab({
               <div className="border-t border-gray-200 mt-3 pt-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span className="text-gray-900">R{quote.subtotal.toLocaleString()}</span>
+                  <span className="text-gray-900">R{(quote.subtotal || 0).toLocaleString()}</span>
                 </div>
                 {quote.tax > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tax:</span>
-                    <span className="text-gray-900">R{quote.tax.toLocaleString()}</span>
+                    <span className="text-gray-900">R{(quote.tax || 0).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-semibold">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">R{quote.total.toLocaleString()}</span>
+                  <span className="text-gray-900">R{(quote.total || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1177,7 +1177,7 @@ function InvoicesTab({
                       </span>
                     </div>
                     <span className="font-medium text-gray-900">
-                      R{item.total.toLocaleString()}
+                      R{(item.total || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -1186,17 +1186,17 @@ function InvoicesTab({
               <div className="border-t border-gray-200 mt-3 pt-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span className="text-gray-900">R{invoice.subtotal.toLocaleString()}</span>
+                  <span className="text-gray-900">R{(invoice.subtotal || 0).toLocaleString()}</span>
                 </div>
                 {invoice.tax > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tax:</span>
-                    <span className="text-gray-900">R{invoice.tax.toLocaleString()}</span>
+                    <span className="text-gray-900">R{(invoice.tax || 0).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-semibold">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">R{invoice.total.toLocaleString()}</span>
+                  <span className="text-gray-900">R{(invoice.total || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1299,7 +1299,7 @@ function StatementsTab({
   };
 
   const formatCurrency = (amount: number) => {
-    return `R${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `R${(amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const toNumber = (value: unknown) => {
@@ -1569,12 +1569,12 @@ function ProjectsTab({
           <div className="flex items-center justify-between text-sm">
             {project.estimatedBudget && (
               <div className="text-gray-600">
-                Estimated Budget: <span className="font-semibold text-gray-900">R{project.estimatedBudget.toLocaleString()}</span>
+                Estimated Budget: <span className="font-semibold text-gray-900">R{(project.estimatedBudget || 0).toLocaleString()}</span>
               </div>
             )}
             {project.actualCost > 0 && (
               <div className="text-gray-600">
-                Actual Cost: <span className="font-semibold text-gray-900">R{project.actualCost.toLocaleString()}</span>
+                Actual Cost: <span className="font-semibold text-gray-900">R{(project.actualCost || 0).toLocaleString()}</span>
               </div>
             )}
           </div>

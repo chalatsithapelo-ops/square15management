@@ -6,7 +6,7 @@ import { useTRPC } from "~/trpc/react";
 import {
   DollarSign, TrendingUp, TrendingDown, FileText,
   Sparkles, Download, AlertCircle, BarChart3, PieChart,
-  Brain, Target, AlertTriangle, Lightbulb, TrendingUpIcon
+  Brain, Target, AlertTriangle, Lightbulb, TrendingUpIcon, Shield
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths } from "date-fns";
 import toast from "react-hot-toast";
@@ -21,6 +21,7 @@ import { CustomizableDashboard } from "~/components/admin/CustomizableDashboard"
 import { FinancialReportsSection } from "~/components/FinancialReportsSection";
 import { ComprehensiveFinancialDashboard } from "~/components/admin/ComprehensiveFinancialDashboard";
 import { AccessDenied } from "~/components/AccessDenied";
+import SARSComplianceDashboard from "~/components/accounts/SARSComplianceDashboard";
 
 export const Route = createFileRoute("/admin/accounts/")({
   component: AccountsPage,
@@ -89,6 +90,12 @@ function AccountsPage() {
     })
   );
 
+  const payslipsQuery = useQuery(
+    trpc.getPayslips.queryOptions({
+      token: token!,
+    })
+  );
+
   const operationalExpensesQuery = useQuery(
     trpc.getOperationalExpenses.queryOptions({
       token: token!,
@@ -110,6 +117,7 @@ function AccountsPage() {
   const projects = projectsQuery.data || [];
   const assets = assetsQuery.data || [];
   const liabilities = liabilitiesQuery.data || [];
+  const payslips = payslipsQuery.data || [];
   const operationalExpenses = operationalExpensesQuery.data || [];
   const alternativeRevenues = alternativeRevenuesQuery.data || [];
 
@@ -557,6 +565,7 @@ function AccountsPage() {
                   { id: 'cashflow', label: 'Cash Flow', icon: DollarSign },
                   { id: 'budget', label: 'Budget Tracker', icon: DollarSign },
                   { id: 'expenses', label: 'Expense Upload', icon: TrendingDown },
+                  { id: 'sars', label: 'SARS Compliance', icon: Shield },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -821,6 +830,29 @@ function AccountsPage() {
 
               {activeTab === 'expenses' && (
                 <ExpenseUpload />
+              )}
+
+              {activeTab === 'sars' && (
+                <SARSComplianceDashboard
+                  invoices={filteredInvoices}
+                  orders={filteredOrders}
+                  paymentRequests={filteredPaymentRequests}
+                  payslips={payslips}
+                  operationalExpenses={filteredOperationalExpenses}
+                  alternativeRevenues={filteredAlternativeRevenues}
+                  assets={assets}
+                  liabilities={liabilities}
+                  dateRange={{
+                    start: new Date(dateRange.start),
+                    end: new Date(dateRange.end),
+                  }}
+                  totalRevenue={totalRevenue}
+                  totalExpenses={totalExpenses}
+                  netProfit={netProfit}
+                  materialCosts={materialCosts}
+                  labourCosts={labourCosts}
+                  artisanPayments={artisanPayments}
+                />
               )}
             </div>
           </div>

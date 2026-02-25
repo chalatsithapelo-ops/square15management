@@ -25,9 +25,11 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  FileSpreadsheet,
 } from "lucide-react";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
+import { ReportModal } from "~/components/ReportModal";
 
 export const Route = createFileRoute("/contractor/invoices/")({
   beforeLoad: ({ location }) => {
@@ -123,6 +125,7 @@ function InvoicesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" },
@@ -1118,6 +1121,13 @@ function InvoicesPage() {
               <Plus className="h-5 w-5 mr-2" />
               Create Invoice
             </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md transition-all"
+            >
+              <FileSpreadsheet className="h-5 w-5 mr-2" />
+              Generate Report
+            </button>
           </div>
         </div>
       </header>
@@ -1469,7 +1479,7 @@ function InvoicesPage() {
                       <div className="col-span-2">
                         <input
                           type="text"
-                          value={`R${item.total.toFixed(2)}`}
+                          value={`R${(item.total || 0).toFixed(2)}`}
                           disabled
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                         />
@@ -1689,7 +1699,7 @@ function InvoicesPage() {
                           </div>
                           <div className="flex items-center">
                             <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                            R{invoice.total.toLocaleString()}
+                            R{(invoice.total || 0).toLocaleString()}
                           </div>
                           {isAdmin && invoice.estimatedProfit !== undefined && (
                             <div className="flex items-center">
@@ -1729,7 +1739,7 @@ function InvoicesPage() {
                             <div className="mt-3 pt-3 border-t border-green-200">
                               <div className="flex justify-between items-center">
                                 <span className="font-semibold text-gray-900">Client Invoice Total:</span>
-                                <span className="font-bold text-gray-900">R{invoice.total.toFixed(2)}</span>
+                                <span className="font-bold text-gray-900">R{(invoice.total || 0).toFixed(2)}</span>
                               </div>
                             </div>
                           </div>
@@ -1857,23 +1867,23 @@ function InvoicesPage() {
                                       <td className="px-3 py-2 text-sm text-gray-900">{item.description}</td>
                                       <td className="px-3 py-2 text-sm text-gray-600 text-center">{item.unitOfMeasure || 'Sum'}</td>
                                       <td className="px-3 py-2 text-sm text-gray-900 text-right">{item.quantity}</td>
-                                      <td className="px-3 py-2 text-sm text-gray-900 text-right">R{item.unitPrice.toFixed(2)}</td>
-                                      <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{item.total.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-sm text-gray-900 text-right">R{(item.unitPrice || 0).toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{(item.total || 0).toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                   <tr>
                                     <td colSpan={4} className="px-3 py-2 text-sm font-medium text-gray-700 text-right">Subtotal:</td>
-                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{invoice.subtotal.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{(invoice.subtotal || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr>
                                     <td colSpan={4} className="px-3 py-2 text-sm font-medium text-gray-700 text-right">VAT (15%):</td>
-                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{invoice.tax.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">R{(invoice.tax || 0).toFixed(2)}</td>
                                   </tr>
                                   <tr className="border-t-2 border-gray-300">
                                     <td colSpan={4} className="px-3 py-2 text-base font-bold text-gray-900 text-right">Total:</td>
-                                    <td className="px-3 py-2 text-base font-bold text-brand-danger-600 text-right">R{invoice.total.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-base font-bold text-brand-danger-600 text-right">R{(invoice.total || 0).toFixed(2)}</td>
                                   </tr>
                                 </tfoot>
                               </table>
@@ -2061,6 +2071,46 @@ function InvoicesPage() {
           </div>
         </div>
       )}
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Invoices Report"
+        filenamePrefix="invoices_report"
+        columns={[
+          { header: "Invoice #", key: "invoiceNumber" },
+          { header: "Customer Name", key: "customerName" },
+          { header: "Email", key: "customerEmail" },
+          { header: "Phone", key: "customerPhone" },
+          { header: "Address", key: "address" },
+          { header: "Status", key: "status" },
+          { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
+          { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Cost", key: "companyLabourCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Due Date", key: "dueDate", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Order #", key: "order", format: (v: any) => v?.orderNumber || "\u2014" },
+          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Notes", key: "notes" },
+        ]}
+        data={allInvoices}
+        filters={[
+          {
+            label: "Status",
+            key: "status",
+            options: [
+              { value: "DRAFT", label: "Draft" },
+              { value: "PENDING_REVIEW", label: "Pending Review" },
+              { value: "PENDING_APPROVAL", label: "Pending Approval" },
+              { value: "SENT", label: "Sent" },
+              { value: "OVERDUE", label: "Overdue" },
+              { value: "PAID", label: "Paid" },
+              { value: "CANCELLED", label: "Cancelled" },
+              { value: "REJECTED", label: "Rejected" },
+            ],
+          },
+        ]}
+      />
     </div>
   );
 }

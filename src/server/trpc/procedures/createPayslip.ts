@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
+import { calculateMonthlyPAYE, calculateUIF, calculateSDL, IRP5_SOURCE_CODES } from "~/server/utils/sars-tax";
 
 export const createPayslip = baseProcedure
   .input(
@@ -126,11 +127,14 @@ export const createPayslip = baseProcedure
 
     const grossPay = basicSalary + overtime + bonus + allowances + commission + otherEarnings;
 
-    // Calculate deductions using South African tax rules
-    // PAYE (Income Tax): 15% of gross pay as a simple estimate
-    // UIF: 1% of gross pay, capped at R177.12 per month
-    const calculatedIncomeTax = grossPay * 0.15;
-    const calculatedUif = Math.min(grossPay * 0.01, 177.12);
+    // Calculate deductions using SARS 2025/2026 tax tables
+    // PAYE: Progressive tax brackets with rebates (18% - 45%)
+    // UIF: 1% of gross pay, capped at R177.12 per month (employee portion)
+    // SDL: 1% of payroll if annual payroll > R500,000 (employer-side, not deducted from employee)
+    const payeResult = calculateMonthlyPAYE(grossPay);
+    const calculatedIncomeTax = payeResult.monthlyPAYE;
+    const uifResult = calculateUIF(grossPay);
+    const calculatedUif = uifResult.employeeContribution;
 
     const incomeTax = input.incomeTax ?? calculatedIncomeTax;
     const uif = input.uif ?? calculatedUif;
@@ -140,6 +144,10 @@ export const createPayslip = baseProcedure
 
     const totalDeductions = incomeTax + uif + pensionFund + medicalAid + otherDeductions;
     const netPay = grossPay - totalDeductions;
+
+    // SARS source code mappings for IRP5
+    const taxBracket = payeResult.annualBreakdown.bracket;
+    const employerUIF = uifResult.employerContribution;
 
     // Combine calculation note with user notes if both exist
     const finalNotes = calculationNote 
@@ -176,6 +184,13 @@ export const createPayslip = baseProcedure
         uifReferenceNumber: input.uifReferenceNumber,
         notes: finalNotes,
         status: "GENERATED",
+        // SARS compliance fields
+        taxBracket: taxBracket,
+        employerUIF: employerUIF,
+        sarsSourceCode3601: basicSalary, // Salary
+        sarsSourceCode3701: bonus, // Bonus
+        sarsSourceCode3702: overtime, // Overtime
+        sarsSourceCode4101: incomeTax, // PAYE
       },
       include: {
         employee: {

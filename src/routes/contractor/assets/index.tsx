@@ -412,7 +412,7 @@ function AssetsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{asset.category}</td>
                     <td className="px-4 py-3 text-gray-600">{asset.serialNumber || "—"}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">R{asset.purchasePrice.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">R{(asset.purchasePrice || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-right">
                       {editingAsset === asset.id ? (
                         <input
@@ -422,7 +422,7 @@ function AssetsPage() {
                           className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-sm"
                         />
                       ) : (
-                        <span className="font-medium text-gray-900">R{asset.currentValue.toLocaleString()}</span>
+                        <span className="font-medium text-gray-900">R{(asset.currentValue || 0).toLocaleString()}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

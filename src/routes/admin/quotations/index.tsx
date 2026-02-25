@@ -29,7 +29,9 @@ import {
   Wand2,
   ChevronDown,
   ChevronUp,
+  FileSpreadsheet,
 } from "lucide-react";
+import { ReportModal } from "~/components/ReportModal";
 
 export const Route = createFileRoute("/admin/quotations/")({
   component: QuotationsPage,
@@ -96,6 +98,7 @@ function QuotationsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" },
@@ -534,6 +537,13 @@ function QuotationsPage() {
               <Plus className="h-5 w-5 mr-2" />
               Create Quotation
             </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md transition-all"
+            >
+              <FileSpreadsheet className="h-5 w-5 mr-2" />
+              Generate Report
+            </button>
           </div>
         </div>
       </header>
@@ -812,7 +822,7 @@ function QuotationsPage() {
                       <div className="col-span-2">
                         <input
                           type="text"
-                          value={`R${item.total.toFixed(2)}`}
+                          value={`R${(item.total || 0).toFixed(2)}`}
                           disabled
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                         />
@@ -957,7 +967,7 @@ function QuotationsPage() {
                       <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{quotation.customerName}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-sm font-bold text-gray-900">R{quotation.total.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-gray-900">R{(quotation.total || 0).toLocaleString()}</span>
                       {isAdmin && quotation.estimatedProfit !== undefined && (
                         <span className={`text-xs font-semibold ${quotation.estimatedProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
                           (P: R{quotation.estimatedProfit.toLocaleString()})
@@ -1131,7 +1141,7 @@ function QuotationsPage() {
                           <span className="text-gray-600">Material: <span className="font-medium text-gray-900">R{quotation.companyMaterialCost?.toFixed(2) || "0.00"}</span></span>
                           <span className="text-gray-600">Labour: <span className="font-medium text-gray-900">R{quotation.companyLabourCost?.toFixed(2) || "0.00"}</span></span>
                           <span className="text-gray-600 border-l border-gray-300 pl-4">Total Cost: <span className="font-bold text-gray-900">R{totalCostToCompany.toFixed(2)}</span></span>
-                          <span className="text-gray-600">Client Quote: <span className="font-bold text-gray-900">R{quotation.total.toFixed(2)}</span></span>
+                          <span className="text-gray-600">Client Quote: <span className="font-bold text-gray-900">R{(quotation.total || 0).toFixed(2)}</span></span>
                         </div>
                       </div>
                     )}
@@ -1272,6 +1282,49 @@ function QuotationsPage() {
           generateRFQReportPdfMutation.mutate({ token, quotationId });
         }}
         isDownloading={generateRFQReportPdfMutation.isPending && selectedRFQReportQuotation?.id === downloadingRFQReportPdfId}
+      />
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Quotations Report"
+        filenamePrefix="quotations_report"
+        columns={[
+          { header: "Quote #", key: "quoteNumber" },
+          { header: "Client Ref #", key: "clientReferenceQuoteNumber" },
+          { header: "Customer Name", key: "customerName" },
+          { header: "Email", key: "customerEmail" },
+          { header: "Phone", key: "customerPhone" },
+          { header: "Address", key: "address" },
+          { header: "Status", key: "status" },
+          { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
+          { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Cost", key: "companyLabourCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "People Needed", key: "numPeopleNeeded" },
+          { header: "Est. Duration", key: "estimatedDuration" },
+          { header: "Valid Until", key: "validUntil", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Assigned To", key: "assignedTo", format: (v: any) => v ? `${v.firstName} ${v.lastName}` : "Unassigned" },
+          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Notes", key: "notes" },
+        ]}
+        data={quotations}
+        filters={[
+          {
+            label: "Status",
+            key: "status",
+            options: [
+              { value: "DRAFT", label: "Draft" },
+              { value: "PENDING_ARTISAN_REVIEW", label: "Pending Artisan Review" },
+              { value: "IN_PROGRESS", label: "In Progress" },
+              { value: "PENDING_JUNIOR_MANAGER_REVIEW", label: "Pending Jr Manager Review" },
+              { value: "PENDING_SENIOR_MANAGER_REVIEW", label: "Pending Sr Manager Review" },
+              { value: "APPROVED", label: "Approved" },
+              { value: "SENT_TO_CUSTOMER", label: "Sent to Customer" },
+              { value: "REJECTED", label: "Rejected" },
+            ],
+          },
+        ]}
       />
     </div>
   );

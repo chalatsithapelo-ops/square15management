@@ -191,8 +191,8 @@ function PaymentRequestsPage() {
   const artisans = artisansQuery.data || [];
   
   const filteredPaymentRequests = paymentRequests.filter((pr) =>
-    pr.artisan.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pr.artisan.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (pr.artisan?.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (pr.artisan?.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     pr.requestNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -440,7 +440,7 @@ function PaymentRequestsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600 mb-3">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-2 text-gray-400" />
-                        {request.artisan.firstName} {request.artisan.lastName}
+                        {request.artisan?.firstName} {request.artisan?.lastName}
                       </div>
                       {request.hoursWorked && (
                         <div className="flex items-center">
@@ -456,7 +456,7 @@ function PaymentRequestsPage() {
                       )}
                       <div className="flex items-center">
                         <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                        R{request.calculatedAmount.toLocaleString()}
+                        R{(request.calculatedAmount || 0).toLocaleString()}
                       </div>
                     </div>
                     {request.notes && (

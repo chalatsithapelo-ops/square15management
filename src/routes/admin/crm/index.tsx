@@ -1028,7 +1028,7 @@ function CRMPage() {
                             <Calendar className="h-3 w-3 mr-1" />
                             Created {new Date(lead.createdAt).toLocaleDateString()}
                             <User className="h-3 w-3 ml-3 mr-1" />
-                            by {lead.createdBy.firstName} {lead.createdBy.lastName}
+                            by {lead.createdBy?.firstName} {lead.createdBy?.lastName}
                           </div>
                         </div>
                         <div className="ml-4 flex flex-col space-y-2">

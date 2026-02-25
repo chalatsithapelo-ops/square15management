@@ -283,7 +283,7 @@ function LiabilitiesPage() {
               >
                 <div className="text-2xl font-bold text-gray-900 mb-1">{stat.count}</div>
                 <div className="text-xs text-gray-600 mb-2">{stat.label}</div>
-                <div className="text-sm font-semibold text-red-600">R {stat.amount.toLocaleString()}</div>
+                <div className="text-sm font-semibold text-red-600">R {(stat.amount || 0).toLocaleString()}</div>
               </div>
             ))}
           </div>
@@ -485,7 +485,7 @@ function LiabilitiesPage() {
                             className="w-28 px-2 py-1 border border-gray-300 rounded text-right text-sm"
                           />
                         ) : (
-                          <span className="font-medium text-gray-900">R{liability.amount.toLocaleString()}</span>
+                          <span className="font-medium text-gray-900">R{(liability.amount || 0).toLocaleString()}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

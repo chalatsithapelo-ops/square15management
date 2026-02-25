@@ -2508,7 +2508,7 @@ function ArtisanDashboard() {
                               {milestone.materials.map((material: any, idx: number) => (
                                 <div key={idx} className="text-xs text-gray-600 flex justify-between">
                                   <span>{material.name} (Qty: {material.quantity})</span>
-                                  <span className="font-medium">R{material.totalCost.toFixed(2)}</span>
+                                  <span className="font-medium">R{(material.totalCost || 0).toFixed(2)}</span>
                                 </div>
                               ))}
                             </div>

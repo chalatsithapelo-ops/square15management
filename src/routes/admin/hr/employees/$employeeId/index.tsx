@@ -179,7 +179,7 @@ ${coachingData.coaching.coachingStyle}
 PERFORMANCE METRICS
 - Total Leads: ${coachingData.metrics.totalLeads}
 - Conversion Rate: ${coachingData.metrics.conversionRate}%
-- Avg Deal Value: R${coachingData.metrics.avgDealValue.toLocaleString()}
+- Avg Deal Value: R${(coachingData.metrics.avgDealValue || 0).toLocaleString()}
 - Avg Response Time: ${coachingData.metrics.avgResponseTimeHours}h
 - Completed Orders: ${coachingData.metrics.completedOrders}
 - Avg Rating: ${coachingData.metrics.avgRating}/5
@@ -466,7 +466,7 @@ PERFORMANCE METRICS
                           <div className="flex items-center text-yellow-500">
                             <Star className="h-4 w-4 fill-current mr-1" />
                             <span className="text-sm font-semibold text-gray-900">
-                              {review.overallRating.toFixed(1)} / 5.0
+                              {(review.overallRating || 0).toFixed(1)} / 5.0
                             </span>
                           </div>
                         )}
@@ -783,7 +783,7 @@ PERFORMANCE METRICS
                           {new Date(payslip.paymentDate).toLocaleDateString("en-ZA")}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                          R{payslip.netPay.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          R{(payslip.netPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                           <button

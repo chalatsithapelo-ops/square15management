@@ -848,7 +848,7 @@ function OrdersTab({ onCreateClick, onRateClick }: { onCreateClick: () => void; 
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
                 <p><strong>Building:</strong> {order.buildingName || "N/A"}</p>
                 <p><strong>Address:</strong> {order.buildingAddress}</p>
-                <p><strong>Amount:</strong> R{order.totalAmount.toLocaleString()}</p>
+                <p><strong>Amount:</strong> R{(order.totalAmount || 0).toLocaleString()}</p>
                 <p><strong>Progress:</strong> {order.progressPercentage}%</p>
               </div>
 
@@ -1384,7 +1384,7 @@ function InvoicesTab() {
                     <p><strong>Building:</strong> {invoice.order.buildingName || "N/A"}</p>
                   </>
                 )}
-                <p><strong>Total:</strong> R{invoice.total.toLocaleString()}</p>
+                <p><strong>Total:</strong> R{(invoice.total || 0).toLocaleString()}</p>
                 {invoice.dueDate && (
                   <p><strong>Due:</strong> {new Date(invoice.dueDate).toLocaleDateString()}</p>
                 )}
@@ -1561,7 +1561,7 @@ function MaintenanceTab() {
                 <div>
                   <h4 className="text-md font-semibold text-gray-900">{request.requestNumber} - {request.title}</h4>
                   <p className="text-sm text-gray-600">
-                    {request.customer.firstName} {request.customer.lastName} - {request.customer.unitNumber || "N/A"}
+                    {request.customer?.firstName} {request.customer?.lastName} - {request.customer?.unitNumber || "N/A"}
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">

@@ -25,7 +25,9 @@ import {
   ChevronUp,
   Sparkles,
   FileText,
+  FileSpreadsheet,
 } from "lucide-react";
+import { ReportModal } from "~/components/ReportModal";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 
 export const Route = createFileRoute("/admin/invoices/")({
@@ -95,6 +97,7 @@ function InvoicesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" },
@@ -979,6 +982,13 @@ function InvoicesPage() {
               <Plus className="h-5 w-5 mr-2" />
               Create Invoice
             </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md transition-all"
+            >
+              <FileSpreadsheet className="h-5 w-5 mr-2" />
+              Generate Report
+            </button>
           </div>
         </div>
       </header>
@@ -1392,7 +1402,7 @@ function InvoicesPage() {
                       <div className="col-span-2">
                         <input
                           type="text"
-                          value={`R${item.total.toFixed(2)}`}
+                          value={`R${(item.total || 0).toFixed(2)}`}
                           disabled
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                         />
@@ -1530,7 +1540,7 @@ function InvoicesPage() {
 
                       {/* Right: Amount + Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-sm font-bold text-gray-900">R{invoice.total.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-gray-900">R{(invoice.total || 0).toLocaleString()}</span>
                         {isAdmin && invoice.estimatedProfit !== undefined && (
                           <span className={`text-xs font-semibold ${invoice.estimatedProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
                             (P: R{invoice.estimatedProfit.toLocaleString()})
@@ -1687,7 +1697,7 @@ function InvoicesPage() {
                         <div className="flex items-center"><User className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerName}</div>
                         <div className="flex items-center"><Mail className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerEmail}</div>
                         <div className="flex items-center"><Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerPhone}</div>
-                        <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-gray-400" />Total: R{invoice.total.toLocaleString()}</div>
+                        <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-gray-400" />Total: R{(invoice.total || 0).toLocaleString()}</div>
                       </div>
 
                       {/* Cost Breakdown - compact single section */}
@@ -1698,7 +1708,7 @@ function InvoicesPage() {
                             <span className="text-gray-600 text-xs">Material: <span className="font-medium text-gray-900">R{invoice.companyMaterialCost?.toFixed(2) || "0.00"}</span></span>
                             <span className="text-gray-600 text-xs">Labour: <span className="font-medium text-gray-900">R{invoice.companyLabourCost?.toFixed(2) || "0.00"}</span></span>
                             <span className="text-gray-600 text-xs">Total Cost: <span className="font-bold text-indigo-700">R{totalCostToCompany.toFixed(2)}</span></span>
-                            <span className="text-gray-600 text-xs">Client Total: <span className="font-bold text-gray-900">R{invoice.total.toFixed(2)}</span></span>
+                            <span className="text-gray-600 text-xs">Client Total: <span className="font-bold text-gray-900">R{(invoice.total || 0).toFixed(2)}</span></span>
                             <span className={`text-xs font-bold ${invoice.estimatedProfit >= 0 ? "text-green-700" : "text-red-700"}`}>
                               Profit: R{invoice.estimatedProfit?.toLocaleString() || "0"}
                             </span>
@@ -1727,23 +1737,23 @@ function InvoicesPage() {
                                     <td className="px-2 py-1.5 text-gray-900">{item.description}</td>
                                     <td className="px-2 py-1.5 text-gray-600 text-center">{item.unitOfMeasure || 'Sum'}</td>
                                     <td className="px-2 py-1.5 text-gray-900 text-right">{item.quantity}</td>
-                                    <td className="px-2 py-1.5 text-gray-900 text-right">R{item.unitPrice.toFixed(2)}</td>
-                                    <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{item.total.toFixed(2)}</td>
+                                    <td className="px-2 py-1.5 text-gray-900 text-right">R{(item.unitPrice || 0).toFixed(2)}</td>
+                                    <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{(item.total || 0).toFixed(2)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot className="bg-gray-50">
                                 <tr>
                                   <td colSpan={4} className="px-2 py-1.5 font-medium text-gray-700 text-right">Subtotal:</td>
-                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{invoice.subtotal.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{(invoice.subtotal || 0).toFixed(2)}</td>
                                 </tr>
                                 <tr>
                                   <td colSpan={4} className="px-2 py-1.5 font-medium text-gray-700 text-right">VAT (15%):</td>
-                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{invoice.tax.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-gray-900 text-right">R{(invoice.tax || 0).toFixed(2)}</td>
                                 </tr>
                                 <tr className="border-t-2 border-gray-300">
                                   <td colSpan={4} className="px-2 py-1.5 text-sm font-bold text-gray-900 text-right">Total:</td>
-                                  <td className="px-2 py-1.5 text-sm font-bold text-brand-danger-600 text-right">R{invoice.total.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-sm font-bold text-brand-danger-600 text-right">R{(invoice.total || 0).toFixed(2)}</td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -1844,6 +1854,46 @@ function InvoicesPage() {
           </div>
         </div>
       )}
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Invoices Report"
+        filenamePrefix="invoices_report"
+        columns={[
+          { header: "Invoice #", key: "invoiceNumber" },
+          { header: "Customer Name", key: "customerName" },
+          { header: "Email", key: "customerEmail" },
+          { header: "Phone", key: "customerPhone" },
+          { header: "Address", key: "address" },
+          { header: "Status", key: "status" },
+          { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
+          { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Cost", key: "companyLabourCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Due Date", key: "dueDate", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Order #", key: "order", format: (v: any) => v?.orderNumber || "\u2014" },
+          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Notes", key: "notes" },
+        ]}
+        data={invoices}
+        filters={[
+          {
+            label: "Status",
+            key: "status",
+            options: [
+              { value: "DRAFT", label: "Draft" },
+              { value: "PENDING_REVIEW", label: "Pending Review" },
+              { value: "PENDING_APPROVAL", label: "Pending Approval" },
+              { value: "SENT", label: "Sent" },
+              { value: "OVERDUE", label: "Overdue" },
+              { value: "PAID", label: "Paid" },
+              { value: "CANCELLED", label: "Cancelled" },
+              { value: "REJECTED", label: "Rejected" },
+            ],
+          },
+        ]}
+      />
     </div>
   );
 }

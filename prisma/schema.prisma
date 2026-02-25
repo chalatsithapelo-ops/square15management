@@ -921,6 +921,12 @@ model InvoiceLineItem {
   total         Float
   unitOfMeasure String   @default("Sum")
 
+  // SARS VAT compliance (Section 20 VAT Act)
+  vatRate     Float?  @default(15) // VAT rate percentage (15%, 0%, or null for exempt)
+  vatAmount   Float?  @default(0)  // VAT amount on this line item
+  netAmount   Float?               // Amount excluding VAT
+  supplyType  String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+
   invoiceId Int
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -942,6 +948,17 @@ model Asset {
   location      String?
   notes         String?
   images        String[]
+
+  // SARS Depreciation / Wear & Tear (Section 11(e))
+  usefulLifeYears      Int?     // Estimated useful life in years
+  residualValue        Float?   @default(0) // Value at end of useful life
+  depreciationMethod   String?  @default("STRAIGHT_LINE") // STRAIGHT_LINE or REDUCING_BALANCE
+  sarsWearAndTearRate  Float?   // SARS wear-and-tear rate percentage (e.g., 20 for 20%)
+  accumulatedDepreciation Float? @default(0) // Total depreciation to date
+  lastDepreciationDate DateTime? // Date of last depreciation calculation
+
+  // Capital vs Revenue classification
+  expenditureType String? @default("CAPITAL") // CAPITAL or REVENUE
 
   // Track who created this asset (essential for portal separation)
   createdById Int?
@@ -1048,6 +1065,19 @@ model Payslip {
   // Tax Information
   taxReferenceNumber String?
   uifReferenceNumber String?
+
+  // SARS PAYE Compliance
+  employerUif      Float @default(0)  // Employer UIF contribution (1%)
+  sdlAmount        Float @default(0)  // Skills Development Levy (1%)
+  taxBracket       String?            // Tax bracket applied
+  taxRebate        Float @default(0)  // Primary/secondary/tertiary rebate
+  annualTaxableIncome Float?          // Projected annual taxable income
+  sarsSourceCode3601 Float?           // SARS 3601 - Salary
+  sarsSourceCode3701 Float?           // SARS 3701 - Bonus
+  sarsSourceCode3702 Float?           // SARS 3702 - Overtime
+  sarsSourceCode4101 Float?           // SARS 4101 - PAYE
+  sarsSourceCode4141 Float?           // SARS 4141 - UIF Employee
+  sarsSourceCode4142 Float?           // SARS 4142 - UIF Employer
 
   // Notes
   notes String?
@@ -2742,6 +2772,19 @@ model OperationalExpense {
   notes           String?
   documentUrl     String? // URL to receipt/invoice document
 
+  // SARS VAT Input Tax (Section 16 VAT Act)
+  vatRate        Float?  @default(15) // VAT rate on this expense
+  inputVatAmount Float?  @default(0)  // Input VAT claimable
+  netAmount      Float?               // Amount excluding VAT
+  supplyType     String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+  vendorVatNumber String?              // Vendor's VAT registration number
+
+  // Capital vs Revenue expenditure (IT14)
+  expenditureType String? @default("REVENUE") // CAPITAL or REVENUE
+
+  // SARS Section 11 deduction category
+  sarsDeductionSection String? // e.g., S11a_GENERAL, S11d_REPAIRS, S11e_DEPRECIATION
+
   // User who created the expense
   createdById Int
   createdBy   User @relation("UserOperationalExpenses", fields: [createdById], references: [id], onDelete: Cascade)
@@ -2776,6 +2819,15 @@ model AlternativeRevenue {
   referenceNumber String? // Transaction/reference number
   notes           String?
   documentUrl     String? // URL to supporting document
+
+  // SARS VAT Output Tax
+  vatRate        Float?  @default(15) // VAT rate on this revenue
+  outputVatAmount Float? @default(0)  // Output VAT on this revenue
+  netAmount      Float?               // Amount excluding VAT
+  supplyType     String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+
+  // SARS IT14 Income source code
+  sarsSourceCode String?  // e.g., 4001_SALES, 4003_SERVICES, 4007_RENTAL
 
   // User who created the revenue entry
   createdById Int
@@ -3208,4 +3260,70 @@ model PMTaskExpenseSlip {
   task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+}
+
+// ============================================
+// SARS COMPLIANCE & AUDIT MODELS
+// ============================================
+
+// Audit Trail - Section 29 Tax Administration Act
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId    Int?
+  userName  String?  // Denormalized for quick access
+  action    String   // CREATE, UPDATE, DELETE, EXPORT, GENERATE_REPORT
+  entityType String  // e.g., Invoice, Payslip, Asset, OperationalExpense
+  entityId   Int?
+  changes    String?  // JSON diff of before/after values
+  ipAddress  String?
+  userAgent  String?
+
+  // Context
+  module     String?  // e.g., accounts, payroll, invoices
+  description String? // Human-readable description
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// SARS Tax Configuration
+model SARSTaxConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taxYear     String  @unique // e.g., "2024/2025"
+  isActive    Boolean @default(true)
+
+  // Company Tax
+  companyTaxRate Float @default(27) // 27% for companies
+
+  // VAT
+  standardVatRate Float @default(15)
+
+  // SDL
+  sdlRate Float @default(1) // 1% of payroll
+  sdlThreshold Float @default(500000) // Annual payroll threshold
+
+  // UIF
+  uifEmployeeRate Float @default(1)
+  uifEmployerRate Float @default(1)
+  uifMaxEarnings Float @default(17712) // Monthly ceiling for UIF
+
+  // Tax brackets (stored as JSON array)
+  taxBrackets String // JSON: [{min, max, rate, baseAmount}]
+  taxRebates  String // JSON: {primary, secondary, tertiary}
+  taxThresholds String // JSON: {below65, age65to74, age75plus}
+
+  // Important dates
+  provisionalTax1stDue DateTime?
+  provisionalTax2ndDue DateTime?
+  provisionalTaxTopUpDue DateTime?
+  vatSubmissionFrequency String @default("BI_MONTHLY") // MONTHLY or BI_MONTHLY
+
+  createdById Int?
 }

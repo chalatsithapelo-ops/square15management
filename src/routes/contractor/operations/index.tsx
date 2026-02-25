@@ -39,7 +39,9 @@ import {
   ExternalLink,
   DollarSign,
   Trash2,
+  FileSpreadsheet,
 } from "lucide-react";
+import { ReportModal } from "~/components/ReportModal";
 import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
@@ -114,6 +116,7 @@ function OperationsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const [selectedOrderForDocs, setSelectedOrderForDocs] = useState<number | null>(null);
   const [selectedOrderForPdf, setSelectedOrderForPdf] = useState<number | null>(null);
@@ -1147,6 +1150,13 @@ function OperationsPage() {
               <Plus className="h-5 w-5 mr-2" />
               New Order
             </button>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md transition-all"
+            >
+              <FileSpreadsheet className="h-5 w-5 mr-2" />
+              Generate Report
+            </button>
           </div>
         </div>
       </header>
@@ -1816,10 +1826,10 @@ function OperationsPage() {
                           </div>
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">
-                              {ranked.artisan.firstName} {ranked.artisan.lastName}
+                              {ranked.artisan?.firstName} {ranked.artisan?.lastName}
                             </h3>
                             <p className="text-sm text-gray-600">
-                              {ranked.artisan.completedOrders} completed jobs • {ranked.artisan.activeOrders} active
+                              {ranked.artisan?.completedOrders} completed jobs • {ranked.artisan?.activeOrders} active
                             </p>
                           </div>
                         </div>
@@ -1892,23 +1902,23 @@ function OperationsPage() {
                       {/* Artisan Details */}
                       <div className="mt-3 pt-3 border-t border-gray-200">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
-                          {ranked.artisan.hourlyRate && (
+                          {ranked.artisan?.hourlyRate && (
                             <div>
-                              <span className="font-medium">Hourly Rate:</span> R{ranked.artisan.hourlyRate}
+                              <span className="font-medium">Hourly Rate:</span> R{ranked.artisan?.hourlyRate}
                             </div>
                           )}
-                          {ranked.artisan.dailyRate && (
+                          {ranked.artisan?.dailyRate && (
                             <div>
-                              <span className="font-medium">Daily Rate:</span> R{ranked.artisan.dailyRate}
+                              <span className="font-medium">Daily Rate:</span> R{ranked.artisan?.dailyRate}
                             </div>
                           )}
-                          {ranked.artisan.phone && (
+                          {ranked.artisan?.phone && (
                             <div>
-                              <span className="font-medium">Phone:</span> {ranked.artisan.phone}
+                              <span className="font-medium">Phone:</span> {ranked.artisan?.phone}
                             </div>
                           )}
                           <div>
-                            <span className="font-medium">Email:</span> {ranked.artisan.email}
+                            <span className="font-medium">Email:</span> {ranked.artisan?.email}
                           </div>
                         </div>
                       </div>
@@ -2040,11 +2050,11 @@ function OperationsPage() {
                               )}
                             </div>
                             <span className="font-bold text-green-900 ml-2">
-                              R{material.totalCost.toFixed(2)}
+                              R{(material.totalCost || 0).toFixed(2)}
                             </span>
                           </div>
                           <div className="text-gray-600">
-                            Qty: {material.quantity} × R{material.unitPrice.toFixed(2)}
+                            Qty: {material.quantity} × R{(material.unitPrice || 0).toFixed(2)}
                           </div>
                           {material.description && (
                             <div className="text-gray-600 mt-1">{material.description}</div>
@@ -2422,6 +2432,48 @@ function OperationsPage() {
           </div>
         </div>
       )}
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Operations Report"
+        filenamePrefix="operations_report"
+        columns={[
+          { header: "Order #", key: "orderNumber" },
+          { header: "Customer Name", key: "customerName" },
+          { header: "Email", key: "customerEmail" },
+          { header: "Phone", key: "customerPhone" },
+          { header: "Address", key: "address" },
+          { header: "Service Type", key: "serviceType" },
+          { header: "Status", key: "status" },
+          { header: "Total Cost", key: "totalCost", format: (v: any) => `R${(v || 0).toLocaleString()}` },
+          { header: "Call-Out Fee", key: "callOutFee", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Rate", key: "labourRate", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Material Budget", key: "totalMaterialBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Budget", key: "totalLabourCostBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Assigned To", key: "assignedTo", format: (v: any) => v ? `${v.firstName} ${v.lastName}` : "Unassigned" },
+          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
+          { header: "Description", key: "description" },
+          { header: "Notes", key: "notes" },
+        ]}
+        data={combinedOrders}
+        filters={[
+          {
+            label: "Status",
+            key: "status",
+            options: [
+              { value: "DRAFT", label: "Draft" },
+              { value: "SUBMITTED", label: "Submitted" },
+              { value: "ACCEPTED", label: "Accepted" },
+              { value: "PENDING", label: "Pending" },
+              { value: "ASSIGNED", label: "Assigned" },
+              { value: "IN_PROGRESS", label: "In Progress" },
+              { value: "COMPLETED", label: "Completed" },
+              { value: "CANCELLED", label: "Cancelled" },
+            ],
+          },
+        ]}
+      />
     </div>
   );
 }
