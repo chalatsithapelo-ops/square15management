@@ -1716,7 +1716,7 @@ function OperationsPage() {
                     <span className="text-xs text-gray-500 hidden md:inline">• {order.serviceType}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-sm font-bold text-gray-900">R{order.totalCost.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-gray-900">R{(order.totalCost || 0).toLocaleString()}</span>
                     {order.assignedTo && (
                       <span className="text-xs text-gray-500 hidden lg:inline">
                         <User className="h-3 w-3 inline mr-0.5" />{order.assignedTo.firstName} {order.assignedTo.lastName}
@@ -1756,7 +1756,7 @@ function OperationsPage() {
                     <div className="flex items-center"><Phone className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{order.customerPhone}</div>
                     <div className="flex items-center col-span-2"><MapPin className="h-3.5 w-3.5 mr-1.5 text-blue-600 flex-shrink-0" />{order.address}</div>
                     <div className="flex items-center"><Wrench className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{order.serviceType}</div>
-                    <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-blue-600" /><span className="font-semibold">R{order.totalCost.toLocaleString()}</span></div>
+                    <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-blue-600" /><span className="font-semibold">R{(order.totalCost || 0).toLocaleString()}</span></div>
                     <div className="flex items-center"><Calendar className="h-3.5 w-3.5 mr-1.5 text-blue-600" />{new Date(order.createdAt).toLocaleDateString()}</div>
                     {order.assignedTo && (
                       <div className="flex items-center"><User className="h-3.5 w-3.5 mr-1.5 text-blue-600" />Assigned to {order.assignedTo.firstName} {order.assignedTo.lastName}</div>
