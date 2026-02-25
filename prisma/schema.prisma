@@ -981,6 +981,7 @@ model Liability {
   creditor        String? // Name of creditor/lender
   referenceNumber String?
   notes           String?
+  images          String[] @default([])
 
   // Track who created this liability (essential for portal separation)
   createdById Int?

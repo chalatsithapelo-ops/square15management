@@ -16,6 +16,7 @@ export const createLiability = baseProcedure
       creditor: z.string().optional(),
       referenceNumber: z.string().optional(),
       notes: z.string().optional(),
+      images: z.array(z.string()).default([]),
     })
   )
   .mutation(async ({ input }) => {
@@ -33,6 +34,7 @@ export const createLiability = baseProcedure
         creditor: input.creditor || null,
         referenceNumber: input.referenceNumber || null,
         notes: input.notes || null,
+        images: input.images,
       },
     });
 

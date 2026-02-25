@@ -12,6 +12,16 @@ export const updateAsset = baseProcedure
       condition: z.string().optional(),
       location: z.string().optional(),
       notes: z.string().optional(),
+      images: z.array(z.string()).optional(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      category: z.string().optional(),
+      serialNumber: z.string().optional(),
+      purchasePrice: z.number().optional(),
+      usefulLifeYears: z.number().optional(),
+      residualValue: z.number().optional(),
+      depreciationMethod: z.string().optional(),
+      sarsWearAndTearRate: z.number().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -33,6 +43,16 @@ export const updateAsset = baseProcedure
     if (input.condition !== undefined) updateData.condition = input.condition;
     if (input.location !== undefined) updateData.location = input.location;
     if (input.notes !== undefined) updateData.notes = input.notes;
+    if (input.images !== undefined) updateData.images = input.images;
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.description !== undefined) updateData.description = input.description;
+    if (input.category !== undefined) updateData.category = input.category;
+    if (input.serialNumber !== undefined) updateData.serialNumber = input.serialNumber;
+    if (input.purchasePrice !== undefined) updateData.purchasePrice = input.purchasePrice;
+    if (input.usefulLifeYears !== undefined) updateData.usefulLifeYears = input.usefulLifeYears;
+    if (input.residualValue !== undefined) updateData.residualValue = input.residualValue;
+    if (input.depreciationMethod !== undefined) updateData.depreciationMethod = input.depreciationMethod;
+    if (input.sarsWearAndTearRate !== undefined) updateData.sarsWearAndTearRate = input.sarsWearAndTearRate;
 
     const asset = await db.asset.update({
       where: { id: input.assetId },

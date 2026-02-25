@@ -19,6 +19,7 @@ export const updateLiability = baseProcedure
       creditor: z.string().optional(),
       referenceNumber: z.string().optional(),
       notes: z.string().optional(),
+      images: z.array(z.string()).optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -47,6 +48,7 @@ export const updateLiability = baseProcedure
     if (input.creditor !== undefined) updateData.creditor = input.creditor;
     if (input.referenceNumber !== undefined) updateData.referenceNumber = input.referenceNumber;
     if (input.notes !== undefined) updateData.notes = input.notes;
+    if (input.images !== undefined) updateData.images = input.images;
 
     const liability = await db.liability.update({
       where: { id: input.liabilityId },

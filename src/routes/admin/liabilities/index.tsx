@@ -18,8 +18,11 @@ import {
   Edit,
   CheckCircle,
   XCircle,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
+import { PhotoUpload } from "~/components/PhotoUpload";
 
 export const Route = createFileRoute("/admin/liabilities/")({
   component: LiabilitiesPage,
@@ -82,6 +85,8 @@ function LiabilitiesPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [editingLiability, setEditingLiability] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<any>({});
+  const [selectedLiability, setSelectedLiability] = useState<any | null>(null);
+  const [liabilityImages, setLiabilityImages] = useState<string[]>([]);
 
   const liabilitiesQuery = useQuery(
     trpc.getLiabilities.queryOptions({
@@ -104,6 +109,7 @@ function LiabilitiesPage() {
         toast.success("Liability created successfully!");
         queryClient.invalidateQueries({ queryKey: trpc.getLiabilities.queryKey() });
         reset();
+        setLiabilityImages([]);
         setShowAddForm(false);
       },
       onError: (error) => {
@@ -130,6 +136,7 @@ function LiabilitiesPage() {
     createLiabilityMutation.mutate({
       token: token!,
       ...data,
+      images: liabilityImages,
     });
   };
 
@@ -355,12 +362,21 @@ function LiabilitiesPage() {
                 />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Images (optional)</label>
+                <PhotoUpload
+                  photos={liabilityImages}
+                  onChange={setLiabilityImages}
+                />
+              </div>
+
               <div className="md:col-span-2 flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddForm(false);
                     reset();
+                    setLiabilityImages([]);
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -447,7 +463,12 @@ function LiabilitiesPage() {
                   return (
                     <tr key={liability.id} className={`hover:bg-gray-50 transition-colors ${isOverdue ? 'bg-red-50' : ''}`}>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{liability.name}</div>
+                        <div
+                          className="font-medium text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => setSelectedLiability(liability)}
+                        >
+                          {liability.name}
+                        </div>
                         {liability.description && <div className="text-xs text-gray-500 mt-0.5 max-w-[200px] truncate">{liability.description}</div>}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{categoryInfo?.label || liability.category}</td>
@@ -567,6 +588,176 @@ function LiabilitiesPage() {
           </div>
         )}
       </main>
+
+      {/* Liability Detail Modal */}
+      {selectedLiability && (() => {
+        const categoryInfo = liabilityCategories.find(c => c.value === selectedLiability.category);
+        const isOverdue = selectedLiability.dueDate && !selectedLiability.isPaid && new Date(selectedLiability.dueDate) < new Date();
+        const images: string[] = selectedLiability.images || [];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setSelectedLiability(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-t-2xl px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <AlertTriangle className="h-6 w-6 text-white" />
+                  <h2 className="text-lg font-bold text-white truncate">{selectedLiability.name}</h2>
+                </div>
+                <button
+                  onClick={() => setSelectedLiability(null)}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-white" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Overdue Warning */}
+                {isOverdue && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-red-700">This liability is overdue!</span>
+                  </div>
+                )}
+
+                {/* Image Gallery */}
+                {images.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center space-x-1">
+                      <ImageIcon className="h-4 w-4" />
+                      <span>Images ({images.length})</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {images.map((img: string, idx: number) => (
+                        <a key={idx} href={img} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={img}
+                            alt={`Liability image ${idx + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">{selectedLiability.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</label>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">{categoryInfo?.label || selectedLiability.category}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</label>
+                    <p className="text-sm font-bold text-gray-900 mt-0.5">R {(selectedLiability.amount || 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Due Date</label>
+                    <p className={`text-sm font-medium mt-0.5 ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
+                      {selectedLiability.dueDate ? new Date(selectedLiability.dueDate).toLocaleDateString() : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
+                    <p className="mt-0.5">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        selectedLiability.isPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {selectedLiability.isPaid ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Paid Date</label>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">
+                      {selectedLiability.paidDate ? new Date(selectedLiability.paidDate).toLocaleDateString() : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Creditor</label>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">{selectedLiability.creditor || '—'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Reference Number</label>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">{selectedLiability.referenceNumber || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {selectedLiability.description && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</label>
+                    <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap">{selectedLiability.description}</p>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {selectedLiability.notes && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Notes</label>
+                    <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap">{selectedLiability.notes}</p>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</label>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {selectedLiability.createdAt ? new Date(selectedLiability.createdAt).toLocaleString() : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Updated</label>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {selectedLiability.updatedAt ? new Date(selectedLiability.updatedAt).toLocaleString() : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload Images */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Add Images</h3>
+                  <PhotoUpload
+                    photos={images}
+                    onChange={(newImages) => {
+                      updateLiabilityMutation.mutate({
+                        token: token!,
+                        liabilityId: selectedLiability.id,
+                        images: newImages,
+                      }, {
+                        onSuccess: () => {
+                          setSelectedLiability({ ...selectedLiability, images: newImages });
+                        }
+                      });
+                    }}
+                  />
+                </div>
+
+                {/* Close Button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => setSelectedLiability(null)}
+                    className="px-5 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
