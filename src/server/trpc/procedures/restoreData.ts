@@ -39,13 +39,13 @@ export const restoreData = baseProcedure
     const user = await authenticateUser(input.token);
     assertNotRestrictedDemoAccount(user, "restore data");
 
-    // Only admins can restore data
-    const isAdmin =
-      user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN";
-    if (!isAdmin) {
+    // Only main admin or contractor senior manager can restore data
+    const canRestore =
+      user.role === "SENIOR_ADMIN" || user.role === "CONTRACTOR_SENIOR_MANAGER";
+    if (!canRestore) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only administrators can perform data restoration.",
+        message: "Only the main administrator or contractor manager can perform data restoration.",
       });
     }
 

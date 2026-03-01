@@ -30,8 +30,9 @@ export const Route = createFileRoute("/admin/accounts/")({
 });
 
 function AccountsPage() {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const trpc = useTRPC();
+  const isSeniorAdmin = user?.role === "SENIOR_ADMIN";
 
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
   const [activeTab, setActiveTab] = useState("overview");
@@ -465,13 +466,15 @@ function AccountsPage() {
                 </>
               )}
             </button>
-            <button
-              onClick={() => { setShowRestoreModal(true); setRestoreResult(null); setRestoreConfirm(null); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Restore
-            </button>
+            {isSeniorAdmin && (
+              <button
+                onClick={() => { setShowRestoreModal(true); setRestoreResult(null); setRestoreConfirm(null); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Restore
+              </button>
+            )}
           </div>
         </div>
 
