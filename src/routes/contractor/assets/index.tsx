@@ -17,6 +17,7 @@ import {
   DollarSign,
   MapPin,
   Edit,
+  Trash2,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 
@@ -137,6 +138,24 @@ function AssetsPage() {
       },
     })
   );
+
+  const deleteAssetMutation = useMutation(
+    trpc.deleteAsset.mutationOptions({
+      onSuccess: () => {
+        toast.success("Asset deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getAssets.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete asset");
+      },
+    })
+  );
+
+  const handleDeleteAsset = (assetId: number) => {
+    if (window.confirm("Are you sure you want to delete this asset? This action cannot be undone.")) {
+      deleteAssetMutation.mutate({ token: token!, assetId });
+    }
+  };
 
   const onSubmit = (data: AssetForm) => {
     createAssetMutation.mutate({
@@ -476,19 +495,28 @@ function AssetsPage() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => {
-                            setEditingAsset(asset.id);
-                            setEditValues({
-                              currentValue: asset.currentValue,
-                              condition: asset.condition,
-                              location: asset.location,
-                            });
-                          }}
-                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => {
+                              setEditingAsset(asset.id);
+                              setEditValues({
+                                currentValue: asset.currentValue,
+                                condition: asset.condition,
+                                location: asset.location,
+                              });
+                            }}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            disabled={deleteAssetMutation.isPending}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

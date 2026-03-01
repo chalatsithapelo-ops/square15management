@@ -16,6 +16,7 @@ import {
   DollarSign,
   User,
   Edit,
+  Trash2,
   CheckCircle,
   XCircle,
   X,
@@ -131,6 +132,25 @@ function LiabilitiesPage() {
       },
     })
   );
+
+  const deleteLiabilityMutation = useMutation(
+    trpc.deleteLiability.mutationOptions({
+      onSuccess: () => {
+        toast.success("Liability deleted successfully!");
+        queryClient.invalidateQueries({ queryKey: trpc.getLiabilities.queryKey() });
+        setSelectedLiability(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete liability");
+      },
+    })
+  );
+
+  const handleDeleteLiability = (liabilityId: number) => {
+    if (window.confirm("Are you sure you want to delete this liability? This action cannot be undone.")) {
+      deleteLiabilityMutation.mutate({ token: token!, liabilityId });
+    }
+  };
 
   const onSubmit = (data: LiabilityForm) => {
     createLiabilityMutation.mutate({
@@ -557,20 +577,29 @@ function LiabilitiesPage() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => {
-                              setEditingLiability(liability.id);
-                              setEditValues({
-                                amount: liability.amount,
-                                dueDate: liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "",
-                                creditor: liability.creditor,
-                                referenceNumber: liability.referenceNumber,
-                              });
-                            }}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center justify-center space-x-1">
+                            <button
+                              onClick={() => {
+                                setEditingLiability(liability.id);
+                                setEditValues({
+                                  amount: liability.amount,
+                                  dueDate: liability.dueDate ? new Date(liability.dueDate).toISOString().split('T')[0] : "",
+                                  creditor: liability.creditor,
+                                  referenceNumber: liability.referenceNumber,
+                                });
+                              }}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLiability(liability.id)}
+                              disabled={deleteLiabilityMutation.isPending}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

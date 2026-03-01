@@ -72,6 +72,7 @@ import { getCustomerDetailsByEmail } from "~/server/trpc/procedures/getCustomerD
 import { getAssets } from "~/server/trpc/procedures/getAssets";
 import { createAsset } from "~/server/trpc/procedures/createAsset";
 import { updateAsset } from "~/server/trpc/procedures/updateAsset";
+import { deleteAsset } from "~/server/trpc/procedures/deleteAsset";
 import { getOperationalExpenses } from "~/server/trpc/procedures/getOperationalExpenses";
 import { createOperationalExpense } from "~/server/trpc/procedures/createOperationalExpense";
 import { updateOperationalExpense } from "~/server/trpc/procedures/updateOperationalExpense";
@@ -154,6 +155,7 @@ import { getArtisanReviews } from "~/server/trpc/procedures/getArtisanReviews";
 import { createLiability } from "~/server/trpc/procedures/createLiability";
 import { getLiabilities } from "~/server/trpc/procedures/getLiabilities";
 import { updateLiability } from "~/server/trpc/procedures/updateLiability";
+import { deleteLiability } from "~/server/trpc/procedures/deleteLiability";
 import { captureMetricSnapshot } from "~/server/trpc/procedures/captureMetricSnapshot";
 import { getMetricSnapshots } from "~/server/trpc/procedures/getMetricSnapshots";
 import { getCustomers } from "~/server/trpc/procedures/getCustomers";
@@ -480,6 +482,7 @@ export const appRouter = createTRPCRouter({
   getAssets,
   createAsset,
   updateAsset,
+  deleteAsset,
   
   // Operational Expenses & Alternative Revenue
   getOperationalExpenses,
@@ -559,6 +562,7 @@ export const appRouter = createTRPCRouter({
   createLiabilities: createLiability,
   getLiabilities,
   updateLiability,
+  deleteLiability,
   
   // Property Manager Module
   createPropertyManagerRFQ,
