@@ -337,14 +337,22 @@ function AdminDashboard() {
   // Work in Progress = Active Orders + Active Projects
   const workInProgress = activeOrders + activeProjects;
   
-  // Calculate expenses from real-time data (matching Management Accounts logic)
+  // Calculate expenses from real-time data (matching Management Accounts logic exactly)
   // Order costs (internal company costs for materials and labour)
   const orderMaterialCosts = ordersQuery.data ? orders.reduce((sum, o) => sum + (o.materialCost ?? 0), 0) : 0;
   const orderLabourCosts = ordersQuery.data ? orders.reduce((sum, o) => sum + (o.labourCost ?? 0), 0) : 0;
   
-  // Invoice costs (company's actual material and labour costs)
-  const invoiceMaterialCosts = invoicesQuery.data ? invoices.reduce((sum, i) => sum + (i.companyMaterialCost ?? 0), 0) : 0;
-  const invoiceLabourCosts = invoicesQuery.data ? invoices.reduce((sum, i) => sum + (i.companyLabourCost ?? 0), 0) : 0;
+  // Approved quotation costs (matching Management Accounts formula)
+  const quotationMaterialCosts = quotationsQuery.data ? quotations
+    .filter((q: any) => q.status === "APPROVED")
+    .reduce((sum, q: any) => sum + (q.companyMaterialCost ?? 0), 0) : 0;
+  const quotationLabourCosts = quotationsQuery.data ? quotations
+    .filter((q: any) => q.status === "APPROVED")
+    .reduce((sum, q: any) => sum + (q.companyLabourCost ?? 0), 0) : 0;
+  
+  // Combined material and labour costs (same as Management Accounts)
+  const materialCosts = orderMaterialCosts + quotationMaterialCosts;
+  const labourCosts = orderLabourCosts + quotationLabourCosts;
   
   // Artisan payments (actual paid amounts to artisans)
   const artisanPayments = paymentRequestsQuery.data ? paymentRequests
@@ -356,19 +364,9 @@ function AdminDashboard() {
     .filter((e) => e.isApproved === true)
     .reduce((sum, e) => sum + (e.amount ?? 0), 0) : 0;
   
-  // Total expenses = all material costs + all labour costs + artisan payments + operational expenses
-  const totalExpenses = orderMaterialCosts + orderLabourCosts + invoiceMaterialCosts + invoiceLabourCosts + artisanPayments + operationalExpenseTotal;
-  
-  // Debug logging for expenses
-  console.log('[Admin Dashboard] Expense Calculations:', {
-    orderMaterialCosts,
-    orderLabourCosts,
-    invoiceMaterialCosts,
-    invoiceLabourCosts,
-    artisanPayments,
-    operationalExpenseTotal,
-    totalExpenses,
-  });
+  // Total expenses = artisan payments + material costs + labour costs + operational expenses
+  // (Same formula as Management Accounts)
+  const totalExpenses = artisanPayments + materialCosts + labourCosts + operationalExpenseTotal;
   
   // Calculate net profit (revenue - expenses)
   const netProfit = totalRevenue - totalExpenses;

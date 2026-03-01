@@ -474,28 +474,46 @@ export function FinancialReportsSection() {
                   {report.status === "COMPLETED" && (report.pdfUrl || report.csvUrl) && (
                     <div className="ml-4 flex items-center gap-2">
                       {report.pdfUrl && (
-                        <a
-                          href={report.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                        <button
+                          onClick={async () => {
+                            try {
+                              const result = await trpc.getPresignedDownloadUrl.query({
+                                token: token!,
+                                url: report.pdfUrl!,
+                                expiresInSeconds: 600,
+                              });
+                              window.open(result.url, '_blank');
+                            } catch (err: any) {
+                              toast.error(err.message || 'Failed to generate download link');
+                            }
+                          }}
+                          className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
                           title="Download PDF"
                         >
                           <FileText className="h-4 w-4 mr-1" />
                           PDF
-                        </a>
+                        </button>
                       )}
                       {report.csvUrl && (
-                        <a
-                          href={report.csvUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                        <button
+                          onClick={async () => {
+                            try {
+                              const result = await trpc.getPresignedDownloadUrl.query({
+                                token: token!,
+                                url: report.csvUrl!,
+                                expiresInSeconds: 600,
+                              });
+                              window.open(result.url, '_blank');
+                            } catch (err: any) {
+                              toast.error(err.message || 'Failed to generate download link');
+                            }
+                          }}
+                          className="flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer"
                           title="Download Excel/CSV"
                         >
                           <FileSpreadsheet className="h-4 w-4 mr-1" />
                           Excel
-                        </a>
+                        </button>
                       )}
                     </div>
                   )}

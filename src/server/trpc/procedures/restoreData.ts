@@ -33,6 +33,19 @@ export const restoreData = baseProcedure
         "1_YEAR",
         "ALL_TIME",
       ]),
+      // Optional: choose which data categories to delete
+      // If not provided, ALL categories are deleted (backwards compatible)
+      categories: z.array(z.enum([
+        "ORDERS",         // Orders + child records (expense slips, job activities, materials, reviews)
+        "INVOICES",       // Invoices + line items
+        "QUOTATIONS",     // Quotations + line items
+        "PAYMENT_REQUESTS",
+        "PAYSLIPS",
+        "ASSETS",
+        "LIABILITIES",
+        "OPERATIONAL_EXPENSES",
+        "ALTERNATIVE_REVENUES",
+      ])).optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -92,114 +105,138 @@ export const restoreData = baseProcedure
 
     const dateFilter = { createdAt: { gte: cutoffDate } };
 
+    // Determine which categories to delete
+    // If categories not provided, delete ALL (backwards compatible)
+    const allCategories = [
+      "ORDERS", "INVOICES", "QUOTATIONS", "PAYMENT_REQUESTS",
+      "PAYSLIPS", "ASSETS", "LIABILITIES", "OPERATIONAL_EXPENSES", "ALTERNATIVE_REVENUES",
+    ];
+    const selectedCategories = input.categories && input.categories.length > 0
+      ? input.categories
+      : allCategories;
+    const shouldDelete = (cat: string) => selectedCategories.includes(cat as any);
+
     // Use a transaction to ensure atomicity
     const result = await db.$transaction(async (tx) => {
       // Delete in order that respects foreign key constraints
       // (child records first, then parent records)
 
-      // 1. Delete expense slips (child of Order)
-      const expenseSlips = await tx.expenseSlip.deleteMany({
-        where: {
-          order: { createdAt: { gte: cutoffDate } },
-        },
-      });
+      let expenseSlipsCount = 0;
+      let jobActivitiesCount = 0;
+      let materialsCount = 0;
+      let reviewsCount = 0;
+      let ordersCount = 0;
+      let invoiceLineItemsCount = 0;
+      let invoicesCount = 0;
+      let quotationLineItemsCount = 0;
+      let quotationsCount = 0;
+      let paymentRequestsCount = 0;
+      let payslipsCount = 0;
+      let assetsCount = 0;
+      let liabilitiesCount = 0;
+      let operationalExpensesCount = 0;
+      let alternativeRevenuesCount = 0;
 
-      // 2. Delete job activities (child of Order)
-      const jobActivities = await tx.jobActivity.deleteMany({
-        where: {
-          order: { createdAt: { gte: cutoffDate } },
-        },
-      });
+      // Orders + child records
+      if (shouldDelete("ORDERS")) {
+        const expenseSlips = await tx.expenseSlip.deleteMany({
+          where: { order: { createdAt: { gte: cutoffDate } } },
+        });
+        expenseSlipsCount = expenseSlips.count;
 
-      // 3. Delete materials (child of Order)
-      const materials = await tx.material.deleteMany({
-        where: {
-          order: { createdAt: { gte: cutoffDate } },
-        },
-      });
+        const jobActivities = await tx.jobActivity.deleteMany({
+          where: { order: { createdAt: { gte: cutoffDate } } },
+        });
+        jobActivitiesCount = jobActivities.count;
 
-      // 4. Delete reviews (child of Order)
-      const reviews = await tx.review.deleteMany({
-        where: {
-          order: { createdAt: { gte: cutoffDate } },
-        },
-      });
+        const materials = await tx.material.deleteMany({
+          where: { order: { createdAt: { gte: cutoffDate } } },
+        });
+        materialsCount = materials.count;
 
-      // 5. Delete invoice line items (child of Invoice)
-      const invoiceLineItems = await tx.invoiceLineItem.deleteMany({
-        where: {
-          invoice: { createdAt: { gte: cutoffDate } },
-        },
-      });
+        const reviews = await tx.review.deleteMany({
+          where: { order: { createdAt: { gte: cutoffDate } } },
+        });
+        reviewsCount = reviews.count;
 
-      // 6. Delete invoices
-      const invoices = await tx.invoice.deleteMany({
-        where: dateFilter,
-      });
+        const orders = await tx.order.deleteMany({ where: dateFilter });
+        ordersCount = orders.count;
+      }
 
-      // 7. Delete quotation line items (child of Quotation)
-      const quotationLineItems = await tx.quotationLineItem.deleteMany({
-        where: {
-          quotation: { createdAt: { gte: cutoffDate } },
-        },
-      });
+      // Invoices + line items
+      if (shouldDelete("INVOICES")) {
+        const invoiceLineItems = await tx.invoiceLineItem.deleteMany({
+          where: { invoice: { createdAt: { gte: cutoffDate } } },
+        });
+        invoiceLineItemsCount = invoiceLineItems.count;
 
-      // 8. Delete orders
-      const orders = await tx.order.deleteMany({
-        where: dateFilter,
-      });
+        const invoices = await tx.invoice.deleteMany({ where: dateFilter });
+        invoicesCount = invoices.count;
+      }
 
-      // 9. Delete quotations
-      const quotations = await tx.quotation.deleteMany({
-        where: dateFilter,
-      });
+      // Quotations + line items
+      if (shouldDelete("QUOTATIONS")) {
+        const quotationLineItems = await tx.quotationLineItem.deleteMany({
+          where: { quotation: { createdAt: { gte: cutoffDate } } },
+        });
+        quotationLineItemsCount = quotationLineItems.count;
 
-      // 10. Delete payment requests
-      const paymentRequests = await tx.paymentRequest.deleteMany({
-        where: dateFilter,
-      });
+        const quotations = await tx.quotation.deleteMany({ where: dateFilter });
+        quotationsCount = quotations.count;
+      }
 
-      // 11. Delete payslips
-      const payslips = await tx.payslip.deleteMany({
-        where: dateFilter,
-      });
+      // Payment requests
+      if (shouldDelete("PAYMENT_REQUESTS")) {
+        const paymentRequests = await tx.paymentRequest.deleteMany({ where: dateFilter });
+        paymentRequestsCount = paymentRequests.count;
+      }
 
-      // 12. Delete assets
-      const assets = await tx.asset.deleteMany({
-        where: dateFilter,
-      });
+      // Payslips
+      if (shouldDelete("PAYSLIPS")) {
+        const payslips = await tx.payslip.deleteMany({ where: dateFilter });
+        payslipsCount = payslips.count;
+      }
 
-      // 13. Delete liabilities
-      const liabilities = await tx.liability.deleteMany({
-        where: dateFilter,
-      });
+      // Assets
+      if (shouldDelete("ASSETS")) {
+        const assets = await tx.asset.deleteMany({ where: dateFilter });
+        assetsCount = assets.count;
+      }
 
-      // 14. Delete operational expenses
-      const operationalExpenses = await tx.operationalExpense.deleteMany({
-        where: dateFilter,
-      });
+      // Liabilities
+      if (shouldDelete("LIABILITIES")) {
+        const liabilities = await tx.liability.deleteMany({ where: dateFilter });
+        liabilitiesCount = liabilities.count;
+      }
 
-      // 15. Delete alternative revenues
-      const alternativeRevenues = await tx.alternativeRevenue.deleteMany({
-        where: dateFilter,
-      });
+      // Operational expenses
+      if (shouldDelete("OPERATIONAL_EXPENSES")) {
+        const operationalExpenses = await tx.operationalExpense.deleteMany({ where: dateFilter });
+        operationalExpensesCount = operationalExpenses.count;
+      }
+
+      // Alternative revenues
+      if (shouldDelete("ALTERNATIVE_REVENUES")) {
+        const alternativeRevenues = await tx.alternativeRevenue.deleteMany({ where: dateFilter });
+        alternativeRevenuesCount = alternativeRevenues.count;
+      }
 
       return {
-        orders: orders.count,
-        invoices: invoices.count,
-        quotations: quotations.count,
-        paymentRequests: paymentRequests.count,
-        payslips: payslips.count,
-        assets: assets.count,
-        liabilities: liabilities.count,
-        operationalExpenses: operationalExpenses.count,
-        alternativeRevenues: alternativeRevenues.count,
-        invoiceLineItems: invoiceLineItems.count,
-        quotationLineItems: quotationLineItems.count,
-        materials: materials.count,
-        expenseSlips: expenseSlips.count,
-        jobActivities: jobActivities.count,
-        reviews: reviews.count,
+        orders: ordersCount,
+        invoices: invoicesCount,
+        quotations: quotationsCount,
+        paymentRequests: paymentRequestsCount,
+        payslips: payslipsCount,
+        assets: assetsCount,
+        liabilities: liabilitiesCount,
+        operationalExpenses: operationalExpensesCount,
+        alternativeRevenues: alternativeRevenuesCount,
+        invoiceLineItems: invoiceLineItemsCount,
+        quotationLineItems: quotationLineItemsCount,
+        materials: materialsCount,
+        expenseSlips: expenseSlipsCount,
+        jobActivities: jobActivitiesCount,
+        reviews: reviewsCount,
       };
     });
 

@@ -54,6 +54,10 @@ function ContractorAccountsPage() {
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<any>(null);
+  const [restoreCategories, setRestoreCategories] = useState<string[]>([
+    "ASSETS", "LIABILITIES", "OPERATIONAL_EXPENSES", "ALTERNATIVE_REVENUES",
+    "PAYMENT_REQUESTS", "PAYSLIPS",
+  ]);
   const queryClient = useQueryClient();
   const isManager = user?.role === "CONTRACTOR_SENIOR_MANAGER";
 
@@ -319,6 +323,7 @@ function ContractorAccountsPage() {
     restoreDataMutation.mutate({
       token: token!,
       period: period as any,
+      categories: restoreCategories as any,
     });
   };
 
@@ -457,8 +462,8 @@ function ContractorAccountsPage() {
         {/* Main Content Tabs */}
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="border-b border-gray-200">
-              <div className="flex overflow-x-auto scrollbar-none touch-pan-x">
+            <div className="border-b border-gray-200 relative">
+              <div className="flex overflow-x-auto touch-pan-x pb-px" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
                 {[
                   { id: 'ai-insights', label: 'AI Insights', icon: Sparkles },
                   { id: 'profit-dashboard', label: 'Profit Dashboard', icon: TrendingUp },
@@ -805,9 +810,73 @@ function ContractorAccountsPage() {
                     <div>
                       <p className="font-semibold text-amber-900 text-sm">Warning: This action is irreversible</p>
                       <p className="text-xs text-amber-700 mt-1">
-                        Selecting a time period will permanently delete all financial data (orders, invoices, quotations, payments, assets, liabilities, expenses, and revenues) created after the chosen date. This cannot be undone.
+                        Only the selected data categories will be deleted for the chosen time period. Unselected categories will be preserved.
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Category Selection */}
+              {!restoreConfirm && !restoreResult && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Select data to restore (delete):</h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { value: "ORDERS", label: "Jobs / Orders", description: "Work orders, materials, expense slips, job activities, reviews" },
+                      { value: "INVOICES", label: "Invoices", description: "Invoices and line items" },
+                      { value: "QUOTATIONS", label: "Quotations", description: "Quotations and line items" },
+                      { value: "PAYMENT_REQUESTS", label: "Payment Requests", description: "Artisan payment requests" },
+                      { value: "PAYSLIPS", label: "Payslips", description: "Employee payslips" },
+                      { value: "ASSETS", label: "Assets", description: "Company assets" },
+                      { value: "LIABILITIES", label: "Liabilities", description: "Company liabilities" },
+                      { value: "OPERATIONAL_EXPENSES", label: "Operational Expenses", description: "Fuel, office supplies, etc." },
+                      { value: "ALTERNATIVE_REVENUES", label: "Alternative Revenues", description: "Non-invoice revenue sources" },
+                    ].map((cat) => (
+                      <label
+                        key={cat.value}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          restoreCategories.includes(cat.value)
+                            ? "border-orange-300 bg-orange-50"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={restoreCategories.includes(cat.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setRestoreCategories(prev => [...prev, cat.value]);
+                            } else {
+                              setRestoreCategories(prev => prev.filter(c => c !== cat.value));
+                            }
+                          }}
+                          className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{cat.label}</p>
+                          <p className="text-xs text-gray-500">{cat.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setRestoreCategories([
+                        "ORDERS", "INVOICES", "QUOTATIONS", "PAYMENT_REQUESTS",
+                        "PAYSLIPS", "ASSETS", "LIABILITIES", "OPERATIONAL_EXPENSES", "ALTERNATIVE_REVENUES",
+                      ])}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-xs text-gray-400">|</span>
+                    <button
+                      onClick={() => setRestoreCategories([])}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Deselect All
+                    </button>
                   </div>
                 </div>
               )}
@@ -821,12 +890,19 @@ function ContractorAccountsPage() {
                     </div>
                     <h3 className="font-bold text-red-900 text-lg">Confirm Restoration</h3>
                     <p className="text-sm text-red-700">
-                      You are about to delete all data from{" "}
+                      You are about to delete data from{" "}
                       <span className="font-bold">
                         {RESTORE_PERIODS.find(p => p.value === restoreConfirm)?.label}
-                      </span>.
-                      This will permanently remove the corresponding records.
+                      </span>{" "}
+                      for: <span className="font-bold">{restoreCategories.length} categor{restoreCategories.length === 1 ? 'y' : 'ies'}</span>.
                     </p>
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {restoreCategories.map(cat => (
+                        <span key={cat} className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">
+                          {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      ))}
+                    </div>
                     <div className="flex gap-3 justify-center pt-2">
                       <button
                         onClick={() => setRestoreConfirm(null)}
@@ -860,14 +936,20 @@ function ContractorAccountsPage() {
               {!restoreConfirm && !restoreResult && (
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">Choose restoration point:</h3>
+                  {restoreCategories.length === 0 && (
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Please select at least one data category above.</p>
+                  )}
                   {RESTORE_PERIODS.map((period) => (
                     <button
                       key={period.value}
                       onClick={() => setRestoreConfirm(period.value)}
+                      disabled={restoreCategories.length === 0}
                       className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                        period.value === "ALL_TIME"
-                          ? "border-red-200 hover:border-red-400 hover:bg-red-50"
-                          : "border-gray-200 hover:border-orange-300 hover:bg-orange-50"
+                        restoreCategories.length === 0
+                          ? "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                          : period.value === "ALL_TIME"
+                            ? "border-red-200 hover:border-red-400 hover:bg-red-50"
+                            : "border-gray-200 hover:border-orange-300 hover:bg-orange-50"
                       }`}
                     >
                       <div className="flex items-center justify-between">
