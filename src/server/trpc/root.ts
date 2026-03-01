@@ -355,6 +355,7 @@ import { getStaffTaskDetail } from "~/server/trpc/procedures/getStaffTaskDetail"
 import { updateStaffTaskStatus } from "~/server/trpc/procedures/updateStaffTaskStatus";
 import { addStaffTaskComment } from "~/server/trpc/procedures/addStaffTaskComment";
 import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTaskChecklist";
+import { restoreData } from "~/server/trpc/procedures/restoreData";
 
 export const appRouter = createTRPCRouter({
   // Auth
@@ -778,6 +779,9 @@ export const appRouter = createTRPCRouter({
   updateStaffTaskStatus,
   addStaffTaskComment,
   updateStaffTaskChecklist,
+
+  // Data Restoration
+  restoreData,
 });
 
 export type AppRouter = typeof appRouter;
