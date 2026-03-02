@@ -68,6 +68,7 @@ function AdminDashboard() {
   const { user, token } = useAuthStore();
   const trpc = useTRPC();
   const [showAnalytics, setShowAnalytics] = useState(true);
+  const [showFinancials, setShowFinancials] = useState(true);
   const [period, setPeriod] = useState<DashboardPeriod>("current_month");
 
   // ── Period filtering ──────────────────────────────────────────────────
@@ -387,75 +388,59 @@ function AdminDashboard() {
     }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // ── Quick Access modules ──────────────────────────────────────────
-  const allModules = [
-    { title: "CRM", description: "Sales leads & relationships", icon: Users, href: "/admin/crm", accent: "bg-blue-500", stats: `${newLeads} new leads`, group: "business" },
-    { title: "Quotations", description: "Create & manage quotes", icon: FileText, href: "/admin/quotations", accent: "bg-amber-500", stats: `${pendingQuotations} pending`, group: "business" },
-    { title: "Operations", description: "Track work orders", icon: ClipboardList, href: "/admin/operations", accent: "bg-emerald-500", stats: `${activeOrders} active jobs`, group: "operations" },
-    { title: "Projects", description: "Development projects", icon: FolderKanban, href: "/admin/projects", accent: "bg-violet-500", stats: `${activeProjects} active`, group: "operations" },
-    { title: "Messages", description: "Communications", icon: MessageSquare, href: "/messages", accent: "bg-teal-500", stats: `${unreadConversations.length} unread`, group: "operations" },
-    { title: "Invoices", description: "Billing & payments", icon: Receipt, href: "/admin/invoices", accent: "bg-rose-500", stats: `${unpaidInvoices} unpaid`, group: "finance" },
-    { title: "Statements", description: "Customer billing statements", icon: FileText, href: "/admin/statements", accent: "bg-purple-500", stats: "Age analysis", group: "finance" },
-    { title: "Accounts", description: "Financial reports", icon: DollarSign, href: "/admin/accounts", accent: "bg-emerald-600", stats: `R${(totalRevenue ?? 0).toLocaleString()}`, group: "finance", permission: "VIEW_ACCOUNTS" as Permission },
-    { title: "Payment Requests", description: "Artisan payments", icon: CreditCard, href: "/admin/payment-requests", accent: "bg-pink-500", stats: `${pendingPaymentRequests} pending`, group: "finance", permission: "VIEW_PAYMENT_REQUESTS" as Permission },
-    { title: "Assets", description: "Company assets", icon: Package, href: "/admin/assets", accent: "bg-indigo-500", stats: `R${(totalAssetValue ?? 0).toLocaleString()}`, group: "finance", permission: "VIEW_ASSETS" as Permission },
-    { title: "Liabilities", description: "Debt & payables", icon: AlertTriangle, href: "/admin/liabilities", accent: "bg-red-500", stats: `R${(unpaidLiabilitiesAmount ?? 0).toLocaleString()}`, group: "finance", permission: "VIEW_LIABILITIES" as Permission },
-    { title: "HR Tool", description: "Employees, KPIs & leave", icon: UserCircle2, href: "/admin/hr", accent: "bg-violet-600", stats: `${employees.length} employees`, group: "people", permission: "VIEW_ALL_EMPLOYEES" as Permission },
-    { title: "AI Agent", description: "Business assistant", icon: Bot, href: "/admin/ai-agent", accent: "bg-cyan-500", stats: "27 tools", group: "people" },
-    { title: "Contractors", description: "Contractor management", icon: Users, href: "/admin/contractor-management", accent: "bg-blue-600", stats: "Admin", group: "admin", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
-    { title: "Properties", description: "Property managers", icon: FolderKanban, href: "/admin/property-management", accent: "bg-emerald-600", stats: "Admin", group: "admin", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
-    { title: "Subscriptions", description: "Plans & packages", icon: Package, href: "/admin/subscriptions", accent: "bg-amber-600", stats: "Admin", group: "admin", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
-    { title: "Registrations", description: "Account requests", icon: ClipboardList, href: "/admin/registrations", accent: "bg-yellow-600", stats: "Admin", group: "admin", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
-    { title: "Settings", description: "Branding & config", icon: Settings, href: "/admin/settings", accent: "bg-slate-500", stats: user?.role === "SENIOR_ADMIN" ? "Admin" : "View only", group: "admin", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+  // ── Quick Access cards (flat, original style) ────────────────────
+  const dashboardCards = [
+    { title: "CRM", description: "Manage sales leads and customer relationships", icon: Users, href: "/admin/crm", color: "from-blue-500 to-blue-600", stats: `${newLeads} new leads` },
+    { title: "Operations", description: "Track and manage work orders", icon: ClipboardList, href: "/admin/operations", color: "from-green-500 to-green-600", stats: `${activeOrders} active jobs` },
+    { title: "Messages", description: "Communicate with customers and artisans", icon: MessageSquare, href: "/messages", color: "from-teal-500 to-teal-600", stats: `${unreadConversations.length} unread` },
+    { title: "Projects", description: "Oversee development projects", icon: FolderKanban, href: "/admin/projects", color: "from-purple-500 to-purple-600", stats: `${activeProjects} active projects` },
+    { title: "Quotations", description: "Create and manage quotes", icon: FileText, href: "/admin/quotations", color: "from-orange-500 to-orange-600", stats: `${pendingQuotations} pending quotes` },
+    { title: "Invoices", description: "Track payments and billing", icon: Receipt, href: "/admin/invoices", color: "from-red-500 to-red-600", stats: `${unpaidInvoices} unpaid invoices` },
+    { title: "Statements", description: "Customer billing statements with age analysis", icon: FileText, href: "/admin/statements", color: "from-purple-500 to-purple-600", stats: "Automated statement generation" },
+    { title: "Management Accounts", description: "Financial reports and analytics", icon: DollarSign, href: "/admin/accounts", color: "from-teal-500 to-teal-600", stats: `R${(totalRevenue ?? 0).toLocaleString()} revenue`, permission: "VIEW_ACCOUNTS" as Permission },
+    { title: "Assets", description: "Manage company assets", icon: Package, href: "/admin/assets", color: "from-indigo-500 to-indigo-600", stats: `R${(totalAssetValue ?? 0).toLocaleString()} total value`, permission: "VIEW_ASSETS" as Permission },
+    { title: "Liabilities", description: "Manage organizational debt and payables", icon: AlertTriangle, href: "/admin/liabilities", color: "from-red-500 to-red-600", stats: `R${(unpaidLiabilitiesAmount ?? 0).toLocaleString()} unpaid`, permission: "VIEW_LIABILITIES" as Permission },
+    { title: "Payment Requests", description: "Review artisan payment requests", icon: CreditCard, href: "/admin/payment-requests", color: "from-pink-500 to-pink-600", stats: `${pendingPaymentRequests} pending requests`, permission: "VIEW_PAYMENT_REQUESTS" as Permission },
+    { title: "HR Tool", description: "Employee management, KPIs, and leave tracking", icon: UserCircle2, href: "/admin/hr", color: "from-violet-500 to-violet-600", stats: `${employees.length} total employees`, permission: "VIEW_ALL_EMPLOYEES" as Permission },
+    { title: "AI Agent", description: "Your intelligent business assistant", icon: Bot, href: "/admin/ai-agent", color: "from-cyan-500 to-cyan-600", stats: "27 tools available" },
+    { title: "Contractor Management", description: "Onboard and manage contractors", icon: Users, href: "/admin/contractor-management", color: "from-blue-500 to-blue-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Property Management", description: "Onboard and manage property managers", icon: FolderKanban, href: "/admin/property-management", color: "from-emerald-500 to-emerald-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Subscriptions", description: "Manage user subscriptions and packages", icon: Package, href: "/admin/subscriptions", color: "from-yellow-500 to-yellow-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Registrations", description: "Review and approve new account requests", icon: ClipboardList, href: "/admin/registrations", color: "from-yellow-500 to-yellow-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Settings", description: "Manage company branding and settings", icon: Settings, href: "/admin/settings", color: "from-gray-500 to-gray-600", stats: user?.role === "SENIOR_ADMIN" ? "Admin access" : "View only", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
   ];
 
   const isDemoJuniorAdmin = user?.role === "JUNIOR_ADMIN" && user?.email === "junior@propmanagement.com";
 
-  const filteredModules = allModules.filter((mod) => {
-    if (mod.permission && !hasPermission(mod.permission)) return false;
-    if ((mod.title === "Subscriptions" || mod.title === "Registrations") && isDemoJuniorAdmin) return false;
+  const filteredDashboardCards = dashboardCards.filter((card) => {
+    if (card.permission && !hasPermission(card.permission)) return false;
+    if ((card.title === "Subscriptions" || card.title === "Registrations") && isDemoJuniorAdmin) return false;
     return true;
   });
 
-  const modulesByGroup = {
-    business: filteredModules.filter((m) => m.group === "business"),
-    operations: filteredModules.filter((m) => m.group === "operations"),
-    finance: filteredModules.filter((m) => m.group === "finance"),
-    people: filteredModules.filter((m) => m.group === "people"),
-    admin: filteredModules.filter((m) => m.group === "admin"),
-  };
-
-  const groupLabels: Record<string, string> = {
-    business: "Business Development",
-    operations: "Operations",
-    finance: "Financial Management",
-    people: "People & AI",
-    admin: "Administration",
-  };
-
   // ── Render ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       {/* ═══ HEADER ═══════════════════════════════════════════════════ */}
       <header
-        className="bg-slate-900 border-b border-slate-700"
+        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 shadow-lg"
         style={{ position: "sticky", top: 0, zIndex: 9999 }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left: Title */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-                <BarChart3 className="h-4 w-4 text-white" />
+              <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                <LayoutDashboard className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-white leading-tight">Executive Dashboard</h1>
-                <p className="text-xs text-slate-400">Welcome, {user?.firstName}</p>
+                <h1 className="text-xl font-bold text-white leading-tight">Admin Dashboard</h1>
+                <p className="text-sm text-indigo-100">Welcome back, {user?.firstName}!</p>
               </div>
             </div>
 
             {/* Center: Period selector */}
-            <div className="hidden md:flex items-center bg-slate-800 rounded-lg p-0.5">
+            <div className="hidden md:flex items-center bg-white/10 backdrop-blur-sm rounded-lg p-0.5">
               {(
                 [
                   { key: "current_month", label: "This Month" },
@@ -469,8 +454,8 @@ function AdminDashboard() {
                   onClick={() => setPeriod(opt.key)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                     period === opt.key
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {opt.label}
@@ -479,8 +464,8 @@ function AdminDashboard() {
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-indigo-100 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{periodLabel}</span>
               </div>
@@ -488,7 +473,7 @@ function AdminDashboard() {
               <Link
                 to="/"
                 onClick={() => useAuthStore.getState().clearAuth()}
-                className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
+                className="flex-1 sm:flex-initial px-4 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 text-center transition-all duration-200"
               >
                 Logout
               </Link>
@@ -510,8 +495,8 @@ function AdminDashboard() {
                 onClick={() => setPeriod(opt.key)}
                 className={`px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-all ${
                   period === opt.key
-                    ? "bg-emerald-500 text-white"
-                    : "text-slate-400 bg-slate-800"
+                    ? "bg-white text-indigo-700"
+                    : "text-white/70 bg-white/10"
                 }`}
               >
                 {opt.label}
@@ -530,166 +515,191 @@ function AdminDashboard() {
           </div>
         ) : (
           <>
-            {/* ═══ FINANCIAL KPIs (Senior Admin only) ════════════════ */}
+            {/* ═══ FINANCIAL KPIs (Senior Admin only) — Collapsible ═ */}
             {user?.role === ROLES.SENIOR_ADMIN && (
-              <section>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Revenue */}
-                  <FinancialKPICard
-                    label="Total Revenue"
-                    value={totalRevenue}
-                    change={revenueChange}
-                    accent="emerald"
-                    icon={<TrendingUp className="h-5 w-5" />}
+              <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setShowFinancials(!showFinancials)}
+                  className="flex items-center justify-between w-full px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-indigo-500" />
+                    <h2 className="text-base font-semibold text-gray-900">Financial Overview</h2>
+                    <span className="text-xs text-gray-400 ml-2">({periodLabel})</span>
+                  </div>
+                  <ChevronDown
+                    className={`h-5 w-5 text-gray-400 transition-transform ${showFinancials ? "rotate-180" : ""}`}
                   />
-                  {/* Expenses */}
-                  <FinancialKPICard
-                    label="Total Expenses"
-                    value={totalExpenses}
-                    change={expensesChange}
-                    accent="slate"
-                    icon={<TrendingDown className="h-5 w-5" />}
-                    invertTrend
-                  />
-                  {/* Net Profit */}
-                  <FinancialKPICard
-                    label="Net Profit"
-                    value={netProfit}
-                    change={netProfitChange}
-                    accent="blue"
-                    icon={<Wallet className="h-5 w-5" />}
-                  />
-                  {/* Profit Margin */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Profit Margin</span>
-                      <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
-                        <Percent className="h-5 w-5" />
+                </button>
+                {showFinancials && (
+                  <div className="px-6 pb-6 border-t border-gray-100 pt-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Revenue */}
+                      <FinancialKPICard
+                        label="Total Revenue"
+                        value={totalRevenue}
+                        change={revenueChange}
+                        accent="emerald"
+                        icon={<TrendingUp className="h-5 w-5" />}
+                      />
+                      {/* Expenses */}
+                      <FinancialKPICard
+                        label="Total Expenses"
+                        value={totalExpenses}
+                        change={expensesChange}
+                        accent="orange"
+                        icon={<TrendingDown className="h-5 w-5" />}
+                        invertTrend
+                      />
+                      {/* Net Profit */}
+                      <FinancialKPICard
+                        label="Net Profit"
+                        value={netProfit}
+                        change={netProfitChange}
+                        accent="blue"
+                        icon={<Wallet className="h-5 w-5" />}
+                      />
+                      {/* Profit Margin */}
+                      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium uppercase tracking-wider text-white/80">Profit Margin</span>
+                          <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                            <Percent className="h-5 w-5" />
+                          </div>
+                        </div>
+                        <p className="text-3xl font-bold tracking-tight">
+                          {profitMargin.toFixed(1)}%
+                        </p>
+                        <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-white/20">
+                          {profitMarginChange.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : profitMarginChange.trend === "down" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                          <span>{profitMarginChange.change}</span>
+                        </div>
                       </div>
                     </div>
-                    <p className={`text-3xl font-bold tracking-tight ${profitMargin >= 0 ? "text-slate-900" : "text-red-600"}`}>
-                      {profitMargin.toFixed(1)}%
-                    </p>
-                    <TrendBadge change={profitMarginChange} />
-                  </div>
-                </div>
 
-                {/* Revenue & Expense Breakdown */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                  {/* Revenue Breakdown */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Revenue Sources
-                    </h3>
-                    <div className="space-y-3">
-                      <BreakdownRow label="Invoice Revenue" value={invoiceRevenue} total={totalRevenue} color="bg-emerald-500" />
-                      <BreakdownRow label="Alternative Revenue" value={alternativeRevenueTotal} total={totalRevenue} color="bg-teal-400" />
-                      <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-700">Total Revenue</span>
-                        <span className="text-sm font-bold text-emerald-600">R{totalRevenue.toLocaleString()}</span>
+                    {/* Revenue & Expense Breakdown */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Revenue Breakdown */}
+                      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100 p-5">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                          Revenue Sources
+                        </h3>
+                        <div className="space-y-3">
+                          <BreakdownRow label="Invoice Revenue" value={invoiceRevenue} total={totalRevenue} color="bg-emerald-500" />
+                          <BreakdownRow label="Alternative Revenue" value={alternativeRevenueTotal} total={totalRevenue} color="bg-teal-400" />
+                          <div className="pt-3 border-t border-emerald-200/50 flex justify-between items-center">
+                            <span className="text-sm font-semibold text-gray-700">Total Revenue</span>
+                            <span className="text-sm font-bold text-emerald-600">R{totalRevenue.toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Expense Breakdown */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-slate-500" />
-                      Expense Breakdown
-                    </h3>
-                    <div className="space-y-3">
-                      <BreakdownRow label="Material Costs" value={materialCosts} total={totalExpenses} color="bg-slate-500" />
-                      <BreakdownRow label="Labour Costs" value={labourCosts} total={totalExpenses} color="bg-slate-400" />
-                      <BreakdownRow label="Artisan Payments" value={artisanPayments} total={totalExpenses} color="bg-blue-400" />
-                      <BreakdownRow label="Operational Expenses" value={operationalExpenseTotal} total={totalExpenses} color="bg-amber-400" />
-                      <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-700">Total Expenses</span>
-                        <span className="text-sm font-bold text-slate-600">R{totalExpenses.toLocaleString()}</span>
+                      {/* Expense Breakdown */}
+                      <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 p-5">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                          Expense Breakdown
+                        </h3>
+                        <div className="space-y-3">
+                          <BreakdownRow label="Material Costs" value={materialCosts} total={totalExpenses} color="bg-orange-500" />
+                          <BreakdownRow label="Labour Costs" value={labourCosts} total={totalExpenses} color="bg-amber-400" />
+                          <BreakdownRow label="Artisan Payments" value={artisanPayments} total={totalExpenses} color="bg-blue-400" />
+                          <BreakdownRow label="Operational Expenses" value={operationalExpenseTotal} total={totalExpenses} color="bg-purple-400" />
+                          <div className="pt-3 border-t border-orange-200/50 flex justify-between items-center">
+                            <span className="text-sm font-semibold text-gray-700">Total Expenses</span>
+                            <span className="text-sm font-bold text-orange-600">R{totalExpenses.toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </section>
             )}
 
-            {/* ═══ OPERATIONAL OVERVIEW ═══════════════════════════════ */}
-            <section>
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Operational Overview
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* ═══ OPERATIONAL METRICS ════════════════════════════════ */}
+            <div className="mb-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <OperationalCard label="New Leads" value={newLeads} icon={<TrendingUp className="h-4 w-4" />} color="text-blue-600" bg="bg-blue-50" />
-                <OperationalCard label="Active Jobs" value={activeOrders} icon={<Clock className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" />
-                <OperationalCard label="Completed" value={completedOrders} icon={<CheckCircle className="h-4 w-4" />} color="text-emerald-600" bg="bg-emerald-50" />
-                <OperationalCard label="Work in Progress" value={workInProgress} icon={<ClipboardList className="h-4 w-4" />} color="text-violet-600" bg="bg-violet-50" />
-                <OperationalCard label="Pending Quotes" value={pendingQuotations} icon={<FileText className="h-4 w-4" />} color="text-orange-600" bg="bg-orange-50" />
+                <OperationalCard label="Active Jobs" value={activeOrders} icon={<Clock className="h-4 w-4" />} color="text-orange-600" bg="bg-orange-50" />
+                <OperationalCard label="Completed" value={completedOrders} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" />
+                <OperationalCard label="Work in Progress" value={workInProgress} icon={<ClipboardList className="h-4 w-4" />} color="text-purple-600" bg="bg-purple-50" />
+                <OperationalCard label="Pending Quotes" value={pendingQuotations} icon={<FileText className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
                 <OperationalCard label="Overdue Invoices" value={overdueInvoices} icon={<AlertCircle className="h-4 w-4" />} color="text-red-600" bg="bg-red-50" alert={overdueInvoices > 0} />
-                <OperationalCard label="Paid Invoices" value={paidInvoicesCount} icon={<CheckCircle className="h-4 w-4" />} color="text-emerald-600" bg="bg-emerald-50" />
+                <OperationalCard label="Paid Invoices" value={paidInvoicesCount} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" />
                 <OperationalCard label="Outstanding Payments" value={outstandingPaymentRequests} icon={<Wallet className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" />
                 <OperationalCard label="Active Projects" value={activeProjects} icon={<FolderKanban className="h-4 w-4" />} color="text-violet-600" bg="bg-violet-50" />
               </div>
-            </section>
+            </div>
 
-            {/* ═══ QUICK ACCESS MODULES ═══════════════════════════════ */}
-            <section>
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Quick Access
-              </h2>
-              <div className="space-y-5">
-                {Object.entries(modulesByGroup).map(([group, modules]) => {
-                  if (modules.length === 0) return null;
-                  return (
-                    <div key={group}>
-                      <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 pl-1">
-                        {groupLabels[group]}
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {modules.map((mod) => (
-                          <Link
-                            key={mod.title}
-                            to={mod.href}
-                            className="group relative bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-md transition-all duration-200 flex items-start gap-3"
-                          >
-                            <div className={`w-10 h-10 ${mod.accent} rounded-lg flex items-center justify-center text-white flex-shrink-0`}>
-                              <mod.icon className="h-5 w-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors">
-                                {mod.title}
-                              </h4>
-                              <p className="text-xs text-slate-500 mt-0.5">{mod.description}</p>
-                              <p className="text-xs font-medium text-slate-400 mt-1.5">{mod.stats}</p>
-                            </div>
-                            <ArrowUpRight className="h-4 w-4 text-slate-300 group-hover:text-emerald-500 transition-colors flex-shrink-0 mt-0.5" />
-                          </Link>
-                        ))}
-                      </div>
+            {/* ═══ QUICK ACCESS — FLAT GRID ═══════════════════════════ */}
+            <div className="mb-8">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Quick Access</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredDashboardCards.map((card) => (
+                  <Link
+                    key={card.title}
+                    to={card.href}
+                    className="group relative bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                  >
+                    <div>
+                      <span
+                        className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${card.color} text-white shadow-md`}
+                      >
+                        <card.icon className="h-6 w-6" aria-hidden="true" />
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="mt-4">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {card.title}
+                      </h3>
+                      <p className="mt-2 text-xs sm:text-sm text-gray-600">{card.description}</p>
+                      <p className="mt-3 text-xs font-medium text-gray-500">{card.stats}</p>
+                    </div>
+                    <span
+                      className="absolute top-6 right-6 text-gray-300 group-hover:text-blue-500 transition-colors"
+                      aria-hidden="true"
+                    >
+                      <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 4h1a1 1 0 00-1-1v1zm-1 12a1 1 0 102 0h-2zM8 3a1 1 0 000 2V3zM3.293 19.293a1 1 0 101.414 1.414l-1.414-1.414zM19 4v12h2V4h-2zm1-1H8v2h12V3zm-.707.293l-16 16 1.414 1.414 16-16-1.414-1.414z" />
+                      </svg>
+                    </span>
+                  </Link>
+                ))}
               </div>
-            </section>
+            </div>
 
             {/* ═══ ANALYTICS ══════════════════════════════════════════ */}
             {hasPermission("VIEW_DASHBOARD_ANALYTICS") && (
-              <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <button
-                  onClick={() => setShowAnalytics(!showAnalytics)}
-                  className="flex items-center justify-between w-full px-5 py-4 text-left hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-slate-500" />
-                    <h2 className="text-sm font-semibold text-slate-700">Analytics & Trends</h2>
-                  </div>
-                  <ChevronDown
-                    className={`h-4 w-4 text-slate-400 transition-transform ${showAnalytics ? "rotate-180" : ""}`}
-                  />
-                </button>
+              <div className="mb-8 bg-white shadow-sm rounded-xl border border-gray-200">
+                <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
+                  <button
+                    onClick={() => setShowAnalytics(!showAnalytics)}
+                    className="flex items-center justify-between w-full text-left"
+                  >
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Analytics Overview</h2>
+                    <svg
+                      className={`w-5 h-5 text-gray-500 transition-transform ${
+                        showAnalytics ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
                 {showAnalytics && (
-                  <div className="px-5 pb-5 space-y-6 border-t border-slate-100 pt-4">
+                  <div className="p-4 sm:p-6 space-y-6">
                     <RevenueComparisonChart
                       dailyData={revenueAnalyticsDailyQuery.data || []}
                       weeklyData={revenueAnalyticsWeeklyQuery.data || []}
@@ -730,58 +740,54 @@ function AdminDashboard() {
                     />
                   </div>
                 )}
-              </section>
+              </div>
             )}
 
             {/* ═══ RECENT ORDERS ═══════════════════════════════════════ */}
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-slate-400" />
-                  Recent Orders
-                </h2>
+            <div className="bg-white shadow-sm rounded-xl border border-gray-200">
+              <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">Recent Orders</h2>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-gray-200">
                 {orders.slice(0, 5).map((order) => (
-                  <div
-                    key={order.id}
-                    className="px-5 py-3.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{order.orderNumber}</p>
-                      <p className="text-xs text-slate-500 truncate">{order.customerName}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
-                          order.status === "COMPLETED"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : order.status === "IN_PROGRESS"
-                            ? "bg-blue-50 text-blue-700"
-                            : order.status === "ASSIGNED"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {order.status.replace("_", " ")}
-                      </span>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400">Cost</p>
-                        <p className="text-sm font-semibold text-slate-700">
-                          R{(order.totalCost ?? 0).toLocaleString()}
-                        </p>
+                  <div key={order.id} className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{order.orderNumber}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{order.customerName}</p>
+                      </div>
+                      <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            order.status === "COMPLETED"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "IN_PROGRESS"
+                              ? "bg-blue-100 text-blue-800"
+                              : order.status === "ASSIGNED"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {order.status.replace("_", " ")}
+                        </span>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Internal Cost</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            R{(order.totalCost ?? 0).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
                 {orders.length === 0 && (
-                  <div className="px-5 py-12 text-center">
-                    <AlertCircle className="mx-auto h-10 w-10 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500">No orders yet</p>
+                  <div className="px-6 py-8 text-center">
+                    <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-600">No orders yet</p>
                   </div>
                 )}
               </div>
-            </section>
+            </div>
           </>
         )}
       </main>
@@ -808,30 +814,33 @@ function FinancialKPICard({
   label: string;
   value: number;
   change: { change: string; trend: "up" | "down" | "neutral" };
-  accent: "emerald" | "slate" | "blue" | "indigo";
+  accent: "emerald" | "orange" | "blue" | "indigo";
   icon: React.ReactNode;
   invertTrend?: boolean;
 }) {
   const accentMap = {
-    emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
-    slate: { bg: "bg-slate-100", text: "text-slate-600" },
-    blue: { bg: "bg-blue-50", text: "text-blue-600" },
-    indigo: { bg: "bg-indigo-50", text: "text-indigo-600" },
+    emerald: { gradient: "from-emerald-500 to-green-600" },
+    orange: { gradient: "from-orange-500 to-red-500" },
+    blue: { gradient: "from-blue-500 to-indigo-600" },
+    indigo: { gradient: "from-indigo-500 to-purple-600" },
   };
   const scheme = accentMap[accent];
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+    <div className={`bg-gradient-to-br ${scheme.gradient} rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-        <div className={`w-8 h-8 ${scheme.bg} rounded-lg flex items-center justify-center ${scheme.text}`}>
+        <span className="text-xs font-medium uppercase tracking-wider text-white/80">{label}</span>
+        <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
           {icon}
         </div>
       </div>
-      <p className={`text-3xl font-bold tracking-tight ${value >= 0 ? "text-slate-900" : "text-red-600"}`}>
+      <p className="text-3xl font-bold tracking-tight">
         R{Math.abs(value).toLocaleString()}
       </p>
-      <TrendBadge change={change} invert={invertTrend} />
+      <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-white/20">
+        {change.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : change.trend === "down" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+        <span>{change.change}</span>
+      </div>
     </div>
   );
 }
@@ -905,14 +914,14 @@ function OperationalCard({
   alert?: boolean;
 }) {
   return (
-    <div className={`bg-white rounded-xl border ${alert ? "border-red-200" : "border-slate-200"} p-4 hover:shadow-sm transition-shadow`}>
+    <div className={`bg-white rounded-xl shadow-sm border ${alert ? "border-red-200" : "border-gray-200"} p-4 hover:shadow-md transition-all duration-200`}>
       <div className="flex items-center gap-2 mb-2">
-        <div className={`w-7 h-7 ${bg} rounded-lg flex items-center justify-center ${color}`}>
+        <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center ${color}`}>
           {icon}
         </div>
-        <span className="text-xs font-medium text-slate-500 truncate">{label}</span>
+        <span className="text-xs font-medium text-gray-500 truncate">{label}</span>
       </div>
-      <p className={`text-2xl font-bold ${alert ? "text-red-600" : "text-slate-800"}`}>{value}</p>
+      <p className={`text-2xl font-bold ${alert ? "text-red-600" : "text-gray-900"}`}>{value}</p>
     </div>
   );
 }
