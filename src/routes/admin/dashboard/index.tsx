@@ -331,7 +331,7 @@ function AdminDashboard() {
 
   // Profit
   const netProfit = totalRevenue - totalExpenses;
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : (totalExpenses > 0 ? -100 : 0);
 
   // ── Trend calculation from snapshots ──────────────────────────────
   const calculateMetricChange = (
@@ -560,7 +560,7 @@ function AdminDashboard() {
                         icon={<Wallet className="h-5 w-5" />}
                       />
                       {/* Profit Margin */}
-                      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
+                      <div className={`bg-gradient-to-br ${netProfit < 0 ? "from-red-600 to-rose-700" : "from-indigo-500 to-purple-600"} rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow`}>
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-xs font-medium uppercase tracking-wider text-white/80">Profit Margin</span>
                           <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
@@ -823,8 +823,11 @@ function FinancialKPICard({
     orange: { gradient: "from-orange-500 to-red-500" },
     blue: { gradient: "from-blue-500 to-indigo-600" },
     indigo: { gradient: "from-indigo-500 to-purple-600" },
+    loss: { gradient: "from-red-600 to-rose-700" },
   };
-  const scheme = accentMap[accent];
+  // Use loss gradient when value is negative (e.g. net profit is a loss)
+  const isLoss = value < 0;
+  const scheme = isLoss ? accentMap.loss : accentMap[accent];
 
   return (
     <div className={`bg-gradient-to-br ${scheme.gradient} rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow`}>
@@ -835,7 +838,7 @@ function FinancialKPICard({
         </div>
       </div>
       <p className="text-3xl font-bold tracking-tight">
-        R{Math.abs(value).toLocaleString()}
+        {value < 0 ? "-" : ""}R{Math.abs(value).toLocaleString()}
       </p>
       <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-white/20">
         {change.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : change.trend === "down" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
