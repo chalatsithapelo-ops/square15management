@@ -76,9 +76,24 @@ function RootInnerComponent({
   );
 
   // Update auth state when user query succeeds or fails
+  // Uses structural comparison to prevent unnecessary store updates that cause re-render cascades
   useEffect(() => {
-    if (currentUserQuery.isSuccess) {
-      setAuth(token!, currentUserQuery.data);
+    if (currentUserQuery.isSuccess && currentUserQuery.data) {
+      const currentStoreUser = useAuthStore.getState().user;
+      const newUser = currentUserQuery.data;
+      // Only update auth store if user data actually changed
+      const hasChanged = !currentStoreUser ||
+        currentStoreUser.id !== newUser.id ||
+        currentStoreUser.email !== newUser.email ||
+        currentStoreUser.role !== newUser.role ||
+        currentStoreUser.firstName !== newUser.firstName ||
+        currentStoreUser.lastName !== newUser.lastName ||
+        currentStoreUser.hourlyRate !== newUser.hourlyRate ||
+        currentStoreUser.dailyRate !== newUser.dailyRate ||
+        currentStoreUser.hasPersonalEmail !== newUser.hasPersonalEmail;
+      if (hasChanged) {
+        setAuth(token!, newUser);
+      }
     }
     if (currentUserQuery.isError) {
       // Only clear auth if it's not a startup/connection error

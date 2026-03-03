@@ -71,7 +71,7 @@ const orderStatuses = [
 ];
 
 function ArtisanDashboard() {
-  const { user, token, clearAuth } = useAuthStore();
+  const { user, token } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -194,8 +194,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
       refetchOnWindowFocus: false,
+      staleTime: Infinity, // Use cached data from __root.tsx, don't refetch independently
     })
   );
 
@@ -515,13 +515,7 @@ function ArtisanDashboard() {
   const performanceMetrics = performanceMetricsQuery.data;
   const reviewsData = reviewsQuery.data;
 
-  // Role guard: ensure only Artisan can access this dashboard
-  if (user && user.role !== "ARTISAN") {
-    toast.error(`You are logged in as ${user.role}. Please log in as Artisan.`);
-    clearAuth();
-    navigate({ to: "/" });
-    return null;
-  }
+  // Role guard is handled by beforeLoad above - no need for render-time side effects
 
   // Token validation check - must be after all hooks
   if (!token) {
