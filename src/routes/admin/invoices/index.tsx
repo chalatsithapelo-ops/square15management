@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { ClientSelector } from "~/components/ClientSelector";
 import {
   ArrowLeft,
   Plus,
@@ -115,6 +116,7 @@ function InvoicesPage() {
   const [downloadingJobCardInvoiceId, setDownloadingJobCardInvoiceId] = useState<number | null>(null);
   const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
   const [deleteConfirmInvoiceId, setDeleteConfirmInvoiceId] = useState<number | null>(null);
+  const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -179,6 +181,7 @@ function InvoicesPage() {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<InvoiceForm>({
     resolver: zodResolver(invoiceSchema),
   });
@@ -191,6 +194,7 @@ function InvoicesPage() {
         queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
         queryClient.invalidateQueries({ queryKey: trpc.getPropertyManagerOrders.queryKey() });
         reset();
+        setClientSelectorResetKey((k) => k + 1);
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
@@ -1102,6 +1106,21 @@ function InvoicesPage() {
               {editingInvoice ? "Edit Invoice" : "Create New Invoice"}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Client Selector */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <ClientSelector
+                  token={token!}
+                  resetKey={clientSelectorResetKey}
+                  onSelect={(client) => {
+                    setValue("customerName", client.name, { shouldValidate: true });
+                    setValue("customerEmail", client.email, { shouldValidate: true });
+                    setValue("customerPhone", client.phone, { shouldValidate: true });
+                    setValue("address", client.address, { shouldValidate: true });
+                  }}
+                />
+                <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

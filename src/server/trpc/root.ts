@@ -358,6 +358,7 @@ import { updateStaffTaskStatus } from "~/server/trpc/procedures/updateStaffTaskS
 import { addStaffTaskComment } from "~/server/trpc/procedures/addStaffTaskComment";
 import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTaskChecklist";
 import { restoreData } from "~/server/trpc/procedures/restoreData";
+import { getClients, createClient, updateClient, deleteClient } from "~/server/trpc/procedures/clients";
 
 export const appRouter = createTRPCRouter({
   // Auth
@@ -379,7 +380,13 @@ export const appRouter = createTRPCRouter({
   updateCustomRole,
   deleteCustomRole,
   
-  // CRM
+  // CRM - Clients
+  getClients,
+  createClient,
+  updateClient,
+  deleteClient,
+
+  // CRM - Leads
   createLead,
   getLeads,
   updateLeadStatus,

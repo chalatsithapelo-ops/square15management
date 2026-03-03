@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
+import { ClientSelector } from "~/components/ClientSelector";
 import RFQReportModal from "~/components/RFQReportModal";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
@@ -124,6 +125,7 @@ function QuotationsPage() {
   const [generatingLineItems, setGeneratingLineItems] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
+  const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
 
   const isManager = user?.role === "CONTRACTOR_JUNIOR_MANAGER" || user?.role === "CONTRACTOR_SENIOR_MANAGER";
 
@@ -173,6 +175,7 @@ function QuotationsPage() {
     formState: { errors },
     reset,
     getValues,
+    setValue,
   } = useForm<QuotationForm>({
     resolver: zodResolver(quotationSchema),
   });
@@ -183,6 +186,7 @@ function QuotationsPage() {
         toast.success("Quotation created successfully!");
         queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
         reset();
+        setClientSelectorResetKey((k) => k + 1);
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
@@ -675,6 +679,21 @@ function QuotationsPage() {
               {editingQuotation ? "Edit Quotation" : "Create New Quotation"}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Client Selector */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <ClientSelector
+                  token={token!}
+                  resetKey={clientSelectorResetKey}
+                  onSelect={(client) => {
+                    setValue("customerName", client.name, { shouldValidate: true });
+                    setValue("customerEmail", client.email, { shouldValidate: true });
+                    setValue("customerPhone", client.phone, { shouldValidate: true });
+                    setValue("address", client.address, { shouldValidate: true });
+                  }}
+                />
+                <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
