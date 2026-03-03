@@ -983,7 +983,7 @@ function QuotationsPage() {
                             <FileText className="h-3.5 w-3.5 mr-1" />RFQ
                           </button>
                         )}
-                        {quotation.status === "APPROVED" && (
+                        {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER") && (
                           <button
                             onClick={() => handleExportPdf(quotation.id)}
                             disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
@@ -1060,7 +1060,7 @@ function QuotationsPage() {
                         <FileText className="h-3.5 w-3.5 mr-1 inline" />RFQ Report
                       </button>
                     )}
-                    {quotation.status === "APPROVED" && (
+                    {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER") && (
                       <button
                         onClick={() => handleExportPdf(quotation.id)}
                         disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
