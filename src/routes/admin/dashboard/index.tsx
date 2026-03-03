@@ -47,12 +47,24 @@ import type { Permission } from "~/server/utils/permissions";
 
 type DashboardPeriod = "current_month" | "current_quarter" | "financial_year" | "all_time";
 
+// All admin-side roles that should access the dashboard
+const ADMIN_DASHBOARD_ROLES = new Set([
+  ROLES.ADMIN,
+  ROLES.SENIOR_ADMIN,
+  ROLES.JUNIOR_ADMIN,
+  ROLES.MANAGER,
+  ROLES.TECHNICAL_MANAGER,
+  ROLES.ACCOUNTANT,
+  ROLES.SUPERVISOR,
+  ROLES.SALES_AGENT,
+]);
+
 export const Route = createFileRoute("/admin/dashboard/")({
   beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
 
     const { user } = useAuthStore.getState();
-    if (!user || (user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN")) {
+    if (!user || !ADMIN_DASHBOARD_ROLES.has(user.role as any)) {
       throw redirect({
         to: "/",
         search: {
