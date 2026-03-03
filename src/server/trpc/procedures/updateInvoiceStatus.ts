@@ -12,7 +12,7 @@ export const updateInvoiceStatus = baseProcedure
     z.object({
       token: z.string(),
       invoiceId: z.number(),
-      status: z.enum(["DRAFT", "PENDING_REVIEW", "PENDING_APPROVAL", "SENT", "PAID", "OVERDUE", "CANCELLED", "REJECTED"]).optional(),
+      status: z.enum(["DRAFT", "PENDING_REVIEW", "PENDING_APPROVAL", "APPROVED", "SENT", "PAID", "OVERDUE", "CANCELLED", "REJECTED"]).optional(),
       rejectionReason: z.string().optional(),
       pmApproved: z.boolean().optional(),
     })
@@ -94,9 +94,9 @@ export const updateInvoiceStatus = baseProcedure
 
       let finalStatus = input.status;
 
-      // Automatic status allocation when approving (moving from PENDING_APPROVAL)
-      // When admin approves, check due date and set to SENT or OVERDUE
-      if (input.status && currentInvoice.status === "PENDING_APPROVAL" && 
+      // Automatic status allocation when sending to customer (moving from APPROVED)
+      // When admin sends to customer, check due date and set to SENT or OVERDUE
+      if (input.status && currentInvoice.status === "APPROVED" && 
           (input.status === "SENT" || input.status === "OVERDUE")) {
         if (currentInvoice.dueDate) {
           const now = new Date();

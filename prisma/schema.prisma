@@ -44,6 +44,7 @@ enum InvoiceStatus {
   DRAFT
   PENDING_REVIEW
   PENDING_APPROVAL
+  APPROVED
   SENT
   PAID
   OVERDUE
@@ -901,6 +902,7 @@ model Invoice {
   customerEmail String
   customerPhone String
   address       String
+  clientReferenceNumber String?
 
   items               Json // Array of { description, quantity, unitPrice, total }
   subtotal            Float

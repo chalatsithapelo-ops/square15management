@@ -76,6 +76,7 @@ const invoiceSchema = z.object({
     .string()
     .optional()
     .transform((val) => (val?.trim() ? val : undefined)),
+  clientReferenceNumber: z.string().optional(),
 });
 
 type InvoiceForm = z.infer<typeof invoiceSchema>;
@@ -84,6 +85,7 @@ const invoiceStatuses = [
   { value: "DRAFT", label: "Draft", color: "bg-gray-100 text-gray-800" },
   { value: "PENDING_REVIEW", label: "Pending Review (Jr Manager)", color: "bg-yellow-100 text-yellow-800" },
   { value: "PENDING_APPROVAL", label: "Pending Approval (Sr Manager)", color: "bg-orange-100 text-orange-800" },
+  { value: "APPROVED", label: "Approved", color: "bg-emerald-100 text-emerald-800" },
   { value: "SENT_ITEMS", label: "Sent Items", color: "bg-blue-100 text-blue-800", combined: ["SENT", "OVERDUE"] },
   { value: "PAID", label: "Paid", color: "bg-green-100 text-green-800" },
   { value: "CANCELLED", label: "Cancelled", color: "bg-gray-100 text-gray-800" },
@@ -105,8 +107,9 @@ function getAvailableStatusTransitions(currentStatus: string, userRole: string) 
       ? ["PENDING_APPROVAL", "REJECTED", "CANCELLED"]
       : ["PENDING_APPROVAL", "REJECTED", "CANCELLED"],
     PENDING_APPROVAL: userRole === "CONTRACTOR_SENIOR_MANAGER" || userRole === "CONTRACTOR"
-      ? ["SENT", "REJECTED", "CANCELLED"]
+      ? ["APPROVED", "REJECTED", "CANCELLED"]
       : [],
+    APPROVED: ["SENT", "CANCELLED"],
     SENT: ["PAID", "OVERDUE", "CANCELLED"],
     OVERDUE: ["PAID", "CANCELLED"],
     PAID: [],
@@ -756,6 +759,7 @@ function InvoicesPage() {
       dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
       notes: invoice.notes || "",
       invoiceNumber: invoice.invoiceNumber,
+      clientReferenceNumber: invoice.clientReferenceNumber || "",
     });
     
     // Populate line items
@@ -1275,6 +1279,19 @@ function InvoicesPage() {
                   {errors.address && (
                     <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Client Reference / Order Number</label>
+                  <input
+                    type="text"
+                    {...register("clientReferenceNumber")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500"
+                    placeholder="e.g. PO-12345 or client reference"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional: Enter the client's order number or reference for this invoice.
+                  </p>
                 </div>
 
                 <div>
@@ -1977,8 +1994,10 @@ function InvoicesPage() {
                           {getAvailableStatusTransitions(invoice.status, user?.role || "").map((statusValue) => {
                             return (
                               <option key={statusValue} value={statusValue}>
-                                {statusValue === "SENT" && invoice.status === "PENDING_APPROVAL" 
-                                  ? "✓ Approve (Send to Customer)"
+                                {statusValue === "APPROVED" && invoice.status === "PENDING_APPROVAL" 
+                                  ? "✓ Approve"
+                                  : statusValue === "SENT" && invoice.status === "APPROVED"
+                                  ? "📤 Send to Customer"
                                   : statusValue === "SENT"
                                   ? "Sent"
                                   : statusValue === "OVERDUE"
@@ -2121,6 +2140,7 @@ function InvoicesPage() {
               { value: "DRAFT", label: "Draft" },
               { value: "PENDING_REVIEW", label: "Pending Review" },
               { value: "PENDING_APPROVAL", label: "Pending Approval" },
+              { value: "APPROVED", label: "Approved" },
               { value: "SENT", label: "Sent" },
               { value: "OVERDUE", label: "Overdue" },
               { value: "PAID", label: "Paid" },

@@ -191,6 +191,7 @@ export const generateInvoicePdf = baseProcedure
         document: {
           documentType: "INVOICE",
           documentNumber: invoice.invoiceNumber,
+          reference: invoice.clientReferenceNumber || undefined,
           date: invoice.createdAt,
           dueDate: invoice.dueDate || undefined,
           salesRep,

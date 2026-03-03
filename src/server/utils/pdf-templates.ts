@@ -404,8 +404,23 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
 
   // Address columns: POSTAL ADDRESS | PHYSICAL ADDRESS
   const addrColWidth = (contentWidth / 2 - 10) / 2;
-  const fromPostal = company.postalAddress || company.companyAddressLine1;
-  const fromPhysical = company.physicalAddress || company.companyAddressLine2;
+
+  // Build full company address by combining available address pieces
+  // Fixes issue where address is split between postal and physical fields
+  const addressParts = [
+    company.companyAddressLine1,
+    company.companyAddressLine2,
+  ].filter(Boolean);
+  const fullCompanyAddress = addressParts.length > 0
+    ? addressParts.join(", ")
+    : [company.postalAddress, company.physicalAddress].filter(Boolean).join(", ");
+
+  const fromPostal = company.postalAddress && company.postalAddress.includes(",")
+    ? company.postalAddress
+    : fullCompanyAddress || company.postalAddress || "";
+  const fromPhysical = company.physicalAddress && company.physicalAddress.includes(",")
+    ? company.physicalAddress
+    : fullCompanyAddress || company.physicalAddress || "";
 
   // Subheaders
   doc
