@@ -53,18 +53,43 @@ export const createOrder = baseProcedure
 
     const companyDetails = await getCompanyDetails();
 
-    // Find the highest existing order number to avoid unique constraint violations
-    // (count-based approach fails when orders are deleted)
-    const lastOrder = await db.order.findFirst({
-      orderBy: { id: "desc" },
-      select: { orderNumber: true },
-    });
-    let nextNum = 1;
-    if (lastOrder?.orderNumber) {
-      const match = lastOrder.orderNumber.match(/(\d+)$/);
-      if (match) nextNum = parseInt(match[1], 10) + 1;
+    // Use user-provided orderNumber or auto-generate one with retry loop
+    // to permanently avoid unique constraint violations
+    let orderNumber: string;
+
+    if (input.orderNumber) {
+      // User provided a custom order number - check uniqueness
+      const existing = await db.order.findUnique({ where: { orderNumber: input.orderNumber } });
+      if (existing) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Order number "${input.orderNumber}" is already in use.`,
+        });
+      }
+      orderNumber = input.orderNumber;
+    } else {
+      // Auto-generate: scan ALL order numbers to find the true maximum suffix
+      const allOrders = await db.order.findMany({
+        select: { orderNumber: true },
+      });
+      let maxNum = 0;
+      for (const o of allOrders) {
+        const match = o.orderNumber.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      orderNumber = `${companyDetails.orderPrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+
+      // Retry loop: if this number somehow exists (race condition), keep incrementing
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const exists = await db.order.findUnique({ where: { orderNumber } });
+        if (!exists) break;
+        maxNum++;
+        orderNumber = `${companyDetails.orderPrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+      }
     }
-    const orderNumber = `${companyDetails.orderPrefix}-${String(nextNum).padStart(5, "0")}`;
 
     // Determine assignment and status based on role and input
     let assignedToId = input.assignedToId || null;
