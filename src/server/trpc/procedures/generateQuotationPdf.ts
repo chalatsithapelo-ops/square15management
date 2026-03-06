@@ -159,6 +159,7 @@ export const generateQuotationPdf = baseProcedure
           customerEmail: quotation.customerEmail,
           customerPhone: quotation.customerPhone,
           address: quotation.address,
+          customerVatNumber: quotation.customerVatNumber || undefined,
         },
         document: {
           documentType: "QUOTATION",

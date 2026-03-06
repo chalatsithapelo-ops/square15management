@@ -58,6 +58,7 @@ const quotationSchema = z.object({
   assignedToId: z.number().optional(),
   companyMaterialCost: z.number().optional(),
   companyLabourCost: z.number().optional(),
+  customerVatNumber: z.string().optional(),
 });
 
 type QuotationForm = z.infer<typeof quotationSchema>;
@@ -373,6 +374,7 @@ function QuotationsPage() {
       validUntil: quotation.validUntil ? new Date(quotation.validUntil).toISOString().split('T')[0] : "",
       notes: quotation.notes || "",
       assignedToId: quotation.assignedToId || undefined,
+      customerVatNumber: quotation.customerVatNumber || "",
     });
     
     // Populate line items
@@ -689,6 +691,7 @@ function QuotationsPage() {
                     setValue("customerEmail", client.email, { shouldValidate: true });
                     setValue("customerPhone", client.phone, { shouldValidate: true });
                     setValue("address", client.address, { shouldValidate: true });
+                    if (client.vatNumber) setValue("customerVatNumber", client.vatNumber);
                   }}
                 />
                 <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
@@ -785,6 +788,19 @@ function QuotationsPage() {
                   {errors.address && (
                     <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer VAT Number</label>
+                  <input
+                    type="text"
+                    {...register("customerVatNumber")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                    placeholder="e.g. 4123456789"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional: Customer's VAT registration number (appears on PDF).
+                  </p>
                 </div>
 
                 <div>

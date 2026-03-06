@@ -12,6 +12,7 @@ interface ClientSelectorProps {
     phone: string;
     address: string;
     companyName?: string;
+    vatNumber?: string;
   }) => void;
   /** Reset trigger – bump to clear the selector */
   resetKey?: number;
@@ -32,6 +33,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
   const [qaEmail, setQaEmail] = useState("");
   const [qaPhone, setQaPhone] = useState("");
   const [qaAddress, setQaAddress] = useState("");
+  const [qaVatNumber, setQaVatNumber] = useState("");
 
   // Reset when parent form resets
   useEffect(() => {
@@ -68,6 +70,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
           phone: newClient.phone,
           address: newClient.address || "",
           companyName: newClient.companyName || undefined,
+          vatNumber: newClient.vatNumber || undefined,
         });
         setSelectedClientName(newClient.name);
         setShowQuickAdd(false);
@@ -77,6 +80,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
         setQaEmail("");
         setQaPhone("");
         setQaAddress("");
+        setQaVatNumber("");
       },
       onError: (err) => toast.error(err.message || "Failed to save client"),
     })
@@ -103,6 +107,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
       phone: client.phone,
       address: client.address || "",
       companyName: client.companyName || undefined,
+      vatNumber: client.vatNumber || undefined,
     });
     setSelectedClientName(client.name);
     setSearch("");
@@ -121,6 +126,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
       email: qaEmail.trim(),
       phone: qaPhone.trim(),
       address: qaAddress.trim() || undefined,
+      vatNumber: qaVatNumber.trim() || undefined,
     });
   };
 
@@ -256,6 +262,13 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
                   placeholder="Address"
                   value={qaAddress}
                   onChange={(e) => setQaAddress(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="VAT Number"
+                  value={qaVatNumber}
+                  onChange={(e) => setQaVatNumber(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <button

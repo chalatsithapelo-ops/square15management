@@ -832,6 +832,7 @@ model Quotation {
   customerEmail              String
   customerPhone              String
   address                    String
+  customerVatNumber          String?
 
   items               Json // Array of { description, quantity, unitPrice, total }
   subtotal            Float
@@ -903,6 +904,7 @@ model Invoice {
   customerPhone String
   address       String
   clientReferenceNumber String?
+  customerVatNumber String?
 
   items               Json // Array of { description, quantity, unitPrice, total }
   subtotal            Float

@@ -37,6 +37,7 @@ export const createInvoice = baseProcedure
       isPMOrder: z.boolean().optional(), // Flag to indicate if this is for a PM order
       pmOrderId: z.number().optional(), // PropertyManagerOrder ID
       clientReferenceNumber: z.string().optional(), // Client reference / order number
+      customerVatNumber: z.string().optional(), // Customer VAT number
     })
   )
   .mutation(async ({ input }) => {
@@ -169,6 +170,7 @@ export const createInvoice = baseProcedure
           companyLabourCost: input.companyLabourCost || 0,
           estimatedProfit: input.estimatedProfit || 0,
           clientReferenceNumber: input.clientReferenceNumber || null,
+          customerVatNumber: input.customerVatNumber || null,
           createdById: user.id, // Track who created this invoice for portal separation
         },
         include: {

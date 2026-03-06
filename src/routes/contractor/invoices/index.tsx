@@ -77,6 +77,7 @@ const invoiceSchema = z.object({
     .optional()
     .transform((val) => (val?.trim() ? val : undefined)),
   clientReferenceNumber: z.string().optional(),
+  customerVatNumber: z.string().optional(),
 });
 
 type InvoiceForm = z.infer<typeof invoiceSchema>;
@@ -760,6 +761,7 @@ function InvoicesPage() {
       notes: invoice.notes || "",
       invoiceNumber: invoice.invoiceNumber,
       clientReferenceNumber: invoice.clientReferenceNumber || "",
+      customerVatNumber: invoice.customerVatNumber || "",
     });
     
     // Populate line items
@@ -1197,6 +1199,7 @@ function InvoicesPage() {
                     setValue("customerEmail", client.email, { shouldValidate: true });
                     setValue("customerPhone", client.phone, { shouldValidate: true });
                     setValue("address", client.address, { shouldValidate: true });
+                    if (client.vatNumber) setValue("customerVatNumber", client.vatNumber);
                   }}
                 />
                 <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
@@ -1291,6 +1294,19 @@ function InvoicesPage() {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Optional: Enter the client's order number or reference for this invoice.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer VAT Number</label>
+                  <input
+                    type="text"
+                    {...register("customerVatNumber")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500"
+                    placeholder="e.g. 4123456789"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional: Customer's VAT registration number (appears on PDF).
                   </p>
                 </div>
 

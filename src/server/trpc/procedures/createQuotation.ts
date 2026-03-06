@@ -43,6 +43,7 @@ export const createQuotation = baseProcedure
       companyLabourCost: z.number().default(0),
       estimatedProfit: z.number().default(0),
       labourRate: z.number().optional(),
+      customerVatNumber: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -109,6 +110,7 @@ export const createQuotation = baseProcedure
           companyLabourCost: input.companyLabourCost,
           estimatedProfit: input.estimatedProfit,
           labourRate: input.labourRate || null,
+          customerVatNumber: input.customerVatNumber || null,
           status: (user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER") ? "DRAFT" : "DRAFT",
           // Ensure contractor-created quotations are attributable to the contractor/company.
           // This drives contractor visibility and reporting in getQuotations.

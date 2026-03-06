@@ -43,6 +43,7 @@ export const updateQuotationDetails = baseProcedure
       companyLabourCost: z.number().optional(),
       estimatedProfit: z.number().optional(),
       labourRate: z.number().nullable().optional(),
+      customerVatNumber: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -100,6 +101,7 @@ export const updateQuotationDetails = baseProcedure
       if (input.companyLabourCost !== undefined) updateData.companyLabourCost = input.companyLabourCost;
       if (input.estimatedProfit !== undefined) updateData.estimatedProfit = input.estimatedProfit;
       if (input.labourRate !== undefined) updateData.labourRate = input.labourRate;
+      if (input.customerVatNumber !== undefined) updateData.customerVatNumber = input.customerVatNumber || null;
 
       const quotation = await db.quotation.update({
         where: { id: input.quotationId },
