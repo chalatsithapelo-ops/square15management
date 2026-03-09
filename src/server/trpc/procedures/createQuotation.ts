@@ -47,10 +47,19 @@ export const createQuotation = baseProcedure
     })
   )
   .mutation(async ({ input }) => {
+    // Verify token first - separate from other logic for clear error messages
+    let verified: any;
     try {
-      const verified = jwt.verify(input.token, env.JWT_SECRET);
+      verified = jwt.verify(input.token, env.JWT_SECRET);
       z.object({ userId: z.number() }).parse(verified);
+    } catch {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid or expired token",
+      });
+    }
 
+    try {
       // Use provided quoteNumber or auto-generate
       let quoteNumber: string;
       
@@ -69,13 +78,25 @@ export const createQuotation = baseProcedure
         
         quoteNumber = input.quoteNumber;
       } else {
-        // Auto-generate unique quotation number with custom prefix
+        // Auto-generate unique quotation number by scanning ALL existing numbers for the true max
         const companyDetails = await getCompanyDetails();
-        const count = await db.quotation.count();
-        quoteNumber = `${companyDetails.quotationPrefix}-${String(count + 1).padStart(5, "0")}`;
+        const prefix = companyDetails.quotationPrefix;
+        const allQuotations = await db.quotation.findMany({
+          select: { quoteNumber: true },
+        });
+        let maxSuffix = 0;
+        const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+        for (const q of allQuotations) {
+          const match = q.quoteNumber.match(pattern);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxSuffix) maxSuffix = num;
+          }
+        }
+        quoteNumber = `${prefix}-${String(maxSuffix + 1).padStart(5, "0")}`;
       }
 
-      // Verify user token (already verified at line 41)
+      // Verify user token (already verified above)
       const parsed = z.object({ userId: z.number() }).parse(verified);
 
       const user = await db.user.findUnique({
@@ -171,9 +192,10 @@ export const createQuotation = baseProcedure
       return quotation;
     } catch (error) {
       if (error instanceof TRPCError) throw error;
+      console.error("createQuotation error:", error);
       throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid or expired token",
+        code: "INTERNAL_SERVER_ERROR",
+        message: error instanceof Error ? error.message : "Failed to create quotation",
       });
     }
   });
