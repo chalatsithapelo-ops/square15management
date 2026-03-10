@@ -109,7 +109,7 @@ export function AddTenantModal({
 
   const handleCopyAllCredentials = () => {
     if (credentials) {
-      const text = `Tenant Portal Login Details
+      const text = `Customer Portal Login Details
 Email: ${credentials.email}
 Password: ${credentials.password}
 Login URL: ${credentials.loginUrl}

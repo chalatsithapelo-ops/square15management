@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { sendCompletionReportEmail } from "~/server/utils/email";
 import { generateMilestoneReportPdf } from "~/server/utils/milestone-report-pdf";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 
 export const updateMilestoneStatus = baseProcedure
   .input(
@@ -229,6 +230,16 @@ export const updateMilestoneStatus = baseProcedure
           
           console.log(`[updateMilestoneStatus] Milestone PDF generated successfully, size: ${pdfBuffer.length} bytes`);
 
+          // Ensure a CUSTOMER portal account exists
+          const msNameParts = milestone.project.customerName.trim().split(/\s+/);
+          const msFirstName = msNameParts[0] || "Customer";
+          const msLastName = msNameParts.slice(1).join(" ") || "";
+          const { plainPassword: msPassword } = await ensureCustomerAccount({
+            email: milestone.project.customerEmail,
+            firstName: msFirstName,
+            lastName: msLastName,
+          });
+
           // Send the completion email to the project customer
           await sendCompletionReportEmail({
             customerEmail: milestone.project.customerEmail,
@@ -239,6 +250,10 @@ export const updateMilestoneStatus = baseProcedure
             pdfBuffer,
             pdfFilename: `Milestone_${updatedMilestone.name.replace(/[^a-zA-Z0-9]/g, '_')}_Completion_Report.pdf`,
             additionalDetails: `Project: ${milestone.project.name}`,
+            loginCredentials: {
+              email: milestone.project.customerEmail,
+              password: msPassword,
+            },
           });
 
           console.log(`[updateMilestoneStatus] Completion report email sent successfully to ${milestone.project.customerEmail}`);

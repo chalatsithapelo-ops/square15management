@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { sendInvoiceNotificationEmail } from "~/server/utils/email";
 import { notifyAdminsInvoicePaid, notifyCustomerInvoice } from "~/server/utils/notifications";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 
 export const updateInvoiceStatus = baseProcedure
   .input(
@@ -185,6 +186,18 @@ export const updateInvoiceStatus = baseProcedure
       // Send email notification when invoice status changes to SENT
       if (finalStatus === "SENT" && currentInvoice.status !== "SENT") {
         try {
+          // Parse customer name into first/last
+          const nameParts = invoice.customerName.trim().split(/\s+/);
+          const firstName = nameParts[0] || "Customer";
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          // Ensure a CUSTOMER portal account exists
+          const { plainPassword } = await ensureCustomerAccount({
+            email: invoice.customerEmail,
+            firstName,
+            lastName,
+          });
+
           await sendInvoiceNotificationEmail({
             customerEmail: invoice.customerEmail,
             customerName: invoice.customerName,
@@ -193,7 +206,11 @@ export const updateInvoiceStatus = baseProcedure
             invoiceDueDate: invoice.dueDate,
             orderNumber: invoice.order?.orderNumber,
             projectName: invoice.project?.name,
-            userId: user.id, // Send from the user who sent the invoice
+            userId: user.id,
+            loginCredentials: {
+              email: invoice.customerEmail,
+              password: plainPassword,
+            },
           });
           console.log(`Invoice notification email sent to ${invoice.customerEmail}`);
         } catch (emailError) {

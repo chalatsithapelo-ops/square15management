@@ -10,6 +10,7 @@ import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { authenticateUser } from "~/server/utils/auth";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 import { assertCanAccessProject } from "~/server/utils/project-access";
 
 export const updateProjectStatus = baseProcedure
@@ -430,6 +431,16 @@ export const updateProjectStatus = baseProcedure
           
           console.log(`[updateProjectStatus] Project PDF generated successfully, size: ${pdfBuffer.length} bytes`);
 
+          // Ensure a CUSTOMER portal account exists
+          const projNameParts = fullProject.customerName.trim().split(/\s+/);
+          const projFirstName = projNameParts[0] || "Customer";
+          const projLastName = projNameParts.slice(1).join(" ") || "";
+          const { plainPassword: projPassword } = await ensureCustomerAccount({
+            email: fullProject.customerEmail,
+            firstName: projFirstName,
+            lastName: projLastName,
+          });
+
           // Send the completion email
           await sendCompletionReportEmail({
             customerEmail: fullProject.customerEmail,
@@ -440,6 +451,10 @@ export const updateProjectStatus = baseProcedure
             pdfBuffer,
             pdfFilename: `Project_${fullProject.projectNumber}_Completion_Report.pdf`,
             additionalDetails: `Project Type: ${fullProject.projectType}`,
+            loginCredentials: {
+              email: fullProject.customerEmail,
+              password: projPassword,
+            },
           });
 
           console.log(`[updateProjectStatus] Completion report email sent successfully to ${fullProject.customerEmail}`);

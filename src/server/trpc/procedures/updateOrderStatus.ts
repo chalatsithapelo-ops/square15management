@@ -12,6 +12,7 @@ import { getCompanyLogo } from "~/server/utils/logo";
 import { fetchImageAsBuffer } from "~/server/utils/pdf-images";
 import { authenticateUser } from "~/server/utils/auth";
 import { notifyAdmins, notifyCustomerOrderStatus, createNotification } from "~/server/utils/notifications";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 
 export const updateOrderStatus = baseProcedure
   .input(
@@ -555,6 +556,18 @@ export const updateOrderStatus = baseProcedure
           }
 
           if (["ASSIGNED", "IN_PROGRESS", "CANCELLED"].includes(updatedOrder.status)) {
+            // Parse customer name into first/last
+            const nameParts = updatedOrder.customerName.trim().split(/\s+/);
+            const firstName = nameParts[0] || "Customer";
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            // Ensure a CUSTOMER portal account exists
+            const { plainPassword } = await ensureCustomerAccount({
+              email: updatedOrder.customerEmail,
+              firstName,
+              lastName,
+            });
+
             await sendOrderStatusUpdateEmail({
               customerEmail: updatedOrder.customerEmail,
               customerName: updatedOrder.customerName,
@@ -564,6 +577,10 @@ export const updateOrderStatus = baseProcedure
               assignedToName: updatedOrder.assignedTo
                 ? `${updatedOrder.assignedTo.firstName} ${updatedOrder.assignedTo.lastName}`
                 : undefined,
+              loginCredentials: {
+                email: updatedOrder.customerEmail,
+                password: plainPassword,
+              },
             });
           }
         }
@@ -1132,6 +1149,16 @@ export const updateOrderStatus = baseProcedure
             
             console.log(`[updateOrderStatus] Order PDF generated successfully, size: ${pdfBuffer.length} bytes`);
 
+            // Ensure a CUSTOMER portal account exists for completed order emails
+            const completionNameParts = updatedOrder.customerName.trim().split(/\s+/);
+            const completionFirstName = completionNameParts[0] || "Customer";
+            const completionLastName = completionNameParts.slice(1).join(" ") || "";
+            const { plainPassword: completionPassword } = await ensureCustomerAccount({
+              email: updatedOrder.customerEmail,
+              firstName: completionFirstName,
+              lastName: completionLastName,
+            });
+
             // Send the completion email
             await sendCompletionReportEmail({
               customerEmail: updatedOrder.customerEmail,
@@ -1142,6 +1169,10 @@ export const updateOrderStatus = baseProcedure
               pdfBuffer,
               pdfFilename: `Order_${updatedOrder.orderNumber}_Completion_Report.pdf`,
               additionalDetails: updatedOrder.serviceType,
+              loginCredentials: {
+                email: updatedOrder.customerEmail,
+                password: completionPassword,
+              },
             });
 
             console.log(`[updateOrderStatus] Completion report email sent successfully to ${updatedOrder.customerEmail}`);

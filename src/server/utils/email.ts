@@ -54,6 +54,34 @@ async function getResendConfig(): Promise<{ apiKey: string; fromEmail: string } 
 }
 
 /**
+ * Generate a reusable HTML block showing customer login credentials.
+ * Returns empty string if no credentials are provided.
+ */
+function getLoginCredentialsHtml(credentials?: { email: string; password: string }, portalLink?: string): string {
+  if (!credentials) return '';
+  return `
+    <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3 style="margin: 0 0 12px 0; color: #065f46; font-size: 16px;">🔑 Your Customer Portal Login Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 6px 0; color: #065f46; font-weight: bold; width: 100px;">Email:</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${credentials.email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #065f46; font-weight: bold;">Password:</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${credentials.password}</td>
+        </tr>
+        ${portalLink ? `<tr>
+          <td style="padding: 6px 0; color: #065f46; font-weight: bold;">Portal:</td>
+          <td style="padding: 6px 0;"><a href="${portalLink}" style="color: #0d9488;">${portalLink}</a></td>
+        </tr>` : ''}
+      </table>
+      <p style="margin: 12px 0 0 0; font-size: 12px; color: #065f46;">Please save these details. You can change your password after logging in.</p>
+    </div>
+  `;
+}
+
+/**
  * Send email via Resend HTTP API (bypasses SMTP port blocks)
  */
 async function sendViaResend(apiKey: string, params: {
@@ -633,6 +661,7 @@ export async function sendCompletionReportEmail(params: {
   pdfBuffer: Buffer;
   pdfFilename: string;
   additionalDetails?: string; // Optional additional context
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -853,11 +882,13 @@ export async function sendCompletionReportEmail(params: {
             <strong>📎 Attachment:</strong> Please find the detailed completion report attached to this email as a PDF document.
           </div>
           
+          ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
           <div class="portal-section">
-            <h3>🔐 Access Your Tenant Portal</h3>
-            <p>View all your ${params.completionType === "ORDER" ? "jobs" : params.completionType === "MILESTONE" ? "milestones" : "projects"}, documents, and more in your dedicated tenant portal.</p>
+            <h3>🔐 Access Your Customer Portal</h3>
+            <p>View all your ${params.completionType === "ORDER" ? "jobs" : params.completionType === "MILESTONE" ? "milestones" : "projects"}, documents, and more in your dedicated customer portal.</p>
             <a href="${portalLink}" class="button">
-              Go to Tenant Portal →
+              Go to Customer Portal →
             </a>
             <p style="font-size: 12px; margin-top: 15px; color: #666;">
               Or copy this link: <a href="${portalLink}" style="color: ${env.BRAND_PRIMARY_COLOR};">${portalLink}</a>
@@ -1127,6 +1158,7 @@ export async function sendInvoiceNotificationEmail(params: {
   orderNumber?: string;
   projectName?: string;
   userId?: number; // Optional: sender's user ID for personal email
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -1222,12 +1254,14 @@ export async function sendInvoiceNotificationEmail(params: {
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${portalLink}" class="cta-button">
-            View Invoice in Tenant Portal →
+            View Invoice in Customer Portal →
           </a>
         </div>
         
+        ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
         <p style="color: #6b7280; font-size: 14px;">
-          You can view the complete invoice details, download a PDF copy, and make payment arrangements through your tenant portal.
+          You can view the complete invoice details, download a PDF copy, and make payment arrangements through your customer portal.
         </p>
         
         <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; margin: 20px 0;">
@@ -1258,6 +1292,151 @@ export async function sendInvoiceNotificationEmail(params: {
 }
 
 /**
+ * Send quotation notification email to customer when quotation is sent to them.
+ */
+export async function sendQuotationNotificationEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  quoteNumber: string;
+  quotationAmount: number;
+  validUntil?: Date | null;
+  projectName?: string;
+  serviceType?: string;
+  userId?: number;
+  loginCredentials?: { email: string; password: string };
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+  const portalLink = `${getBaseUrl()}/customer/dashboard`;
+
+  const validUntilText = params.validUntil
+    ? `Valid Until: ${params.validUntil.toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}`
+    : "";
+
+  const subject = `Quotation ${params.quoteNumber} - R${params.quotationAmount.toLocaleString()}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+          color: white;
+          padding: 30px;
+          border-radius: 10px 10px 0 0;
+          text-align: center;
+        }
+        .content {
+          background: #f9fafb;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .info-box {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border-left: 4px solid #0d9488;
+        }
+        .amount-box {
+          background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+          color: white;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+          margin: 20px 0;
+        }
+        .cta-button {
+          display: inline-block;
+          background: #0d9488;
+          color: white;
+          padding: 14px 28px;
+          text-decoration: none;
+          border-radius: 8px;
+          margin: 20px 0;
+          font-weight: bold;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 1px solid #e5e7eb;
+          color: #6b7280;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>📋 New Quotation</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">A quotation has been prepared for you</p>
+      </div>
+      
+      <div class="content">
+        <p>Hello <strong>${params.customerName}</strong>,</p>
+        
+        <p>Thank you for your enquiry. Please find the details of your quotation below:</p>
+        
+        <div class="amount-box">
+          <p style="margin: 0; font-size: 14px; opacity: 0.9;">Quoted Amount</p>
+          <h2 style="margin: 10px 0 0 0; font-size: 36px;">R${params.quotationAmount.toLocaleString()}</h2>
+        </div>
+        
+        <div class="info-box">
+          <p style="margin: 5px 0;"><strong>Quotation Number:</strong> ${params.quoteNumber}</p>
+          ${params.projectName ? `<p style="margin: 5px 0;"><strong>Project:</strong> ${params.projectName}</p>` : ''}
+          ${params.serviceType ? `<p style="margin: 5px 0;"><strong>Service Type:</strong> ${params.serviceType}</p>` : ''}
+          ${validUntilText ? `<p style="margin: 5px 0;"><strong>${validUntilText}</strong></p>` : ''}
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalLink}" class="cta-button">
+            View Quotation in Customer Portal →
+          </a>
+        </div>
+        
+        ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
+        <p style="color: #6b7280; font-size: 14px;">
+          You can view the complete quotation details and accept/decline through your customer portal.
+        </p>
+        
+        <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; margin: 20px 0;">
+          <p style="margin: 0; color: #1e40af; font-size: 14px;">
+            <strong>Questions?</strong> If you have any questions about this quotation, please don't hesitate to contact us.
+          </p>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <p><strong>${companyDetails.companyName}</strong></p>
+        <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+        <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+        <p>VAT: ${companyDetails.companyVatNumber}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.customerEmail,
+    subject,
+    html,
+    userId: params.userId,
+  });
+
+  console.log(`[sendQuotationNotificationEmail] Quotation notification sent to ${params.customerEmail} for ${params.quoteNumber}`);
+}
+
+/**
  * Send order notification email to customer
  */
 export async function sendOrderNotificationEmail(params: {
@@ -1271,6 +1450,7 @@ export async function sendOrderNotificationEmail(params: {
   orderAcceptLink?: string;
   invoiceUploadLink?: string;
   attachments?: EmailAttachment[];
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -1364,8 +1544,10 @@ export async function sendOrderNotificationEmail(params: {
         ` : ""}
         
         <p style="color: #6b7280; font-size: 14px;">
-          ${isContractor ? "You can accept the order and later upload your invoice using the links above." : "You can track the progress of your order, view updates, and communicate with our team through your tenant portal."}
+          ${isContractor ? "You can accept the order and later upload your invoice using the links above." : "You can track the progress of your order, view updates, and communicate with our team through your customer portal."}
         </p>
+
+        ${!isContractor ? getLoginCredentialsHtml(params.loginCredentials, portalLink) : ""}
 
         ${isContractor ? `
           <div style="background: #eef2ff; border-left: 4px solid #6366f1; padding: 15px; border-radius: 4px; margin: 20px 0;">
@@ -1407,6 +1589,7 @@ export async function sendStatementNotificationEmail(params: {
   statementPeriod: string;
   totalAmount: number;
   userId?: number; // Optional: sender's user ID for personal email
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -1488,8 +1671,10 @@ export async function sendStatementNotificationEmail(params: {
           </a>
         </div>
         
+        ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
         <p style="color: #6b7280; font-size: 14px;">
-          You can view the complete statement details, including all transactions and balances, through your tenant portal.
+          You can view the complete statement details, including all transactions and balances, through your customer portal.
         </p>
       </div>
       
@@ -1524,6 +1709,7 @@ export async function sendOrderStatusUpdateEmail(params: {
   newStatus: string;
   assignedToName?: string;
   userId?: number; // Optional: sender's user ID for personal email
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -1565,7 +1751,9 @@ export async function sendOrderStatusUpdateEmail(params: {
           <a href="${portalLink}" class="cta-button">View Order →</a>
         </div>
 
-        <p style="color: #6b7280; font-size: 14px;">You can track progress and view updates in your tenant portal.</p>
+        ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
+        <p style="color: #6b7280; font-size: 14px;">You can track progress and view updates in your customer portal.</p>
       </div>
       <div class="footer">
         <p><strong>${companyDetails.companyName}</strong></p>
@@ -1598,6 +1786,7 @@ export async function sendMaintenanceRequestStatusEmail(params: {
   responseNotes?: string;
   rejectionReason?: string;
   userId?: number; // Optional: sender's user ID for personal email
+  loginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
@@ -1639,7 +1828,9 @@ export async function sendMaintenanceRequestStatusEmail(params: {
           <a href="${portalLink}" class="cta-button">View Request →</a>
         </div>
 
-        <p style="color: #6b7280; font-size: 14px;">You can view details and follow updates in your tenant portal.</p>
+        ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+
+        <p style="color: #6b7280; font-size: 14px;">You can view details and follow updates in your customer portal.</p>
       </div>
       <div class="footer">
         <p><strong>${companyDetails.companyName}</strong></p>

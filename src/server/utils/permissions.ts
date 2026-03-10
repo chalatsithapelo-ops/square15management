@@ -413,7 +413,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   
   [ROLES.CUSTOMER]: [
-    // Tenant portal access
+    // Customer portal access
     PERMISSIONS.VIEW_OWN_ORDERS,
     PERMISSIONS.CREATE_REVIEWS,
     PERMISSIONS.VIEW_OWN_INVOICES,
@@ -984,9 +984,9 @@ export const ROLE_METADATA: Record<Role, RoleMetadata> = {
     defaultRoute: "/staff/dashboard",
   },
   [ROLES.CUSTOMER]: {
-    label: "Tenant",
+    label: "Customer",
     color: "bg-gray-100 text-gray-800",
-    description: "Tenant portal access to view orders and invoices",
+    description: "Customer portal access to view orders and invoices",
     defaultRoute: "/customer/dashboard",
   },
   [ROLES.PROPERTY_MANAGER]: {

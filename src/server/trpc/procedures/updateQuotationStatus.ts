@@ -4,6 +4,8 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { sendQuotationNotificationEmail } from "~/server/utils/email";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 
 export const updateQuotationStatus = baseProcedure
   .input(
@@ -248,6 +250,42 @@ export const updateQuotationStatus = baseProcedure
               quotedDate: new Date()
             }
           });
+        }
+      }
+
+      // Send quotation email to customer when status → SENT_TO_CUSTOMER
+      if (input.status === "SENT_TO_CUSTOMER" && quotation.customerEmail) {
+        try {
+          // Parse customer name into first/last
+          const nameParts = quotation.customerName.trim().split(/\s+/);
+          const firstName = nameParts[0] || "Customer";
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          // Ensure a CUSTOMER portal account exists
+          const { plainPassword } = await ensureCustomerAccount({
+            email: quotation.customerEmail,
+            firstName,
+            lastName,
+          });
+
+          await sendQuotationNotificationEmail({
+            customerEmail: quotation.customerEmail,
+            customerName: quotation.customerName,
+            quoteNumber: quotation.quoteNumber,
+            quotationAmount: quotation.total,
+            validUntil: quotation.validUntil,
+            projectName: quotation.project?.name,
+            serviceType: quotation.lead?.serviceType,
+            userId: user.id,
+            loginCredentials: {
+              email: quotation.customerEmail,
+              password: plainPassword,
+            },
+          });
+          console.log(`[updateQuotationStatus] Quotation email sent to ${quotation.customerEmail}`);
+        } catch (emailErr) {
+          console.error("[updateQuotationStatus] Failed to send quotation email:", emailErr);
+          // Don't fail the operation if email fails
         }
       }
 

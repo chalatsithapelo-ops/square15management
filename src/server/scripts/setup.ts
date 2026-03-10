@@ -198,7 +198,7 @@ function validateBaseUrl() {
       console.warn("     - Email links (will point to localhost)");
       console.warn("     - File storage URLs (MinIO links will be broken)");
       console.warn("     - PDF generation (QR codes and links will be incorrect)");
-      console.warn("     - Tenant portal access");
+      console.warn("     - Customer portal access");
       console.warn("");
       console.warn("   To fix this, set the BASE_URL environment variable to your actual deployment URL:");
       console.warn("   Example: export BASE_URL=https://your-preview-url.codapt.app");
