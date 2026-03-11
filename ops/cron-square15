@@ -14,3 +14,6 @@
 
 # Lead nurture emails - daily at 09:00 SAST (07:00 UTC)
 0 7 * * * root cd /root/square15management && npx tsx src/server/scripts/nurture-leads.ts >> /var/log/square15/lead-nurture.log 2>&1
+
+# AI campaign suggestions - 1st of each month at 10:00 SAST (08:00 UTC)
+0 8 1 * * root cd /root/square15management && npx tsx src/server/scripts/suggest-campaigns.ts >> /var/log/square15/campaign-suggest.log 2>&1
