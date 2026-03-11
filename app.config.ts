@@ -134,6 +134,31 @@ export default createApp({
       ],
     },
     {
+      type: "http",
+      name: "lead-intake",
+      base: "/api/leads/intake/",
+      handler: "./src/server/public-api/lead-intake-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
       type: "spa",
       name: "client",
       handler: "./index.html",

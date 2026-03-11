@@ -2,6 +2,8 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
+import { sendEmail, sendLeadNurtureEmail, sendReviewRequestEmail } from '~/server/utils/email';
+import { getCompanyDetails } from '~/server/utils/company-details';
 
 /**
  * AI Agent Tools Factory - Enable the AI to perform business operations with proper user context
@@ -24,6 +26,7 @@ export function createAIAgentTools(userId: number) {
       companyName: z.string().optional().describe('Company name'),
       description: z.string().optional().describe('Detailed description of the lead/opportunity and their needs'),
       estimatedValue: z.number().optional().describe('Estimated value of the deal in currency (optional)'),
+      source: z.enum(['WEBSITE', 'REFERRAL', 'CAMPAIGN', 'PHONE', 'WALK_IN', 'AI_AGENT', 'SOCIAL_MEDIA', 'OTHER']).optional().describe('How the lead was acquired (default: AI_AGENT when created by you)'),
     }),
     execute: async (params: any) => {
       try {
@@ -47,6 +50,7 @@ export function createAIAgentTools(userId: number) {
             description: params.description ? params.description.trim() : `${params.serviceType} needed at ${params.address || 'address TBD'}`,
             estimatedValue: params.estimatedValue ? parseFloat(params.estimatedValue.toString()) : null,
             status: 'NEW',
+            source: params.source || 'AI_AGENT',
             createdById: userId, // ✓ NOW USES AUTHENTICATED USER ID - CRITICAL FIX!
           },
           include: {
@@ -1066,6 +1070,573 @@ ${overdueInvoices > 0 ? `⚠️ ${overdueInvoices} overdue invoices - prioritize
     },
   });
 
+  // ========================================================================
+  // SALES & MARKETING TOOLS
+  // ========================================================================
+
+  // Tool 29: Create Marketing Campaign
+  const createCampaignTool = tool({
+    description: 'Create a new marketing email campaign targeting leads. The campaign will be saved as a DRAFT and can be sent or scheduled later.',
+    parameters: z.object({
+      name: z.string().describe('Campaign name (e.g., "Summer Plumbing Special", "Q1 Maintenance Promo")'),
+      subject: z.string().describe('Email subject line for the campaign'),
+      htmlBody: z.string().describe('HTML body content for the email. Use personalization tokens: {{customerName}}, {{serviceType}}, {{address}}, {{estimatedValue}}'),
+      description: z.string().optional().describe('Internal campaign description/notes'),
+      targetStatuses: z.array(z.enum(['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'])).optional().describe('Filter leads by these statuses. Empty = all leads'),
+      targetServiceTypes: z.array(z.string()).optional().describe('Filter leads by service types (e.g., ["Plumbing", "Electrical"])'),
+      scheduledFor: z.string().optional().describe('ISO datetime to schedule sending (e.g., "2025-02-01T09:00:00Z"). Leave empty for manual send'),
+    }),
+    execute: async ({ name, subject, htmlBody, description, targetStatuses, targetServiceTypes, scheduledFor }) => {
+      try {
+        const targetCriteria: any = {};
+        if (targetStatuses && targetStatuses.length > 0) targetCriteria.statuses = targetStatuses;
+        if (targetServiceTypes && targetServiceTypes.length > 0) targetCriteria.serviceTypes = targetServiceTypes;
+
+        // Count matching leads
+        const whereClause: any = {};
+        if (targetStatuses && targetStatuses.length > 0) whereClause.status = { in: targetStatuses };
+        if (targetServiceTypes && targetServiceTypes.length > 0) whereClause.serviceType = { in: targetServiceTypes };
+        const matchingLeads = await db.lead.count({ where: whereClause });
+
+        const campaign = await db.campaign.create({
+          data: {
+            name,
+            subject,
+            htmlBody,
+            description: description || null,
+            targetCriteria: Object.keys(targetCriteria).length > 0 ? targetCriteria : undefined,
+            status: scheduledFor ? 'SCHEDULED' : 'DRAFT',
+            scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+            totalRecipients: matchingLeads,
+            createdById: userId,
+          },
+        });
+
+        return `✅ CAMPAIGN CREATED SUCCESSFULLY
+
+📧 Campaign: "${campaign.name}" (ID: ${campaign.id})
+📋 Subject: ${campaign.subject}
+🎯 Target audience: ${matchingLeads} leads match criteria
+📊 Status: ${campaign.status}
+${scheduledFor ? `⏰ Scheduled for: ${new Date(scheduledFor).toLocaleString()}` : '📝 Status: DRAFT - Use sendCampaign tool to send it'}
+
+${targetStatuses ? `• Targeting statuses: ${targetStatuses.join(', ')}` : '• Targeting: All lead statuses'}
+${targetServiceTypes ? `• Targeting services: ${targetServiceTypes.join(', ')}` : '• Targeting: All service types'}`;
+      } catch (error) {
+        return `Error creating campaign: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 30: Send Campaign
+  const sendCampaignTool = tool({
+    description: 'Send a marketing campaign immediately. This will email all matching leads with the campaign content. Only works for DRAFT or SCHEDULED campaigns.',
+    parameters: z.object({
+      campaignId: z.number().describe('The campaign ID to send'),
+    }),
+    execute: async ({ campaignId }) => {
+      try {
+        const campaign = await db.campaign.findUnique({ where: { id: campaignId } });
+        if (!campaign) return `❌ Campaign ID ${campaignId} not found`;
+        if (campaign.status === 'SENT') return `⚠️ Campaign "${campaign.name}" has already been sent`;
+        if (campaign.status === 'SENDING') return `⚠️ Campaign "${campaign.name}" is currently being sent`;
+
+        // Update to SENDING
+        await db.campaign.update({ where: { id: campaignId }, data: { status: 'SENDING' } });
+
+        // Build target criteria
+        const targetCriteria = campaign.targetCriteria as any;
+        const whereClause: any = {};
+        if (targetCriteria?.statuses?.length > 0) whereClause.status = { in: targetCriteria.statuses };
+        if (targetCriteria?.serviceTypes?.length > 0) whereClause.serviceType = { in: targetCriteria.serviceTypes };
+
+        const leads = await db.lead.findMany({ where: whereClause });
+
+        if (leads.length === 0) {
+          await db.campaign.update({ where: { id: campaignId }, data: { status: 'FAILED', totalRecipients: 0  } });
+          return `❌ No leads match the campaign targeting criteria. Campaign marked as FAILED.`;
+        }
+
+        const company = await getCompanyDetails();
+        let sent = 0;
+        let failed = 0;
+
+        for (const lead of leads) {
+          try {
+            // Replace personalization tokens
+            let personalizedBody = campaign.htmlBody
+              .replace(/\{\{customerName\}\}/g, lead.customerName || '')
+              .replace(/\{\{customerEmail\}\}/g, lead.customerEmail || '')
+              .replace(/\{\{serviceType\}\}/g, lead.serviceType || '')
+              .replace(/\{\{address\}\}/g, lead.address || 'N/A')
+              .replace(/\{\{estimatedValue\}\}/g, lead.estimatedValue ? `R${lead.estimatedValue.toLocaleString()}` : 'N/A');
+
+            let personalizedSubject = campaign.subject
+              .replace(/\{\{customerName\}\}/g, lead.customerName || '')
+              .replace(/\{\{serviceType\}\}/g, lead.serviceType || '');
+
+            await sendEmail({
+              to: lead.customerEmail,
+              subject: personalizedSubject,
+              html: personalizedBody,
+              companyName: company?.name,
+            });
+            sent++;
+          } catch (e) {
+            failed++;
+          }
+        }
+
+        await db.campaign.update({
+          where: { id: campaignId },
+          data: {
+            status: 'SENT',
+            sentAt: new Date(),
+            totalRecipients: leads.length,
+            totalSent: sent,
+            totalFailed: failed,
+          },
+        });
+
+        return `✅ CAMPAIGN SENT SUCCESSFULLY
+
+📧 "${campaign.name}" (ID: ${campaign.id})
+📊 Results:
+  ✓ Sent: ${sent}/${leads.length}
+  ✗ Failed: ${failed}
+  📥 Total recipients: ${leads.length}
+  🕐 Sent at: ${new Date().toLocaleString()}
+
+${failed > 0 ? '⚠️ Some emails failed to send. Check email configuration.' : '🎉 All emails delivered successfully!'}`;
+      } catch (error) {
+        return `Error sending campaign: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 31: Get Campaign Performance
+  const getCampaignPerformanceTool = tool({
+    description: 'Get performance analytics for marketing campaigns. Shows sent/failed counts, campaign status, and overall marketing effectiveness.',
+    parameters: z.object({
+      campaignId: z.number().optional().describe('Specific campaign ID to analyze. Leave empty for all campaigns summary.'),
+    }),
+    execute: async ({ campaignId }) => {
+      try {
+        if (campaignId) {
+          const campaign = await db.campaign.findUnique({ where: { id: campaignId } });
+          if (!campaign) return `❌ Campaign ID ${campaignId} not found`;
+
+          const deliveryRate = campaign.totalRecipients > 0
+            ? ((campaign.totalSent / campaign.totalRecipients) * 100).toFixed(1)
+            : '0';
+
+          return `📊 CAMPAIGN PERFORMANCE: "${campaign.name}" (ID: ${campaign.id})
+
+📋 Status: ${campaign.status}
+📅 Created: ${campaign.createdAt.toLocaleDateString()}
+${campaign.sentAt ? `📤 Sent: ${campaign.sentAt.toLocaleDateString()}` : ''}
+
+📈 DELIVERY METRICS:
+  📥 Total Recipients: ${campaign.totalRecipients}
+  ✓ Successfully Sent: ${campaign.totalSent}
+  ✗ Failed: ${campaign.totalFailed}
+  📊 Delivery Rate: ${deliveryRate}%
+
+📧 Subject: ${campaign.subject}
+${campaign.description ? `📝 Description: ${campaign.description}` : ''}`;
+        }
+
+        // All campaigns summary
+        const campaigns = await db.campaign.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        });
+
+        if (campaigns.length === 0) return '📊 No campaigns found. Use createCampaign to create your first marketing campaign!';
+
+        const totalSent = campaigns.reduce((sum, c) => sum + c.totalSent, 0);
+        const totalFailed = campaigns.reduce((sum, c) => sum + c.totalFailed, 0);
+        const totalRecipients = campaigns.reduce((sum, c) => sum + c.totalRecipients, 0);
+        const sentCampaigns = campaigns.filter(c => c.status === 'SENT');
+        const draftCampaigns = campaigns.filter(c => c.status === 'DRAFT');
+        const scheduledCampaigns = campaigns.filter(c => c.status === 'SCHEDULED');
+
+        const campaignList = campaigns.slice(0, 10).map(c =>
+          `  ${c.status === 'SENT' ? '✓' : c.status === 'DRAFT' ? '📝' : c.status === 'SCHEDULED' ? '⏰' : '●'} #${c.id} "${c.name}" - ${c.status} | Sent: ${c.totalSent}/${c.totalRecipients}`
+        ).join('\n');
+
+        return `📊 MARKETING CAMPAIGNS OVERVIEW
+
+📈 OVERALL STATS:
+  📧 Total Campaigns: ${campaigns.length}
+  ✓ Sent: ${sentCampaigns.length} | 📝 Draft: ${draftCampaigns.length} | ⏰ Scheduled: ${scheduledCampaigns.length}
+  📥 Total Emails Sent: ${totalSent}
+  ✗ Total Failed: ${totalFailed}
+  📊 Overall Delivery Rate: ${totalRecipients > 0 ? ((totalSent / totalRecipients) * 100).toFixed(1) : '0'}%
+
+📋 RECENT CAMPAIGNS:
+${campaignList}`;
+      } catch (error) {
+        return `Error fetching campaign performance: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 32: Get Lead Source Analytics
+  const getLeadSourceAnalyticsTool = tool({
+    description: 'Analyze where leads are coming from (website, referral, campaign, phone, walk-in, social media, AI agent). Shows lead source breakdown with counts and conversion rates.',
+    parameters: z.object({
+      period: z.enum(['all', '7days', '30days', '90days', '12months']).optional().describe('Time period for analysis. Default: all'),
+    }),
+    execute: async ({ period }) => {
+      try {
+        const whereClause: any = {};
+        if (period && period !== 'all') {
+          const now = new Date();
+          const days = period === '7days' ? 7 : period === '30days' ? 30 : period === '90days' ? 90 : 365;
+          whereClause.createdAt = { gte: new Date(now.getTime() - days * 24 * 60 * 60 * 1000) };
+        }
+
+        const leads = await db.lead.findMany({
+          where: whereClause,
+          select: { source: true, status: true, estimatedValue: true },
+        });
+
+        // Group by source
+        const sourceMap: Record<string, { total: number; won: number; lost: number; active: number; value: number }> = {};
+        for (const lead of leads) {
+          const src = lead.source || 'OTHER';
+          if (!sourceMap[src]) sourceMap[src] = { total: 0, won: 0, lost: 0, active: 0, value: 0 };
+          sourceMap[src].total++;
+          if (lead.status === 'WON') sourceMap[src].won++;
+          else if (lead.status === 'LOST') sourceMap[src].lost++;
+          else sourceMap[src].active++;
+          sourceMap[src].value += lead.estimatedValue || 0;
+        }
+
+        const periodLabel = period === '7days' ? 'Last 7 Days' : period === '30days' ? 'Last 30 Days' : period === '90days' ? 'Last 90 Days' : period === '12months' ? 'Last 12 Months' : 'All Time';
+
+        const sourceLines = Object.entries(sourceMap)
+          .sort((a, b) => b[1].total - a[1].total)
+          .map(([src, data]) => {
+            const convRate = data.total > 0 ? ((data.won / data.total) * 100).toFixed(1) : '0';
+            return `  📌 ${src}: ${data.total} leads | Won: ${data.won} | Lost: ${data.lost} | Active: ${data.active} | Conv Rate: ${convRate}% | Value: R${data.value.toLocaleString()}`;
+          }).join('\n');
+
+        const totalWon = leads.filter(l => l.status === 'WON').length;
+        const overallConvRate = leads.length > 0 ? ((totalWon / leads.length) * 100).toFixed(1) : '0';
+
+        // Best source
+        const bestSource = Object.entries(sourceMap).sort((a, b) => (b[1].won / Math.max(b[1].total, 1)) - (a[1].won / Math.max(a[1].total, 1)))[0];
+
+        return `📊 LEAD SOURCE ANALYTICS (${periodLabel})
+
+📈 OVERVIEW:
+  Total Leads: ${leads.length}
+  Won: ${totalWon} | Overall Conversion: ${overallConvRate}%
+  Total Pipeline Value: R${leads.reduce((s, l) => s + (l.estimatedValue || 0), 0).toLocaleString()}
+
+📌 BREAKDOWN BY SOURCE:
+${sourceLines || '  No lead data available'}
+
+${bestSource ? `🏆 Best Converting Source: ${bestSource[0]} (${((bestSource[1].won / Math.max(bestSource[1].total, 1)) * 100).toFixed(1)}% conversion rate)` : ''}
+
+💡 RECOMMENDATIONS:
+${sourceMap['WEBSITE'] ? `• Website generates ${sourceMap['WEBSITE'].total} leads - ensure www.square15.co.za contact form is optimized` : '• No website leads yet - add the contact form integration to www.square15.co.za'}
+${sourceMap['REFERRAL'] ? `• Referrals have high trust - consider a referral rewards program` : '• Start a referral program to tap into word-of-mouth'}
+${!sourceMap['SOCIAL_MEDIA'] ? '• No social media leads - consider Facebook/Instagram advertising' : `• Social media bringing ${sourceMap['SOCIAL_MEDIA'].total} leads - keep posting`}`;
+      } catch (error) {
+        return `Error analyzing lead sources: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 33: Marketing Dashboard
+  const getMarketingDashboardTool = tool({
+    description: 'Get a comprehensive marketing and sales dashboard with KPIs, pipeline metrics, campaign performance, lead sources, and actionable recommendations. This is the go-to tool for a marketing performance overview.',
+    parameters: z.object({}),
+    execute: async () => {
+      try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        // Leads
+        const [totalLeads, newLeads30d, wonLeads, lostLeads, activeLeads] = await Promise.all([
+          db.lead.count(),
+          db.lead.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+          db.lead.count({ where: { status: 'WON' } }),
+          db.lead.count({ where: { status: 'LOST' } }),
+          db.lead.count({ where: { status: { notIn: ['WON', 'LOST'] } } }),
+        ]);
+
+        // Pipeline value
+        const pipelineValue = await db.lead.aggregate({
+          where: { status: { notIn: ['WON', 'LOST'] } },
+          _sum: { estimatedValue: true },
+        });
+        const wonValue = await db.lead.aggregate({
+          where: { status: 'WON' },
+          _sum: { estimatedValue: true },
+        });
+
+        // Campaigns
+        const [totalCampaigns, sentCampaigns, totalEmailsSent] = await Promise.all([
+          db.campaign.count(),
+          db.campaign.count({ where: { status: 'SENT' } }),
+          db.campaign.aggregate({ _sum: { totalSent: true } }),
+        ]);
+
+        // Reviews
+        const reviews = await db.review.aggregate({
+          _avg: { rating: true },
+          _count: true,
+        });
+
+        // Lead sources
+        const leadsBySource = await db.lead.groupBy({
+          by: ['source'],
+          _count: true,
+          orderBy: { _count: { source: 'desc' } },
+        });
+
+        // Lead statuses
+        const leadsByStatus = await db.lead.groupBy({
+          by: ['status'],
+          _count: true,
+          orderBy: { _count: { status: 'desc' } },
+        });
+
+        // Recent campaigns
+        const recentCampaigns = await db.campaign.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: { id: true, name: true, status: true, totalSent: true, totalRecipients: true, sentAt: true },
+        });
+
+        // Follow-ups due
+        const overdueFU = await db.lead.count({
+          where: { nextFollowUpDate: { lt: now }, status: { notIn: ['WON', 'LOST'] } },
+        });
+
+        const convRate = (wonLeads + lostLeads) > 0 ? ((wonLeads / (wonLeads + lostLeads)) * 100).toFixed(1) : '0';
+
+        const sourceLines = leadsBySource.map(s => `  📌 ${s.source}: ${s._count} leads`).join('\n');
+        const statusLines = leadsByStatus.map(s => `  • ${s.status}: ${s._count}`).join('\n');
+        const campaignLines = recentCampaigns.map(c =>
+          `  ${c.status === 'SENT' ? '✓' : '📝'} #${c.id} "${c.name}" - ${c.totalSent}/${c.totalRecipients} sent`
+        ).join('\n');
+
+        return `📊 MARKETING & SALES DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 SALES PIPELINE:
+  Total Leads: ${totalLeads} | New (30d): ${newLeads30d}
+  Active Pipeline: ${activeLeads} leads
+  Won: ${wonLeads} | Lost: ${lostLeads}
+  📈 Conversion Rate: ${convRate}%
+  💰 Active Pipeline Value: R${(pipelineValue._sum.estimatedValue || 0).toLocaleString()}
+  💵 Won Revenue: R${(wonValue._sum.estimatedValue || 0).toLocaleString()}
+
+📧 EMAIL MARKETING:
+  Campaigns Created: ${totalCampaigns}
+  Campaigns Sent: ${sentCampaigns}
+  Total Emails Sent: ${totalEmailsSent._sum.totalSent || 0}
+
+⭐ REPUTATION:
+  Average Rating: ${reviews._avg.rating ? reviews._avg.rating.toFixed(1) : 'N/A'}/5
+  Total Reviews: ${reviews._count}
+
+📌 LEAD SOURCES:
+${sourceLines || '  No source data yet'}
+
+📋 PIPELINE BY STATUS:
+${statusLines || '  No leads yet'}
+
+📧 RECENT CAMPAIGNS:
+${campaignLines || '  No campaigns yet'}
+
+${overdueFU > 0 ? `⚠️ ${overdueFU} OVERDUE FOLLOW-UPS - Action needed!` : '✅ All follow-ups up to date'}
+
+💡 QUICK ACTIONS:
+• Create a campaign to engage ${activeLeads} active leads
+• Follow up on overdue leads to improve conversion
+• Request reviews from recent customers to build reputation
+${newLeads30d === 0 ? '• ⚠️ No new leads this month - consider running a marketing campaign' : ''}`;
+      } catch (error) {
+        return `Error fetching marketing dashboard: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 34: Send Review Request
+  const sendReviewRequestTool = tool({
+    description: 'Send a review request email to a customer for a specific completed order. Helps build online reputation and gather feedback.',
+    parameters: z.object({
+      orderId: z.number().describe('The order ID to request a review for'),
+    }),
+    execute: async ({ orderId }) => {
+      try {
+        const order = await db.order.findUnique({
+          where: { id: orderId },
+          include: {
+            lead: true,
+            assignedTo: { select: { firstName: true, lastName: true } },
+          },
+        });
+
+        if (!order) return `❌ Order ID ${orderId} not found`;
+        if (!order.lead) return `❌ Order ID ${orderId} has no associated lead/customer`;
+
+        await sendReviewRequestEmail({
+          to: order.lead.customerEmail,
+          customerName: order.lead.customerName,
+          orderDescription: order.description,
+          orderId: order.id,
+        });
+
+        return `✅ REVIEW REQUEST SENT
+
+📧 Sent to: ${order.lead.customerName} (${order.lead.customerEmail})
+📋 For Order: #${order.id} - ${order.description}
+${order.assignedTo ? `👷 Artisan: ${order.assignedTo.firstName} ${order.assignedTo.lastName}` : ''}
+
+💡 Reviews help build your reputation and attract new customers!`;
+      } catch (error) {
+        return `Error sending review request: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 35: Generate Marketing Report
+  const generateMarketingReportTool = tool({
+    description: 'Generate a comprehensive marketing and sales performance report covering lead generation, campaign effectiveness, conversion rates, revenue attribution, and strategic recommendations.',
+    parameters: z.object({
+      period: z.enum(['7days', '30days', '90days', '12months']).describe('Report period'),
+    }),
+    execute: async ({ period }) => {
+      try {
+        const now = new Date();
+        const days = period === '7days' ? 7 : period === '30days' ? 30 : period === '90days' ? 90 : 365;
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        const prevStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
+        const periodLabel = period === '7days' ? 'Weekly' : period === '30days' ? 'Monthly' : period === '90days' ? 'Quarterly' : 'Annual';
+
+        // Current period leads
+        const currentLeads = await db.lead.findMany({
+          where: { createdAt: { gte: startDate } },
+          select: { source: true, status: true, estimatedValue: true, serviceType: true },
+        });
+        // Previous period leads (for comparison)
+        const prevLeads = await db.lead.count({
+          where: { createdAt: { gte: prevStartDate, lt: startDate } },
+        });
+
+        // Current period campaigns
+        const currentCampaigns = await db.campaign.findMany({
+          where: { sentAt: { gte: startDate } },
+          select: { totalSent: true, totalFailed: true, totalRecipients: true, name: true },
+        });
+
+        // Won deals in period
+        const wonInPeriod = await db.lead.findMany({
+          where: { status: 'WON', updatedAt: { gte: startDate } },
+          select: { estimatedValue: true, source: true },
+        });
+
+        // Revenue from invoices in period
+        const invoiceRevenue = await db.invoice.aggregate({
+          where: { status: 'PAID', paidAt: { gte: startDate } },
+          _sum: { amount: true },
+          _count: true,
+        });
+
+        // Completed orders
+        const completedOrders = await db.order.count({
+          where: { status: 'COMPLETED', updatedAt: { gte: startDate } },
+        });
+
+        // Reviews in period
+        const periodReviews = await db.review.aggregate({
+          where: { createdAt: { gte: startDate } },
+          _avg: { rating: true },
+          _count: true,
+        });
+
+        // Source breakdown for current period
+        const sourceBreakdown: Record<string, number> = {};
+        for (const lead of currentLeads) {
+          const src = lead.source || 'OTHER';
+          sourceBreakdown[src] = (sourceBreakdown[src] || 0) + 1;
+        }
+
+        // Service type breakdown
+        const serviceBreakdown: Record<string, number> = {};
+        for (const lead of currentLeads) {
+          serviceBreakdown[lead.serviceType] = (serviceBreakdown[lead.serviceType] || 0) + 1;
+        }
+
+        const leadGrowth = prevLeads > 0 ? (((currentLeads.length - prevLeads) / prevLeads) * 100).toFixed(1) : 'N/A';
+        const wonValue = wonInPeriod.reduce((s, l) => s + (l.estimatedValue || 0), 0);
+        const totalCampaignEmails = currentCampaigns.reduce((s, c) => s + c.totalSent, 0);
+        const totalCampaignFailed = currentCampaigns.reduce((s, c) => s + c.totalFailed, 0);
+
+        const sourceLines = Object.entries(sourceBreakdown)
+          .sort((a, b) => b[1] - a[1])
+          .map(([src, count]) => `  📌 ${src}: ${count} (${((count / Math.max(currentLeads.length, 1)) * 100).toFixed(0)}%)`)
+          .join('\n');
+
+        const serviceLines = Object.entries(serviceBreakdown)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([svc, count]) => `  🔧 ${svc}: ${count} inquiries`)
+          .join('\n');
+
+        return `📊 ${periodLabel.toUpperCase()} MARKETING & SALES REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Period: ${startDate.toLocaleDateString()} - ${now.toLocaleDateString()}
+
+📈 LEAD GENERATION:
+  New Leads: ${currentLeads.length}
+  Previous Period: ${prevLeads}
+  Growth: ${leadGrowth}%${typeof leadGrowth === 'string' && leadGrowth !== 'N/A' ? (parseFloat(leadGrowth) > 0 ? ' 📈' : ' 📉') : ''}
+
+📌 LEAD SOURCES:
+${sourceLines || '  No leads this period'}
+
+🔧 TOP SERVICES IN DEMAND:
+${serviceLines || '  No data'}
+
+💰 REVENUE & CONVERSIONS:
+  Deals Won: ${wonInPeriod.length}
+  Won Deal Value: R${wonValue.toLocaleString()}
+  Invoices Paid: ${invoiceRevenue._count} (R${(invoiceRevenue._sum.amount || 0).toLocaleString()})
+  Orders Completed: ${completedOrders}
+
+📧 CAMPAIGN PERFORMANCE:
+  Campaigns Sent: ${currentCampaigns.length}
+  Total Emails Delivered: ${totalCampaignEmails}
+  Failed Deliveries: ${totalCampaignFailed}
+  Delivery Rate: ${(totalCampaignEmails + totalCampaignFailed) > 0 ? ((totalCampaignEmails / (totalCampaignEmails + totalCampaignFailed)) * 100).toFixed(1) : 'N/A'}%
+
+⭐ CUSTOMER SATISFACTION:
+  Reviews Received: ${periodReviews._count}
+  Average Rating: ${periodReviews._avg.rating ? periodReviews._avg.rating.toFixed(1) : 'N/A'}/5
+
+📋 STRATEGIC RECOMMENDATIONS:
+${currentLeads.length === 0 ? '• ⚠️ URGENT: No leads generated - launch a marketing campaign immediately' : ''}
+${currentLeads.length < prevLeads ? '• Lead generation declining - consider new marketing channels' : ''}
+${wonInPeriod.length === 0 ? '• No deals closed - review sales follow-up process' : ''}
+${periodReviews._count === 0 ? '• No reviews collected - send review requests to recent customers' : ''}
+${totalCampaignEmails === 0 ? '• No campaigns sent - create and send a campaign to engage leads' : ''}
+${currentLeads.length > 0 && wonInPeriod.length > 0 ? `• Keep momentum! ${currentLeads.length} leads generated, ${wonInPeriod.length} deals closed` : ''}
+• Top lead source: ${Object.entries(sourceBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'} - double down on this channel
+• Most demanded service: ${Object.entries(serviceBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'} - feature this in campaigns`;
+      } catch (error) {
+        return `Error generating marketing report: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
   // Return all tools as an OBJECT with user context injected
   // This format is required by the AI SDK's generateText function
   return {
@@ -1101,6 +1672,14 @@ ${overdueInvoices > 0 ? `⚠️ ${overdueInvoices} overdue invoices - prioritize
     // Advanced Analysis
     getBusinessHealth: getBusinessHealthTool,
     getCashFlowAnalysis: getCashFlowAnalysisTool,
+    // Sales & Marketing
+    createCampaign: createCampaignTool,
+    sendCampaign: sendCampaignTool,
+    getCampaignPerformance: getCampaignPerformanceTool,
+    getLeadSourceAnalytics: getLeadSourceAnalyticsTool,
+    getMarketingDashboard: getMarketingDashboardTool,
+    sendReviewRequest: sendReviewRequestTool,
+    generateMarketingReport: generateMarketingReportTool,
   };
 }
 

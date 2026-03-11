@@ -18,6 +18,7 @@ import { getSalesPerformance } from "~/server/trpc/procedures/getSalesPerformanc
 import { getEmployeeSalesPerformance } from "~/server/trpc/procedures/getEmployeeSalesPerformance";
 import { createCampaign } from "~/server/trpc/procedures/createCampaign";
 import { getCampaigns } from "~/server/trpc/procedures/getCampaigns";
+import { getMarketingDashboard } from "~/server/trpc/procedures/getMarketingDashboard";
 import { updateCampaign } from "~/server/trpc/procedures/updateCampaign";
 import { sendCampaign } from "~/server/trpc/procedures/sendCampaign";
 import { deleteCampaign } from "~/server/trpc/procedures/deleteCampaign";
@@ -397,6 +398,7 @@ export const appRouter = createTRPCRouter({
   // Campaigns
   createCampaign,
   getCampaigns,
+  getMarketingDashboard,
   updateCampaign,
   sendCampaign,
   deleteCampaign,

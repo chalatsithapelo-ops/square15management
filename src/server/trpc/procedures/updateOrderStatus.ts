@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { SlipCategory } from "@prisma/client";
 import { getCompanyDetails } from "~/server/utils/company-details";
-import { sendCompletionReportEmail, sendOrderStatusUpdateEmail } from "~/server/utils/email";
+import { sendCompletionReportEmail, sendOrderStatusUpdateEmail, sendReviewRequestEmail } from "~/server/utils/email";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
 import { fetchImageAsBuffer } from "~/server/utils/pdf-images";
@@ -1176,6 +1176,26 @@ export const updateOrderStatus = baseProcedure
             });
 
             console.log(`[updateOrderStatus] Completion report email sent successfully to ${updatedOrder.customerEmail}`);
+
+            // Send review request email 24 hours after completion (delayed via setTimeout)
+            setTimeout(async () => {
+              try {
+                await sendReviewRequestEmail({
+                  customerEmail: updatedOrder.customerEmail,
+                  customerName: updatedOrder.customerName,
+                  orderNumber: updatedOrder.orderNumber,
+                  serviceType: updatedOrder.serviceType || "General Maintenance",
+                  completionDate: new Date(),
+                  loginCredentials: {
+                    email: updatedOrder.customerEmail,
+                    password: completionPassword,
+                  },
+                });
+                console.log(`[updateOrderStatus] Review request email sent to ${updatedOrder.customerEmail}`);
+              } catch (reviewError) {
+                console.error("[updateOrderStatus] Failed to send review request email:", reviewError);
+              }
+            }, 24 * 60 * 60 * 1000); // 24 hours delay
           } catch (emailError) {
             // Log the error but don't fail the order update
             console.error("[updateOrderStatus] Failed to send completion report email:", emailError);

@@ -11,6 +11,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  CAMPAIGN
+  PHONE
+  WALK_IN
+  AI_AGENT
+  SOCIAL_MEDIA
+  OTHER
+}
+
 enum LeadStatus {
   NEW
   CONTACTED
@@ -526,6 +537,7 @@ model Lead {
   description    String
   estimatedValue Float?
   status         LeadStatus @default(NEW)
+  source         LeadSource @default(OTHER)
   notes          String?
 
   // Follow-up tracking

@@ -1,7 +1,16 @@
-# Square15 backups + health monitoring
+# Square15 backups + health monitoring + sales automation
 
 # Daily DB backup at 02:15 UTC
 15 2 * * * root /root/square15management/ops/backup-postgres.sh >> /var/log/square15/backup.log 2>&1
 
 # App/DB health check every 2 minutes (self-healing)
 */2 * * * * root /root/square15management/ops/monitor-health.sh >> /var/log/square15/monitor-cron.log 2>&1
+
+# Lead follow-up reminders - daily at 07:00 SAST (05:00 UTC)
+0 5 * * * root cd /root/square15management && npx tsx src/server/scripts/check-lead-reminders.ts >> /var/log/square15/lead-reminders.log 2>&1
+
+# Process scheduled campaigns - every 15 minutes
+*/15 * * * * root cd /root/square15management && npx tsx src/server/scripts/process-scheduled-campaigns.ts >> /var/log/square15/campaign-scheduler.log 2>&1
+
+# Lead nurture emails - daily at 09:00 SAST (07:00 UTC)
+0 7 * * * root cd /root/square15management && npx tsx src/server/scripts/nurture-leads.ts >> /var/log/square15/lead-nurture.log 2>&1

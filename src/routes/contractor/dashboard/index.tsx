@@ -435,6 +435,15 @@ function ContractorDashboard() {
       enabled: canUseAIAgent,
     },
     {
+      title: "Marketing",
+      description: "Campaign performance & lead analytics",
+      icon: TrendingUp,
+      color: "from-pink-500 to-rose-600",
+      stats: "Sales & Marketing",
+      href: "/contractor/marketing-dashboard",
+      enabled: canUseCRM,
+    },
+    {
       title: "Settings",
       description: "Manage company branding and settings",
       icon: Settings,

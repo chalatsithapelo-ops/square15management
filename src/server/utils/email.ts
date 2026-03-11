@@ -1956,3 +1956,203 @@ export async function sendMaintenanceRequestToContractorEmail(params: {
 
   console.log(`[sendMaintenanceRequestToContractorEmail] Sent to ${params.contractorEmail} for ${params.requestNumber}`);
 }
+
+/**
+ * Send a review request email to a customer after job completion
+ */
+export async function sendReviewRequestEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  orderNumber: string;
+  serviceType: string;
+  completionDate: Date;
+  loginCredentials?: { email: string; password: string };
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+  const portalLink = `${env.BASE_URL}/login`;
+  
+  const formattedDate = params.completionDate.toLocaleDateString("en-ZA", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const subject = `How was our service? - ${companyDetails.companyName}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+      <div style="max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, ${env.BRAND_PRIMARY_COLOR || "#1e40af"} 0%, ${env.BRAND_ACCENT_COLOR || "#3b82f6"} 100%); color: white; padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">${companyDetails.companyName}</h1>
+          <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">We'd Love Your Feedback</p>
+        </div>
+        
+        <div style="background: #fff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+          <p>Dear ${params.customerName},</p>
+          
+          <p>Thank you for choosing <strong>${companyDetails.companyName}</strong> for your <strong>${params.serviceType}</strong> needs. We hope the work on order <strong>${params.orderNumber}</strong>, completed on ${formattedDate}, met your expectations.</p>
+          
+          <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+            <p style="margin: 0; font-weight: bold; color: #92400e;">⭐ Your Feedback Matters!</p>
+            <p style="margin: 10px 0 0; color: #78350f;">Your review helps us improve our service and helps other customers make informed decisions. It only takes a moment!</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${portalLink}" style="display: inline-block; background: linear-gradient(135deg, ${env.BRAND_PRIMARY_COLOR || "#1e40af"} 0%, ${env.BRAND_ACCENT_COLOR || "#3b82f6"} 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              Leave Your Review
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; text-align: center;">Log in to your Customer Portal to rate your experience</p>
+          
+          ${getLoginCredentialsHtml(params.loginCredentials, portalLink)}
+          
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin-top: 0; color: #166534;">What to Rate:</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #15803d;">
+              <li><strong>Service Quality</strong> - Was the work done properly?</li>
+              <li><strong>Professionalism</strong> - Was our team courteous and professional?</li>
+              <li><strong>Timeliness</strong> - Was the job completed on time?</li>
+              <li><strong>Overall Experience</strong> - How was your overall experience?</li>
+            </ul>
+          </div>
+          
+          <p>If you have any questions or concerns about the completed work, please don't hesitate to contact us directly.</p>
+          
+          <p>Thank you for your time and support!</p>
+          
+          <p>Warm regards,<br><strong>${companyDetails.companyName} Team</strong></p>
+        </div>
+        
+        <div style="background: #f9fafb; text-align: center; padding: 20px; color: #666; font-size: 12px;">
+          <p><strong>${companyDetails.companyName}</strong></p>
+          <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+          <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.customerEmail,
+    subject,
+    html,
+  });
+
+  console.log(`[sendReviewRequestEmail] Sent to ${params.customerEmail} for order ${params.orderNumber}`);
+}
+
+/**
+ * Send a lead nurture / follow-up email to a cold or inactive lead
+ */
+export async function sendLeadNurtureEmail(params: {
+  recipientEmail: string;
+  recipientName: string;
+  serviceType: string;
+  leadId: number;
+  nurtureType: "WELCOME" | "FOLLOW_UP" | "RE_ENGAGEMENT";
+}): Promise<void> {
+  const companyDetails = await getCompanyDetails();
+
+  let subject: string;
+  let bodyCopy: string;
+
+  switch (params.nurtureType) {
+    case "WELCOME":
+      subject = `Welcome to ${companyDetails.companyName} - We're Here to Help!`;
+      bodyCopy = `
+        <p>Dear ${params.recipientName},</p>
+        <p>Thank you for expressing interest in our <strong>${params.serviceType}</strong> services. We're excited to have the opportunity to assist you!</p>
+        <p>At <strong>${companyDetails.companyName}</strong>, we pride ourselves on delivering quality work with professionalism and efficiency. Whether it's a quick repair or a major project, we've got you covered.</p>
+        <h3 style="color: ${env.BRAND_PRIMARY_COLOR || "#1e40af"};">What Happens Next?</h3>
+        <ol>
+          <li>A member of our team will review your requirements</li>
+          <li>We'll reach out to discuss the scope and provide a free quotation</li>
+          <li>Once approved, we'll schedule the work at your convenience</li>
+        </ol>
+        <p>If you have any questions in the meantime, feel free to get in touch!</p>
+      `;
+      break;
+
+    case "FOLLOW_UP":
+      subject = `Checking In - ${companyDetails.companyName}`;
+      bodyCopy = `
+        <p>Dear ${params.recipientName},</p>
+        <p>We recently discussed your <strong>${params.serviceType}</strong> requirements and wanted to follow up to see if you had any questions or if you're ready to proceed.</p>
+        <p>We understand that making decisions about property maintenance and improvements takes time. We're here whenever you're ready!</p>
+        <div style="background: #eff6ff; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: ${env.BRAND_PRIMARY_COLOR || "#1e40af"};">Why Choose ${companyDetails.companyName}?</h3>
+          <ul>
+            <li>✅ Professional, experienced team</li>
+            <li>✅ Competitive pricing with transparent quotations</li>
+            <li>✅ Quality workmanship guaranteed</li>
+            <li>✅ Timely project completion</li>
+          </ul>
+        </div>
+        <p>Would you like us to prepare a detailed quotation for your project? Simply reply to this email or give us a call!</p>
+      `;
+      break;
+
+    case "RE_ENGAGEMENT":
+      subject = `We Miss You! - ${companyDetails.companyName}`;
+      bodyCopy = `
+        <p>Dear ${params.recipientName},</p>
+        <p>It's been a while since we last chatted about your <strong>${params.serviceType}</strong> needs, and we wanted to reach out to let you know we're still here for you.</p>
+        <p>If your requirements have changed or you've found a solution, we completely understand. However, if you still need assistance, we'd love to help!</p>
+        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+          <p style="margin: 0; font-weight: bold; color: #92400e;">🎯 Special Offer for Returning Clients</p>
+          <p style="margin: 10px 0 0; color: #78350f;">Contact us this week and receive a priority consultation with a complimentary assessment of your requirements.</p>
+        </div>
+        <p>We value your interest and look forward to the opportunity to serve you.</p>
+      `;
+      break;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+      <div style="max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, ${env.BRAND_PRIMARY_COLOR || "#1e40af"} 0%, ${env.BRAND_ACCENT_COLOR || "#3b82f6"} 100%); color: white; padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">${companyDetails.companyName}</h1>
+        </div>
+        
+        <div style="background: #fff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+          ${bodyCopy}
+          
+          <p>Best regards,<br><strong>${companyDetails.companyName} Team</strong></p>
+          <p style="font-size: 13px; color: #6b7280;">
+            Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}
+          </p>
+        </div>
+        
+        <div style="background: #f9fafb; text-align: center; padding: 20px; color: #666; font-size: 12px;">
+          <p><strong>${companyDetails.companyName}</strong></p>
+          <p>${companyDetails.companyAddressLine1}, ${companyDetails.companyAddressLine2}</p>
+          <p>Tel: ${companyDetails.companyPhone} | Email: ${companyDetails.companyEmail}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: params.recipientEmail,
+    subject,
+    html,
+  });
+
+  console.log(`[sendLeadNurtureEmail] Sent ${params.nurtureType} email to ${params.recipientEmail} for lead #${params.leadId}`);
+}

@@ -16,6 +16,7 @@ export const createLead = baseProcedure
       serviceType: z.string().min(1),
       description: z.string().min(1),
       estimatedValue: z.number().optional(),
+      source: z.enum(["WEBSITE", "REFERRAL", "CAMPAIGN", "PHONE", "WALK_IN", "AI_AGENT", "SOCIAL_MEDIA", "OTHER"]).optional(),
       nextFollowUpDate: z.string().datetime().optional(),
       followUpAssignedToId: z.number().optional(),
     })
@@ -37,6 +38,7 @@ export const createLead = baseProcedure
           description: input.description,
           estimatedValue: input.estimatedValue || null,
           status: "NEW",
+          source: input.source || "OTHER",
           createdById: user.id,
           nextFollowUpDate: input.nextFollowUpDate ? new Date(input.nextFollowUpDate) : null,
           followUpAssignedToId: input.followUpAssignedToId ?? user.id,
