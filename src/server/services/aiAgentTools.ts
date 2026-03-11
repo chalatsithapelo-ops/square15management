@@ -1637,6 +1637,255 @@ ${currentLeads.length > 0 && wonInPeriod.length > 0 ? `• Keep momentum! ${curr
     },
   });
 
+  // ========================================================================
+  // AI CAMPAIGN GENERATION & AMENDMENT TOOLS
+  // ========================================================================
+
+  // Tool 35: Generate Campaign Content with AI
+  const generateCampaignContentTool = tool({
+    description: 'Use AI to generate a complete campaign email design based on a description. Returns campaign name, subject line, and full HTML body. Use this when the user wants AI to create campaign content, graphics, or designs.',
+    parameters: z.object({
+      prompt: z.string().describe('Description of the campaign to create (e.g., "10% discount on all plumbing services for January", "Summer maintenance special", "Re-engagement campaign for inactive leads")'),
+      serviceType: z.string().optional().describe('Specific service type to focus on (e.g., "Plumbing", "Painting", "Electrical")'),
+      discountPercent: z.number().optional().describe('Discount percentage to feature (e.g., 10, 15, 20)'),
+      targetAudience: z.string().optional().describe('Who is the target audience (e.g., "inactive customers", "new leads", "property managers")'),
+      tone: z.enum(['professional', 'friendly', 'urgent', 'festive', 'casual']).optional().describe('Campaign tone/style'),
+    }),
+    execute: async ({ prompt, serviceType, discountPercent, targetAudience, tone }) => {
+      try {
+        const { generateText: genText } = await import('ai');
+        const { google: goog } = await import('@ai-sdk/google');
+        const aiModel = goog('gemini-2.0-flash');
+
+        const systemPrompt = `You are a professional marketing content creator for Square 15 Property Maintenance (www.square15.co.za), a South African property maintenance company.
+
+Generate a complete, professional email campaign based on the description. The HTML must be visually stunning, responsive, and ready to send.
+
+Rules:
+1. Use inline CSS, max-width 600px
+2. Include company name "Square 15 Property Maintenance"
+3. Use personalization tokens: {{customerName}}, {{serviceType}}, {{address}}, {{estimatedValue}}
+4. Include a CTA button linking to https://www.square15.co.za
+5. Use modern design with gradients, cards, emoji icons
+6. Include a professional footer
+7. Tone: ${tone || 'professional'}
+${serviceType ? `8. Focus on ${serviceType} services` : ''}
+${discountPercent ? `9. Feature a ${discountPercent}% discount` : ''}
+${targetAudience ? `10. Target audience: ${targetAudience}` : ''}
+
+Respond ONLY with JSON (no markdown):
+{"name":"Campaign Name","subject":"Subject Line","htmlBody":"<div>...HTML...</div>","description":"Brief description"}`;
+
+        const result = await genText({
+          model: aiModel,
+          system: systemPrompt,
+          prompt,
+          maxTokens: 4000,
+          temperature: 0.7,
+        });
+
+        let parsed: any;
+        try {
+          let clean = result.text.trim();
+          if (clean.startsWith('```json')) clean = clean.slice(7);
+          else if (clean.startsWith('```')) clean = clean.slice(3);
+          if (clean.endsWith('```')) clean = clean.slice(0, -3);
+          parsed = JSON.parse(clean.trim());
+        } catch {
+          return 'Failed to generate campaign content. The AI returned an invalid response. Please try again with a different description.';
+        }
+
+        // Also create it as a DRAFT campaign
+        const campaign = await db.campaign.create({
+          data: {
+            name: parsed.name,
+            description: parsed.description || '',
+            subject: parsed.subject,
+            htmlBody: parsed.htmlBody,
+            targetCriteria: {},
+            status: 'DRAFT',
+            createdById: userId,
+            notes: 'AI-generated campaign. Review and edit before sending.',
+          },
+        });
+
+        return `✅ AI Campaign Generated & Saved as Draft!
+
+📧 Campaign: ${parsed.name}
+📋 Subject: ${parsed.subject}
+📝 Description: ${parsed.description || 'N/A'}
+🆔 Campaign ID: ${campaign.id}
+📊 Status: DRAFT (ready for review)
+
+The campaign has been created with professional HTML design including graphics, layout, and call-to-action. You can preview it in CRM > Campaigns, edit it, or send it when ready.
+
+💡 Need changes? Tell me what to modify (e.g., "Change the discount to 15%", "Add more urgency", "Make it more colorful").`;
+      } catch (error) {
+        return `Error generating campaign: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 36: Amend/Edit Campaign with AI
+  const amendCampaignTool = tool({
+    description: 'Amend or modify an existing campaign based on written instructions. The AI will update the campaign design, content, layout, colors, etc. based on what you describe. Use this when the user wants to change something about an existing campaign.',
+    parameters: z.object({
+      campaignId: z.number().describe('The ID of the campaign to edit'),
+      instruction: z.string().describe('What to change (e.g., "Make the discount 15% instead of 10%", "Change the color scheme to blue", "Add a section about our warranty", "Make it more urgent")'),
+    }),
+    execute: async ({ campaignId, instruction }) => {
+      try {
+        const campaign = await db.campaign.findUnique({
+          where: { id: campaignId },
+        });
+
+        if (!campaign) {
+          return `Campaign with ID ${campaignId} not found.`;
+        }
+
+        const { generateText: genText } = await import('ai');
+        const { google: goog } = await import('@ai-sdk/google');
+        const aiModel = goog('gemini-2.0-flash');
+
+        const systemPrompt = `You are editing an existing marketing email campaign for Square 15 Property Maintenance.
+
+Apply the requested changes while keeping the overall professional design. Maintain personalization tokens and CTA buttons.
+
+Current campaign:
+Name: ${campaign.name}
+Subject: ${campaign.subject}
+HTML: ${campaign.htmlBody}
+
+Respond ONLY with JSON (no markdown):
+{"name":"Updated Name","subject":"Updated Subject","htmlBody":"<div>...updated HTML...</div>","changesSummary":"What was changed"}`;
+
+        const result = await genText({
+          model: aiModel,
+          system: systemPrompt,
+          prompt: instruction,
+          maxTokens: 4000,
+          temperature: 0.5,
+        });
+
+        let parsed: any;
+        try {
+          let clean = result.text.trim();
+          if (clean.startsWith('```json')) clean = clean.slice(7);
+          else if (clean.startsWith('```')) clean = clean.slice(3);
+          if (clean.endsWith('```')) clean = clean.slice(0, -3);
+          parsed = JSON.parse(clean.trim());
+        } catch {
+          return 'Failed to amend campaign. The AI returned an invalid response. Please try again.';
+        }
+
+        // Update the campaign in database
+        await db.campaign.update({
+          where: { id: campaignId },
+          data: {
+            name: parsed.name,
+            subject: parsed.subject,
+            htmlBody: parsed.htmlBody,
+          },
+        });
+
+        return `✅ Campaign Updated Successfully!
+
+🆔 Campaign ID: ${campaignId}
+📧 New Name: ${parsed.name}
+📋 New Subject: ${parsed.subject}
+🔄 Changes: ${parsed.changesSummary || 'Applied requested modifications'}
+
+The campaign has been updated. You can preview it in CRM > Campaigns or ask me to make more changes.`;
+      } catch (error) {
+        return `Error amending campaign: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 37: Suggest Campaign Ideas
+  const suggestCampaignIdeasTool = tool({
+    description: 'Analyze current business data and suggest campaign ideas. Acts as a living marketing assistant that monitors lead pipeline, service demand, seasons, and proactively recommends campaigns. Use this to get AI-powered campaign recommendations.',
+    parameters: z.object({
+      focusArea: z.enum(['general', 'seasonal', 'service_promo', 're_engagement', 'new_service', 'holiday']).optional().describe('Focus area for suggestions. Default: general (AI decides based on data)'),
+    }),
+    execute: async ({ focusArea }) => {
+      try {
+        const now = new Date();
+        const currentMonth = now.toLocaleString('en-ZA', { month: 'long' });
+
+        // Gather intelligence
+        const [leadsByService, leadsByStatus, totalLeads, inactiveLeads, recentCampaigns, wonLeads] = await Promise.all([
+          db.lead.groupBy({
+            by: ['serviceType'],
+            _count: { id: true },
+            where: { createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 3, 1) } },
+            orderBy: { _count: { id: 'desc' } },
+          }),
+          db.lead.groupBy({ by: ['status'], _count: { id: true } }),
+          db.lead.count(),
+          db.lead.count({
+            where: {
+              status: { in: ['NEW', 'CONTACTED'] },
+              updatedAt: { lte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+            },
+          }),
+          db.campaign.findMany({
+            where: { createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 2, 1) } },
+            select: { name: true },
+          }),
+          db.lead.count({ where: { status: 'WON' } }),
+        ]);
+
+        const month = now.getMonth();
+        let season = 'autumn';
+        if (month >= 9 && month <= 11) season = 'spring';
+        if (month >= 0 && month <= 2) season = 'summer';
+        if (month >= 3 && month <= 5) season = 'autumn';
+        if (month >= 6 && month <= 8) season = 'winter';
+
+        const topServices = leadsByService.slice(0, 5).map(s => `${s.serviceType} (${s._count.id})`).join(', ');
+        const pipeline = leadsByStatus.map(s => `${s.status}: ${s._count.id}`).join(', ');
+
+        return `📊 AI CAMPAIGN SUGGESTIONS FOR ${currentMonth.toUpperCase()}
+
+🔍 CURRENT BUSINESS INTELLIGENCE:
+• Total leads: ${totalLeads}
+• Pipeline: ${pipeline}
+• Won customers: ${wonLeads}
+• Inactive leads (30+ days): ${inactiveLeads}
+• Top services: ${topServices}
+• Season: ${season} (South Africa)
+• Recent campaigns: ${recentCampaigns.map(c => c.name).join(', ') || 'None'}
+
+💡 RECOMMENDED CAMPAIGNS:
+
+1️⃣ ${season.toUpperCase()} SERVICE SPECIAL
+   ${season === 'summer' ? '☀️ Summer property maintenance - HVAC servicing, painting, outdoor repairs' : 
+     season === 'winter' ? '🌧️ Winter protection - roof repairs, waterproofing, plumbing checks' :
+     season === 'spring' ? '🌸 Spring refresh - painting, garden/outdoor maintenance, general cleanup' :
+     '🍂 Autumn prep - gutter cleaning, structural inspections, weatherproofing'}
+   📧 Target: All leads | Focus: Seasonal maintenance needs
+
+2️⃣ ${inactiveLeads > 0 ? `RE-ENGAGEMENT CAMPAIGN (${inactiveLeads} inactive leads!)` : 'REFERRAL PROGRAM'}
+   ${inactiveLeads > 0 ? '💝 Win back inactive customers with a special "We Miss You" discount' : '🤝 Launch a refer-a-friend program to grow through word-of-mouth'}
+   📧 Target: ${inactiveLeads > 0 ? 'Inactive leads (30+ days)' : 'Won customers'} | Focus: ${inactiveLeads > 0 ? 'Reactivation' : 'Growth'}
+
+3️⃣ TOP SERVICE SPOTLIGHT: ${leadsByService[0]?.serviceType || 'General Maintenance'}
+   🔧 Highlight your most in-demand service with a targeted promotion
+   📧 Target: Leads interested in ${leadsByService[0]?.serviceType || 'maintenance'} | Focus: Conversion
+
+🎯 QUICK ACTIONS:
+• Say "Generate campaign for [suggestion]" to have me create it with full design
+• Say "Create a 10% discount campaign for [service]" for a specific promotion
+• Say "Amend campaign [ID]" to modify any existing campaign
+
+I'm monitoring your business data and will keep suggesting campaigns that match market trends and your lead pipeline.`;
+      } catch (error) {
+        return `Error generating suggestions: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
   // Return all tools as an OBJECT with user context injected
   // This format is required by the AI SDK's generateText function
   return {
@@ -1680,6 +1929,10 @@ ${currentLeads.length > 0 && wonInPeriod.length > 0 ? `• Keep momentum! ${curr
     getMarketingDashboard: getMarketingDashboardTool,
     sendReviewRequest: sendReviewRequestTool,
     generateMarketingReport: generateMarketingReportTool,
+    // AI Campaign Generation
+    generateCampaignContent: generateCampaignContentTool,
+    amendCampaign: amendCampaignTool,
+    suggestCampaignIdeas: suggestCampaignIdeasTool,
   };
 }
 

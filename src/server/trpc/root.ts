@@ -22,6 +22,9 @@ import { getMarketingDashboard } from "~/server/trpc/procedures/getMarketingDash
 import { updateCampaign } from "~/server/trpc/procedures/updateCampaign";
 import { sendCampaign } from "~/server/trpc/procedures/sendCampaign";
 import { deleteCampaign } from "~/server/trpc/procedures/deleteCampaign";
+import { generateCampaignContent } from "~/server/trpc/procedures/generateCampaignContent";
+import { getCampaignTemplates } from "~/server/trpc/procedures/getCampaignTemplates";
+import { amendCampaignWithAI } from "~/server/trpc/procedures/amendCampaignWithAI";
 import { createOrder } from "~/server/trpc/procedures/createOrder";
 import { getOrders } from "~/server/trpc/procedures/getOrders";
 import { updateOrderStatus } from "~/server/trpc/procedures/updateOrderStatus";
@@ -402,6 +405,9 @@ export const appRouter = createTRPCRouter({
   updateCampaign,
   sendCampaign,
   deleteCampaign,
+  generateCampaignContent,
+  getCampaignTemplates,
+  amendCampaignWithAI,
   
   // Operations
   createOrder,

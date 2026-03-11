@@ -26,6 +26,12 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Wand2,
+  LayoutTemplate,
+  MessageSquare,
+  Palette,
+  Zap,
+  RefreshCw,
 } from "lucide-react";
 import { CampaignEditor } from "~/components/crm/CampaignEditor";
 import { OTHER_SERVICE_TYPE_VALUE } from "~/utils/serviceTypeOther";
@@ -109,6 +115,16 @@ function CampaignsPage() {
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>([]);
   const [excludedCustomerIds, setExcludedCustomerIds] = useState<number[]>([]);
   const [selectAllCustomers, setSelectAllCustomers] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showAIGenerateModal, setShowAIGenerateModal] = useState(false);
+  const [showAIAmendModal, setShowAIAmendModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiServiceType, setAiServiceType] = useState('');
+  const [aiDiscount, setAiDiscount] = useState('');
+  const [aiTone, setAiTone] = useState<'professional' | 'friendly' | 'urgent' | 'festive' | 'casual'>('professional');
+  const [aiAmendInstruction, setAiAmendInstruction] = useState('');
+  const [amendingCampaignId, setAmendingCampaignId] = useState<number | null>(null);
+  const [templateCategory, setTemplateCategory] = useState('all');
 
   const campaignsQuery = useQuery(
     trpc.getCampaigns.queryOptions({
@@ -124,6 +140,16 @@ function CampaignsPage() {
   );
 
   const customers = customersQuery.data || [];
+
+  const templatesQuery = useQuery(
+    trpc.getCampaignTemplates.queryOptions({
+      token: token!,
+      category: templateCategory !== 'all' ? templateCategory : undefined,
+    })
+  );
+
+  const templates = templatesQuery.data?.templates || [];
+  const templateCategories = templatesQuery.data?.categories || [];
 
   const {
     register,
@@ -214,6 +240,43 @@ function CampaignsPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete campaign");
+      },
+    })
+  );
+
+  const generateCampaignMutation = useMutation(
+    trpc.generateCampaignContent.mutationOptions({
+      onSuccess: (data) => {
+        if (data.success && data.content) {
+          toast.success("AI campaign generated! Loading into editor...");
+          setValue("name", data.content.name);
+          setValue("subject", data.content.subject);
+          setValue("htmlBody", data.content.htmlBody);
+          setValue("description", data.content.description || "");
+          setShowAIGenerateModal(false);
+          setShowModal(true);
+          setAiPrompt('');
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate campaign content");
+      },
+    })
+  );
+
+  const amendCampaignMutation = useMutation(
+    trpc.amendCampaignWithAI.mutationOptions({
+      onSuccess: (data) => {
+        if (data.success && data.content) {
+          toast.success(`Campaign amended: ${data.content.changesSummary}`);
+          queryClient.invalidateQueries({ queryKey: trpc.getCampaigns.queryKey() });
+          setShowAIAmendModal(false);
+          setAiAmendInstruction('');
+          setAmendingCampaignId(null);
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to amend campaign");
       },
     })
   );
@@ -366,6 +429,45 @@ function CampaignsPage() {
     }
   };
 
+  const handleAIGenerate = () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please describe the campaign you want to create");
+      return;
+    }
+    generateCampaignMutation.mutate({
+      token: token!,
+      prompt: aiPrompt,
+      serviceType: aiServiceType || undefined,
+      discountPercent: aiDiscount ? Number(aiDiscount) : undefined,
+      tone: aiTone,
+    });
+  };
+
+  const handleAmendCampaign = () => {
+    if (!aiAmendInstruction.trim() || !amendingCampaignId) return;
+    amendCampaignMutation.mutate({
+      token: token!,
+      campaignId: amendingCampaignId,
+      instruction: aiAmendInstruction,
+    });
+  };
+
+  const handleSelectTemplate = (template: any) => {
+    setValue("name", template.name);
+    setValue("subject", template.defaultSubject);
+    setValue("htmlBody", template.htmlBody);
+    setValue("description", template.description);
+    setShowTemplateModal(false);
+    setShowModal(true);
+    toast.success(`Template "${template.name}" loaded! Customize it for your campaign.`);
+  };
+
+  const openAIAmendModal = (campaignId: number) => {
+    setAmendingCampaignId(campaignId);
+    setAiAmendInstruction('');
+    setShowAIAmendModal(true);
+  };
+
   const campaigns = campaignsQuery.data || [];
 
   return (
@@ -389,13 +491,29 @@ function CampaignsPage() {
                 <p className="text-sm text-gray-600">{campaigns.length} total campaigns</p>
               </div>
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-md transition-all"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Create Campaign
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowAIGenerateModal(true)}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-md transition-all"
+              >
+                <Wand2 className="h-5 w-5 mr-2" />
+                AI Generate
+              </button>
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md transition-all"
+              >
+                <LayoutTemplate className="h-5 w-5 mr-2" />
+                Templates
+              </button>
+              <button
+                onClick={() => handleOpenModal()}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 shadow-md transition-all"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Manual Create
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -589,6 +707,13 @@ function CampaignsPage() {
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
+                        </button>
+                        <button
+                          onClick={() => openAIAmendModal(campaign.id)}
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                        >
+                          <Wand2 className="h-4 w-4 mr-2" />
+                          AI Edit
                         </button>
                       </>
                     )}
@@ -1077,6 +1202,175 @@ function CampaignsPage() {
           </Dialog>
         </Transition>
       )}
+
+      {/* Template Picker Modal */}
+      <Transition appear show={showTemplateModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowTemplateModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-5xl transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all flex flex-col max-h-[90vh]">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 flex-shrink-0 rounded-t-2xl">
+                    <div className="flex items-center space-x-3">
+                      <LayoutTemplate className="h-6 w-6 text-white" />
+                      <Dialog.Title className="text-lg font-semibold text-white">Campaign Templates</Dialog.Title>
+                    </div>
+                    <button onClick={() => setShowTemplateModal(false)} className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"><XCircle className="h-5 w-5" /></button>
+                  </div>
+                  <div className="p-6 overflow-y-auto flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {templateCategories.map((cat) => (
+                        <button key={cat.category} onClick={() => setTemplateCategory(cat.category)} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${templateCategory === cat.category ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                          {cat.icon} {cat.label} ({cat.count})
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {templates.map((template) => (
+                        <div key={template.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all group cursor-pointer" onClick={() => handleSelectTemplate(template)}>
+                          <div className="h-32 flex items-center justify-center" style={{ background: template.thumbnail }}>
+                            <div className="text-center text-white">
+                              <div className="text-3xl mb-1">{template.category === 'discount' ? '💰' : template.category === 'seasonal' ? '🌤️' : template.category === 'service' ? '🔧' : template.category === 'followup' ? '📩' : template.category === 'newsletter' ? '📬' : template.category === 'holiday' ? '🎄' : '📢'}</div>
+                              <p className="text-sm font-semibold opacity-90">{template.name}</p>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h4 className="font-semibold text-gray-900 text-sm mb-1">{template.name}</h4>
+                            <p className="text-xs text-gray-500 mb-3 line-clamp-2">{template.description}</p>
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {template.tags.slice(0, 3).map((tag: string) => (<span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{tag}</span>))}
+                            </div>
+                            <button className="w-full py-2 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">Use This Template</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {templates.length === 0 && (
+                      <div className="text-center py-12"><LayoutTemplate className="mx-auto h-12 w-12 text-gray-300 mb-4" /><p className="text-gray-500">No templates found in this category</p></div>
+                    )}
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* AI Generate Campaign Modal */}
+      <Transition appear show={showAIGenerateModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => !generateCampaignMutation.isPending && setShowAIGenerateModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-2xl transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 rounded-t-2xl">
+                    <div className="flex items-center space-x-3"><Wand2 className="h-6 w-6 text-white" /><Dialog.Title className="text-lg font-semibold text-white">AI Campaign Generator</Dialog.Title></div>
+                    <button onClick={() => !generateCampaignMutation.isPending && setShowAIGenerateModal(false)} className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"><XCircle className="h-5 w-5" /></button>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <Sparkles className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-900">Describe your campaign</p>
+                          <p className="text-xs text-amber-700 mt-1">Tell the AI what kind of campaign you want and it will generate professional content, graphics, and layout for you.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Campaign Description *</label>
+                      <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="E.g., Create a summer maintenance special with 10% discount on all services..." className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 min-h-[100px] resize-none" disabled={generateCampaignMutation.isPending} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Service Focus</label>
+                        <select value={aiServiceType} onChange={(e) => setAiServiceType(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500" disabled={generateCampaignMutation.isPending}>
+                          <option value="">All Services</option>
+                          {serviceTypes.map((type) => (<option key={type} value={type}>{type}</option>))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Discount %</label>
+                        <input type="number" value={aiDiscount} onChange={(e) => setAiDiscount(e.target.value)} placeholder="e.g., 10" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500" disabled={generateCampaignMutation.isPending} min="0" max="100" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tone & Style</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(['professional', 'friendly', 'urgent', 'festive', 'casual'] as const).map((tone) => (
+                          <button key={tone} type="button" onClick={() => setAiTone(tone)} className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors capitalize ${aiTone === tone ? "bg-amber-100 text-amber-800 ring-2 ring-amber-400" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`} disabled={generateCampaignMutation.isPending}>
+                            {tone === 'professional' ? '💼' : tone === 'friendly' ? '😊' : tone === 'urgent' ? '⚡' : tone === 'festive' ? '🎉' : '✌️'} {tone}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                      <button type="button" onClick={() => setShowAIGenerateModal(false)} disabled={generateCampaignMutation.isPending} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                      <button type="button" onClick={handleAIGenerate} disabled={generateCampaignMutation.isPending || !aiPrompt.trim()} className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-lg disabled:opacity-50 transition-all">
+                        {generateCampaignMutation.isPending ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Design...</>) : (<><Wand2 className="h-4 w-4 mr-2" />Generate Campaign</>)}
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* AI Amend Campaign Modal */}
+      <Transition appear show={showAIAmendModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => !amendCampaignMutation.isPending && setShowAIAmendModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-lg transform rounded-2xl bg-white text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4 rounded-t-2xl">
+                    <div className="flex items-center space-x-3"><MessageSquare className="h-6 w-6 text-white" /><Dialog.Title className="text-lg font-semibold text-white">AI Campaign Editor</Dialog.Title></div>
+                    <button onClick={() => !amendCampaignMutation.isPending && setShowAIAmendModal(false)} className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"><XCircle className="h-5 w-5" /></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <Wand2 className="h-5 w-5 text-violet-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-violet-900">Tell the AI what to change</p>
+                          <p className="text-xs text-violet-700 mt-1">Describe the changes you want and AI will modify the campaign design, content, colors, or layout accordingly.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Amendment Instructions *</label>
+                      <textarea value={aiAmendInstruction} onChange={(e) => setAiAmendInstruction(e.target.value)} placeholder="E.g., Change the discount to 15%, make the colors blue and white..." className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 min-h-[120px] resize-none" disabled={amendCampaignMutation.isPending} />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <p className="text-xs text-gray-500 w-full mb-1">Quick edits:</p>
+                      {["Make it more urgent", "Change colors to blue", "Add more details", "Make it shorter", "Change discount to 15%", "Add a warranty section"].map((suggestion) => (
+                        <button key={suggestion} type="button" onClick={() => setAiAmendInstruction(suggestion)} className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors" disabled={amendCampaignMutation.isPending}>{suggestion}</button>
+                      ))}
+                    </div>
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                      <button type="button" onClick={() => setShowAIAmendModal(false)} disabled={amendCampaignMutation.isPending} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                      <button type="button" onClick={handleAmendCampaign} disabled={amendCampaignMutation.isPending || !aiAmendInstruction.trim()} className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-lg disabled:opacity-50 transition-all">
+                        {amendCampaignMutation.isPending ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Applying Changes...</>) : (<><Wand2 className="h-4 w-4 mr-2" />Apply Changes</>)}
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
