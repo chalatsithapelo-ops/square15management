@@ -50,6 +50,7 @@ const quotationSchema = z.object({
   assignedToId: z.number().optional(),
   companyMaterialCost: z.number().optional(),
   companyLabourCost: z.number().optional(),
+  projectDescription: z.string().optional(),
   customerVatNumber: z.string().optional(),
 });
 
@@ -317,6 +318,7 @@ function QuotationsPage() {
       validUntil: quotation.validUntil ? new Date(quotation.validUntil).toISOString().split('T')[0] : "",
       notes: quotation.notes || "",
       assignedToId: quotation.assignedToId || undefined,
+      projectDescription: quotation.projectDescription || "",
       customerVatNumber: quotation.customerVatNumber || "",
     });
     
@@ -686,6 +688,19 @@ function QuotationsPage() {
                   {errors.address && (
                     <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
                   )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Description</label>
+                  <textarea
+                    {...register("projectDescription")}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                    placeholder="Brief description of the project/scope of work (appears on PDF above line items)"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional: Appears above the line items table on the PDF.
+                  </p>
                 </div>
 
                 <div>

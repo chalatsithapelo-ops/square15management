@@ -161,6 +161,7 @@ export const generateQuotationPdf = baseProcedure
           address: quotation.address,
           customerVatNumber: quotation.customerVatNumber || undefined,
         },
+        projectDescription: (quotation as any).projectDescription || undefined,
         document: {
           documentType: "QUOTATION",
           documentNumber: quotation.quoteNumber,

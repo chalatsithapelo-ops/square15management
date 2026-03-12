@@ -50,6 +50,7 @@ const invoiceSchema = z.object({
     z.string().min(1).optional()
   ),
   clientReferenceNumber: z.string().optional(),
+  projectDescription: z.string().optional(),
   customerVatNumber: z.string().optional(),
 });
 
@@ -497,6 +498,7 @@ function InvoicesPage() {
       notes: invoice.notes || "",
       invoiceNumber: invoice.invoiceNumber,
       clientReferenceNumber: invoice.clientReferenceNumber || "",
+      projectDescription: invoice.projectDescription || "",
       customerVatNumber: invoice.customerVatNumber || "",
     });
     
@@ -1217,6 +1219,19 @@ function InvoicesPage() {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Optional: Enter the client's order number or reference for this invoice.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Description</label>
+                  <textarea
+                    {...register("projectDescription")}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500"
+                    placeholder="Brief description of the project/scope of work (appears on PDF above line items)"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional: Appears above the line items table on the PDF.
                   </p>
                 </div>
 

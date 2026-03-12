@@ -98,6 +98,7 @@ export interface FullPDFData {
   colors: PDFColorTheme;
   company: PDFCompanyInfo;
   customer: PDFCustomerInfo;
+  projectDescription?: string;
   document: PDFDocumentDetails;
   items: PDFLineItem[];
   totals: PDFTotals;
@@ -320,10 +321,22 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   const valueX = 460;
   const detailWidth = 95;
 
-  const docDetails: [string, string][] = [
-    ["NUMBER:", docInfo.documentNumber],
-  ];
-  if (docInfo.reference) docDetails.push(["REFERENCE:", docInfo.reference]);
+  const docDetails: [string, string][] = [];
+  // Use contextual labels based on document type
+  if (docInfo.documentType === "INVOICE") {
+    docDetails.push(["INVOICE NUMBER:", docInfo.documentNumber]);
+  } else {
+    docDetails.push(["NUMBER:", docInfo.documentNumber]);
+  }
+  if (docInfo.reference) {
+    if (docInfo.documentType === "INVOICE") {
+      docDetails.push(["CLIENT ORDER NUMBER:", docInfo.reference]);
+    } else if (docInfo.documentType === "QUOTATION") {
+      docDetails.push(["CLIENT QUOTE NUMBER:", docInfo.reference]);
+    } else {
+      docDetails.push(["REFERENCE:", docInfo.reference]);
+    }
+  }
   docDetails.push(["DATE:", formatDate(docInfo.date)]);
   if (docInfo.dueDate) docDetails.push(["DUE DATE:", formatDate(docInfo.dueDate)]);
   if (docInfo.salesRep) docDetails.push(["SALES REP:", docInfo.salesRep]);
@@ -479,8 +492,24 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .text(custPostal, toColStart, toY, { width: toColWidth, lineGap: 2 })
     .text(custPhysical, toColStart + toColWidth + 5, toY, { width: toColWidth, lineGap: 2 });
 
+  // ===== PROJECT DESCRIPTION (above table) =====
+  let preTableY = Math.max(addressY + 50, toY + 50);
+  if (data.projectDescription) {
+    doc
+      .fontSize(8)
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .text("PROJECT DESCRIPTION:", margin + 5, preTableY - 18);
+    doc
+      .fontSize(8)
+      .fillColor("#333333")
+      .font("Helvetica")
+      .text(data.projectDescription, margin + 5, preTableY - 6, { width: contentWidth - 10 });
+    preTableY = doc.y + 10;
+  }
+
   // ===== LINE ITEMS TABLE =====
-  const tableTop = Math.max(addressY + 50, toY + 50);
+  const tableTop = preTableY;
 
   // Table header line (gold/accent)
   doc
@@ -569,11 +598,15 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
 
   // ===== FOOTER AREA: Banking Details (left) | Totals (right) =====
 
-  // Determine footer position
-  let footerY = Math.max(rowY + 30, 620);
-  if (footerY > 700) {
+  // Determine footer position - ensure enough space for totals + banking + payment terms + footer
+  // Need approx: banking ~60, totals ~90, payment terms ~60, footer ~30 = ~240 total
+  const neededFooterSpace = 240;
+  let footerY: number;
+  if (rowY + 30 + neededFooterSpace > 800) {
     doc.addPage();
     footerY = 50;
+  } else {
+    footerY = Math.max(rowY + 30, 620);
   }
 
   // Separator line above footer
@@ -703,24 +736,29 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   }
 
   // ===== FOOTER LINE =====
-  const footerLineY = 790;
-  doc
-    .moveTo(margin, footerLineY)
-    .lineTo(pageWidth - margin, footerLineY)
-    .strokeColor(colors.lineColor)
-    .lineWidth(0.5)
-    .stroke();
+  // Position footer dynamically after content to avoid blank page 2
+  const lastContentY = doc.y || totY + 30;
+  const footerLineY = Math.max(lastContentY + 15, 750);
+  // Only render footer if it fits on the current page (A4 = 842pt)
+  if (footerLineY < 820) {
+    doc
+      .moveTo(margin, footerLineY)
+      .lineTo(pageWidth - margin, footerLineY)
+      .strokeColor(colors.lineColor)
+      .lineWidth(0.5)
+      .stroke();
 
-  doc
-    .fontSize(7)
-    .fillColor("#999999")
-    .font("Helvetica")
-    .text(
-      `${company.companyName} | ${company.companyEmail} | VAT: ${company.companyVatNumber}`,
-      margin,
-      footerLineY + 4,
-      { align: "center", width: contentWidth }
-    );
+    doc
+      .fontSize(7)
+      .fillColor("#999999")
+      .font("Helvetica")
+      .text(
+        `${company.companyName} | ${company.companyEmail} | VAT: ${company.companyVatNumber}`,
+        margin,
+        footerLineY + 4,
+        { align: "center", width: contentWidth }
+      );
+  }
 }
 
 // ===== MODERN TEMPLATE (previous branded banner style) =====
@@ -786,11 +824,22 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
   // Document details
   let dy = 210;
   doc.fontSize(10).fillColor("#666666").font("Helvetica");
-  doc.text(`${docTypeLabel} No: ${docInfo.documentNumber}`, margin, dy);
+  // Use contextual label for document number
+  if (docInfo.documentType === "INVOICE") {
+    doc.text(`Invoice No: ${docInfo.documentNumber}`, margin, dy);
+  } else {
+    doc.text(`${docTypeLabel} No: ${docInfo.documentNumber}`, margin, dy);
+  }
   dy += 15;
 
   if (docInfo.reference) {
-    doc.text(`Client Ref: ${docInfo.reference}`, margin, dy);
+    if (docInfo.documentType === "INVOICE") {
+      doc.text(`Client Order No: ${docInfo.reference}`, margin, dy);
+    } else if (docInfo.documentType === "QUOTATION") {
+      doc.text(`Client Quote No: ${docInfo.reference}`, margin, dy);
+    } else {
+      doc.text(`Client Ref: ${docInfo.reference}`, margin, dy);
+    }
     dy += 15;
   }
 
@@ -833,7 +882,23 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
     .text(customer.customerPhone || "", margin + 10, boxTop + 88, { width: 220 });
 
   // ===== LINE ITEMS TABLE =====
-  const tableTop = boxTop + 130;
+  let tableTop = boxTop + 130;
+
+  // Project description above table
+  if (data.projectDescription) {
+    doc
+      .fontSize(9)
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .text("PROJECT DESCRIPTION:", margin, tableTop - 20);
+    doc
+      .fontSize(9)
+      .fillColor("#333333")
+      .font("Helvetica")
+      .text(data.projectDescription, margin, tableTop - 8, { width: contentWidth });
+    tableTop = doc.y + 10;
+  }
+
   doc.rect(margin, tableTop, contentWidth, 25).fill(colors.primary);
   doc.rect(margin, tableTop + 22, contentWidth, 3).fill(colors.secondary);
 
@@ -930,10 +995,15 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
   }
 
   // ===== FOOTER =====
-  doc.moveTo(margin, 770).lineTo(pageWidth - margin, 770).strokeColor(colors.accent).lineWidth(1).stroke();
-  doc.fontSize(8).fillColor("#999999").font("Helvetica")
-    .text("Thank you for your business!", margin, 778, { align: "center", width: contentWidth })
-    .text(`${company.companyName} | ${company.companyEmail} | VAT Reg: ${company.companyVatNumber}`, margin, 788, { align: "center", width: contentWidth });
+  // Position footer dynamically to avoid blank page 2
+  const modernLastContentY = doc.y || yPos + 30;
+  const modernFooterLineY = Math.max(modernLastContentY + 15, 750);
+  if (modernFooterLineY < 820) {
+    doc.moveTo(margin, modernFooterLineY).lineTo(pageWidth - margin, modernFooterLineY).strokeColor(colors.accent).lineWidth(1).stroke();
+    doc.fontSize(8).fillColor("#999999").font("Helvetica")
+      .text("Thank you for your business!", margin, modernFooterLineY + 8, { align: "center", width: contentWidth })
+      .text(`${company.companyName} | ${company.companyEmail} | VAT Reg: ${company.companyVatNumber}`, margin, modernFooterLineY + 18, { align: "center", width: contentWidth });
+  }
 }
 
 // ===== Main Render Function =====

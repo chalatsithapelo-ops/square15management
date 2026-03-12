@@ -862,6 +862,7 @@ model Quotation {
   status          QuotationStatus @default(DRAFT)
   validUntil      DateTime?
   notes           String?
+  projectDescription String?
   rejectionReason String?
 
   // Workflow fields (similar to Order)
@@ -931,6 +932,7 @@ model Invoice {
   dueDate         DateTime?
   paidDate        DateTime?
   rejectionReason String?
+  projectDescription String?
   pmApproved      Boolean       @default(false)
   pmApprovedDate  DateTime?
 

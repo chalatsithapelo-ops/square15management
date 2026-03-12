@@ -38,6 +38,7 @@ export const createInvoice = baseProcedure
       pmOrderId: z.number().optional(), // PropertyManagerOrder ID
       clientReferenceNumber: z.string().optional(), // Client reference / order number
       customerVatNumber: z.string().optional(), // Customer VAT number
+      projectDescription: z.string().optional(), // Project description shown above line items on PDF
     })
   )
   .mutation(async ({ input }) => {
@@ -113,6 +114,8 @@ export const createInvoice = baseProcedure
         }
 
         // Create a PropertyManagerInvoice instead
+        const twoWeeksFromNow = new Date();
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
         const pmInvoice = await db.propertyManagerInvoice.create({
           data: {
             invoiceNumber,
@@ -122,7 +125,7 @@ export const createInvoice = baseProcedure
             subtotal: input.subtotal,
             tax: input.tax,
             total: input.total,
-            dueDate: input.dueDate ? new Date(input.dueDate) : null,
+            dueDate: input.dueDate ? new Date(input.dueDate) : twoWeeksFromNow,
             notes: input.notes || null,
             // Start with DRAFT status for approval workflow
             status: "DRAFT",
@@ -150,6 +153,8 @@ export const createInvoice = baseProcedure
       }
 
       // Otherwise, create a regular invoice
+      const twoWeeksFromNowRegular = new Date();
+      twoWeeksFromNowRegular.setDate(twoWeeksFromNowRegular.getDate() + 14);
       const invoice = await db.invoice.create({
         data: {
           invoiceNumber,
@@ -161,7 +166,7 @@ export const createInvoice = baseProcedure
           subtotal: input.subtotal,
           tax: input.tax,
           total: input.total,
-          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          dueDate: input.dueDate ? new Date(input.dueDate) : twoWeeksFromNowRegular,
           notes: input.notes || null,
           orderId: input.orderId || null,
           projectId: input.projectId || null,
@@ -171,6 +176,7 @@ export const createInvoice = baseProcedure
           estimatedProfit: input.estimatedProfit || 0,
           clientReferenceNumber: input.clientReferenceNumber || null,
           customerVatNumber: input.customerVatNumber || null,
+          projectDescription: input.projectDescription || null,
           createdById: user.id, // Track who created this invoice for portal separation
         },
         include: {

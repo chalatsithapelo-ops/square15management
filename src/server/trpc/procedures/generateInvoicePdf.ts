@@ -189,6 +189,7 @@ export const generateInvoicePdf = baseProcedure
           address: invoice.address,
           customerVatNumber: invoice.customerVatNumber || undefined,
         },
+        projectDescription: (invoice as any).projectDescription || undefined,
         document: {
           documentType: "INVOICE",
           documentNumber: invoice.invoiceNumber,

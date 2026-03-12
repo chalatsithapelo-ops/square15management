@@ -36,6 +36,7 @@ export const updateInvoiceDetails = baseProcedure
       estimatedProfit: z.number().optional(),
       clientReferenceNumber: z.string().optional(),
       customerVatNumber: z.string().optional(),
+      projectDescription: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -92,6 +93,7 @@ export const updateInvoiceDetails = baseProcedure
       if (input.estimatedProfit !== undefined) updateData.estimatedProfit = input.estimatedProfit;
       if (input.clientReferenceNumber !== undefined) updateData.clientReferenceNumber = input.clientReferenceNumber || null;
       if (input.customerVatNumber !== undefined) updateData.customerVatNumber = input.customerVatNumber || null;
+      if (input.projectDescription !== undefined) updateData.projectDescription = input.projectDescription || null;
 
       const invoice = await db.invoice.update({
         where: { id: input.invoiceId },
