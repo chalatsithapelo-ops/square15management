@@ -3,7 +3,6 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin as isAdminUser } from "~/server/utils/auth";
-import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const getContractors = baseProcedure
   .input(
@@ -26,11 +25,6 @@ export const getContractors = baseProcedure
         code: "FORBIDDEN",
         message: "Only Admins or Property Managers can view contractors",
       });
-    }
-
-    // Demo accounts must not be able to load user lists via admin tools
-    if (isAdmin) {
-      assertNotRestrictedDemoAccountAccessDenied(user);
     }
 
     try {

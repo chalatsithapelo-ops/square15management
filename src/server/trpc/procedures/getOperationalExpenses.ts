@@ -2,7 +2,6 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { isRestrictedDemoAccount } from "~/server/utils/demoAccounts";
 
 export const getOperationalExpenses = baseProcedure
   .input(
@@ -16,11 +15,6 @@ export const getOperationalExpenses = baseProcedure
   )
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
-
-    // Demo accounts should not see production data
-    if (isRestrictedDemoAccount(user)) {
-      return [];
-    }
 
     // Build where clause
     const where: any = {};

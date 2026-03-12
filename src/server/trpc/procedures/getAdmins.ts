@@ -3,7 +3,6 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const getAdmins = baseProcedure
   .input(
@@ -13,9 +12,6 @@ export const getAdmins = baseProcedure
   )
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
-
-    // Demo accounts must not be able to load users
-    assertNotRestrictedDemoAccountAccessDenied(user);
 
     // This endpoint is used to show support/admin recipients; require authentication but not admin role.
     const admins = await db.user.findMany({

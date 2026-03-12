@@ -2,7 +2,6 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
-import { assertNotRestrictedDemoAccountAccessDenied } from "~/server/utils/demoAccounts";
 
 export const getEmployees = baseProcedure
   .input(
@@ -14,8 +13,6 @@ export const getEmployees = baseProcedure
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    assertNotRestrictedDemoAccountAccessDenied(user);
-    
     // Contractors can view employees without special permission (their own employees)
     if (user.role !== "CONTRACTOR") {
       requirePermission(user, PERMISSIONS.VIEW_ALL_EMPLOYEES);

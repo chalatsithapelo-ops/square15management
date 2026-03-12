@@ -181,9 +181,7 @@ export const getPendingRegistrations = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    assertNotRestrictedDemoAccountAccessDenied(adminUser);
-
-    if (!canManageRegistrations(adminUser)) {
+    if (!isAdminRole(adminUser.role)) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Only administrators can view pending registrations',
@@ -226,9 +224,7 @@ export const getAllRegistrations = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    assertNotRestrictedDemoAccountAccessDenied(adminUser);
-
-    if (!canManageRegistrations(adminUser)) {
+    if (!isAdminRole(adminUser.role)) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Only administrators can view registrations',

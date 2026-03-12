@@ -515,7 +515,7 @@ export const getAllSubscriptions = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!canManageSubscriptions(adminUser)) {
+    if (!isAdminRole(adminUser.role)) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Access denied',
@@ -556,7 +556,7 @@ export const getSubscriptionRoster = baseProcedure
   .query(async ({ input }) => {
     const adminUser = await authenticateUser(input.token);
 
-    if (!canManageSubscriptions(adminUser)) {
+    if (!isAdminRole(adminUser.role)) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Access denied',

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import { db } from '~/server/db';
 import { authenticateUser, requirePermission, requireAdmin, PERMISSIONS } from '~/server/utils/auth';
-import { assertNotRestrictedDemoAccountAccessDenied } from '~/server/utils/demoAccounts';
 import { TRPCError } from '@trpc/server';
 import { getCompanyDetails } from '~/server/utils/company-details';
 import PDFDocument from "pdfkit";
@@ -580,7 +579,6 @@ export const getEmployeesTool = tool({
   }),
   execute: async ({ authToken, role, limit }) => {
     const user = await authenticateUser(authToken);
-    assertNotRestrictedDemoAccountAccessDenied(user);
     requirePermission(user, PERMISSIONS.VIEW_ALL_EMPLOYEES);
     
     const where: any = {};
