@@ -1886,6 +1886,1139 @@ I'm monitoring your business data and will keep suggesting campaigns that match 
     },
   });
 
+  // ========================================================================
+  // BUSINESS INTELLIGENCE & DATA QUERY TOOLS
+  // ========================================================================
+
+  // Tool 38: List Invoices with Filtering & Totals
+  const listInvoicesTool = tool({
+    description: 'List ALL invoices with powerful filtering by status, customer, date range, and amount. Shows individual invoice records AND calculates aggregate totals. Use this to answer questions like "how much is owed to us", "list all unpaid invoices", "show overdue invoices", "total invoices by status", "how much worth of invoices still need to be paid".',
+    parameters: z.object({
+      status: z.enum(['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'REJECTED']).optional().describe('Filter by invoice status'),
+      customerName: z.string().optional().describe('Filter by customer name (partial match)'),
+      dateFrom: z.string().optional().describe('Start date filter (ISO format, e.g. 2025-01-01)'),
+      dateTo: z.string().optional().describe('End date filter (ISO format, e.g. 2025-12-31)'),
+      unpaidOnly: z.boolean().optional().describe('Set true to show only unpaid invoices (DRAFT, PENDING_REVIEW, PENDING_APPROVAL, APPROVED, SENT, OVERDUE)'),
+      limit: z.number().optional().describe('Max results to return (default: 50)'),
+      includeStatusBreakdown: z.boolean().optional().describe('Include a breakdown of totals by each status (default: true)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+
+        if (params.status) {
+          where.status = params.status;
+        } else if (params.unpaidOnly) {
+          where.status = { in: ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'OVERDUE'] };
+        }
+
+        if (params.customerName) {
+          where.customerName = { contains: params.customerName, mode: 'insensitive' };
+        }
+
+        if (params.dateFrom || params.dateTo) {
+          where.createdAt = {};
+          if (params.dateFrom) where.createdAt.gte = new Date(params.dateFrom);
+          if (params.dateTo) where.createdAt.lte = new Date(params.dateTo);
+        }
+
+        // Get individual invoices
+        const invoices = await db.invoice.findMany({
+          where,
+          select: {
+            id: true,
+            invoiceNumber: true,
+            customerName: true,
+            customerEmail: true,
+            subtotal: true,
+            tax: true,
+            total: true,
+            status: true,
+            dueDate: true,
+            paidDate: true,
+            createdAt: true,
+            isDisputed: true,
+            orderId: true,
+            projectId: true,
+            notes: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: params.limit || 50,
+        });
+
+        // Get total count
+        const totalCount = await db.invoice.count({ where });
+
+        // Get aggregate totals
+        const aggregates = await db.invoice.aggregate({
+          where,
+          _sum: { total: true, subtotal: true, tax: true },
+          _avg: { total: true },
+          _count: true,
+        });
+
+        // Status breakdown (always useful)
+        const statusBreakdown: any = {};
+        if (params.includeStatusBreakdown !== false) {
+          const allStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'REJECTED'];
+          for (const s of allStatuses) {
+            const statusAgg = await db.invoice.aggregate({
+              where: { ...where, status: s },
+              _sum: { total: true },
+              _count: true,
+            });
+            if (statusAgg._count > 0) {
+              statusBreakdown[s] = {
+                count: statusAgg._count,
+                total: statusAgg._sum.total || 0,
+              };
+            }
+          }
+        }
+
+        if (invoices.length === 0) {
+          return `No invoices found${params.status ? ` with status "${params.status}"` : ''}${params.unpaidOnly ? ' (unpaid)' : ''}${params.customerName ? ` for customer "${params.customerName}"` : ''}.`;
+        }
+
+        // Build response
+        let response = `📋 INVOICE REPORT\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        response += `Total Invoices Found: ${totalCount}\n`;
+        response += `Total Value: R${(aggregates._sum.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `Average Invoice: R${(aggregates._avg.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+
+        if (params.unpaidOnly || !params.status) {
+          const unpaidStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'OVERDUE'];
+          const unpaidTotal = Object.entries(statusBreakdown)
+            .filter(([s]) => unpaidStatuses.includes(s))
+            .reduce((sum, [, val]: [string, any]) => sum + val.total, 0);
+          response += `\n💰 TOTAL UNPAID (Receivables): R${unpaidTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        }
+
+        // Status breakdown
+        if (Object.keys(statusBreakdown).length > 0) {
+          response += `\n📊 BREAKDOWN BY STATUS:\n`;
+          for (const [status, data] of Object.entries(statusBreakdown) as any) {
+            const icon = status === 'PAID' ? '✅' : status === 'OVERDUE' ? '🔴' : status === 'SENT' ? '📨' : status === 'CANCELLED' ? '❌' : '📝';
+            response += `${icon} ${status}: ${data.count} invoice(s) = R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+          }
+        }
+
+        // Individual invoices
+        response += `\n📄 INVOICES:\n`;
+        invoices.forEach((inv: any) => {
+          const overdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'PAID' && inv.status !== 'CANCELLED';
+          response += `- ${inv.invoiceNumber} | ${inv.customerName} | R${inv.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} | ${inv.status}${overdue ? ' ⚠️ OVERDUE' : ''} | Created: ${new Date(inv.createdAt).toLocaleDateString('en-ZA')}${inv.dueDate ? ` | Due: ${new Date(inv.dueDate).toLocaleDateString('en-ZA')}` : ''}${inv.isDisputed ? ' | ⚠️ DISPUTED' : ''}\n`;
+        });
+
+        if (totalCount > (params.limit || 50)) {
+          response += `\n(Showing ${invoices.length} of ${totalCount} total invoices)`;
+        }
+
+        return response;
+      } catch (error) {
+        return `Error listing invoices: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 39: Get Invoice Details
+  const getInvoiceDetailsTool = tool({
+    description: 'Get complete details of a specific invoice by ID or invoice number. Shows all fields including line items, customer info, payment status, and related order/project.',
+    parameters: z.object({
+      invoiceId: z.number().optional().describe('Invoice ID'),
+      invoiceNumber: z.string().optional().describe('Invoice number (e.g., INV-001)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.invoiceId) where.id = params.invoiceId;
+        else if (params.invoiceNumber) where.invoiceNumber = params.invoiceNumber;
+        else return 'Please provide either invoiceId or invoiceNumber';
+
+        const invoice = await db.invoice.findFirst({
+          where,
+          include: {
+            order: { select: { id: true, orderNumber: true, status: true, serviceType: true } },
+            project: { select: { id: true, projectNumber: true, name: true, status: true } },
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            lineItems: true,
+          },
+        });
+
+        if (!invoice) return `Invoice not found.`;
+
+        const overdue = invoice.dueDate && new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID' && invoice.status !== 'CANCELLED';
+
+        return `📄 INVOICE DETAILS: ${invoice.invoiceNumber}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 Status: ${invoice.status}${overdue ? ' ⚠️ OVERDUE' : ''}${invoice.isDisputed ? ' ⚠️ DISPUTED' : ''}
+
+👤 CUSTOMER:
+• Name: ${invoice.customerName}
+• Email: ${invoice.customerEmail}
+• Phone: ${invoice.customerPhone}
+• Address: ${invoice.address}
+${invoice.customerVatNumber ? `• VAT Number: ${invoice.customerVatNumber}` : ''}
+${invoice.clientReferenceNumber ? `• Client Reference: ${invoice.clientReferenceNumber}` : ''}
+
+💰 AMOUNTS:
+• Subtotal: R${invoice.subtotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Tax: R${invoice.tax.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Total: R${invoice.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Company Material Cost: R${invoice.companyMaterialCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Company Labour Cost: R${invoice.companyLabourCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Estimated Profit: R${invoice.estimatedProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+
+📅 DATES:
+• Created: ${new Date(invoice.createdAt).toLocaleDateString('en-ZA')}
+${invoice.dueDate ? `• Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-ZA')}` : '• Due Date: Not set'}
+${invoice.paidDate ? `• Paid Date: ${new Date(invoice.paidDate).toLocaleDateString('en-ZA')}` : ''}
+${invoice.pmApproved ? `• PM Approved: ${new Date(invoice.pmApprovedDate!).toLocaleDateString('en-ZA')}` : ''}
+
+${invoice.projectDescription ? `📝 Project Description: ${invoice.projectDescription}` : ''}
+${invoice.notes ? `📎 Notes: ${invoice.notes}` : ''}
+${invoice.rejectionReason ? `❌ Rejection Reason: ${invoice.rejectionReason}` : ''}
+
+${invoice.order ? `🔧 Related Order: ${invoice.order.orderNumber} (${invoice.order.status})` : ''}
+${invoice.project ? `📁 Related Project: ${invoice.project.projectNumber} - ${invoice.project.name} (${invoice.project.status})` : ''}
+${invoice.createdBy ? `👤 Created By: ${invoice.createdBy.firstName} ${invoice.createdBy.lastName}` : ''}
+
+📋 LINE ITEMS:
+${invoice.lineItems.length > 0 
+  ? invoice.lineItems.map((item: any) => `  • ${item.description} | Qty: ${item.quantity} | Unit: R${item.unitPrice} | Total: R${item.total}`).join('\n')
+  : (Array.isArray(invoice.items) ? (invoice.items as any[]).map((item: any) => `  • ${item.description} | Qty: ${item.quantity} | Unit: R${item.unitPrice} | Total: R${item.total}`).join('\n') : 'No line items')}
+
+Full Data (JSON):
+${JSON.stringify(invoice, null, 2)}`;
+      } catch (error) {
+        return `Error getting invoice details: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 40: List Orders with Filtering & Totals
+  const listOrdersTool = tool({
+    description: 'List ALL orders/jobs with filtering by status, customer, assigned artisan, date range. Shows individual orders AND aggregate totals. Use for questions like "how many active jobs", "list all pending orders", "what work is in progress".',
+    parameters: z.object({
+      status: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by order status'),
+      customerName: z.string().optional().describe('Filter by customer name (partial match)'),
+      assignedToId: z.number().optional().describe('Filter by assigned artisan/employee user ID'),
+      dateFrom: z.string().optional().describe('Start date filter (ISO format)'),
+      dateTo: z.string().optional().describe('End date filter (ISO format)'),
+      limit: z.number().optional().describe('Max results (default: 50)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.status) where.status = params.status;
+        if (params.customerName) where.customerName = { contains: params.customerName, mode: 'insensitive' };
+        if (params.assignedToId) where.assignedToId = params.assignedToId;
+        if (params.dateFrom || params.dateTo) {
+          where.createdAt = {};
+          if (params.dateFrom) where.createdAt.gte = new Date(params.dateFrom);
+          if (params.dateTo) where.createdAt.lte = new Date(params.dateTo);
+        }
+
+        const orders = await db.order.findMany({
+          where,
+          select: {
+            id: true,
+            orderNumber: true,
+            customerName: true,
+            customerEmail: true,
+            serviceType: true,
+            description: true,
+            status: true,
+            totalCost: true,
+            materialCost: true,
+            labourCost: true,
+            callOutFee: true,
+            createdAt: true,
+            isPaused: true,
+            assignedTo: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: params.limit || 50,
+        });
+
+        const totalCount = await db.order.count({ where });
+
+        // Status breakdown
+        const allStatuses = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+        const statusBreakdown: any = {};
+        for (const s of allStatuses) {
+          const agg = await db.order.aggregate({
+            where: { ...where, status: s },
+            _sum: { totalCost: true },
+            _count: true,
+          });
+          if (agg._count > 0) {
+            statusBreakdown[s] = { count: agg._count, total: agg._sum.totalCost || 0 };
+          }
+        }
+
+        // Total value
+        const totalAgg = await db.order.aggregate({
+          where,
+          _sum: { totalCost: true, materialCost: true, labourCost: true },
+          _count: true,
+        });
+
+        if (orders.length === 0) {
+          return `No orders found${params.status ? ` with status "${params.status}"` : ''}.`;
+        }
+
+        let response = `🔧 ORDER REPORT\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        response += `Total Orders Found: ${totalCount}\n`;
+        response += `Total Value: R${(totalAgg._sum.totalCost || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `Total Materials: R${(totalAgg._sum.materialCost || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `Total Labour: R${(totalAgg._sum.labourCost || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+
+        // Status breakdown
+        if (Object.keys(statusBreakdown).length > 0) {
+          response += `\n📊 BREAKDOWN BY STATUS:\n`;
+          for (const [status, data] of Object.entries(statusBreakdown) as any) {
+            const icon = status === 'COMPLETED' ? '✅' : status === 'IN_PROGRESS' ? '🔄' : status === 'ASSIGNED' ? '👤' : status === 'PENDING' ? '⏳' : '❌';
+            response += `${icon} ${status}: ${data.count} order(s) = R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+          }
+        }
+
+        // Individual orders
+        response += `\n📋 ORDERS:\n`;
+        orders.forEach((ord: any) => {
+          response += `- ${ord.orderNumber} | ${ord.customerName} | ${ord.serviceType} | R${ord.totalCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} | ${ord.status}${ord.isPaused ? ' ⏸ PAUSED' : ''} | ${ord.assignedTo ? `Assigned: ${ord.assignedTo.firstName} ${ord.assignedTo.lastName}` : 'Unassigned'} | ${new Date(ord.createdAt).toLocaleDateString('en-ZA')}\n`;
+        });
+
+        if (totalCount > (params.limit || 50)) {
+          response += `\n(Showing ${orders.length} of ${totalCount} total orders)`;
+        }
+
+        return response;
+      } catch (error) {
+        return `Error listing orders: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 41: Get Order Details
+  const getOrderDetailsTool = tool({
+    description: 'Get complete details of a specific order/job by ID or order number. Shows all fields including materials, costs, assigned artisan, pictures, and related invoice.',
+    parameters: z.object({
+      orderId: z.number().optional().describe('Order ID'),
+      orderNumber: z.string().optional().describe('Order number (e.g., ORD-001)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.orderId) where.id = params.orderId;
+        else if (params.orderNumber) where.orderNumber = params.orderNumber;
+        else return 'Please provide either orderId or orderNumber';
+
+        const order = await db.order.findFirst({
+          where,
+          include: {
+            assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+            lead: { select: { id: true, customerName: true, status: true } },
+            invoice: { select: { id: true, invoiceNumber: true, total: true, status: true } },
+            materials: true,
+            expenseSlips: true,
+          },
+        });
+
+        if (!order) return `Order not found.`;
+
+        return `🔧 ORDER DETAILS: ${order.orderNumber}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 Status: ${order.status}${order.isPaused ? ' ⏸ PAUSED' : ''}
+
+👤 CUSTOMER:
+• Name: ${order.customerName}
+• Email: ${order.customerEmail}
+• Phone: ${order.customerPhone}
+• Address: ${order.address}
+
+🔧 SERVICE:
+• Type: ${order.serviceType}
+• Description: ${order.description}
+${order.notes ? `• Notes: ${order.notes}` : ''}
+
+💰 COSTS:
+• Material Cost: R${order.materialCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Labour Cost: R${order.labourCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Call-Out Fee: R${order.callOutFee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Total Cost: R${order.totalCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+${order.totalMaterialBudget ? `• Material Budget: R${order.totalMaterialBudget}` : ''}
+${order.totalLabourCostBudget ? `• Labour Budget: R${order.totalLabourCostBudget}` : ''}
+
+${order.assignedTo ? `👷 Assigned To: ${order.assignedTo.firstName} ${order.assignedTo.lastName} (${order.assignedTo.email})` : '👷 Unassigned'}
+${order.lead ? `🎯 Related Lead: ID ${order.lead.id} - ${order.lead.customerName} (${order.lead.status})` : ''}
+${order.invoice ? `💳 Invoice: ${order.invoice.invoiceNumber} | R${order.invoice.total} | ${order.invoice.status}` : '💳 No invoice yet'}
+
+📅 DATES:
+• Created: ${new Date(order.createdAt).toLocaleDateString('en-ZA')}
+${order.startTime ? `• Started: ${new Date(order.startTime).toLocaleDateString('en-ZA')}` : ''}
+${order.endTime ? `• Completed: ${new Date(order.endTime).toLocaleDateString('en-ZA')}` : ''}
+
+📦 Materials: ${order.materials.length} item(s)
+${order.materials.map((m: any) => `  • ${m.name} | Qty: ${m.quantity} | Cost: R${m.cost || 0}`).join('\n') || '  None'}
+
+🧾 Expense Slips: ${order.expenseSlips.length}
+📸 Before Pictures: ${order.beforePictures.length}
+📸 After Pictures: ${order.afterPictures.length}
+📎 Documents: ${order.documents.length}
+
+Full Data (JSON):
+${JSON.stringify(order, null, 2)}`;
+      } catch (error) {
+        return `Error getting order details: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 42: Get Quotation Details
+  const getQuotationDetailsTool = tool({
+    description: 'Get complete details of a specific quotation by ID or quote number.',
+    parameters: z.object({
+      quotationId: z.number().optional().describe('Quotation ID'),
+      quoteNumber: z.string().optional().describe('Quote number (e.g., QUO-001)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.quotationId) where.id = params.quotationId;
+        else if (params.quoteNumber) where.quoteNumber = params.quoteNumber;
+        else return 'Please provide either quotationId or quoteNumber';
+
+        const quotation = await db.quotation.findFirst({
+          where,
+          include: {
+            assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            lead: { select: { id: true, customerName: true, status: true } },
+            project: { select: { id: true, projectNumber: true, name: true, status: true } },
+            lineItems: true,
+          },
+        });
+
+        if (!quotation) return `Quotation not found.`;
+
+        return `📝 QUOTATION DETAILS: ${quotation.quoteNumber}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 Status: ${quotation.status}
+
+👤 CUSTOMER:
+• Name: ${quotation.customerName}
+• Email: ${quotation.customerEmail}
+• Phone: ${quotation.customerPhone}
+• Address: ${quotation.address}
+${quotation.customerVatNumber ? `• VAT Number: ${quotation.customerVatNumber}` : ''}
+
+💰 AMOUNTS:
+• Subtotal: R${quotation.subtotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Tax: R${quotation.tax.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Total: R${quotation.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Company Material Cost: R${quotation.companyMaterialCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Company Labour Cost: R${quotation.companyLabourCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+• Estimated Profit: R${quotation.estimatedProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+
+📅 DATES:
+• Created: ${new Date(quotation.createdAt).toLocaleDateString('en-ZA')}
+${quotation.validUntil ? `• Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-ZA')}` : ''}
+
+${quotation.projectDescription ? `📝 Project Description: ${quotation.projectDescription}` : ''}
+${quotation.notes ? `📎 Notes: ${quotation.notes}` : ''}
+${quotation.rejectionReason ? `❌ Rejection Reason: ${quotation.rejectionReason}` : ''}
+
+${quotation.assignedTo ? `👷 Assigned To: ${quotation.assignedTo.firstName} ${quotation.assignedTo.lastName}` : ''}
+${quotation.createdBy ? `👤 Created By: ${quotation.createdBy.firstName} ${quotation.createdBy.lastName}` : ''}
+${quotation.lead ? `🎯 Related Lead: ID ${quotation.lead.id} - ${quotation.lead.customerName} (${quotation.lead.status})` : ''}
+${quotation.project ? `📁 Related Project: ${quotation.project.projectNumber} - ${quotation.project.name}` : ''}
+
+📋 LINE ITEMS:
+${quotation.lineItems.length > 0 
+  ? quotation.lineItems.map((item: any) => `  • ${item.description} | Qty: ${item.quantity} | Unit: R${item.unitPrice} | Total: R${item.total}`).join('\n')
+  : (Array.isArray(quotation.items) ? (quotation.items as any[]).map((item: any) => `  • ${item.description} | Qty: ${item.quantity} | Unit: R${item.unitPrice} | Total: R${item.total}`).join('\n') : 'No line items')}
+
+Full Data (JSON):
+${JSON.stringify(quotation, null, 2)}`;
+      } catch (error) {
+        return `Error getting quotation details: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 43: Accounts Receivable Report
+  const getAccountsReceivableTool = tool({
+    description: 'Get a full accounts receivable (AR) report showing ALL money owed to the company. Breaks down by age (current, 30 days, 60 days, 90+ days overdue) and by customer. Use when asked "how much is owed to us", "what are our receivables", "accounts receivable", "cash receivables", "how much worth of invoices still need to be paid".',
+    parameters: z.object({}),
+    execute: async () => {
+      try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+        // All unpaid invoices (everything not PAID, CANCELLED, or REJECTED)
+        const unpaidInvoices = await db.invoice.findMany({
+          where: {
+            status: { in: ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'OVERDUE'] },
+          },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            customerName: true,
+            customerEmail: true,
+            total: true,
+            status: true,
+            dueDate: true,
+            createdAt: true,
+            isDisputed: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        const totalReceivable = unpaidInvoices.reduce((sum: number, inv: any) => sum + inv.total, 0);
+
+        // Age buckets
+        const current: any[] = [];
+        const thirtyDay: any[] = [];
+        const sixtyDay: any[] = [];
+        const ninetyPlus: any[] = [];
+
+        unpaidInvoices.forEach((inv: any) => {
+          const refDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.createdAt);
+          if (refDate >= thirtyDaysAgo) current.push(inv);
+          else if (refDate >= sixtyDaysAgo) thirtyDay.push(inv);
+          else if (refDate >= ninetyDaysAgo) sixtyDay.push(inv);
+          else ninetyPlus.push(inv);
+        });
+
+        const currentTotal = current.reduce((s: number, i: any) => s + i.total, 0);
+        const thirtyTotal = thirtyDay.reduce((s: number, i: any) => s + i.total, 0);
+        const sixtyTotal = sixtyDay.reduce((s: number, i: any) => s + i.total, 0);
+        const ninetyTotal = ninetyPlus.reduce((s: number, i: any) => s + i.total, 0);
+
+        // Group by customer
+        const byCustomer: Record<string, { count: number; total: number }> = {};
+        unpaidInvoices.forEach((inv: any) => {
+          if (!byCustomer[inv.customerName]) byCustomer[inv.customerName] = { count: 0, total: 0 };
+          byCustomer[inv.customerName].count++;
+          byCustomer[inv.customerName].total += inv.total;
+        });
+
+        const disputedCount = unpaidInvoices.filter((inv: any) => inv.isDisputed).length;
+        const overdueCount = unpaidInvoices.filter((inv: any) => inv.status === 'OVERDUE').length;
+
+        // Also get paid invoices total for comparison
+        const paidTotal = await db.invoice.aggregate({
+          where: { status: 'PAID' },
+          _sum: { total: true },
+          _count: true,
+        });
+
+        let response = `💰 ACCOUNTS RECEIVABLE REPORT\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        response += `📅 Report Date: ${now.toLocaleDateString('en-ZA')}\n\n`;
+
+        response += `💵 TOTAL RECEIVABLE: R${totalReceivable.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `📊 Total Unpaid Invoices: ${unpaidInvoices.length}\n`;
+        response += `${overdueCount > 0 ? `🔴 Overdue: ${overdueCount} invoice(s)\n` : ''}`;
+        response += `${disputedCount > 0 ? `⚠️ Disputed: ${disputedCount} invoice(s)\n` : ''}`;
+        response += `\n✅ Total Collected (Paid): R${(paidTotal._sum.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidTotal._count} invoices)\n`;
+
+        response += `\n📊 AGING ANALYSIS:\n`;
+        response += `🟢 Current (0-30 days): R${currentTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${current.length} invoices)\n`;
+        response += `🟡 31-60 days: R${thirtyTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${thirtyDay.length} invoices)\n`;
+        response += `🟠 61-90 days: R${sixtyTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${sixtyDay.length} invoices)\n`;
+        response += `🔴 90+ days: R${ninetyTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${ninetyPlus.length} invoices)\n`;
+
+        response += `\n👥 BY CUSTOMER:\n`;
+        const sortedCustomers = Object.entries(byCustomer).sort(([, a], [, b]) => b.total - a.total);
+        sortedCustomers.forEach(([name, data]) => {
+          response += `  • ${name}: R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${data.count} invoice(s))\n`;
+        });
+
+        if (unpaidInvoices.length > 0) {
+          response += `\n📄 UNPAID INVOICES:\n`;
+          unpaidInvoices.forEach((inv: any) => {
+            const overdue = inv.dueDate && new Date(inv.dueDate) < now;
+            response += `  • ${inv.invoiceNumber} | ${inv.customerName} | R${inv.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} | ${inv.status}${overdue ? ' ⚠️ OVERDUE' : ''}${inv.isDisputed ? ' ⚠️ DISPUTED' : ''}\n`;
+          });
+        }
+
+        response += `\n💡 INSIGHTS:\n`;
+        if (ninetyPlus.length > 0) response += `🔴 ${ninetyPlus.length} invoices are over 90 days old - consider escalating collection\n`;
+        if (disputedCount > 0) response += `⚠️ ${disputedCount} invoices are disputed - resolve disputes to collect payment\n`;
+        if (overdueCount > 0) response += `📞 ${overdueCount} invoices are marked OVERDUE - send payment reminders\n`;
+        if (totalReceivable === 0) response += `✅ All invoices are paid - no outstanding receivables!\n`;
+        const collectionRate = (paidTotal._sum.total || 0) + totalReceivable > 0 
+          ? ((paidTotal._sum.total || 0) / ((paidTotal._sum.total || 0) + totalReceivable) * 100).toFixed(1) 
+          : '100';
+        response += `📈 Collection Rate: ${collectionRate}%\n`;
+
+        return response;
+      } catch (error) {
+        return `Error generating accounts receivable report: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 44: Comprehensive Business Dashboard
+  const getBusinessDashboardTool = tool({
+    description: 'Get a complete real-time business dashboard with ALL key metrics across the entire system: revenue, receivables, payables, orders, quotations, projects, leads, employees, assets, and liabilities. Use this for a comprehensive overview or when the user asks "how is the business doing", "give me a full overview", "business dashboard", "executive summary".',
+    parameters: z.object({}),
+    execute: async () => {
+      try {
+        const now = new Date();
+
+        // === INVOICES ===
+        const invoicesByStatus: Record<string, { count: number; total: number }> = {};
+        const invoiceStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'REJECTED'];
+        for (const s of invoiceStatuses) {
+          const agg = await db.invoice.aggregate({ where: { status: s }, _sum: { total: true }, _count: true });
+          if (agg._count > 0) invoicesByStatus[s] = { count: agg._count, total: agg._sum.total || 0 };
+        }
+        const totalRevenue = invoicesByStatus['PAID']?.total || 0;
+        const unpaidStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'OVERDUE'];
+        const totalReceivable = unpaidStatuses.reduce((sum, s) => sum + (invoicesByStatus[s]?.total || 0), 0);
+        const totalInvoices = Object.values(invoicesByStatus).reduce((sum, v) => sum + v.count, 0);
+
+        // === ORDERS ===
+        const ordersByStatus: Record<string, number> = {};
+        const orderStatuses = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+        for (const s of orderStatuses) {
+          const c = await db.order.count({ where: { status: s } });
+          if (c > 0) ordersByStatus[s] = c;
+        }
+        const totalOrders = Object.values(ordersByStatus).reduce((sum, v) => sum + v, 0);
+        const orderRevenue = await db.order.aggregate({ _sum: { totalCost: true } });
+
+        // === QUOTATIONS ===
+        const quotationsByStatus: Record<string, { count: number; total: number }> = {};
+        const quotationStatuses = ['DRAFT', 'PENDING_ARTISAN_REVIEW', 'IN_PROGRESS', 'PENDING_JUNIOR_MANAGER_REVIEW', 'PENDING_SENIOR_MANAGER_REVIEW', 'APPROVED', 'SENT_TO_CUSTOMER', 'REJECTED'];
+        for (const s of quotationStatuses) {
+          const agg = await db.quotation.aggregate({ where: { status: s }, _sum: { total: true }, _count: true });
+          if (agg._count > 0) quotationsByStatus[s] = { count: agg._count, total: agg._sum.total || 0 };
+        }
+        const totalQuotations = Object.values(quotationsByStatus).reduce((sum, v) => sum + v.count, 0);
+        const totalQuotedValue = Object.values(quotationsByStatus).reduce((sum, v) => sum + v.total, 0);
+
+        // === LEADS ===
+        const leadsByStatus: Record<string, number> = {};
+        const leadStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'];
+        for (const s of leadStatuses) {
+          const c = await db.lead.count({ where: { status: s } });
+          if (c > 0) leadsByStatus[s] = c;
+        }
+        const totalLeads = Object.values(leadsByStatus).reduce((sum, v) => sum + v, 0);
+
+        // === PROJECTS ===
+        const projectsByStatus: Record<string, number> = {};
+        const projectStatuses = ['PLANNING', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
+        for (const s of projectStatuses) {
+          const c = await db.project.count({ where: { status: s } });
+          if (c > 0) projectsByStatus[s] = c;
+        }
+
+        // === EMPLOYEES ===
+        const employeeCount = await db.user.count({ where: { role: 'EMPLOYEE' } });
+        const totalUsers = await db.user.count();
+
+        // === ASSETS ===
+        const assetAgg = await db.asset.aggregate({ where: { status: 'ACTIVE' }, _sum: { currentValue: true }, _count: true });
+
+        // === LIABILITIES ===
+        const liabilityAgg = await db.liability.aggregate({ where: { status: 'ACTIVE' }, _sum: { remainingAmount: true }, _count: true });
+
+        // === PAYMENT REQUESTS ===
+        const pendingPayroll = await db.paymentRequest.aggregate({
+          where: { status: { in: ['PENDING', 'APPROVED'] } },
+          _sum: { amount: true },
+          _count: true,
+        });
+
+        // CALCULATIONS
+        const totalAssets = assetAgg._sum.currentValue || 0;
+        const totalLiabilities = (liabilityAgg._sum.remainingAmount || 0) + (pendingPayroll._sum.amount || 0);
+        const netWorth = totalAssets - totalLiabilities + totalRevenue;
+
+        let response = `📊 BUSINESS DASHBOARD - ${now.toLocaleDateString('en-ZA')}\n`;
+        response += `══════════════════════════════════════\n\n`;
+
+        response += `💰 FINANCIAL OVERVIEW:\n`;
+        response += `  • Total Revenue (Paid): R${totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `  • Accounts Receivable: R${totalReceivable.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `  • Total Assets: R${totalAssets.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${assetAgg._count} assets)\n`;
+        response += `  • Total Liabilities: R${totalLiabilities.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${liabilityAgg._count} liabilities)\n`;
+        response += `  • Pending Payroll: R${(pendingPayroll._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${pendingPayroll._count} requests)\n`;
+        response += `  • Net Worth: R${netWorth.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n\n`;
+
+        response += `📋 INVOICES (${totalInvoices} total):\n`;
+        for (const [status, data] of Object.entries(invoicesByStatus)) {
+          const icon = status === 'PAID' ? '✅' : status === 'OVERDUE' ? '🔴' : status === 'SENT' ? '📨' : status === 'CANCELLED' ? '❌' : '📝';
+          response += `  ${icon} ${status}: ${data.count} = R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        }
+
+        response += `\n🔧 ORDERS (${totalOrders} total):\n`;
+        for (const [status, count] of Object.entries(ordersByStatus)) {
+          const icon = status === 'COMPLETED' ? '✅' : status === 'IN_PROGRESS' ? '🔄' : status === 'ASSIGNED' ? '👤' : status === 'PENDING' ? '⏳' : '❌';
+          response += `  ${icon} ${status}: ${count}\n`;
+        }
+        response += `  💵 Total Order Value: R${(orderRevenue._sum.totalCost || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+
+        response += `\n📝 QUOTATIONS (${totalQuotations} total, R${totalQuotedValue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} quoted):\n`;
+        for (const [status, data] of Object.entries(quotationsByStatus)) {
+          response += `  • ${status}: ${data.count} = R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        }
+
+        response += `\n🎯 LEADS (${totalLeads} total):\n`;
+        for (const [status, count] of Object.entries(leadsByStatus)) {
+          const icon = status === 'WON' ? '🏆' : status === 'LOST' ? '❌' : status === 'NEGOTIATION' ? '🤝' : '📌';
+          response += `  ${icon} ${status}: ${count}\n`;
+        }
+
+        response += `\n📁 PROJECTS:\n`;
+        for (const [status, count] of Object.entries(projectsByStatus)) {
+          response += `  • ${status}: ${count}\n`;
+        }
+
+        response += `\n👥 TEAM: ${employeeCount} employees (${totalUsers} total users)\n`;
+
+        response += `\n📈 KEY INSIGHTS:\n`;
+        if (totalReceivable > 0) response += `  💰 R${totalReceivable.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} in receivables to collect\n`;
+        if (invoicesByStatus['OVERDUE']) response += `  🔴 ${invoicesByStatus['OVERDUE'].count} overdue invoices worth R${invoicesByStatus['OVERDUE'].total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} - ACTION NEEDED\n`;
+        if (ordersByStatus['PENDING']) response += `  ⏳ ${ordersByStatus['PENDING']} pending orders to assign\n`;
+        if (leadsByStatus['NEW']) response += `  🆕 ${leadsByStatus['NEW']} new leads to follow up\n`;
+        const conversionRate = totalLeads > 0 ? ((leadsByStatus['WON'] || 0) / totalLeads * 100).toFixed(1) : '0';
+        response += `  📊 Lead Conversion Rate: ${conversionRate}%\n`;
+
+        return response;
+      } catch (error) {
+        return `Error generating business dashboard: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 45: Update Invoice Status
+  const updateInvoiceStatusTool = tool({
+    description: 'Update the status of an invoice. Can mark invoices as SENT, PAID, OVERDUE, CANCELLED, etc. When marking as PAID, automatically sets paidDate.',
+    parameters: z.object({
+      invoiceId: z.number().optional().describe('Invoice ID'),
+      invoiceNumber: z.string().optional().describe('Invoice number (e.g., INV-001)'),
+      newStatus: z.enum(['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'REJECTED']).describe('New invoice status'),
+      rejectionReason: z.string().optional().describe('Reason for rejection (required when status is REJECTED)'),
+      notes: z.string().optional().describe('Notes about the status change'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.invoiceId) where.id = params.invoiceId;
+        else if (params.invoiceNumber) where.invoiceNumber = params.invoiceNumber;
+        else return 'Please provide either invoiceId or invoiceNumber';
+
+        const existing = await db.invoice.findFirst({ where });
+        if (!existing) return `Invoice not found.`;
+
+        const updateData: any = { status: params.newStatus };
+        if (params.newStatus === 'PAID') updateData.paidDate = new Date();
+        if (params.newStatus === 'REJECTED' && params.rejectionReason) updateData.rejectionReason = params.rejectionReason;
+        if (params.notes) updateData.notes = params.notes;
+
+        const updated = await db.invoice.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
+
+        return `✓ Invoice ${updated.invoiceNumber} status updated: ${existing.status} → ${params.newStatus}${params.newStatus === 'PAID' ? ` (Paid on ${new Date().toLocaleDateString('en-ZA')})` : ''}`;
+      } catch (error) {
+        return `Error updating invoice status: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 46: Update Order Status
+  const updateOrderStatusTool = tool({
+    description: 'Update the status of an order/job. Can move orders through workflow: PENDING → ASSIGNED → IN_PROGRESS → COMPLETED.',
+    parameters: z.object({
+      orderId: z.number().optional().describe('Order ID'),
+      orderNumber: z.string().optional().describe('Order number'),
+      newStatus: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).describe('New order status'),
+      assignToId: z.number().optional().describe('Assign the order to this user ID (for ASSIGNED status)'),
+      notes: z.string().optional().describe('Notes about the status change'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const where: any = {};
+        if (params.orderId) where.id = params.orderId;
+        else if (params.orderNumber) where.orderNumber = params.orderNumber;
+        else return 'Please provide either orderId or orderNumber';
+
+        const existing = await db.order.findFirst({ where });
+        if (!existing) return `Order not found.`;
+
+        const updateData: any = { status: params.newStatus };
+        if (params.assignToId) updateData.assignedToId = params.assignToId;
+        if (params.notes) updateData.notes = params.notes;
+        if (params.newStatus === 'IN_PROGRESS' && !existing.startTime) updateData.startTime = new Date();
+        if (params.newStatus === 'COMPLETED') updateData.endTime = new Date();
+
+        const updated = await db.order.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
+
+        return `✓ Order ${updated.orderNumber} status updated: ${existing.status} → ${params.newStatus}${params.assignToId ? ` (Assigned to user ${params.assignToId})` : ''}`;
+      } catch (error) {
+        return `Error updating order status: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 47: Search Across System
+  const systemSearchTool = tool({
+    description: 'Search across the ENTIRE system - invoices, orders, quotations, leads, projects - by customer name, reference number, or keyword. Use when the user asks to find something without specifying what type of record.',
+    parameters: z.object({
+      searchTerm: z.string().describe('The term to search for (name, number, keyword)'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const term = params.searchTerm;
+        const results: string[] = [];
+
+        // Search invoices
+        const invoices = await db.invoice.findMany({
+          where: {
+            OR: [
+              { invoiceNumber: { contains: term, mode: 'insensitive' } },
+              { customerName: { contains: term, mode: 'insensitive' } },
+              { customerEmail: { contains: term, mode: 'insensitive' } },
+              { notes: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, invoiceNumber: true, customerName: true, total: true, status: true },
+          take: 10,
+        });
+        if (invoices.length > 0) {
+          results.push(`📋 INVOICES (${invoices.length} found):`);
+          invoices.forEach((i: any) => results.push(`  • ${i.invoiceNumber} | ${i.customerName} | R${i.total} | ${i.status}`));
+        }
+
+        // Search orders
+        const orders = await db.order.findMany({
+          where: {
+            OR: [
+              { orderNumber: { contains: term, mode: 'insensitive' } },
+              { customerName: { contains: term, mode: 'insensitive' } },
+              { customerEmail: { contains: term, mode: 'insensitive' } },
+              { serviceType: { contains: term, mode: 'insensitive' } },
+              { description: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, orderNumber: true, customerName: true, totalCost: true, status: true, serviceType: true },
+          take: 10,
+        });
+        if (orders.length > 0) {
+          results.push(`🔧 ORDERS (${orders.length} found):`);
+          orders.forEach((o: any) => results.push(`  • ${o.orderNumber} | ${o.customerName} | ${o.serviceType} | R${o.totalCost} | ${o.status}`));
+        }
+
+        // Search quotations
+        const quotations = await db.quotation.findMany({
+          where: {
+            OR: [
+              { quoteNumber: { contains: term, mode: 'insensitive' } },
+              { customerName: { contains: term, mode: 'insensitive' } },
+              { customerEmail: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, quoteNumber: true, customerName: true, total: true, status: true },
+          take: 10,
+        });
+        if (quotations.length > 0) {
+          results.push(`📝 QUOTATIONS (${quotations.length} found):`);
+          quotations.forEach((q: any) => results.push(`  • ${q.quoteNumber} | ${q.customerName} | R${q.total} | ${q.status}`));
+        }
+
+        // Search leads
+        const leads = await db.lead.findMany({
+          where: {
+            OR: [
+              { customerName: { contains: term, mode: 'insensitive' } },
+              { customerEmail: { contains: term, mode: 'insensitive' } },
+              { companyName: { contains: term, mode: 'insensitive' } },
+              { description: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, customerName: true, customerEmail: true, status: true, estimatedValue: true },
+          take: 10,
+        });
+        if (leads.length > 0) {
+          results.push(`🎯 LEADS (${leads.length} found):`);
+          leads.forEach((l: any) => results.push(`  • ID ${l.id} | ${l.customerName} | ${l.customerEmail} | ${l.status} | R${l.estimatedValue || 0}`));
+        }
+
+        // Search projects
+        const projects = await db.project.findMany({
+          where: {
+            OR: [
+              { projectNumber: { contains: term, mode: 'insensitive' } },
+              { name: { contains: term, mode: 'insensitive' } },
+              { customerName: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, projectNumber: true, name: true, customerName: true, status: true, estimatedBudget: true },
+          take: 10,
+        });
+        if (projects.length > 0) {
+          results.push(`📁 PROJECTS (${projects.length} found):`);
+          projects.forEach((p: any) => results.push(`  • ${p.projectNumber} | ${p.name} | ${p.customerName} | ${p.status} | Budget: R${p.estimatedBudget || 0}`));
+        }
+
+        if (results.length === 0) {
+          return `🔍 No results found for "${term}" across invoices, orders, quotations, leads, and projects.`;
+        }
+
+        return `🔍 SEARCH RESULTS FOR "${term}":\n━━━━━━━━━━━━━━━━━━━━━━━\n${results.join('\n')}`;
+      } catch (error) {
+        return `Error searching system: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 48: Profit & Loss Summary
+  const getProfitLossSummaryTool = tool({
+    description: 'Get a real-time Profit & Loss summary calculated from actual data. Shows revenue (paid invoices), cost of goods sold (material + labour costs from invoices), gross profit, operating expenses (liabilities + payroll), and net profit. Use when asked "what is our profit", "are we making money", "P&L", "profit and loss".',
+    parameters: z.object({
+      dateFrom: z.string().optional().describe('Start date (ISO format) - defaults to start of current year'),
+      dateTo: z.string().optional().describe('End date (ISO format) - defaults to today'),
+    }),
+    execute: async (params: any) => {
+      try {
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const dateFrom = params.dateFrom ? new Date(params.dateFrom) : startOfYear;
+        const dateTo = params.dateTo ? new Date(params.dateTo) : now;
+
+        // Revenue - Paid invoices in period
+        const revenue = await db.invoice.aggregate({
+          where: {
+            status: 'PAID',
+            paidDate: { gte: dateFrom, lte: dateTo },
+          },
+          _sum: { total: true, subtotal: true, tax: true, companyMaterialCost: true, companyLabourCost: true, estimatedProfit: true },
+          _count: true,
+        });
+
+        // All invoices created in period (for pipeline view)
+        const allInvoices = await db.invoice.aggregate({
+          where: {
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+          _sum: { total: true },
+          _count: true,
+        });
+
+        // Operating expenses - paid payment requests
+        const paidPayroll = await db.paymentRequest.aggregate({
+          where: {
+            status: 'PAID',
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+          _sum: { amount: true },
+          _count: true,
+        });
+
+        // Liabilities paid in period
+        const paidLiabilities = await db.liability.aggregate({
+          where: {
+            status: 'PAID',
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+          _sum: { amount: true },
+          _count: true,
+        });
+
+        const totalRevenue = revenue._sum.total || 0;
+        const materialCosts = revenue._sum.companyMaterialCost || 0;
+        const labourCosts = revenue._sum.companyLabourCost || 0;
+        const cogs = materialCosts + labourCosts;
+        const grossProfit = totalRevenue - cogs;
+        const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue * 100).toFixed(1) : '0';
+        const operatingExpenses = (paidPayroll._sum.amount || 0) + (paidLiabilities._sum.amount || 0);
+        const netProfit = grossProfit - operatingExpenses;
+        const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue * 100).toFixed(1) : '0';
+
+        return `📊 PROFIT & LOSS SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 Period: ${dateFrom.toLocaleDateString('en-ZA')} to ${dateTo.toLocaleDateString('en-ZA')}
+
+💰 REVENUE:
+  • Paid Invoice Revenue: R${totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${revenue._count} invoices)
+  • Total Invoiced (all statuses): R${(allInvoices._sum.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${allInvoices._count} invoices)
+
+📦 COST OF GOODS SOLD:
+  • Material Costs: R${materialCosts.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+  • Labour Costs: R${labourCosts.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+  • Total COGS: R${cogs.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+
+📈 GROSS PROFIT: R${grossProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${grossMargin}% margin)
+
+💸 OPERATING EXPENSES:
+  • Payroll: R${(paidPayroll._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidPayroll._count} payments)
+  • Liabilities Paid: R${(paidLiabilities._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidLiabilities._count})
+  • Total OpEx: R${operatingExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+
+💵 NET PROFIT: R${netProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${netMargin}% margin)
+
+${netProfit > 0 ? '✅ Business is PROFITABLE' : '🔴 Business is operating at a LOSS'}
+${parseFloat(grossMargin) > 50 ? '✅ Healthy gross margin (above 50%)' : parseFloat(grossMargin) > 30 ? '🟡 Moderate gross margin' : '🔴 Low gross margin - review pricing'}`;
+      } catch (error) {
+        return `Error generating P&L summary: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
+  // Tool 49: Customer 360 View
+  const getCustomer360Tool = tool({
+    description: 'Get a complete 360-degree view of a customer across the entire system: their leads, quotations, orders, invoices, projects, and payment history. Use when the user asks about a specific customer or says "show me everything about [customer]", "customer history for [name]".',
+    parameters: z.object({
+      customerName: z.string().optional().describe('Customer name to search for (partial match)'),
+      customerEmail: z.string().optional().describe('Customer email to search for'),
+    }),
+    execute: async (params: any) => {
+      try {
+        if (!params.customerName && !params.customerEmail) return 'Please provide customerName or customerEmail';
+
+        const nameFilter = params.customerName ? { contains: params.customerName, mode: 'insensitive' as const } : undefined;
+        const emailFilter = params.customerEmail ? { contains: params.customerEmail, mode: 'insensitive' as const } : undefined;
+
+        // Leads
+        const leads = await db.lead.findMany({
+          where: {
+            OR: [
+              ...(nameFilter ? [{ customerName: nameFilter }] : []),
+              ...(emailFilter ? [{ customerEmail: emailFilter }] : []),
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Quotations
+        const quotations = await db.quotation.findMany({
+          where: {
+            OR: [
+              ...(nameFilter ? [{ customerName: nameFilter }] : []),
+              ...(emailFilter ? [{ customerEmail: emailFilter }] : []),
+            ],
+          },
+          select: { id: true, quoteNumber: true, customerName: true, total: true, status: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Orders
+        const orders = await db.order.findMany({
+          where: {
+            OR: [
+              ...(nameFilter ? [{ customerName: nameFilter }] : []),
+              ...(emailFilter ? [{ customerEmail: emailFilter }] : []),
+            ],
+          },
+          select: { id: true, orderNumber: true, customerName: true, totalCost: true, status: true, serviceType: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Invoices
+        const invoices = await db.invoice.findMany({
+          where: {
+            OR: [
+              ...(nameFilter ? [{ customerName: nameFilter }] : []),
+              ...(emailFilter ? [{ customerEmail: emailFilter }] : []),
+            ],
+          },
+          select: { id: true, invoiceNumber: true, customerName: true, total: true, status: true, dueDate: true, paidDate: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Projects
+        const projects = await db.project.findMany({
+          where: {
+            OR: [
+              ...(nameFilter ? [{ customerName: nameFilter }] : []),
+              ...(emailFilter ? [{ customerEmail: emailFilter }] : []),
+            ],
+          },
+          select: { id: true, projectNumber: true, name: true, customerName: true, status: true, estimatedBudget: true, actualCost: true },
+        });
+
+        const totalInvoiced = invoices.reduce((s: number, i: any) => s + i.total, 0);
+        const totalPaid = invoices.filter((i: any) => i.status === 'PAID').reduce((s: number, i: any) => s + i.total, 0);
+        const totalOutstanding = invoices.filter((i: any) => !['PAID', 'CANCELLED', 'REJECTED'].includes(i.status)).reduce((s: number, i: any) => s + i.total, 0);
+        const totalQuoted = quotations.reduce((s: number, q: any) => s + q.total, 0);
+
+        const searchLabel = params.customerName || params.customerEmail;
+
+        let response = `👤 CUSTOMER 360° VIEW: "${searchLabel}"\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        response += `💰 FINANCIAL SUMMARY:\n`;
+        response += `  • Total Quoted: R${totalQuoted.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `  • Total Invoiced: R${totalInvoiced.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `  • Total Paid: R${totalPaid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `  • Outstanding: R${totalOutstanding.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n\n`;
+
+        if (leads.length > 0) {
+          response += `🎯 LEADS (${leads.length}):\n`;
+          leads.forEach((l: any) => {
+            response += `  • ID ${l.id} | ${l.customerName} | ${l.status} | ${l.serviceType} | R${l.estimatedValue || 0}\n`;
+          });
+          response += '\n';
+        }
+
+        if (quotations.length > 0) {
+          response += `📝 QUOTATIONS (${quotations.length}):\n`;
+          quotations.forEach((q: any) => {
+            response += `  • ${q.quoteNumber} | R${q.total} | ${q.status} | ${new Date(q.createdAt).toLocaleDateString('en-ZA')}\n`;
+          });
+          response += '\n';
+        }
+
+        if (orders.length > 0) {
+          response += `🔧 ORDERS (${orders.length}):\n`;
+          orders.forEach((o: any) => {
+            response += `  • ${o.orderNumber} | ${o.serviceType} | R${o.totalCost} | ${o.status} | ${new Date(o.createdAt).toLocaleDateString('en-ZA')}\n`;
+          });
+          response += '\n';
+        }
+
+        if (invoices.length > 0) {
+          response += `💳 INVOICES (${invoices.length}):\n`;
+          invoices.forEach((i: any) => {
+            response += `  • ${i.invoiceNumber} | R${i.total} | ${i.status}${i.paidDate ? ` | Paid: ${new Date(i.paidDate).toLocaleDateString('en-ZA')}` : ''}${i.dueDate ? ` | Due: ${new Date(i.dueDate).toLocaleDateString('en-ZA')}` : ''}\n`;
+          });
+          response += '\n';
+        }
+
+        if (projects.length > 0) {
+          response += `📁 PROJECTS (${projects.length}):\n`;
+          projects.forEach((p: any) => {
+            response += `  • ${p.projectNumber} | ${p.name} | ${p.status} | Budget: R${p.estimatedBudget || 0} | Spent: R${p.actualCost}\n`;
+          });
+          response += '\n';
+        }
+
+        if (leads.length === 0 && quotations.length === 0 && orders.length === 0 && invoices.length === 0 && projects.length === 0) {
+          response += `No records found for "${searchLabel}" in the system.\n`;
+        }
+
+        return response;
+      } catch (error) {
+        return `Error getting customer 360 view: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+  });
+
   // Return all tools as an OBJECT with user context injected
   // This format is required by the AI SDK's generateText function
   return {
@@ -1933,6 +3066,19 @@ I'm monitoring your business data and will keep suggesting campaigns that match 
     generateCampaignContent: generateCampaignContentTool,
     amendCampaign: amendCampaignTool,
     suggestCampaignIdeas: suggestCampaignIdeasTool,
+    // Business Intelligence & Data Query Tools
+    listInvoices: listInvoicesTool,
+    getInvoiceDetails: getInvoiceDetailsTool,
+    listOrders: listOrdersTool,
+    getOrderDetails: getOrderDetailsTool,
+    getQuotationDetails: getQuotationDetailsTool,
+    getAccountsReceivable: getAccountsReceivableTool,
+    getBusinessDashboard: getBusinessDashboardTool,
+    updateInvoiceStatus: updateInvoiceStatusTool,
+    updateOrderStatus: updateOrderStatusTool,
+    systemSearch: systemSearchTool,
+    getProfitLossSummary: getProfitLossSummaryTool,
+    getCustomer360: getCustomer360Tool,
   };
 }
 
