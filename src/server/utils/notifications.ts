@@ -4,6 +4,19 @@ import { notificationEvents } from "~/server/utils/notification-events";
 import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/server/utils/web-push";
 
 /**
+ * Demo/test account emails – these accounts are isolated from production
+ * notifications to prevent cross-contamination between demo and real data.
+ */
+const DEMO_ACCOUNT_EMAILS = [
+  "junior@propmanagement.com",
+  "admin@propmanagement.com",
+  "pm@propmanagement.com",
+  "contractor@propmanagement.com",
+  "artisan@propmanagement.com",
+  "customer@example.com",
+];
+
+/**
  * Helper function to create a notification for a specific user
  */
 export async function createNotification(params: {
@@ -81,6 +94,10 @@ export async function notifyAdmins(params: {
       where: {
         role: {
           in: ["ADMIN", "JUNIOR_ADMIN", "SENIOR_ADMIN"],
+        },
+        // Exclude demo accounts so they don't receive real-world admin notifications
+        email: {
+          notIn: DEMO_ACCOUNT_EMAILS,
         },
       },
       select: {
