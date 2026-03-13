@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getProjects = baseProcedure
   .input(
@@ -95,6 +96,9 @@ export const getProjects = baseProcedure
           ];
         }
       }
+
+      // Demo data isolation
+      await applyDemoIsolation(where, user, db, 'assignedToId');
 
       const projects = await db.project.findMany({
         where,

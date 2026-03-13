@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getQuotations = baseProcedure
   .input(
@@ -107,6 +108,9 @@ export const getQuotations = baseProcedure
         }
         // If no contractors exist, show all quotations
       }
+
+      // Demo data isolation
+      await applyDemoIsolation(where, user, db);
 
       const quotations = await db.quotation.findMany({
         where,

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getPaymentRequests = baseProcedure
   .input(
@@ -38,6 +39,9 @@ export const getPaymentRequests = baseProcedure
       // Without a stable contractor->artisan company link in schema, we cannot safely exclude
       // contractor-managed artisan payment requests here.
     }
+
+    // Demo data isolation
+    await applyDemoIsolation(where, user, db, 'artisanId');
 
     const paymentRequests = await db.paymentRequest.findMany({
       where,

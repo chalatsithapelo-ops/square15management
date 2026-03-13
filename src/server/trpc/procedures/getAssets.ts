@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requirePermission, PERMISSIONS } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getAssets = baseProcedure
   .input(
@@ -23,6 +24,9 @@ export const getAssets = baseProcedure
     const where: any = {};
     if (user.role === "CONTRACTOR") where.createdById = user.id;
     if (input.category) where.category = input.category;
+
+    // Demo data isolation
+    await applyDemoIsolation(where, user, db);
 
     const assets = await db.asset.findMany({
       where,

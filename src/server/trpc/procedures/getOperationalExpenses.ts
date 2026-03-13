@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getOperationalExpenses = baseProcedure
   .input(
@@ -46,6 +47,9 @@ export const getOperationalExpenses = baseProcedure
         },
       };
     }
+
+    // Demo data isolation
+    await applyDemoIsolation(where, user, db);
 
     const expenses = await db.operationalExpense.findMany({
       where,

@@ -42,3 +42,46 @@ export function assertNotRestrictedDemoAccountAccessDenied(
     message: "Access denied",
   });
 }
+
+// ── Demo data isolation ──────────────────────────────────
+let _demoUserIds: number[] | null = null;
+
+export async function getDemoUserIds(prismaClient: any): Promise<number[]> {
+  if (_demoUserIds !== null) return _demoUserIds;
+  const demoUsers = await prismaClient.user.findMany({
+    where: {
+      email: { in: Array.from(restrictedDemoEmails) },
+    },
+    select: { id: true },
+  });
+  _demoUserIds = demoUsers.map((u: any) => u.id);
+  return _demoUserIds;
+}
+
+/**
+ * Adds demo data isolation to a Prisma `where` clause.
+ * - Demo accounts only see records owned by demo users.
+ * - Real accounts never see records owned by demo users.
+ */
+export async function applyDemoIsolation(
+  where: any,
+  user: { email?: string | null },
+  prismaClient: any,
+  field: string = 'createdById',
+): Promise<void> {
+  const demoIds = await getDemoUserIds(prismaClient);
+  if (demoIds.length === 0) return;
+  if (!where.AND) where.AND = [];
+  else if (!Array.isArray(where.AND)) where.AND = [where.AND];
+
+  if (isRestrictedDemoAccount(user)) {
+    where.AND.push({ [field]: { in: demoIds } });
+  } else {
+    where.AND.push({
+      OR: [
+        { [field]: { notIn: demoIds } },
+        { [field]: null },
+      ],
+    });
+  }
+}

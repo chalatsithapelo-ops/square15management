@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getAlternativeRevenues = baseProcedure
   .input(
@@ -46,6 +47,9 @@ export const getAlternativeRevenues = baseProcedure
         },
       };
     }
+
+    // Demo data isolation
+    await applyDemoIsolation(where, user, db);
 
     const revenues = await db.alternativeRevenue.findMany({
       where,

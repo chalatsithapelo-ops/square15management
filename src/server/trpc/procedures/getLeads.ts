@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getLeads = baseProcedure
   .input(
@@ -31,6 +32,9 @@ export const getLeads = baseProcedure
       whereClause.createdById = user.id;
     }
     // Admins see all leads (no additional filtering)
+
+    // Demo data isolation
+    await applyDemoIsolation(whereClause, user, db);
 
     const leads = await db.lead.findMany({
       where: whereClause,

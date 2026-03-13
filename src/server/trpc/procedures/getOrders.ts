@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getOrders = baseProcedure
   .input(
@@ -82,6 +83,9 @@ export const getOrders = baseProcedure
         // Note: Property Manager orders live in `PropertyManagerOrder` (separate table),
         // so there is no need to filter the `Order` table by any `propertyManagerId` field.
       }
+
+      // Demo data isolation
+      await applyDemoIsolation(where, user, db, 'assignedToId');
 
       const orders = await db.order.findMany({
         where,

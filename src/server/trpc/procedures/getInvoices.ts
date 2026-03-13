@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getInvoices = baseProcedure
   .input(
@@ -140,6 +141,9 @@ export const getInvoices = baseProcedure
           Object.assign(where, adminVisibilityFilter);
         }
       }
+
+      // Demo data isolation
+      await applyDemoIsolation(where, user, db);
 
       const invoices = await db.invoice.findMany({
         where,

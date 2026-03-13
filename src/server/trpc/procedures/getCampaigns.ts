@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 export const getCampaigns = baseProcedure
   .input(
@@ -17,8 +18,11 @@ export const getCampaigns = baseProcedure
     requireAdmin(user);
 
     try {
+      const campaignWhere: any = input.status ? { status: input.status } : {};
+      await applyDemoIsolation(campaignWhere, user, db);
+
       const campaigns = await db.campaign.findMany({
-        where: input.status ? { status: input.status } : undefined,
+        where: campaignWhere,
         include: {
           createdBy: {
             select: {

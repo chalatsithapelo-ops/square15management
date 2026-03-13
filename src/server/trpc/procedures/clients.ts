@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { applyDemoIsolation } from "~/server/utils/demoAccounts";
 
 // ── Get all clients ──────────────────────────────────────────────────
 export const getClients = baseProcedure
@@ -20,11 +21,14 @@ export const getClients = baseProcedure
     const isAdmin = ["ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "MANAGER"].includes(user.role);
     const isContractorAdmin = ["CONTRACTOR_ADMIN", "CONTRACTOR_SENIOR_MANAGER"].includes(user.role);
 
-    const where = (isAdmin || isContractorAdmin)
+    const where: any = (isAdmin || isContractorAdmin)
       ? (user.employerId
         ? { createdBy: { employerId: user.employerId } }
         : {})
       : { createdById: userId };
+
+    // Demo data isolation
+    await applyDemoIsolation(where, user, db);
 
     return db.client.findMany({
       where,
