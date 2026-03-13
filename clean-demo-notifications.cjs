@@ -25,14 +25,18 @@ async function main() {
   console.log('Total notifications on real admin:', total);
   
   // Delete notifications on real admin that reference demo data
-  // These were created by the seed script or triggered by demo activity
+  // Notification model has: recipientId, message, type, relatedEntityId, relatedEntityType
+  // No createdById field - use message content matching instead
   const deleted = await db.notification.deleteMany({
     where: {
       recipientId: realAdmin.id,
       OR: [
-        { createdById: { in: demoIds } },
-        { message: { contains: 'demo' } },
-        { message: { contains: 'Demo' } },
+        { message: { contains: 'demo', mode: 'insensitive' } },
+        { message: { contains: 'Demo Order' } },
+        { message: { contains: 'Demo Lead' } },
+        { message: { contains: 'Demo Project' } },
+        { message: { contains: 'Demo Invoice' } },
+        { message: { contains: 'propmanagement.com' } },
       ]
     }
   });
