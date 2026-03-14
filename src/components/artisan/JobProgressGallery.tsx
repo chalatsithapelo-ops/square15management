@@ -13,6 +13,7 @@ interface Order {
   endTime: string | null;
   beforePictures: string[];
   afterPictures: string[];
+  jobActivities?: Array<{ durationMinutes?: number | null; startTime?: string; endTime?: string | null }>;
 }
 
 interface JobProgressGalleryProps {
@@ -209,13 +210,30 @@ export function JobProgressGallery({ orders }: JobProgressGalleryProps) {
                     {order.startTime && order.endTime && (
                       <span className="flex items-center">
                         <Clock className="h-4 w-4 mr-1" />
-                        {Math.ceil(
-                          (new Date(order.endTime).getTime() - new Date(order.startTime).getTime()) / 
-                          (1000 * 60 * 60 * 24)
-                        )} day{Math.ceil(
-                          (new Date(order.endTime).getTime() - new Date(order.startTime).getTime()) / 
-                          (1000 * 60 * 60 * 24)
-                        ) !== 1 ? "s" : ""} to complete
+                        {(() => {
+                          // Use job activities for actual working time if available
+                          if (order.jobActivities && order.jobActivities.length > 0) {
+                            const totalMinutes = order.jobActivities.reduce((sum, activity) => {
+                              if (activity.durationMinutes) return sum + activity.durationMinutes;
+                              if (activity.endTime && activity.startTime) {
+                                return sum + Math.round(
+                                  (new Date(activity.endTime).getTime() - new Date(activity.startTime).getTime()) / (1000 * 60)
+                                );
+                              }
+                              return sum;
+                            }, 0);
+                            const hours = Math.floor(totalMinutes / 60);
+                            const mins = totalMinutes % 60;
+                            if (hours > 0) return `${hours}h ${mins}m actual work`;
+                            return `${mins}m actual work`;
+                          }
+                          // Fallback: wall-clock days
+                          const days = Math.ceil(
+                            (new Date(order.endTime!).getTime() - new Date(order.startTime!).getTime()) / 
+                            (1000 * 60 * 60 * 24)
+                          );
+                          return `${days} day${days !== 1 ? "s" : ""} to complete`;
+                        })()}
                       </span>
                     )}
                   </div>

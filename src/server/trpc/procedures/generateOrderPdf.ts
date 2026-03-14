@@ -480,10 +480,25 @@ export const generateOrderPdf = baseProcedure
 
                 yPos += 20;
 
-                const duration = Math.round(
-                  (new Date(order.endTime).getTime() - new Date(order.startTime).getTime()) / 
-                  (1000 * 60)
-                );
+                const duration = (() => {
+                  // Use job activities (actual working time) if available, otherwise fall back to wall-clock time
+                  if (order.jobActivities && order.jobActivities.length > 0) {
+                    const totalMinutes = order.jobActivities.reduce((sum: number, activity: any) => {
+                      if (activity.durationMinutes) return sum + activity.durationMinutes;
+                      if (activity.endTime) {
+                        return sum + Math.round(
+                          (new Date(activity.endTime).getTime() - new Date(activity.startTime).getTime()) / (1000 * 60)
+                        );
+                      }
+                      return sum;
+                    }, 0);
+                    return totalMinutes;
+                  }
+                  return Math.round(
+                    (new Date(order.endTime).getTime() - new Date(order.startTime).getTime()) / 
+                    (1000 * 60)
+                  );
+                })();
                 const hours = Math.floor(duration / 60);
                 const minutes = duration % 60;
 
