@@ -2,7 +2,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import {
   loggerLink,
   splitLink,
-  httpBatchStreamLink,
   httpBatchLink,
   httpSubscriptionLink,
   createTRPCClient,
@@ -51,9 +50,10 @@ const client = createTRPCClient<AppRouter>({
           url: getBaseUrl() + "/trpc",
           maxURLLength: Infinity,
         }),
-        false: httpBatchStreamLink({
+        false: httpBatchLink({
           transformer: SuperJSON,
           url: getBaseUrl() + "/trpc",
+          maxURLLength: 2083,
         }),
       }),
     }),
@@ -86,9 +86,10 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               url: getBaseUrl() + "/trpc",
               maxURLLength: Infinity,
             }),
-            false: httpBatchStreamLink({
+            false: httpBatchLink({
               transformer: SuperJSON,
               url: getBaseUrl() + "/trpc",
+              maxURLLength: 2083,
             }),
           }),
         }),

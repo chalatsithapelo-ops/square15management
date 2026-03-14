@@ -41,7 +41,7 @@ export const getPaymentRequests = baseProcedure
     }
 
     // Demo data isolation
-    await applyDemoIsolation(where, user, db, 'artisanId');
+    await applyDemoIsolation(where, user, db, 'artisanId', true);
 
     const paymentRequests = await db.paymentRequest.findMany({
       where,

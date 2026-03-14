@@ -62,12 +62,16 @@ export async function getDemoUserIds(prismaClient: any): Promise<number[]> {
  * Adds demo data isolation to a Prisma `where` clause.
  * - Demo accounts only see records owned by demo users.
  * - Real accounts never see records owned by demo users.
+ *
+ * @param field - The field to filter on (e.g. 'createdById', 'artisanId')
+ * @param fieldRequired - If true, the field is non-nullable so skip the null OR branch
  */
 export async function applyDemoIsolation(
   where: any,
   user: { email?: string | null },
   prismaClient: any,
   field: string = 'createdById',
+  fieldRequired: boolean = false,
 ): Promise<void> {
   const demoIds = await getDemoUserIds(prismaClient);
   if (demoIds.length === 0) return;
@@ -77,11 +81,16 @@ export async function applyDemoIsolation(
   if (isRestrictedDemoAccount(user)) {
     where.AND.push({ [field]: { in: demoIds } });
   } else {
-    where.AND.push({
-      OR: [
-        { [field]: { notIn: demoIds } },
-        { [field]: null },
-      ],
-    });
+    if (fieldRequired) {
+      // Field is NOT NULL — no need for the null branch
+      where.AND.push({ [field]: { notIn: demoIds } });
+    } else {
+      where.AND.push({
+        OR: [
+          { [field]: { notIn: demoIds } },
+          { [field]: null },
+        ],
+      });
+    }
   }
 }
