@@ -5,6 +5,7 @@ import { useTRPC } from "~/trpc/react";
 import toast from "react-hot-toast";
 import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import { useState, useEffect, useMemo } from "react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   Briefcase,
   Clock,
@@ -189,6 +190,9 @@ function ArtisanDashboard() {
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // This ensures hooks are called in the same order on every render
+  const artisanPolling = useTabFocusRefetch(isAnyModalOpen ? false : 60000);
+  const artisanSlowPolling = useTabFocusRefetch(isAnyModalOpen ? false : 120000);
+
   const currentUserQuery = useQuery(
     trpc.getCurrentUser.queryOptions({
       token: token!,
@@ -204,8 +208,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -214,8 +218,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 60000, // Poll every 60s
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -224,8 +228,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanSlowPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -234,8 +238,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanSlowPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -244,8 +248,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanSlowPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -255,8 +259,8 @@ function ArtisanDashboard() {
       artisanId: user?.id || 0,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanSlowPolling,
+      refetchOnWindowFocus: true,
     })
   );
 
@@ -265,8 +269,8 @@ function ArtisanDashboard() {
       token: token!,
     }, {
       enabled: !!token,
-      refetchInterval: isAnyModalOpen ? false : 120000, // Poll every 2 min
-      refetchOnWindowFocus: false,
+      refetchInterval: artisanSlowPolling,
+      refetchOnWindowFocus: true,
     })
   );
 

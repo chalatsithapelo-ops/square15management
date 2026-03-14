@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useMemo, useState } from "react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -71,10 +72,12 @@ function PropertyManagerStatementsPage() {
   const [createNotes, setCreateNotes] = useState("");
   const [createSendToCustomer, setCreateSendToCustomer] = useState(false);
 
+  const statementsPolling = useTabFocusRefetch(60000);
+
   const queryDefaults = {
     enabled: !!token,
     refetchOnWindowFocus: true,
-    refetchInterval: 30000,
+    refetchInterval: statementsPolling,
   };
 
   const receivedQuery = useQuery(

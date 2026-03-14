@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useEffect, useMemo } from "react";
 import { Briefcase, Loader2, Images, ArrowLeft, Camera } from "lucide-react";
 import { JobProgressGallery } from "~/components/artisan/JobProgressGallery";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 
 export const Route = createFileRoute("/artisan/gallery/")({
   component: ArtisanGallery,
@@ -17,11 +18,13 @@ function ArtisanGallery() {
   const navigate = useNavigate();
 
   // Fetch all orders for the artisan
+  const galleryPolling = useTabFocusRefetch(60000);
+
   const ordersQuery = useQuery(
     trpc.getOrders.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: galleryPolling,
       refetchOnWindowFocus: true,
     })
   );

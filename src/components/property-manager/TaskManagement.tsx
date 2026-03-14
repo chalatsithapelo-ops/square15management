@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import { PhotoUpload } from "~/components/PhotoUpload";
 import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import {
@@ -114,10 +115,12 @@ export function TaskManagement() {
   const [staffRoleFilter, setStaffRoleFilter] = useState<StaffRoleType | "">("");
 
   // Fetch data
+  const pmTaskPolling = useTabFocusRefetch(30000);
+
   const tasksQuery = useQuery({
     ...trpc.getPMTasks.queryOptions({ token: token! }),
     enabled: !!token,
-    refetchInterval: 15000,
+    refetchInterval: pmTaskPolling,
   });
 
   const staffQuery = useQuery({
@@ -128,7 +131,7 @@ export function TaskManagement() {
   const statsQuery = useQuery({
     ...trpc.getPMTaskStats.queryOptions({ token: token! }),
     enabled: !!token,
-    refetchInterval: 30000,
+    refetchInterval: pmTaskPolling,
   });
 
   const tasks = ((tasksQuery.data as unknown) as any[]) || [];
@@ -1315,10 +1318,12 @@ function TaskDetailModal({ taskId, onClose }: { taskId: number; onClose: () => v
   const [showBeforeUpload, setShowBeforeUpload] = useState(false);
   const [showAfterUpload, setShowAfterUpload] = useState(false);
 
+  const pmTaskDetailPolling = useTabFocusRefetch(30000);
+
   const taskQuery = useQuery({
     ...trpc.getPMTaskDetail.queryOptions({ token: token!, taskId }),
     enabled: !!token && !!taskId,
-    refetchInterval: 10000,
+    refetchInterval: pmTaskDetailPolling,
   });
 
   const task = taskQuery.data as any;

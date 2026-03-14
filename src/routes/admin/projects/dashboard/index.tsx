@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useState, useMemo } from "react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   ArrowLeft,
   LayoutDashboard,
@@ -39,13 +40,15 @@ function ProjectManagerDashboard() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<"all" | "week" | "month" | "quarter">("all");
 
+  const adminProjectPolling = useTabFocusRefetch(60000);
+
   // Fetch all projects with milestones, payment requests, and risks
   const projectsQuery = useQuery(
     trpc.getProjects.queryOptions({
       token: token!,
       status: statusFilter as any,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: adminProjectPolling,
       refetchOnWindowFocus: true,
     })
   );
@@ -55,7 +58,7 @@ function ProjectManagerDashboard() {
     trpc.getPaymentRequests.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: adminProjectPolling,
       refetchOnWindowFocus: true,
     })
   );
@@ -67,7 +70,7 @@ function ProjectManagerDashboard() {
       metricType: "DAILY",
       limit: 30,
     }, {
-      refetchInterval: 60000, // Poll every 60 seconds
+      refetchInterval: adminProjectPolling,
       refetchOnWindowFocus: true,
     })
   );

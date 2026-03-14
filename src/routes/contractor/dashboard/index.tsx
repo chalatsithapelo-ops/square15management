@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   LayoutDashboard,
   Briefcase,
@@ -128,12 +129,15 @@ function ContractorDashboard() {
 
   const documents = documentsQuery.data?.documents || [];
 
+  const pollingInterval = useTabFocusRefetch(60000);
+  const chatPolling = useTabFocusRefetch(30000);
+
   // Fetch additional data for new features
   const leadsQuery = useQuery(
     trpc.getLeads.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -142,7 +146,7 @@ function ContractorDashboard() {
     trpc.getOrders.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -151,7 +155,7 @@ function ContractorDashboard() {
     trpc.getProjects.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -160,7 +164,7 @@ function ContractorDashboard() {
     trpc.getQuotations.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -169,7 +173,7 @@ function ContractorDashboard() {
     trpc.getInvoices.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -178,7 +182,7 @@ function ContractorDashboard() {
     trpc.getAssets.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -187,7 +191,7 @@ function ContractorDashboard() {
     trpc.getPaymentRequests.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -196,7 +200,7 @@ function ContractorDashboard() {
     trpc.getLiabilities.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -205,7 +209,7 @@ function ContractorDashboard() {
     trpc.getConversations.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 10000,
+      refetchInterval: chatPolling,
       refetchOnWindowFocus: true,
     })
   );
@@ -214,7 +218,7 @@ function ContractorDashboard() {
     trpc.getEmployees.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000,
+      refetchInterval: pollingInterval,
       refetchOnWindowFocus: true,
     })
   );
@@ -223,7 +227,7 @@ function ContractorDashboard() {
     ...trpc.getOperationalExpenses.queryOptions({
       token: token!,
     }),
-    refetchInterval: 30000,
+    refetchInterval: pollingInterval,
     refetchOnWindowFocus: true,
     enabled: !!token,
   });
@@ -232,7 +236,7 @@ function ContractorDashboard() {
     ...trpc.getAlternativeRevenues.queryOptions({
       token: token!,
     }),
-    refetchInterval: 30000,
+    refetchInterval: pollingInterval,
     refetchOnWindowFocus: true,
     enabled: !!token,
   });

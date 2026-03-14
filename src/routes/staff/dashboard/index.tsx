@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import { SignedMinioImage } from "~/components/SignedMinioUrl";
 import { PhotoUpload } from "~/components/PhotoUpload";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
@@ -108,10 +109,12 @@ function StaffDashboard() {
   });
 
   // Fetch tasks
+  const staffTaskPolling = useTabFocusRefetch(30000);
+
   const tasksQuery = useQuery({
     ...trpc.getStaffTasks.queryOptions({ token: token! }),
     enabled: !!token,
-    refetchInterval: 10000,
+    refetchInterval: staffTaskPolling,
   });
 
   const profile = profileQuery.data as any;
@@ -394,10 +397,12 @@ function StaffTaskDetailModal({ taskId, onClose }: { taskId: number; onClose: ()
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   // Fetch full task detail
+  const taskDetailPolling = useTabFocusRefetch(30000);
+
   const taskQuery = useQuery({
     ...trpc.getStaffTaskDetail.queryOptions({ token: token!, taskId }),
     enabled: !!token && !!taskId,
-    refetchInterval: 8000,
+    refetchInterval: taskDetailPolling,
   });
 
   const task = taskQuery.data as any;

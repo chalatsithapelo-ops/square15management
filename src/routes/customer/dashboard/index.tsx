@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   Package,
   FileText,
@@ -94,11 +95,14 @@ function CustomerDashboard() {
     setReviewData(null);
   };
 
+  const customerPolling = useTabFocusRefetch(60000);
+  const chatPolling = useTabFocusRefetch(30000);
+
   const ordersQuery = useQuery(
     trpc.getOrders.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: customerPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })
@@ -108,7 +112,7 @@ function CustomerDashboard() {
     trpc.getQuotations.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: customerPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })
@@ -118,7 +122,7 @@ function CustomerDashboard() {
     trpc.getInvoices.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: customerPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })
@@ -128,7 +132,7 @@ function CustomerDashboard() {
     trpc.getProjects.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: customerPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })
@@ -138,7 +142,7 @@ function CustomerDashboard() {
     trpc.getConversations.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 10000, // Poll every 10 seconds for messages
+      refetchInterval: chatPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })
@@ -160,7 +164,7 @@ function CustomerDashboard() {
     trpc.getStatements.queryOptions({
       token: token!,
     }, {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: customerPolling,
       refetchOnWindowFocus: true,
       enabled: !!token,
     })

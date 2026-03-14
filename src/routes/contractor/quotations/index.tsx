@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useState } from "react";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -139,12 +140,14 @@ function QuotationsPage() {
     { value: "Hr", label: "Hr" },
   ];
 
+  const quotationPolling = useTabFocusRefetch(30000);
+
   const quotationsQuery = useQuery({
     ...trpc.getQuotations.queryOptions({
       token: token!,
       status: statusFilter as any,
     }),
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: quotationPolling,
   });
 
   // Fetch all quotations for accurate counts/overview, regardless of current status filter.
@@ -152,7 +155,7 @@ function QuotationsPage() {
     ...trpc.getQuotations.queryOptions({
       token: token!,
     }),
-    refetchInterval: 10000,
+    refetchInterval: quotationPolling,
   });
 
   // Fetch PropertyManagerRFQs sent to this contractor
@@ -160,7 +163,7 @@ function QuotationsPage() {
     ...trpc.getPropertyManagerRFQs.queryOptions({
       token: token!,
     }),
-    refetchInterval: 10000, // Refetch every 10 seconds to keep in sync with PM updates
+    refetchInterval: quotationPolling,
   });
 
   const artisansQuery = useQuery(

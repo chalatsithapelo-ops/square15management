@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import { FileText, Plus, Loader2, Clock, CheckCircle2, XCircle, Package, AlertCircle, DollarSign, Edit2, Send, Download, Search } from "lucide-react";
 import { CreateRFQModal } from "./CreateRFQModal";
 import { EditRFQModal } from "./EditRFQModal";
@@ -103,6 +104,8 @@ export function RFQsTab() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [downloadingRFQId, setDownloadingRFQId] = useState<number | null>(null);
 
+  const rfqPolling = useTabFocusRefetch(60000);
+
   const rfqsQuery = useQuery(
     trpc.getPropertyManagerRFQs.queryOptions(
       {
@@ -111,7 +114,7 @@ export function RFQsTab() {
       },
       {
         enabled: !!token,
-        refetchInterval: 30000,
+        refetchInterval: rfqPolling,
       }
     )
   );
@@ -438,6 +441,8 @@ function RFQCard({ rfq, onApproveQuote, onRejectQuote, onEdit, downloadingRFQId,
     })
   );
 
+  const rfqDetailPolling = useTabFocusRefetch(60000);
+
   const quotationPdfCopiesQuery = useQuery(
     trpc.getPropertyManagerQuotationPdfCopies.queryOptions(
       {
@@ -446,7 +451,7 @@ function RFQCard({ rfq, onApproveQuote, onRejectQuote, onEdit, downloadingRFQId,
       },
       {
         enabled: !!token && (rfq.status === "APPROVED" || rfq.status === "REJECTED" || rfq.status === "CONVERTED_TO_ORDER"),
-        refetchInterval: 30000,
+        refetchInterval: rfqDetailPolling,
       }
     )
   );

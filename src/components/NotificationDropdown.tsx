@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import toast from "react-hot-toast";
 import { usePushNotificationStore } from "~/stores/push-notifications";
 import {
@@ -48,6 +49,8 @@ export function NotificationDropdown() {
   };
 
   // Fetch unread count (without polling - subscription will keep it fresh)
+  const notifPolling = useTabFocusRefetch(60000);
+
   const unreadCountQuery = useQuery(
     trpc.getUnreadNotificationCount.queryOptions(
       {
@@ -56,7 +59,7 @@ export function NotificationDropdown() {
       {
         refetchOnWindowFocus: true,
         // Fallback polling so notifications still update if realtime subscriptions are unavailable.
-        refetchInterval: 30000,
+        refetchInterval: notifPolling,
         enabled: !!token,
       }
     )
@@ -72,7 +75,7 @@ export function NotificationDropdown() {
       {
         refetchOnWindowFocus: true,
         // Fallback polling so notifications still update if realtime subscriptions are unavailable.
-        refetchInterval: 30000,
+        refetchInterval: notifPolling,
         enabled: !!token,
       }
     )

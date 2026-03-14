@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
+import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
 import {
   Plus,
   Calendar,
@@ -41,6 +42,8 @@ export function BuildingBudgetTracker() {
   );
 
   // Fetch budgets
+  const budgetPolling = useTabFocusRefetch(60000);
+
   const budgetsQuery = useQuery(
     trpc.getBuildingBudgets.queryOptions(
       {
@@ -48,7 +51,7 @@ export function BuildingBudgetTracker() {
         buildingId: filterBuilding,
         status: filterStatus === "ALL" ? undefined : filterStatus,
       },
-      { enabled: !!token, refetchInterval: 30000 }
+      { enabled: !!token, refetchInterval: budgetPolling }
     )
   );
 
@@ -59,7 +62,7 @@ export function BuildingBudgetTracker() {
         token: token!,
         buildingId: filterBuilding,
       },
-      { enabled: !!token, refetchInterval: 30000 }
+      { enabled: !!token, refetchInterval: budgetPolling }
     )
   );
 
