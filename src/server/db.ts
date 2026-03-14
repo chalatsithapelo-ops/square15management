@@ -4,8 +4,19 @@ import { env } from "~/server/env";
 
 const createPrismaClient = () => {
   const isDevelopment = env.NODE_ENV === "development";
+
+  // Build datasource URL with connection pool limit for cluster mode
+  // Each PM2 cluster worker gets its own pool; cap at 10 per worker
+  // to stay well within PostgreSQL max_connections=100
+  const dbUrl = env.DATABASE_URL || "";
+  const separator = dbUrl.includes("?") ? "&" : "?";
+  const pooledUrl = dbUrl.includes("connection_limit")
+    ? dbUrl
+    : `${dbUrl}${separator}connection_limit=10`;
+
   return new PrismaClient({
     log: isDevelopment ? ["query", "error", "warn"] : ["error"],
+    datasourceUrl: pooledUrl,
   });
 };
 
