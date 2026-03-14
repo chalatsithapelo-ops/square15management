@@ -1,83 +1,64 @@
-const { PrismaClient } = require('@prisma/client');
-const p = new PrismaClient();
+const { PrismaClient } = require("./node_modules/.prisma/client");
+const db = new PrismaClient();
 
 (async () => {
   try {
-    const users = await p.user.findMany({
-      where: {
-        email: {
-          in: [
-            'admin@propmanagement.com',
-            'junior@propmanagement.com',
-            'pm@propmanagement.com',
-            'artisan@propmanagement.com',
-            'contractor@propmanagement.com',
-            'customer@example.com',
-          ],
-        },
-      },
-      select: { id: true, email: true, role: true },
+    // Get demo accounts
+    const demos = await db.user.findMany({
+      where: { email: { contains: "demo" } },
+      select: { id: true, email: true, role: true, name: true },
     });
-    console.log('DEMO USERS:', JSON.stringify(users, null, 2));
+    console.log("DEMO ACCOUNTS:", JSON.stringify(demos, null, 2));
 
-    const leadCount = await p.lead.count();
-    const orderCount = await p.order.count();
-    const invoiceCount = await p.invoice.count();
-    const quotationCount = await p.quotation.count();
-    const projectCount = await p.project.count();
-    const clientCount = await p.client.count();
-    const assetCount = await p.asset.count();
-    const buildingCount = await p.building.count();
-    const notifCount = await p.notification.count();
-    const campaignCount = await p.campaign.count();
-    const pmTaskCount = await p.pMTask.count();
-    const staffCount = await p.staffMember.count();
-    const tenantCount = await p.propertyManagerCustomer.count();
-
-    console.log('TOTAL COUNTS:', JSON.stringify({
-      leadCount, orderCount, invoiceCount, quotationCount,
-      projectCount, clientCount, assetCount, buildingCount,
-      notifCount, campaignCount, pmTaskCount, staffCount, tenantCount
-    }, null, 2));
-
-    // Check demo-specific data
-    const demoLeads = await p.lead.findMany({
-      where: { customerEmail: { contains: 'demo.co.za' } },
-      take: 5,
-      select: { id: true, customerName: true, createdById: true, status: true },
-    });
-    console.log('DEMO LEADS (demo.co.za):', JSON.stringify(demoLeads, null, 2));
-
-    // Check admin's data
-    const adminUser = users.find((u) => u.email === 'admin@propmanagement.com');
-    if (adminUser) {
-      const adminLeads = await p.lead.count({ where: { createdById: adminUser.id } });
-      const adminInvoices = await p.invoice.count({ where: { createdById: adminUser.id } });
-      const adminQuotations = await p.quotation.count({ where: { createdById: adminUser.id } });
-      console.log('ADMIN DATA:', JSON.stringify({ adminLeads, adminInvoices, adminQuotations }));
+    // Check contractor demo data
+    const contractor = demos.find((d) => d.role === "CONTRACTOR");
+    if (contractor) {
+      const leads = await db.lead.count({ where: { assignedToId: contractor.id } });
+      const orders = await db.order.count({ where: { assignedToId: contractor.id } });
+      const quotations = await db.quotation.count({ where: { createdById: contractor.id } });
+      const invoices = await db.invoice.count({ where: { createdById: contractor.id } });
+      const projects = await db.project.count({ where: { assignedToId: contractor.id } });
+      const clients = await db.client.count({ where: { createdById: contractor.id } });
+      const employees = await db.employee.count({ where: { createdById: contractor.id } });
+      const assets = await db.asset.count({ where: { createdById: contractor.id } });
+      const liabilities = await db.liability.count({ where: { createdById: contractor.id } });
+      const opExpenses = await db.operationalExpense.count({ where: { createdById: contractor.id } });
+      console.log("CONTRACTOR DATA:", JSON.stringify({ leads, orders, quotations, invoices, projects, clients, employees, assets, liabilities, opExpenses }));
+    } else {
+      console.log("NO CONTRACTOR DEMO ACCOUNT FOUND");
     }
 
-    // Check PM's data
-    const pmUser = users.find((u) => u.email === 'pm@propmanagement.com');
-    if (pmUser) {
-      const pmBuildings = await p.building.count({ where: { propertyManagerId: pmUser.id } });
-      const pmTenants = await p.propertyManagerCustomer.count({ where: { propertyManagerId: pmUser.id } });
-      const pmTasks = await p.pMTask.count({ where: { propertyManagerId: pmUser.id } });
-      console.log('PM DATA:', JSON.stringify({ pmBuildings, pmTenants, pmTasks }));
+    // Check customer demo data
+    const customer = demos.find((d) => d.role === "CUSTOMER");
+    if (customer) {
+      const orders = await db.order.count({ where: { customerId: customer.id } });
+      const quotations = await db.quotation.count({ where: { customerId: customer.id } });
+      const invoices = await db.invoice.count({ where: { customerId: customer.id } });
+      const projects = await db.project.count({ where: { OR: [{ customerId: customer.id }] } });
+      const conversations = await db.conversation.count({ where: { OR: [{ senderId: customer.id }, { recipientId: customer.id }] } });
+      const statements = await db.statement.count({ where: { customerId: customer.id } });
+      console.log("CUSTOMER DATA:", JSON.stringify({ orders, quotations, invoices, projects, conversations, statements }));
+    } else {
+      console.log("NO CUSTOMER DEMO ACCOUNT FOUND");
     }
 
-    // Check artisan's data
-    const artisanUser = users.find((u) => u.email === 'artisan@propmanagement.com');
-    if (artisanUser) {
-      const artisanOrders = await p.order.count({ where: { assignedToId: artisanUser.id } });
-      const artisanJobs = await p.jobActivity.count({ where: { artisanId: artisanUser.id } });
-      const artisanPayReqs = await p.paymentRequest.count({ where: { artisanId: artisanUser.id } });
-      console.log('ARTISAN DATA:', JSON.stringify({ artisanOrders, artisanJobs, artisanPayReqs }));
+    // Check artisan
+    const artisan = demos.find((d) => d.role === "ARTISAN");
+    if (artisan) {
+      const orders = await db.order.count({ where: { artisanId: artisan.id } });
+      console.log("ARTISAN:", artisan.email, "orders:", orders);
+    }
+
+    // Check PM
+    const pm = demos.find((d) => d.role === "PROPERTY_MANAGER");
+    if (pm) {
+      const orders = await db.order.count({ where: { assignedToId: pm.id } });
+      console.log("PM:", pm.email, "orders:", orders);
     }
 
   } catch (e) {
-    console.error('ERROR:', e.message);
+    console.error(e);
   } finally {
-    await p.$disconnect();
+    await db.$disconnect();
   }
 })();
