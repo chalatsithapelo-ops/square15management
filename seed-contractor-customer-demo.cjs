@@ -104,7 +104,7 @@ async function main() {
   const ordersData = [
     { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", service: "Roofing Repair", addr: "56 Main Road, Claremont, Cape Town", status: "COMPLETED", mat: 8500, lab: 12000, total: 22000, days: 45 },
     { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", service: "Gutter Installation", addr: "56 Main Road, Claremont, Cape Town", status: "IN_PROGRESS", mat: 3200, lab: 5500, total: 9200, days: 10 },
-    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", service: "Bathroom Renovation", addr: "56 Main Road, Claremont, Cape Town", status: "QUOTED", mat: 15000, lab: 25000, total: 42000, days: 2 },
+    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", service: "Bathroom Renovation", addr: "56 Main Road, Claremont, Cape Town", status: "PENDING", mat: 15000, lab: 25000, total: 42000, days: 2 },
     { name: "Sipho Ndlovu", email: "sipho@ndlovu.co.za", phone: "072 555 1001", service: "Plumbing Installation", addr: "12 Mandela Drive, Sandton", status: "COMPLETED", mat: 4500, lab: 7000, total: 12500, days: 60 },
     { name: "Thandi Mokoena", email: "thandi@mokoena.co.za", phone: "083 555 1002", service: "Electrical Rewiring", addr: "45 Jan Smuts Ave, Rosebank", status: "COMPLETED", mat: 12000, lab: 18000, total: 32000, days: 35 },
     { name: "Johan van der Merwe", email: "johan@vdm.co.za", phone: "061 555 1003", service: "HVAC Maintenance", addr: "78 Rivonia Road, Rivonia", status: "IN_PROGRESS", mat: 6000, lab: 9000, total: 16000, days: 5 },
@@ -142,14 +142,14 @@ async function main() {
   // 4. QUOTATIONS (contractor-created)
   console.log("📝 Creating quotations...");
   const quotationsData = [
-    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", addr: "56 Main Road, Claremont, Cape Town", status: "ACCEPTED", sub: 35000, tax: 5250, mat: 12000, lab: 18000, days: 30 },
-    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", addr: "56 Main Road, Claremont, Cape Town", status: "SENT", sub: 15000, tax: 2250, mat: 5000, lab: 8000, days: 5 },
-    { name: "Sipho Ndlovu", email: "sipho@ndlovu.co.za", phone: "072 555 1001", addr: "12 Mandela Drive, Sandton", status: "ACCEPTED", sub: 22000, tax: 3300, mat: 8000, lab: 12000, days: 45 },
+    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", addr: "56 Main Road, Claremont, Cape Town", status: "APPROVED", sub: 35000, tax: 5250, mat: 12000, lab: 18000, days: 30 },
+    { name: "Jane Smith", email: "customer@example.com", phone: "065 555 1005", addr: "56 Main Road, Claremont, Cape Town", status: "SENT_TO_CUSTOMER", sub: 15000, tax: 2250, mat: 5000, lab: 8000, days: 5 },
+    { name: "Sipho Ndlovu", email: "sipho@ndlovu.co.za", phone: "072 555 1001", addr: "12 Mandela Drive, Sandton", status: "APPROVED", sub: 22000, tax: 3300, mat: 8000, lab: 12000, days: 45 },
     { name: "Thandi Mokoena", email: "thandi@mokoena.co.za", phone: "083 555 1002", addr: "45 Jan Smuts Ave, Rosebank", status: "DRAFT", sub: 48000, tax: 7200, mat: 18000, lab: 25000, days: 3 },
-    { name: "Johan van der Merwe", email: "johan@vdm.co.za", phone: "061 555 1003", addr: "78 Rivonia Road, Rivonia", status: "SENT", sub: 28000, tax: 4200, mat: 10000, lab: 15000, days: 12 },
+    { name: "Johan van der Merwe", email: "johan@vdm.co.za", phone: "061 555 1003", addr: "78 Rivonia Road, Rivonia", status: "SENT_TO_CUSTOMER", sub: 28000, tax: 4200, mat: 10000, lab: 15000, days: 12 },
     { name: "Lerato Molefe", email: "lerato@molefe.co.za", phone: "074 555 1004", addr: "23 Voortrekker Rd, Bellville", status: "REJECTED", sub: 55000, tax: 8250, mat: 20000, lab: 30000, days: 20 },
-    { name: "Pieter Botha", email: "pieter@botha.co.za", phone: "076 555 1006", addr: "101 Church St, Pretoria", status: "ACCEPTED", sub: 18000, tax: 2700, mat: 6000, lab: 10000, days: 40 },
-    { name: "Nomsa Dlamini", email: "nomsa@dlamini.co.za", phone: "082 555 1007", addr: "34 Umhlanga Rocks Drive, Durban", status: "SENT", sub: 32000, tax: 4800, mat: 12000, lab: 16000, days: 8 },
+    { name: "Pieter Botha", email: "pieter@botha.co.za", phone: "076 555 1006", addr: "101 Church St, Pretoria", status: "APPROVED", sub: 18000, tax: 2700, mat: 6000, lab: 10000, days: 40 },
+    { name: "Nomsa Dlamini", email: "nomsa@dlamini.co.za", phone: "082 555 1007", addr: "34 Umhlanga Rocks Drive, Durban", status: "SENT_TO_CUSTOMER", sub: 32000, tax: 4800, mat: 12000, lab: 16000, days: 8 },
   ];
 
   const quotations = [];
