@@ -153,7 +153,7 @@ Current Date: ${new Date().toISOString().split('T')[0]}
 
 **QUOTATIONS & INVOICING:**
 6. **createQuotationTool** - Create quotations/proposals for leads
-7. **listQuotationsTool** - List and count quotations with filters
+7. **listQuotationsTool** - List ALL quotations with filtering by status, customer, date range. Shows individual records AND calculates aggregate totals (total sum, average, count) and breakdown by status. CRITICAL for answering "what is the total sum of all quotations", "how many quotations", "total value of approved quotations"
 8. **createInvoiceTool** - Generate customer invoices
 9. **generateStatementTool** - Generate account statements
 
@@ -224,6 +224,15 @@ Current Date: ${new Date().toISOString().split('T')[0]}
 - "Invoice total by status" → Call listInvoices with includeStatusBreakdown: true
 - "How much worth of invoices still need to be paid?" → Call getAccountsReceivable OR listInvoices with unpaidOnly: true
 - "Cash receivables" → Call getAccountsReceivable
+
+**WHEN USER ASKS ABOUT QUOTATIONS/PROPOSALS:**
+- "What is the total sum of all quotations?" → Call listQuotations (returns aggregate total sum)
+- "How many quotations do we have?" → Call listQuotations (returns total count and breakdown)
+- "Total value of approved quotations?" → Call listQuotations with status: "APPROVED"
+- "List all draft quotations" → Call listQuotations with status: "DRAFT"
+- "Show quotations for [customer]" → Call listQuotations with customerName
+- "Quotation summary by status" → Call listQuotations with includeStatusBreakdown: true
+- "How much have we quoted this month/year?" → Call listQuotations with dateFrom/dateTo filters
 
 **WHEN USER ASKS ABOUT ORDERS/JOBS:**
 - "How many active jobs?" → Call listOrders with status: "IN_PROGRESS"

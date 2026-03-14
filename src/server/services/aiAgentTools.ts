@@ -252,9 +252,14 @@ export function createAIAgentTools(userId: number) {
   });
 
   const listQuotationsTool = tool({
-    description: 'List and count quotations with optional status filter',
+    description: 'List ALL quotations with powerful filtering by status, customer, date range. Shows individual quotation records AND calculates aggregate totals (total sum, average, count). Use this to answer questions like "what is the total sum of all quotations", "how many quotations do we have", "total value of approved quotations", "list all draft quotations", "quotation summary by status".',
     parameters: z.object({
-      status: z.enum(['DRAFT', 'PENDING_ARTISAN_REVIEW', 'IN_PROGRESS', 'PENDING_JUNIOR_MANAGER_REVIEW', 'PENDING_SENIOR_MANAGER_REVIEW', 'APPROVED', 'SENT_TO_CUSTOMER', 'REJECTED']).optional().describe('Filter by quotation status'),
+      status: z.enum(['DRAFT', 'PENDING_ARTISAN_REVIEW', 'IN_PROGRESS', 'PENDING_JUNIOR_MANAGER_REVIEW', 'PENDING_SENIOR_MANAGER_REVIEW', 'APPROVED', 'SENT_TO_CUSTOMER', 'APPROVED_BY_CUSTOMER', 'REJECTED_BY_CUSTOMER', 'REJECTED']).optional().describe('Filter by quotation status'),
+      customerName: z.string().optional().describe('Filter by customer name (partial match)'),
+      dateFrom: z.string().optional().describe('Start date filter (ISO format, e.g. 2025-01-01)'),
+      dateTo: z.string().optional().describe('End date filter (ISO format, e.g. 2025-12-31)'),
+      limit: z.number().optional().describe('Max results to return (default: 50)'),
+      includeStatusBreakdown: z.boolean().optional().describe('Include a breakdown of totals by each status (default: true)'),
     }),
     execute: async (params: any) => {
       try {
@@ -263,12 +268,25 @@ export function createAIAgentTools(userId: number) {
           where.status = params.status;
         }
 
+        if (params.customerName) {
+          where.customerName = { contains: params.customerName, mode: 'insensitive' };
+        }
+
+        if (params.dateFrom || params.dateTo) {
+          where.createdAt = {};
+          if (params.dateFrom) where.createdAt.gte = new Date(params.dateFrom);
+          if (params.dateTo) where.createdAt.lte = new Date(params.dateTo);
+        }
+
+        // Get individual quotations
         const quotations = await db.quotation.findMany({
           where,
           select: {
             id: true,
             quoteNumber: true,
             customerName: true,
+            subtotal: true,
+            tax: true,
             total: true,
             status: true,
             createdAt: true,
@@ -277,24 +295,66 @@ export function createAIAgentTools(userId: number) {
           orderBy: {
             createdAt: 'desc',
           },
-          take: 20, // Limit to last 20 quotations
+          take: params.limit || 50,
         });
 
-        const count = quotations.length;
-        const total = await db.quotation.count({ where });
+        // Get total count
+        const totalCount = await db.quotation.count({ where });
 
-        if (count === 0) {
-          return `No quotations found${params.status ? ` with status ${params.status}` : ''}.`;
+        // Get aggregate totals
+        const aggregates = await db.quotation.aggregate({
+          where,
+          _sum: { total: true, subtotal: true, tax: true },
+          _avg: { total: true },
+          _count: true,
+        });
+
+        // Status breakdown
+        const statusBreakdown: any = {};
+        if (params.includeStatusBreakdown !== false) {
+          const allStatuses = ['DRAFT', 'PENDING_ARTISAN_REVIEW', 'IN_PROGRESS', 'PENDING_JUNIOR_MANAGER_REVIEW', 'PENDING_SENIOR_MANAGER_REVIEW', 'APPROVED', 'SENT_TO_CUSTOMER', 'APPROVED_BY_CUSTOMER', 'REJECTED_BY_CUSTOMER', 'REJECTED'];
+          for (const s of allStatuses) {
+            const statusAgg = await db.quotation.aggregate({
+              where: { ...where, status: s },
+              _sum: { total: true },
+              _count: true,
+            });
+            if (statusAgg._count > 0) {
+              statusBreakdown[s] = {
+                count: statusAgg._count,
+                total: statusAgg._sum.total || 0,
+              };
+            }
+          }
         }
 
-        let response = `Found ${total} quotation${total !== 1 ? 's' : ''}${params.status ? ` with status ${params.status}` : ''}:\n\n`;
-        
+        if (quotations.length === 0) {
+          return `No quotations found${params.status ? ` with status "${params.status}"` : ''}${params.customerName ? ` for customer "${params.customerName}"` : ''}.`;
+        }
+
+        let response = `📋 QUOTATIONS REPORT\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        response += `📊 Total Quotations: ${totalCount}\n`;
+        response += `💰 TOTAL SUM (All Matching): R${(aggregates._sum.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `💵 Total Subtotal: R${(aggregates._sum.subtotal || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `🏷️ Total Tax: R${(aggregates._sum.tax || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+        response += `📈 Average Quotation Value: R${(aggregates._avg.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+
+        // Status breakdown
+        if (Object.keys(statusBreakdown).length > 0) {
+          response += `\n📊 BREAKDOWN BY STATUS:\n`;
+          for (const [status, data] of Object.entries(statusBreakdown) as any) {
+            response += `  • ${status}: ${data.count} quotation(s) — R${data.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
+          }
+        }
+
+        response += `\n📄 QUOTATION LIST:\n`;
         quotations.forEach((q: any) => {
-          response += `- ID ${q.id}: ${q.quoteNumber} | ${q.customerName} | R${q.total} | ${q.status} | Created: ${new Date(q.createdAt).toLocaleDateString()}${q.leadId ? ` | Lead ID: ${q.leadId}` : ''}\n`;
+          response += `- ID ${q.id}: ${q.quoteNumber} | ${q.customerName} | R${(q.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} | ${q.status} | Created: ${new Date(q.createdAt).toLocaleDateString()}${q.leadId ? ` | Lead ID: ${q.leadId}` : ''}\n`;
         });
 
-        if (total > 20) {
-          response += `\n(Showing most recent 20 of ${total} total)`;
+        if (totalCount > (params.limit || 50)) {
+          response += `\n(Showing most recent ${params.limit || 50} of ${totalCount} total)`;
         }
 
         return response;
