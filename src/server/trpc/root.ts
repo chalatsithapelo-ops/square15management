@@ -49,6 +49,8 @@ import { createQuotation } from "~/server/trpc/procedures/createQuotation";
 import { createQuotationFromPMRFQ } from "~/server/trpc/procedures/createQuotationFromPMRFQ";
 import { updateQuotationStatus } from "~/server/trpc/procedures/updateQuotationStatus";
 import { updateQuotationDetails } from "~/server/trpc/procedures/updateQuotationDetails";
+import { convertQuotationToInvoice } from "~/server/trpc/procedures/convertQuotationToInvoice";
+import { convertQuotationToOrder } from "~/server/trpc/procedures/convertQuotationToOrder";
 import { deleteQuotation } from "~/server/trpc/procedures/deleteQuotation";
 import { deletePaymentRequest } from "~/server/trpc/procedures/deletePaymentRequest";
 import { deleteOrder } from "~/server/trpc/procedures/deleteOrder";
@@ -472,6 +474,8 @@ export const appRouter = createTRPCRouter({
   createQuotationFromPMRFQ,
   updateQuotationStatus,
   updateQuotationDetails,
+  convertQuotationToInvoice,
+  convertQuotationToOrder,
   deleteQuotation,
   deletePaymentRequest,
   deleteOrder,

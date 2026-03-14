@@ -21,6 +21,8 @@ export const updateQuotationStatus = baseProcedure
         "APPROVED",
         "SENT_TO_CUSTOMER",
         "REJECTED",
+        "APPROVED_BY_CUSTOMER",
+        "REJECTED_BY_CUSTOMER",
       ]),
       rejectionReason: z.string().optional(),
       beforePictures: z.array(z.string()).optional(),

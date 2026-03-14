@@ -49,6 +49,8 @@ enum QuotationStatus {
   APPROVED
   SENT_TO_CUSTOMER
   REJECTED
+  APPROVED_BY_CUSTOMER
+  REJECTED_BY_CUSTOMER
 }
 
 enum InvoiceStatus {
@@ -575,6 +577,9 @@ model Order {
   leadId Int?
   lead   Lead? @relation(fields: [leadId], references: [id])
 
+  quotationId Int?   @unique
+  quotation   Quotation? @relation("QuotationOrder", fields: [quotationId], references: [id], onDelete: SetNull)
+
   startTime             DateTime?
   endTime               DateTime?
   materialCost          Float     @default(0)
@@ -890,6 +895,8 @@ model Quotation {
   expenseSlips             QuotationExpenseSlip[]
   lineItems                QuotationLineItem[]
   propertyManagerPdfCopies PropertyManagerQuotationPdfCopy[] @relation("QuotationPdfCopies")
+  generatedInvoice         Invoice?    @relation("QuotationInvoice")
+  generatedOrder           Order?      @relation("QuotationOrder")
 }
 
 model QuotationLineItem {
@@ -938,6 +945,9 @@ model Invoice {
 
   orderId Int?   @unique
   order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  quotationId Int?   @unique
+  quotation   Quotation? @relation("QuotationInvoice", fields: [quotationId], references: [id], onDelete: SetNull)
 
   projectId Int?
   project   Project? @relation(fields: [projectId], references: [id])

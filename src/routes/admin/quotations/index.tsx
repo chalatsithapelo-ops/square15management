@@ -31,6 +31,10 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
+  Receipt,
+  Briefcase,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { ReportModal } from "~/components/ReportModal";
 
@@ -65,22 +69,27 @@ const quotationStatuses = [
   { value: "APPROVED", label: "Approved", color: "bg-green-100 text-green-800" },
   { value: "SENT_TO_CUSTOMER", label: "Sent to Customer", color: "bg-purple-100 text-purple-800" },
   { value: "REJECTED", label: "Rejected", color: "bg-red-100 text-red-800" },
+  { value: "APPROVED_BY_CUSTOMER", label: "Approved by Customer", color: "bg-emerald-100 text-emerald-800" },
+  { value: "REJECTED_BY_CUSTOMER", label: "Rejected by Customer", color: "bg-rose-100 text-rose-800" },
 ];
 
 function getAvailableStatusTransitions(currentStatus: string, userRole: string) {
+  const isAdminRole = userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN";
   const transitions: Record<string, string[]> = {
     DRAFT: ["PENDING_ARTISAN_REVIEW"],
     PENDING_ARTISAN_REVIEW: ["IN_PROGRESS", "DRAFT"],
     IN_PROGRESS: ["PENDING_JUNIOR_MANAGER_REVIEW", "PENDING_ARTISAN_REVIEW"],
-    PENDING_JUNIOR_MANAGER_REVIEW: userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN"
+    PENDING_JUNIOR_MANAGER_REVIEW: isAdminRole
       ? ["PENDING_SENIOR_MANAGER_REVIEW", "APPROVED", "REJECTED", "IN_PROGRESS"]
       : [],
-    PENDING_SENIOR_MANAGER_REVIEW: userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN"
+    PENDING_SENIOR_MANAGER_REVIEW: isAdminRole
       ? ["APPROVED", "REJECTED", "IN_PROGRESS"]
       : [],
     APPROVED: ["SENT_TO_CUSTOMER"],
-    SENT_TO_CUSTOMER: [],
+    SENT_TO_CUSTOMER: isAdminRole ? ["APPROVED_BY_CUSTOMER", "REJECTED_BY_CUSTOMER"] : [],
     REJECTED: ["DRAFT"],
+    APPROVED_BY_CUSTOMER: [],
+    REJECTED_BY_CUSTOMER: isAdminRole ? ["SENT_TO_CUSTOMER", "DRAFT"] : [],
   };
 
   return transitions[currentStatus] || [];
@@ -120,6 +129,12 @@ function QuotationsPage() {
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
   const [expandedQuotations, setExpandedQuotations] = useState<Set<number>>(new Set());
   const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [convertingQuotation, setConvertingQuotation] = useState<any>(null);
+  const [convertCreateOrder, setConvertCreateOrder] = useState(true);
+  const [convertAssignedTo, setConvertAssignedTo] = useState<string>("");
+  const [convertDueDate, setConvertDueDate] = useState<string>("");
+  const [convertNotes, setConvertNotes] = useState<string>("");
 
   const toggleQuotationExpansion = (quotationId: number) => {
     const newExpanded = new Set(expandedQuotations);
@@ -299,6 +314,36 @@ function QuotationsPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete quotation");
+      },
+    })
+  );
+
+  const convertToInvoiceMutation = useMutation(
+    trpc.convertQuotationToInvoice.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(`Invoice ${data.invoice.invoiceNumber} created successfully!${data.order ? ` Order ${data.order.orderNumber} also created.` : ""}`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+        setShowConvertModal(false);
+        setConvertingQuotation(null);
+        setConvertCreateOrder(true);
+        setConvertAssignedTo("");
+        setConvertDueDate("");
+        setConvertNotes("");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to convert quotation to invoice");
+      },
+    })
+  );
+
+  const convertToOrderMutation = useMutation(
+    trpc.convertQuotationToOrder.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(`Order ${data.order.orderNumber} created successfully!`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to assign job from quotation");
       },
     })
   );
@@ -559,7 +604,7 @@ function QuotationsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Status Overview</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {statusMetrics.map((metric) => (
               <div
                 key={metric.value}
@@ -1033,7 +1078,7 @@ function QuotationsPage() {
                             <FileText className="h-3.5 w-3.5 mr-1" />RFQ
                           </button>
                         )}
-                        {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER") && (
+                        {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER" || quotation.status === "APPROVED_BY_CUSTOMER") && (
                           <button
                             onClick={() => handleExportPdf(quotation.id)}
                             disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
@@ -1045,6 +1090,31 @@ function QuotationsPage() {
                               <><Download className="h-3.5 w-3.5 mr-1" />PDF</>
                             )}
                           </button>
+                        )}
+                        {quotation.status === "APPROVED_BY_CUSTOMER" && isAdmin && (
+                          <>
+                            <button
+                              onClick={() => {
+                                convertToOrderMutation.mutate({
+                                  token: token!,
+                                  quotationId: quotation.id,
+                                });
+                              }}
+                              disabled={convertToOrderMutation.isPending}
+                              className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            >
+                              <Briefcase className="h-3.5 w-3.5 mr-1" />Assign Job
+                            </button>
+                            <button
+                              onClick={() => {
+                                setConvertingQuotation(quotation);
+                                setShowConvertModal(true);
+                              }}
+                              className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors inline-flex items-center"
+                            >
+                              <Receipt className="h-3.5 w-3.5 mr-1" />Invoice Quote
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEditQuotation(quotation)}
@@ -1075,6 +1145,9 @@ function QuotationsPage() {
                             else if (statusValue === "REJECTED") displayLabel = "✗ Reject";
                             else if (statusValue === "IN_PROGRESS") displayLabel = "← Send Back";
                             else if (statusValue === "DRAFT") displayLabel = "← Back to Draft";
+                            else if (statusValue === "APPROVED_BY_CUSTOMER") displayLabel = "✓ Customer Approved";
+                            else if (statusValue === "REJECTED_BY_CUSTOMER") displayLabel = "✗ Customer Rejected";
+                            else if (statusValue === "SENT_TO_CUSTOMER") displayLabel = "📧 Resend to Customer";
                             return <option key={statusValue} value={statusValue}>{displayLabel}</option>;
                           })}
                         </select>
@@ -1110,7 +1183,7 @@ function QuotationsPage() {
                         <FileText className="h-3.5 w-3.5 mr-1 inline" />RFQ Report
                       </button>
                     )}
-                    {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER") && (
+                    {(quotation.status === "APPROVED" || quotation.status === "SENT_TO_CUSTOMER" || quotation.status === "APPROVED_BY_CUSTOMER") && (
                       <button
                         onClick={() => handleExportPdf(quotation.id)}
                         disabled={generateQuotationPdfMutation.isPending && generatingPdfId === quotation.id}
@@ -1118,6 +1191,31 @@ function QuotationsPage() {
                       >
                         <Download className="h-3.5 w-3.5 mr-1 inline" />PDF
                       </button>
+                    )}
+                    {quotation.status === "APPROVED_BY_CUSTOMER" && isAdmin && (
+                      <>
+                        <button
+                          onClick={() => {
+                            convertToOrderMutation.mutate({
+                              token: token!,
+                              quotationId: quotation.id,
+                            });
+                          }}
+                          disabled={convertToOrderMutation.isPending}
+                          className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg disabled:opacity-50"
+                        >
+                          <Briefcase className="h-3.5 w-3.5 mr-1 inline" />Assign Job
+                        </button>
+                        <button
+                          onClick={() => {
+                            setConvertingQuotation(quotation);
+                            setShowConvertModal(true);
+                          }}
+                          className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"
+                        >
+                          <Receipt className="h-3.5 w-3.5 mr-1 inline" />Invoice Quote
+                        </button>
+                      </>
                     )}
                     <button onClick={() => handleEditQuotation(quotation)} className="px-2 py-1 text-xs font-medium text-brand-secondary-700 bg-brand-secondary-50 rounded-lg">
                       <Edit className="h-3.5 w-3.5 mr-1 inline" />Edit
@@ -1135,6 +1233,9 @@ function QuotationsPage() {
                         let displayLabel = quotationStatuses.find((s) => s.value === statusValue)?.label || statusValue;
                         if (statusValue === "APPROVED") displayLabel = "✓ Approve";
                         else if (statusValue === "REJECTED") displayLabel = "✗ Reject";
+                        else if (statusValue === "APPROVED_BY_CUSTOMER") displayLabel = "✓ Customer Approved";
+                        else if (statusValue === "REJECTED_BY_CUSTOMER") displayLabel = "✗ Customer Rejected";
+                        else if (statusValue === "SENT_TO_CUSTOMER" && quotation.status === "REJECTED_BY_CUSTOMER") displayLabel = "📧 Resend to Customer";
                         return <option key={statusValue} value={statusValue}>{displayLabel}</option>;
                       })}
                     </select>
@@ -1218,7 +1319,7 @@ function QuotationsPage() {
                     {quotation.beforePictures.length > 0 && (
                       <div className="bg-gray-50 rounded-lg p-3">
                         <h4 className="text-xs font-semibold text-gray-900 mb-2">Assessment Photos ({quotation.beforePictures.length})</h4>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+                        <div className="grid grid-cols-3 md:grid-cols-5 gap-1.5">
                           {quotation.beforePictures.map((url: string, idx: number) => (
                             <SignedMinioLink key={idx} url={url} target="_blank" rel="noopener noreferrer" className="block">
                               <SignedMinioImage url={url} alt={`Assessment ${idx + 1}`} className="w-full h-16 object-cover rounded border border-gray-200 hover:border-brand-primary-500 transition-colors" />
@@ -1372,10 +1473,142 @@ function QuotationsPage() {
               { value: "APPROVED", label: "Approved" },
               { value: "SENT_TO_CUSTOMER", label: "Sent to Customer" },
               { value: "REJECTED", label: "Rejected" },
+              { value: "APPROVED_BY_CUSTOMER", label: "Approved by Customer" },
+              { value: "REJECTED_BY_CUSTOMER", label: "Rejected by Customer" },
             ],
           },
         ]}
       />
+
+      {/* Convert Quotation to Invoice Modal */}
+      {showConvertModal && convertingQuotation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 m-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Receipt className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Invoice Quote</h3>
+                <p className="text-sm text-gray-500">Convert {convertingQuotation.quoteNumber} to invoice</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Customer</span>
+                  <span className="font-medium">{convertingQuotation.customerName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total</span>
+                  <span className="font-bold text-gray-900">R{(convertingQuotation.total || 0).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Create Order checkbox */}
+              <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={convertCreateOrder}
+                  onChange={(e) => setConvertCreateOrder(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 text-brand-secondary-600 focus:ring-brand-secondary-500 border-gray-300 rounded"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Also create Job Card (Order)</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Creates a client order and links it to the invoice</p>
+                </div>
+              </label>
+
+              {/* Assign To (if creating order) */}
+              {convertCreateOrder && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign Job To (Optional)</label>
+                  <select
+                    value={convertAssignedTo}
+                    onChange={(e) => setConvertAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                  >
+                    <option value="">Unassigned</option>
+                    {artisans.map((artisan: any) => (
+                      <option key={artisan.id} value={artisan.id.toString()}>
+                        {artisan.firstName} {artisan.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Due Date (Optional)</label>
+                <input
+                  type="date"
+                  value={convertDueDate}
+                  onChange={(e) => setConvertDueDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                <textarea
+                  value={convertNotes}
+                  onChange={(e) => setConvertNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Any additional notes for the invoice..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowConvertModal(false);
+                  setConvertingQuotation(null);
+                  setConvertCreateOrder(true);
+                  setConvertAssignedTo("");
+                  setConvertDueDate("");
+                  setConvertNotes("");
+                }}
+                disabled={convertToInvoiceMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  convertToInvoiceMutation.mutate({
+                    token: token!,
+                    quotationId: convertingQuotation.id,
+                    createOrder: convertCreateOrder,
+                    ...(convertAssignedTo ? { assignedToId: parseInt(convertAssignedTo) } : {}),
+                    ...(convertDueDate ? { dueDate: convertDueDate } : {}),
+                    ...(convertNotes ? { notes: convertNotes } : {}),
+                  });
+                }}
+                disabled={convertToInvoiceMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center"
+              >
+                {convertToInvoiceMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Converting...
+                  </>
+                ) : (
+                  <>
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Create Invoice{convertCreateOrder ? " & Job Card" : ""}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
