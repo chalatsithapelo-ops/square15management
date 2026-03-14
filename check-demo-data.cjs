@@ -6,7 +6,7 @@ const db = new PrismaClient();
     // Get demo accounts
     const demos = await db.user.findMany({
       where: { email: { contains: "demo" } },
-      select: { id: true, email: true, role: true, name: true },
+      select: { id: true, email: true, role: true, firstName: true, lastName: true },
     });
     console.log("DEMO ACCOUNTS:", JSON.stringify(demos, null, 2));
 
