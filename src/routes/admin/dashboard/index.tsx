@@ -31,6 +31,11 @@ import {
   Minus,
   BarChart3,
   ChevronDown,
+  X,
+  Eye,
+  MapPin,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -46,6 +51,7 @@ import { ROLES } from "~/utils/roles";
 import type { Permission } from "~/server/utils/permissions";
 
 type DashboardPeriod = "current_month" | "current_quarter" | "financial_year" | "all_time";
+type DrillDownCategory = "new_leads" | "active_jobs" | "completed" | "work_in_progress" | "pending_quotes" | "overdue_invoices" | "paid_invoices" | "outstanding_payments" | "active_projects" | null;
 
 // All admin-side roles that should access the dashboard
 const ADMIN_DASHBOARD_ROLES = new Set([
@@ -82,6 +88,7 @@ function AdminDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(true);
   const [showFinancials, setShowFinancials] = useState(true);
   const [period, setPeriod] = useState<DashboardPeriod>("current_month");
+  const [drillDown, setDrillDown] = useState<DrillDownCategory>(null);
 
   // ── Period filtering ──────────────────────────────────────────────────
   const periodStart = useMemo(() => {
@@ -634,18 +641,32 @@ function AdminDashboard() {
             {/* ═══ OPERATIONAL METRICS ════════════════════════════════ */}
             <div className="mb-2">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <OperationalCard label="New Leads" value={newLeads} icon={<TrendingUp className="h-4 w-4" />} color="text-blue-600" bg="bg-blue-50" />
-                <OperationalCard label="Active Jobs" value={activeOrders} icon={<Clock className="h-4 w-4" />} color="text-orange-600" bg="bg-orange-50" />
-                <OperationalCard label="Completed" value={completedOrders} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" />
-                <OperationalCard label="Work in Progress" value={workInProgress} icon={<ClipboardList className="h-4 w-4" />} color="text-purple-600" bg="bg-purple-50" />
-                <OperationalCard label="Pending Quotes" value={pendingQuotations} icon={<FileText className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" />
+                <OperationalCard label="New Leads" value={newLeads} icon={<TrendingUp className="h-4 w-4" />} color="text-blue-600" bg="bg-blue-50" active={drillDown === "new_leads"} onClick={() => setDrillDown(drillDown === "new_leads" ? null : "new_leads")} />
+                <OperationalCard label="Active Jobs" value={activeOrders} icon={<Clock className="h-4 w-4" />} color="text-orange-600" bg="bg-orange-50" active={drillDown === "active_jobs"} onClick={() => setDrillDown(drillDown === "active_jobs" ? null : "active_jobs")} />
+                <OperationalCard label="Completed" value={completedOrders} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" active={drillDown === "completed"} onClick={() => setDrillDown(drillDown === "completed" ? null : "completed")} />
+                <OperationalCard label="Work in Progress" value={workInProgress} icon={<ClipboardList className="h-4 w-4" />} color="text-purple-600" bg="bg-purple-50" active={drillDown === "work_in_progress"} onClick={() => setDrillDown(drillDown === "work_in_progress" ? null : "work_in_progress")} />
+                <OperationalCard label="Pending Quotes" value={pendingQuotations} icon={<FileText className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" active={drillDown === "pending_quotes"} onClick={() => setDrillDown(drillDown === "pending_quotes" ? null : "pending_quotes")} />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
-                <OperationalCard label="Overdue Invoices" value={overdueInvoices} icon={<AlertCircle className="h-4 w-4" />} color="text-red-600" bg="bg-red-50" alert={overdueInvoices > 0} />
-                <OperationalCard label="Paid Invoices" value={paidInvoicesCount} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" />
-                <OperationalCard label="Outstanding Payments" value={outstandingPaymentRequests} icon={<Wallet className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" />
-                <OperationalCard label="Active Projects" value={activeProjects} icon={<FolderKanban className="h-4 w-4" />} color="text-violet-600" bg="bg-violet-50" />
+                <OperationalCard label="Overdue Invoices" value={overdueInvoices} icon={<AlertCircle className="h-4 w-4" />} color="text-red-600" bg="bg-red-50" alert={overdueInvoices > 0} active={drillDown === "overdue_invoices"} onClick={() => setDrillDown(drillDown === "overdue_invoices" ? null : "overdue_invoices")} />
+                <OperationalCard label="Paid Invoices" value={paidInvoicesCount} icon={<CheckCircle className="h-4 w-4" />} color="text-green-600" bg="bg-green-50" active={drillDown === "paid_invoices"} onClick={() => setDrillDown(drillDown === "paid_invoices" ? null : "paid_invoices")} />
+                <OperationalCard label="Outstanding Payments" value={outstandingPaymentRequests} icon={<Wallet className="h-4 w-4" />} color="text-amber-600" bg="bg-amber-50" active={drillDown === "outstanding_payments"} onClick={() => setDrillDown(drillDown === "outstanding_payments" ? null : "outstanding_payments")} />
+                <OperationalCard label="Active Projects" value={activeProjects} icon={<FolderKanban className="h-4 w-4" />} color="text-violet-600" bg="bg-violet-50" active={drillDown === "active_projects"} onClick={() => setDrillDown(drillDown === "active_projects" ? null : "active_projects")} />
               </div>
+
+              {/* ── DRILL-DOWN DETAIL PANEL ────────────────────────── */}
+              {drillDown && (
+                <DrillDownPanel
+                  category={drillDown}
+                  onClose={() => setDrillDown(null)}
+                  leads={leads}
+                  orders={orders}
+                  projects={projects}
+                  quotations={quotations}
+                  invoices={invoices}
+                  paymentRequests={paymentRequests}
+                />
+              )}
             </div>
 
             {/* ═══ QUICK ACCESS — FLAT GRID ═══════════════════════════ */}
@@ -921,6 +942,8 @@ function OperationalCard({
   color,
   bg,
   alert = false,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
@@ -928,16 +951,258 @@ function OperationalCard({
   color: string;
   bg: string;
   alert?: boolean;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border ${alert ? "border-red-200" : "border-gray-200"} p-4 hover:shadow-md transition-all duration-200`}>
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-all duration-200 cursor-pointer select-none ${
+        active ? "ring-2 ring-blue-500 border-blue-300 shadow-md" : alert ? "border-red-200" : "border-gray-200"
+      }`}
+    >
       <div className="flex items-center gap-2 mb-2">
         <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center ${color}`}>
           {icon}
         </div>
         <span className="text-xs font-medium text-gray-500 truncate">{label}</span>
+        {active && <Eye className="h-3.5 w-3.5 text-blue-500 ml-auto" />}
       </div>
       <p className={`text-2xl font-bold ${alert ? "text-red-600" : "text-gray-900"}`}>{value}</p>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * DRILL-DOWN PANEL — shows detail table for the selected stat card
+ * ═══════════════════════════════════════════════════════════════════════ */
+function DrillDownPanel({
+  category,
+  onClose,
+  leads,
+  orders,
+  projects,
+  quotations,
+  invoices,
+  paymentRequests,
+}: {
+  category: NonNullable<DrillDownCategory>;
+  onClose: () => void;
+  leads: any[];
+  orders: any[];
+  projects: any[];
+  quotations: any[];
+  invoices: any[];
+  paymentRequests: any[];
+}) {
+  const config: Record<string, { title: string; items: any[]; columns: { key: string; label: string; render?: (v: any, row: any) => React.ReactNode }[]; linkBase?: string }> = {
+    new_leads: {
+      title: "New Leads",
+      items: leads.filter((l) => l.status === "NEW"),
+      linkBase: "/admin/crm",
+      columns: [
+        { key: "customerName", label: "Name" },
+        { key: "customerEmail", label: "Email" },
+        { key: "customerPhone", label: "Phone" },
+        { key: "serviceType", label: "Service" },
+        { key: "source", label: "Source", render: (v: string) => v?.replace(/_/g, " ") },
+        { key: "estimatedValue", label: "Est. Value", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "createdAt", label: "Date", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    active_jobs: {
+      title: "Active Jobs",
+      items: orders.filter((o) => o.status === "IN_PROGRESS" || o.status === "ASSIGNED"),
+      linkBase: "/admin/operations",
+      columns: [
+        { key: "orderNumber", label: "Order #" },
+        { key: "customerName", label: "Customer" },
+        { key: "serviceType", label: "Service" },
+        { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+        { key: "address", label: "Address", render: (v: string) => v ? (v.length > 30 ? v.slice(0, 30) + "…" : v) : "-" },
+        { key: "totalCost", label: "Total", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "createdAt", label: "Date", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    completed: {
+      title: "Completed Jobs",
+      items: orders.filter((o) => o.status === "COMPLETED"),
+      linkBase: "/admin/operations",
+      columns: [
+        { key: "orderNumber", label: "Order #" },
+        { key: "customerName", label: "Customer" },
+        { key: "serviceType", label: "Service" },
+        { key: "address", label: "Address", render: (v: string) => v ? (v.length > 30 ? v.slice(0, 30) + "…" : v) : "-" },
+        { key: "totalCost", label: "Total", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "createdAt", label: "Created", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+        { key: "endTime", label: "Completed", render: (v: string) => v ? new Date(v).toLocaleDateString("en-ZA") : "-" },
+      ],
+    },
+    work_in_progress: {
+      title: "Work in Progress",
+      items: [
+        ...orders.filter((o) => o.status === "IN_PROGRESS" || o.status === "ASSIGNED").map((o) => ({ ...o, _type: "Order" })),
+        ...projects.filter((p) => p.status === "IN_PROGRESS" || p.status === "PLANNING").map((p) => ({ ...p, _type: "Project" })),
+      ],
+      columns: [
+        { key: "_type", label: "Type", render: (v: string) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v === "Order" ? "bg-orange-100 text-orange-700" : "bg-violet-100 text-violet-700"}`}>{v}</span> },
+        { key: "orderNumber", label: "Reference", render: (_: any, row: any) => row.orderNumber || row.projectNumber || "-" },
+        { key: "customerName", label: "Customer", render: (_: any, row: any) => row.customerName || row.name || "-" },
+        { key: "serviceType", label: "Service / Name", render: (_: any, row: any) => row.serviceType || row.name || "-" },
+        { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+        { key: "totalCost", label: "Value", render: (_: any, row: any) => {
+          const val = row.totalCost || row.estimatedBudget;
+          return val ? `R${val.toLocaleString()}` : "-";
+        }},
+        { key: "createdAt", label: "Date", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    pending_quotes: {
+      title: "Pending Quotations",
+      items: quotations.filter((q: any) => ["PENDING_ARTISAN_REVIEW", "PENDING_JUNIOR_MANAGER_REVIEW", "PENDING_SENIOR_MANAGER_REVIEW", "SENT_TO_CUSTOMER", "SUBMITTED"].includes(q.status)),
+      linkBase: "/admin/quotations",
+      columns: [
+        { key: "quoteNumber", label: "Quote #" },
+        { key: "customerName", label: "Customer" },
+        { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+        { key: "total", label: "Total", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "validUntil", label: "Valid Until", render: (v: string) => v ? new Date(v).toLocaleDateString("en-ZA") : "-" },
+        { key: "createdAt", label: "Date", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    overdue_invoices: {
+      title: "Overdue Invoices",
+      items: invoices.filter((i) => i.status === "OVERDUE"),
+      linkBase: "/admin/invoices",
+      columns: [
+        { key: "invoiceNumber", label: "Invoice #" },
+        { key: "customerName", label: "Customer" },
+        { key: "customerEmail", label: "Email" },
+        { key: "total", label: "Amount", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "dueDate", label: "Due Date", render: (v: string) => v ? new Date(v).toLocaleDateString("en-ZA") : "-" },
+        { key: "createdAt", label: "Issued", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    paid_invoices: {
+      title: "Paid Invoices",
+      items: invoices.filter((i) => i.status === "PAID"),
+      linkBase: "/admin/invoices",
+      columns: [
+        { key: "invoiceNumber", label: "Invoice #" },
+        { key: "customerName", label: "Customer" },
+        { key: "total", label: "Amount", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "paidDate", label: "Paid Date", render: (v: string) => v ? new Date(v).toLocaleDateString("en-ZA") : "-" },
+        { key: "createdAt", label: "Issued", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    outstanding_payments: {
+      title: "Outstanding Payment Requests",
+      items: paymentRequests.filter((pr) => pr.status === "PENDING" || pr.status === "APPROVED"),
+      linkBase: "/admin/payment-requests",
+      columns: [
+        { key: "requestNumber", label: "Request #" },
+        { key: "artisan", label: "Artisan", render: (_: any, row: any) => row.artisan ? `${row.artisan.firstName} ${row.artisan.lastName}` : "-" },
+        { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+        { key: "calculatedAmount", label: "Amount", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "createdAt", label: "Date", render: (v: string) => new Date(v).toLocaleDateString("en-ZA") },
+      ],
+    },
+    active_projects: {
+      title: "Active Projects",
+      items: projects.filter((p) => p.status === "IN_PROGRESS" || p.status === "PLANNING"),
+      linkBase: "/admin/projects",
+      columns: [
+        { key: "projectNumber", label: "Project #" },
+        { key: "name", label: "Name" },
+        { key: "customerName", label: "Customer" },
+        { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+        { key: "estimatedBudget", label: "Budget", render: (v: number) => v ? `R${v.toLocaleString()}` : "-" },
+        { key: "actualCost", label: "Spent", render: (v: number) => v ? `R${v.toLocaleString()}` : "R0" },
+        { key: "startDate", label: "Start", render: (v: string) => v ? new Date(v).toLocaleDateString("en-ZA") : "-" },
+      ],
+    },
+  };
+
+  const cfg = config[category];
+  if (!cfg) return null;
+
+  return (
+    <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-gray-900">{cfg.title}</h3>
+          <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">{cfg.items.length} records</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {cfg.linkBase && (
+            <Link to={cfg.linkBase} className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+              View All <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          )}
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {cfg.items.length === 0 ? (
+        <div className="px-6 py-10 text-center">
+          <p className="text-sm text-gray-500">No records found</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                {cfg.columns.map((col) => (
+                  <th key={col.key} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{col.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {cfg.items.map((item: any, idx: number) => (
+                <tr key={item.id || idx} className="hover:bg-blue-50/40 transition-colors">
+                  <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">{idx + 1}</td>
+                  {cfg.columns.map((col) => (
+                    <td key={col.key} className="px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap">
+                      {col.render ? col.render(item[col.key], item) : (item[col.key] ?? "-")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    NEW: "bg-blue-100 text-blue-700",
+    PENDING: "bg-yellow-100 text-yellow-700",
+    ASSIGNED: "bg-cyan-100 text-cyan-700",
+    IN_PROGRESS: "bg-orange-100 text-orange-700",
+    COMPLETED: "bg-green-100 text-green-700",
+    CANCELLED: "bg-gray-100 text-gray-500",
+    PLANNING: "bg-indigo-100 text-indigo-700",
+    APPROVED: "bg-emerald-100 text-emerald-700",
+    REJECTED: "bg-red-100 text-red-700",
+    PAID: "bg-green-100 text-green-700",
+    SENT: "bg-blue-100 text-blue-700",
+    SENT_TO_CUSTOMER: "bg-blue-100 text-blue-700",
+    OVERDUE: "bg-red-100 text-red-700",
+    DRAFT: "bg-gray-100 text-gray-600",
+    PENDING_ARTISAN_REVIEW: "bg-purple-100 text-purple-700",
+    PENDING_JUNIOR_MANAGER_REVIEW: "bg-amber-100 text-amber-700",
+    PENDING_SENIOR_MANAGER_REVIEW: "bg-amber-100 text-amber-700",
+  };
+  const display = status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100 text-gray-600"}`}>
+      {display}
+    </span>
   );
 }
