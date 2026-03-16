@@ -178,7 +178,7 @@ export const generateInvoicePDF = (data: InvoicePDFData): jsPDF => {
   // Header
   doc.setFontSize(24);
   doc.setTextColor(20, 184, 166);
-  doc.text("INVOICE", 105, 20, { align: "center" });
+  doc.text("TAX INVOICE", 105, 20, { align: "center" });
   
   // Invoice Details
   doc.setFontSize(10);

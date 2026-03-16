@@ -308,7 +308,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   }
 
   // Document type - large text on right
-  const docTypeLabel = docInfo.documentType === "QUOTATION" ? "QUOTE" : docInfo.documentType;
+  const docTypeLabel = docInfo.documentType === "QUOTATION" ? "QUOTE" : docInfo.documentType === "INVOICE" ? "TAX INVOICE" : docInfo.documentType;
   doc
     .fontSize(22)
     .fillColor("#333333")
@@ -798,7 +798,7 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
     .text(`VAT: ${company.companyVatNumber}`, 320, 111, { align: "right", width: 225 });
 
   // ===== DOCUMENT TITLE =====
-  const docTypeLabel = docInfo.documentType === "QUOTATION" ? "QUOTATION" : docInfo.documentType;
+  const docTypeLabel = docInfo.documentType === "QUOTATION" ? "QUOTATION" : docInfo.documentType === "INVOICE" ? "TAX INVOICE" : docInfo.documentType;
   doc
     .fontSize(28)
     .fillColor(colors.primary)
