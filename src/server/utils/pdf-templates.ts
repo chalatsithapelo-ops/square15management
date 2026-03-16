@@ -522,16 +522,18 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   // Column positions for classic layout
   const col = {
     desc: margin + 5,
-    qty: 280,
-    exclPrice: 320,
-    disc: 380,
-    vat: 410,
-    exclTotal: 445,
+    uom: 240,
+    qty: 275,
+    exclPrice: 315,
+    disc: 375,
+    vat: 405,
+    exclTotal: 440,
     inclTotal: 500,
   };
 
   const colW = {
-    desc: 230,
+    desc: 195,
+    uom: 30,
     qty: 35,
     exclPrice: 55,
     disc: 30,
@@ -547,6 +549,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .fillColor("#666666")
     .font("Helvetica-Oblique")
     .text("Description", col.desc, thY, { width: colW.desc })
+    .text("UoM", col.uom, thY, { width: colW.uom, align: "center" })
     .text("Quantity", col.qty, thY, { width: colW.qty, align: "center" })
     .text("Excl. Price", col.exclPrice, thY, { width: colW.exclPrice, align: "right" })
     .text("Disc %", col.disc, thY, { width: colW.disc, align: "center" })
@@ -581,6 +584,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
       .fillColor("#333333")
       .font("Helvetica")
       .text(item.description, col.desc, rowY, { width: colW.desc })
+      .text(item.unitOfMeasure || "Sum", col.uom, rowY, { width: colW.uom, align: "center" })
       .text(item.quantity.toFixed(2), col.qty, rowY, { width: colW.qty, align: "center" })
       .text(formatCurrency(item.unitPrice), col.exclPrice, rowY, { width: colW.exclPrice, align: "right" })
       .text(formatPercent(discPct), col.disc, rowY, { width: colW.disc, align: "center" })
