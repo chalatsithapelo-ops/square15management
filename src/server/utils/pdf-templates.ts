@@ -317,22 +317,23 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
 
   // ===== Document Details (right side, below document type) =====
   let detailY = headerY + 30;
-  const labelX = 370;
-  const valueX = 460;
-  const detailWidth = 95;
+  const labelX = 350;
+  const valueX = 455;
+  const labelWidth = 100;
+  const detailWidth = pageWidth - margin - valueX;
 
   const docDetails: [string, string][] = [];
   // Use contextual labels based on document type
   if (docInfo.documentType === "INVOICE") {
-    docDetails.push(["INVOICE NUMBER:", docInfo.documentNumber]);
+    docDetails.push(["INVOICE NO:", docInfo.documentNumber]);
   } else {
     docDetails.push(["NUMBER:", docInfo.documentNumber]);
   }
   if (docInfo.reference) {
     if (docInfo.documentType === "INVOICE") {
-      docDetails.push(["CLIENT ORDER NUMBER:", docInfo.reference]);
+      docDetails.push(["CLIENT ORDER NO:", docInfo.reference]);
     } else if (docInfo.documentType === "QUOTATION") {
-      docDetails.push(["CLIENT QUOTE NUMBER:", docInfo.reference]);
+      docDetails.push(["CLIENT QUOTE NO:", docInfo.reference]);
     } else {
       docDetails.push(["REFERENCE:", docInfo.reference]);
     }
@@ -341,7 +342,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   if (docInfo.dueDate) docDetails.push(["DUE DATE:", formatDate(docInfo.dueDate)]);
   if (docInfo.salesRep) docDetails.push(["SALES REP:", docInfo.salesRep]);
   if (docInfo.overallDiscount !== undefined && docInfo.overallDiscount > 0) {
-    docDetails.push(["OVERALL DISCOUNT %:", formatPercent(docInfo.overallDiscount)]);
+    docDetails.push(["DISCOUNT %:", formatPercent(docInfo.overallDiscount)]);
   }
   if (docInfo.projectName) docDetails.push(["PROJECT:", docInfo.projectName]);
   if (docInfo.buildingName) docDetails.push(["BUILDING:", docInfo.buildingName]);
@@ -351,13 +352,15 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
       .fontSize(7.5)
       .fillColor("#666666")
       .font("Helvetica")
-      .text(label, labelX, detailY, { width: 85, align: "right" });
+      .text(label, labelX, detailY, { width: labelWidth, align: "right" });
+    // Measure the height that the value text actually occupies
+    const valueHeight = doc.heightOfString(value, { width: detailWidth, fontSize: 7.5 });
     doc
       .fontSize(7.5)
       .fillColor("#1a1a1a")
       .font("Helvetica-Bold")
       .text(value, valueX, detailY, { width: detailWidth, align: "right" });
-    detailY += 12;
+    detailY += Math.max(12, valueHeight + 3);
   });
 
   // Page number
@@ -365,7 +368,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .fontSize(7.5)
     .fillColor("#666666")
     .font("Helvetica")
-    .text("PAGE:", labelX, detailY, { width: 85, align: "right" });
+    .text("PAGE:", labelX, detailY, { width: labelWidth, align: "right" });
   doc
     .fontSize(7.5)
     .fillColor("#1a1a1a")
@@ -522,23 +525,23 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   // Column positions for classic layout
   const col = {
     desc: margin + 5,
-    uom: 240,
-    qty: 275,
-    exclPrice: 315,
-    disc: 375,
-    vat: 405,
-    exclTotal: 440,
+    uom: 220,
+    qty: 255,
+    exclPrice: 300,
+    disc: 365,
+    vat: 395,
+    exclTotal: 435,
     inclTotal: 500,
   };
 
   const colW = {
-    desc: 195,
+    desc: 175,
     uom: 30,
-    qty: 35,
-    exclPrice: 55,
+    qty: 40,
+    exclPrice: 60,
     disc: 30,
     vat: 35,
-    exclTotal: 55,
+    exclTotal: 60,
     inclTotal: 55,
   };
 
@@ -570,8 +573,13 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   let rowY = thBottomY + 8;
 
   items.forEach((item, index) => {
-    // Check for page break
-    if (rowY > 680) {
+    // Measure how tall the description will be when wrapped
+    doc.fontSize(7).font("Helvetica");
+    const descHeight = doc.heightOfString(item.description, { width: colW.desc });
+    const rowHeight = Math.max(14, descHeight + 4);
+
+    // Check for page break (account for actual row height)
+    if (rowY + rowHeight > 690) {
       doc.addPage();
       rowY = 50;
     }
@@ -579,11 +587,18 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     const vatPct = item.vatPercent !== undefined ? item.vatPercent : 15;
     const discPct = item.discountPercent !== undefined ? item.discountPercent : 0;
 
+    // Description - use font size 7 to prevent overflow on long text
     doc
-      .fontSize(8)
+      .fontSize(7)
       .fillColor("#333333")
       .font("Helvetica")
-      .text(item.description, col.desc, rowY, { width: colW.desc })
+      .text(item.description, col.desc, rowY, { width: colW.desc });
+
+    // Other columns at consistent font size 7
+    doc
+      .fontSize(7)
+      .fillColor("#333333")
+      .font("Helvetica")
       .text(item.unitOfMeasure || "Sum", col.uom, rowY, { width: colW.uom, align: "center" })
       .text(item.quantity.toFixed(2), col.qty, rowY, { width: colW.qty, align: "center" })
       .text(formatCurrency(item.unitPrice), col.exclPrice, rowY, { width: colW.exclPrice, align: "right" })
@@ -597,7 +612,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
       .fillColor(colors.primary)
       .text(formatCurrency(item.inclTotal), col.inclTotal, rowY, { width: colW.inclTotal, align: "right" });
 
-    rowY += 18;
+    rowY += rowHeight;
   });
 
   // ===== FOOTER AREA: Banking Details (left) | Totals (right) =====
