@@ -824,7 +824,7 @@ ${JSON.stringify(lead, null, 2)}`;
             purchaseDate: params.purchaseDate ? new Date(params.purchaseDate) : new Date(),
             description: params.description || null,
             serialNumber: params.serialNumber || null,
-            status: 'ACTIVE',
+            condition: 'Good',
           },
         });
         
@@ -839,13 +839,11 @@ ${JSON.stringify(lead, null, 2)}`;
     description: 'List all company assets with total valuation',
     parameters: z.object({
       category: z.string().optional().describe('Filter by category'),
-      status: z.enum(['ACTIVE', 'MAINTENANCE', 'DISPOSED', 'SOLD']).optional().describe('Filter by status'),
     }),
     execute: async (params: any) => {
       try {
         const where: any = {};
         if (params.category) where.category = params.category;
-        if (params.status) where.status = params.status;
 
         const assets = await db.asset.findMany({
           where,
@@ -860,7 +858,7 @@ ${JSON.stringify(lead, null, 2)}`;
 
         let response = `Asset Portfolio (${assets.length} assets, Total Value: R${totalValue}):\n\n`;
         assets.forEach((a: any) => {
-          response += `- ${a.name} (${a.category}) | Purchase: R${a.purchasePrice} | Current: R${a.currentValue || a.purchasePrice} | Status: ${a.status}\n`;
+          response += `- ${a.name} (${a.category}) | Purchase: R${a.purchasePrice} | Current: R${a.currentValue || a.purchasePrice} | Condition: ${a.condition}\n`;
         });
 
         return response;
@@ -879,7 +877,7 @@ ${JSON.stringify(lead, null, 2)}`;
       amount: z.number().describe('Total liability amount'),
       dueDate: z.string().optional().describe('Due date in ISO format'),
       creditor: z.string().optional().describe('Creditor/lender name'),
-      interestRate: z.number().optional().describe('Interest rate percentage'),
+      notes: z.string().optional().describe('Additional notes'),
     }),
     execute: async (params: any) => {
       try {
@@ -888,11 +886,10 @@ ${JSON.stringify(lead, null, 2)}`;
             name: params.name,
             category: params.category,
             amount: params.amount,
-            remainingAmount: params.amount,
             dueDate: params.dueDate ? new Date(params.dueDate) : null,
             creditor: params.creditor || null,
-            interestRate: params.interestRate || null,
-            status: 'ACTIVE',
+            notes: params.notes || null,
+            isPaid: false,
           },
         });
         
@@ -906,19 +903,19 @@ ${JSON.stringify(lead, null, 2)}`;
   const listLiabilitiesTool = tool({
     description: 'List all liabilities and calculate total debt',
     parameters: z.object({
-      status: z.enum(['ACTIVE', 'PAID', 'OVERDUE', 'DEFAULTED']).optional().describe('Filter by status'),
+      paid: z.boolean().optional().describe('Filter: true=paid, false=unpaid, omit=all'),
     }),
     execute: async (params: any) => {
       try {
         const where: any = {};
-        if (params.status) where.status = params.status;
+        if (params.paid !== undefined) where.isPaid = params.paid;
 
         const liabilities = await db.liability.findMany({
           where,
           orderBy: { dueDate: 'asc' },
         });
 
-        const totalDebt = liabilities.reduce((sum: number, l: any) => sum + (l.remainingAmount || l.amount), 0);
+        const totalDebt = liabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
 
         if (liabilities.length === 0) {
           return `No liabilities found.`;
@@ -926,7 +923,7 @@ ${JSON.stringify(lead, null, 2)}`;
 
         let response = `Total Liabilities: R${totalDebt}\n\n`;
         liabilities.forEach((l: any) => {
-          response += `- ${l.name} (${l.category}) | Amount: R${l.amount} | Remaining: R${l.remainingAmount || l.amount} | Status: ${l.status}${l.dueDate ? ` | Due: ${new Date(l.dueDate).toLocaleDateString()}` : ''}\n`;
+          response += `- ${l.name} (${l.category || 'Uncategorized'}) | Amount: R${l.amount} | ${l.isPaid ? 'PAID' : 'UNPAID'}${l.dueDate ? ` | Due: ${new Date(l.dueDate).toLocaleDateString()}` : ''}\n`;
         });
 
         return response;
@@ -1022,8 +1019,8 @@ ${JSON.stringify(lead, null, 2)}`;
 
         // Expenses  
         const liabilities = await db.liability.aggregate({
-          where: { status: 'ACTIVE' },
-          _sum: { remainingAmount: true },
+          where: { isPaid: false },
+          _sum: { amount: true },
         });
 
         const paymentRequests = await db.paymentRequest.aggregate({
@@ -1033,7 +1030,6 @@ ${JSON.stringify(lead, null, 2)}`;
 
         // Assets
         const assets = await db.asset.aggregate({
-          where: { status: 'ACTIVE' },
           _sum: { currentValue: true },
         });
 
@@ -1043,7 +1039,7 @@ ${JSON.stringify(lead, null, 2)}`;
         });
 
         const revenue = paidInvoices._sum.total || 0;
-        const totalLiabilities = (liabilities._sum.remainingAmount || 0) + (paymentRequests._sum.amount || 0);
+        const totalLiabilities = (liabilities._sum.amount || 0) + (paymentRequests._sum.amount || 0);
         const totalAssets = assets._sum.currentValue || 0;
         const netWorth = totalAssets - totalLiabilities;
         const profit = revenue - totalLiabilities;
@@ -1097,7 +1093,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
 
         const upcomingLiabilities = await db.liability.findMany({
           where: {
-            status: 'ACTIVE',
+            isPaid: false,
             dueDate: {
               gte: new Date(),
               lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Next 30 days
@@ -1106,7 +1102,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
         });
 
         const cashInflow = pendingInvoices._sum.total || 0;
-        const cashOutflow = (pendingPayments._sum.amount || 0) + upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.remainingAmount || 0), 0);
+        const cashOutflow = (pendingPayments._sum.amount || 0) + upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
         const netCashFlow = cashInflow - cashOutflow;
 
         return `💵 CASH FLOW ANALYSIS
@@ -1117,7 +1113,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
 
 📤 EXPECTED OUTFLOWS (Next 30 days):
 - Pending Payroll: R${pendingPayments._sum.amount || 0} (${pendingPayments._count} requests)
-- Upcoming Liabilities: R${upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.remainingAmount || 0), 0)} (${upcomingLiabilities.length} payments)
+- Upcoming Liabilities: R${upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0)} (${upcomingLiabilities.length} payments)
 - Total Outflow: R${cashOutflow}
 
 📊 NET CASH FLOW: R${netCashFlow}
@@ -2587,10 +2583,10 @@ ${JSON.stringify(quotation, null, 2)}`;
         const totalUsers = await db.user.count();
 
         // === ASSETS ===
-        const assetAgg = await db.asset.aggregate({ where: { status: 'ACTIVE' }, _sum: { currentValue: true }, _count: true });
+        const assetAgg = await db.asset.aggregate({ _sum: { currentValue: true }, _count: true });
 
         // === LIABILITIES ===
-        const liabilityAgg = await db.liability.aggregate({ where: { status: 'ACTIVE' }, _sum: { remainingAmount: true }, _count: true });
+        const liabilityAgg = await db.liability.aggregate({ where: { isPaid: false }, _sum: { amount: true }, _count: true });
 
         // === PAYMENT REQUESTS ===
         const pendingPayroll = await db.paymentRequest.aggregate({
@@ -2601,7 +2597,7 @@ ${JSON.stringify(quotation, null, 2)}`;
 
         // CALCULATIONS
         const totalAssets = assetAgg._sum.currentValue || 0;
-        const totalLiabilities = (liabilityAgg._sum.remainingAmount || 0) + (pendingPayroll._sum.amount || 0);
+        const totalLiabilities = (liabilityAgg._sum.amount || 0) + (pendingPayroll._sum.amount || 0);
         const netWorth = totalAssets - totalLiabilities + totalRevenue;
 
         let response = `📊 BUSINESS DASHBOARD - ${now.toLocaleDateString('en-ZA')}\n`;
@@ -2893,8 +2889,8 @@ ${JSON.stringify(quotation, null, 2)}`;
         // Liabilities paid in period
         const paidLiabilities = await db.liability.aggregate({
           where: {
-            status: 'PAID',
-            createdAt: { gte: dateFrom, lte: dateTo },
+            isPaid: true,
+            paidDate: { gte: dateFrom, lte: dateTo },
           },
           _sum: { amount: true },
           _count: true,
