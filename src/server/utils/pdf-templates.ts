@@ -401,12 +401,14 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   addressY += 14;
 
   // FROM: Company name
+  doc.fontSize(10).font("Helvetica-Bold");
+  const fromNameHeight = doc.heightOfString(company.companyName.toUpperCase(), { width: contentWidth / 2 - 10 });
   doc
     .fontSize(10)
     .fillColor("#1a1a1a")
     .font("Helvetica-Bold")
     .text(company.companyName.toUpperCase(), margin, addressY, { width: contentWidth / 2 - 10 });
-  addressY += 14;
+  addressY += fromNameHeight + 4;
 
   // FROM: VAT number
   if (company.companyVatNumber) {
@@ -457,13 +459,18 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
 
   // TO: Customer details (right column)
   let toY = separatorY + 29;
+  const toColumnWidth = contentWidth / 2 - 10;
+
+  // Measure actual height of customer name to prevent overlap with VAT number
+  doc.fontSize(10).font("Helvetica-Bold");
+  const custNameHeight = doc.heightOfString(customer.customerName.toUpperCase(), { width: toColumnWidth });
 
   doc
     .fontSize(10)
     .fillColor("#1a1a1a")
     .font("Helvetica-Bold")
-    .text(customer.customerName.toUpperCase(), pageWidth / 2 + 10, toY, { width: contentWidth / 2 - 10 });
-  toY += 14;
+    .text(customer.customerName.toUpperCase(), pageWidth / 2 + 10, toY, { width: toColumnWidth });
+  toY += custNameHeight + 4;
 
   if (customer.customerVatNumber) {
     doc
@@ -495,8 +502,31 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .text(custPostal, toColStart, toY, { width: toColWidth, lineGap: 2 })
     .text(custPhysical, toColStart + toColWidth + 5, toY, { width: toColWidth, lineGap: 2 });
 
+  // Measure address height so building name goes below
+  doc.fontSize(7.5).font("Helvetica");
+  const postalH = doc.heightOfString(custPostal || " ", { width: toColWidth, lineGap: 2 });
+  const physicalH = doc.heightOfString(custPhysical || " ", { width: toColWidth, lineGap: 2 });
+  toY += Math.max(postalH, physicalH) + 4;
+
+  // Building name below addresses in TO section
+  if (docInfo.buildingName) {
+    doc
+      .fontSize(7)
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .text("BUILDING:", toColStart, toY);
+    toY += 10;
+    doc
+      .fontSize(7.5)
+      .fillColor("#555555")
+      .font("Helvetica")
+      .text(docInfo.buildingName, toColStart, toY, { width: toColumnWidth });
+    const buildingH = doc.heightOfString(docInfo.buildingName, { width: toColumnWidth, fontSize: 7.5 });
+    toY += buildingH + 2;
+  }
+
   // ===== PROJECT DESCRIPTION (above table) =====
-  let preTableY = Math.max(addressY + 50, toY + 50);
+  let preTableY = Math.max(addressY + 50, toY + 10);
   if (data.projectDescription) {
     doc
       .fontSize(8)
