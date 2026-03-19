@@ -424,10 +424,10 @@ export function createAIAgentTools(userId: number) {
               },
             },
             _sum: {
-              amount: true,
+              total: true,
             },
           });
-          metrics.revenue = invoices._sum.amount || 0;
+          metrics.revenue = invoices._sum.total || 0;
         } else if (params.metricType === 'EMPLOYEE_COUNT') {
           const count = await db.user.count({
             where: { role: 'EMPLOYEE' },
@@ -673,13 +673,13 @@ ${JSON.stringify(lead, null, 2)}`;
             status: 'PAID',
           },
           _sum: {
-            amount: true,
+            total: true,
           },
         });
 
         return `Sales Summary:
 - Active Deals: ${leads}
-- Total Revenue (Paid Invoices): $${invoices._sum.amount || 0}
+- Total Revenue (Paid Invoices): R${invoices._sum.total || 0}
 - Period: ${params.period || 'All Time'}`;
       } catch (error) {
         return `Error fetching sales summary: ${error instanceof Error ? error.message : String(error)}`;
@@ -1025,7 +1025,7 @@ ${JSON.stringify(lead, null, 2)}`;
 
         const paymentRequests = await db.paymentRequest.aggregate({
           where: { status: { in: ['PENDING', 'APPROVED'] } },
-          _sum: { amount: true },
+          _sum: { calculatedAmount: true },
         });
 
         // Assets
@@ -1039,7 +1039,7 @@ ${JSON.stringify(lead, null, 2)}`;
         });
 
         const revenue = paidInvoices._sum.total || 0;
-        const totalLiabilities = (liabilities._sum.amount || 0) + (paymentRequests._sum.amount || 0);
+        const totalLiabilities = (liabilities._sum.amount || 0) + (paymentRequests._sum.calculatedAmount || 0);
         const totalAssets = assets._sum.currentValue || 0;
         const netWorth = totalAssets - totalLiabilities;
         const profit = revenue - totalLiabilities;
@@ -1087,7 +1087,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
 
         const pendingPayments = await db.paymentRequest.aggregate({
           where: { status: { in: ['PENDING', 'APPROVED'] } },
-          _sum: { amount: true },
+          _sum: { calculatedAmount: true },
           _count: true,
         });
 
@@ -1102,7 +1102,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
         });
 
         const cashInflow = pendingInvoices._sum.total || 0;
-        const cashOutflow = (pendingPayments._sum.amount || 0) + upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
+        const cashOutflow = (pendingPayments._sum.calculatedAmount || 0) + upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
         const netCashFlow = cashInflow - cashOutflow;
 
         return `💵 CASH FLOW ANALYSIS
@@ -1112,7 +1112,7 @@ ${activeProjects > 5 ? '⚠️ High project load - ensure adequate resources' : 
 - Overdue Invoices: ${overdueInvoices} (COLLECT URGENTLY)
 
 📤 EXPECTED OUTFLOWS (Next 30 days):
-- Pending Payroll: R${pendingPayments._sum.amount || 0} (${pendingPayments._count} requests)
+- Pending Payroll: R${pendingPayments._sum.calculatedAmount || 0} (${pendingPayments._count} requests)
 - Upcoming Liabilities: R${upcomingLiabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0)} (${upcomingLiabilities.length} payments)
 - Total Outflow: R${cashOutflow}
 
@@ -1601,8 +1601,8 @@ ${order.assignedTo ? `👷 Artisan: ${order.assignedTo.firstName} ${order.assign
 
         // Revenue from invoices in period
         const invoiceRevenue = await db.invoice.aggregate({
-          where: { status: 'PAID', paidAt: { gte: startDate } },
-          _sum: { amount: true },
+          where: { status: 'PAID', paidDate: { gte: startDate } },
+          _sum: { total: true },
           _count: true,
         });
 
@@ -1665,7 +1665,7 @@ ${serviceLines || '  No data'}
 💰 REVENUE & CONVERSIONS:
   Deals Won: ${wonInPeriod.length}
   Won Deal Value: R${wonValue.toLocaleString()}
-  Invoices Paid: ${invoiceRevenue._count} (R${(invoiceRevenue._sum.amount || 0).toLocaleString()})
+  Invoices Paid: ${invoiceRevenue._count} (R${(invoiceRevenue._sum.total || 0).toLocaleString()})
   Orders Completed: ${completedOrders}
 
 📧 CAMPAIGN PERFORMANCE:
@@ -2591,13 +2591,13 @@ ${JSON.stringify(quotation, null, 2)}`;
         // === PAYMENT REQUESTS ===
         const pendingPayroll = await db.paymentRequest.aggregate({
           where: { status: { in: ['PENDING', 'APPROVED'] } },
-          _sum: { amount: true },
+          _sum: { calculatedAmount: true },
           _count: true,
         });
 
         // CALCULATIONS
         const totalAssets = assetAgg._sum.currentValue || 0;
-        const totalLiabilities = (liabilityAgg._sum.amount || 0) + (pendingPayroll._sum.amount || 0);
+        const totalLiabilities = (liabilityAgg._sum.amount || 0) + (pendingPayroll._sum.calculatedAmount || 0);
         const netWorth = totalAssets - totalLiabilities + totalRevenue;
 
         let response = `📊 BUSINESS DASHBOARD - ${now.toLocaleDateString('en-ZA')}\n`;
@@ -2608,7 +2608,7 @@ ${JSON.stringify(quotation, null, 2)}`;
         response += `  • Accounts Receivable: R${totalReceivable.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n`;
         response += `  • Total Assets: R${totalAssets.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${assetAgg._count} assets)\n`;
         response += `  • Total Liabilities: R${totalLiabilities.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${liabilityAgg._count} liabilities)\n`;
-        response += `  • Pending Payroll: R${(pendingPayroll._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${pendingPayroll._count} requests)\n`;
+        response += `  • Pending Payroll: R${(pendingPayroll._sum.calculatedAmount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${pendingPayroll._count} requests)\n`;
         response += `  • Net Worth: R${netWorth.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}\n\n`;
 
         response += `📋 INVOICES (${totalInvoices} total):\n`;
@@ -2882,7 +2882,7 @@ ${JSON.stringify(quotation, null, 2)}`;
             status: 'PAID',
             createdAt: { gte: dateFrom, lte: dateTo },
           },
-          _sum: { amount: true },
+          _sum: { calculatedAmount: true },
           _count: true,
         });
 
@@ -2902,7 +2902,7 @@ ${JSON.stringify(quotation, null, 2)}`;
         const cogs = materialCosts + labourCosts;
         const grossProfit = totalRevenue - cogs;
         const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue * 100).toFixed(1) : '0';
-        const operatingExpenses = (paidPayroll._sum.amount || 0) + (paidLiabilities._sum.amount || 0);
+        const operatingExpenses = (paidPayroll._sum.calculatedAmount || 0) + (paidLiabilities._sum.amount || 0);
         const netProfit = grossProfit - operatingExpenses;
         const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue * 100).toFixed(1) : '0';
 
@@ -2922,7 +2922,7 @@ ${JSON.stringify(quotation, null, 2)}`;
 📈 GROSS PROFIT: R${grossProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${grossMargin}% margin)
 
 💸 OPERATING EXPENSES:
-  • Payroll: R${(paidPayroll._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidPayroll._count} payments)
+  • Payroll: R${(paidPayroll._sum.calculatedAmount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidPayroll._count} payments)
   • Liabilities Paid: R${(paidLiabilities._sum.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${paidLiabilities._count})
   • Total OpEx: R${operatingExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
 
