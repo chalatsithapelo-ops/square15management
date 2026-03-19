@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
-import { useTabFocusRefetch } from "~/hooks/useTabFocusRefetch";
+import { useTabFocusRefetch, useTabVisible } from "~/hooks/useTabFocusRefetch";
 import toast from "react-hot-toast";
 import { usePushNotificationStore } from "~/stores/push-notifications";
 import {
@@ -48,8 +48,11 @@ export function NotificationDropdown() {
     return { top: 0, right: 0 };
   };
 
+  // Only hold SSE connection when this tab is visible
+  const isTabVisible = useTabVisible();
+
   // Fetch unread count (without polling - subscription will keep it fresh)
-  const notifPolling = useTabFocusRefetch(60000);
+  const notifPolling = useTabFocusRefetch(30000);
 
   const unreadCountQuery = useQuery(
     trpc.getUnreadNotificationCount.queryOptions(
@@ -81,14 +84,14 @@ export function NotificationDropdown() {
     )
   );
 
-  // Subscribe to real-time notification updates
+  // Subscribe to real-time notification updates (only when tab is visible to avoid connection exhaustion)
   useSubscription(
     trpc.notificationsSubscription.subscriptionOptions(
       {
         token: token!,
       },
       {
-        enabled: !!token,
+        enabled: !!token && isTabVisible,
         onData: (notification) => {
           // Update the notifications list by invalidating queries
           queryClient.invalidateQueries({

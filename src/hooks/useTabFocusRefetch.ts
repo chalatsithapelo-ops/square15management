@@ -45,3 +45,22 @@ export function useSmartRefetch(intervalMs: number | false) {
     [refetchInterval]
   );
 }
+
+/**
+ * Returns true when the current tab is visible, false when hidden.
+ * Use this to gate SSE subscriptions so only the active tab holds a connection.
+ */
+export function useTabVisible(): boolean {
+  const [isVisible, setIsVisible] = useState(() =>
+    typeof document !== "undefined" ? !document.hidden : true
+  );
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const handler = () => setIsVisible(!document.hidden);
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
+  return isVisible;
+}
