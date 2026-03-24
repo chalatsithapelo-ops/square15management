@@ -49,7 +49,7 @@ export const getAlternativeRevenues = baseProcedure
     }
 
     // Demo data isolation
-    await applyDemoIsolation(where, user, db);
+    await applyDemoIsolation(where, user, db, 'createdById', true);
 
     const revenues = await db.alternativeRevenue.findMany({
       where,
