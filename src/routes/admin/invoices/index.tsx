@@ -84,7 +84,7 @@ function getAvailableStatusTransitions(currentStatus: string, userRole: string) 
     PENDING_APPROVAL: userRole === "SENIOR_ADMIN"
       ? ["APPROVED", "REJECTED", "CANCELLED"]
       : [],
-    APPROVED: ["SENT", "CANCELLED"],
+    APPROVED: ["SENT", "PAID", "CANCELLED"],
     SENT: ["PAID", "OVERDUE", "CANCELLED"],
     OVERDUE: ["PAID", "CANCELLED"],
     PAID: [],
