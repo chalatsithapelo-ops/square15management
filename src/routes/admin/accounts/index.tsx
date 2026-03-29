@@ -43,6 +43,7 @@ function AccountsPage() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<'revenue' | 'expenses' | null>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<any>(null);
@@ -216,6 +217,13 @@ function AccountsPage() {
     .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
   const totalRevenue = invoiceRevenue + alternativeRevenueTotal;
+
+  // Receivables: unpaid invoices (Approved, Sent, Overdue)
+  const receivableInvoices = filteredInvoices.filter(inv => ['APPROVED', 'SENT', 'OVERDUE'].includes(inv.status));
+  const totalReceivables = receivableInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const receivablesSent = filteredInvoices.filter(inv => inv.status === 'SENT').reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const receivablesOverdue = filteredInvoices.filter(inv => inv.status === 'OVERDUE').reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const receivablesApproved = filteredInvoices.filter(inv => inv.status === 'APPROVED').reduce((sum, inv) => sum + (inv.total || 0), 0);
 
   const orderMaterialCosts = filteredOrders.reduce((sum, o) => sum + (o.materialCost || 0), 0);
   const orderLabourCosts = filteredOrders.reduce((sum, o) => sum + (o.labourCost || 0), 0);
@@ -519,8 +527,12 @@ function AccountsPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Revenue Card - Clickable */}
+          <div
+            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6 cursor-pointer ring-2 ring-transparent hover:ring-green-200"
+            onClick={() => setExpandedCard(expandedCard === 'revenue' ? null : 'revenue')}
+          >
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 rounded-xl bg-green-500 bg-opacity-10">
                 <TrendingUp className="w-6 h-6 text-green-600" />
@@ -537,9 +549,14 @@ function AccountsPage() {
                 R {totalRevenue.toLocaleString()}
               </h3>
             )}
+            <p className="text-xs text-slate-400 mt-2">{expandedCard === 'revenue' ? '▲ Hide breakdown' : '▼ Click for breakdown'}</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
+          {/* Expenses Card - Clickable */}
+          <div
+            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6 cursor-pointer ring-2 ring-transparent hover:ring-red-200"
+            onClick={() => setExpandedCard(expandedCard === 'expenses' ? null : 'expenses')}
+          >
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 rounded-xl bg-red-500 bg-opacity-10">
                 <TrendingDown className="w-6 h-6 text-red-600" />
@@ -556,8 +573,31 @@ function AccountsPage() {
                 R {totalExpenses.toLocaleString()}
               </h3>
             )}
+            <p className="text-xs text-slate-400 mt-2">{expandedCard === 'expenses' ? '▲ Hide breakdown' : '▼ Click for breakdown'}</p>
           </div>
 
+          {/* Receivables Card */}
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 rounded-xl bg-cyan-500 bg-opacity-10">
+                <Clock className="w-6 h-6 text-cyan-600" />
+              </div>
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700">
+                Receivables
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 mb-1">Outstanding Receivables</p>
+            {invoicesQuery.isLoading ? (
+              <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+            ) : (
+              <h3 className="text-3xl font-bold text-cyan-600">
+                R {totalReceivables.toLocaleString()}
+              </h3>
+            )}
+            <p className="text-xs text-slate-400 mt-2">{receivableInvoices.length} invoice{receivableInvoices.length !== 1 ? 's' : ''} pending</p>
+          </div>
+
+          {/* Net Profit/Loss */}
           <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
             <div className="flex justify-between items-start mb-4">
               <div className={`p-3 rounded-xl ${netProfit >= 0 ? 'bg-blue-500' : 'bg-orange-500'} bg-opacity-10`}>
@@ -573,6 +613,7 @@ function AccountsPage() {
             </h3>
           </div>
 
+          {/* Profit Margin */}
           <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 rounded-xl bg-purple-500 bg-opacity-10">
@@ -588,6 +629,138 @@ function AccountsPage() {
             </h3>
           </div>
         </div>
+
+        {/* Revenue Breakdown Panel */}
+        {expandedCard === 'revenue' && (
+          <div className="bg-white rounded-xl shadow-lg border border-green-200 p-6 animate-in slide-in-from-top-2">
+            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              Revenue Breakdown
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Paid Invoices</span>
+                  <span className="text-sm font-bold text-green-700">R {invoiceRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Alternative Revenue</span>
+                  <span className="text-sm font-bold text-green-700">R {alternativeRevenueTotal.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Alternative Revenue by Category</p>
+                {Object.keys(alternativeRevenuesByCategory).length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">No alternative revenue this period</p>
+                ) : (
+                  Object.entries(alternativeRevenuesByCategory).map(([cat, amt]) => (
+                    <div key={cat} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                      <span className="text-xs font-medium text-gray-600">{cat.replace(/_/g, ' ')}</span>
+                      <span className="text-xs font-bold text-gray-800">R {(amt as number).toLocaleString()}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-green-100 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-900">Total Revenue</span>
+              <span className="text-lg font-bold text-green-600">R {totalRevenue.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Expenses Breakdown Panel */}
+        {expandedCard === 'expenses' && (
+          <div className="bg-white rounded-xl shadow-lg border border-red-200 p-6 animate-in slide-in-from-top-2">
+            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <TrendingDown className="w-5 h-5 text-red-600" />
+              Expenses Breakdown
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Major Categories</p>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Materials</span>
+                    <p className="text-xs text-gray-400">Orders: R {orderMaterialCosts.toLocaleString()} + Quotations: R {quotationMaterialCosts.toLocaleString()}</p>
+                  </div>
+                  <span className="text-sm font-bold text-red-700">R {materialCosts.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Labour</span>
+                    <p className="text-xs text-gray-400">Orders: R {orderLabourCosts.toLocaleString()} + Quotations: R {quotationLabourCosts.toLocaleString()}</p>
+                  </div>
+                  <span className="text-sm font-bold text-red-700">R {labourCosts.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Artisan Payments (Paid)</span>
+                  <span className="text-sm font-bold text-red-700">R {artisanPayments.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Operational Expenses</span>
+                  <span className="text-sm font-bold text-red-700">R {operationalExpenseTotal.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Operational Expenses by Category</p>
+                {Object.keys(operationalExpensesByCategory).length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">No operational expenses this period</p>
+                ) : (
+                  Object.entries(operationalExpensesByCategory).map(([cat, amt]) => (
+                    <div key={cat} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                      <span className="text-xs font-medium text-gray-600">{cat.replace(/_/g, ' ')}</span>
+                      <span className="text-xs font-bold text-gray-800">R {(amt as number).toLocaleString()}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-red-100 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-900">Total Expenses</span>
+              <span className="text-lg font-bold text-red-600">R {totalExpenses.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Receivables Breakdown */}
+        {totalReceivables > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-cyan-200 p-6">
+            <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-cyan-600" />
+              Receivables Breakdown
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {receivablesApproved > 0 && (
+                <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Approved (Not Yet Sent)</span>
+                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'APPROVED').length} invoices</p>
+                  </div>
+                  <span className="text-sm font-bold text-yellow-700">R {receivablesApproved.toLocaleString()}</span>
+                </div>
+              )}
+              {receivablesSent > 0 && (
+                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Sent (Awaiting Payment)</span>
+                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'SENT').length} invoices</p>
+                  </div>
+                  <span className="text-sm font-bold text-blue-700">R {receivablesSent.toLocaleString()}</span>
+                </div>
+              )}
+              {receivablesOverdue > 0 && (
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Overdue (Collect Urgently)</span>
+                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'OVERDUE').length} invoices</p>
+                  </div>
+                  <span className="text-sm font-bold text-red-700">R {receivablesOverdue.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Alert for low profit margin */}
         {parseFloat(profitMargin) < 15 && totalRevenue > 0 && (
