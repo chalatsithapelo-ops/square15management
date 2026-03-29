@@ -165,11 +165,16 @@ export async function notifyArtisanOrderAssigned(params: {
   artisanId: number;
   orderNumber: string;
   orderId: number;
+  serviceType?: string;
+  address?: string;
 }) {
+  const jobInfo = params.serviceType
+    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    : "";
   await createNotification({
     recipientId: params.artisanId,
     recipientRole: "ARTISAN",
-    message: `You have been assigned to order ${params.orderNumber}`,
+    message: `You have been assigned to order ${params.orderNumber}${jobInfo}`,
     type: "ORDER_ASSIGNED",
     relatedEntityId: params.orderId,
     relatedEntityType: "ORDER",
@@ -184,15 +189,21 @@ export async function notifyCustomerOrderStatus(params: {
   orderNumber: string;
   orderId: number;
   newStatus: string;
+  serviceType?: string;
+  address?: string;
 }) {
+  const jobLabel = params.serviceType
+    ? `${params.serviceType}${params.address ? ` at ${params.address}` : ""} (${params.orderNumber})`
+    : `order ${params.orderNumber}`;
+
   const statusMessages: Record<string, string> = {
-    ASSIGNED: `Your order ${params.orderNumber} has been assigned to an artisan`,
-    IN_PROGRESS: `Work has started on your order ${params.orderNumber}`,
-    COMPLETED: `Your order ${params.orderNumber} has been completed`,
-    CANCELLED: `Your order ${params.orderNumber} has been cancelled`,
+    ASSIGNED: `Your ${jobLabel} has been assigned to an artisan`,
+    IN_PROGRESS: `Work has started on your ${jobLabel}`,
+    COMPLETED: `Your ${jobLabel} has been completed`,
+    CANCELLED: `Your ${jobLabel} has been cancelled`,
   };
 
-  const message = statusMessages[params.newStatus] || `Your order ${params.orderNumber} status has been updated`;
+  const message = statusMessages[params.newStatus] || `Your ${jobLabel} status has been updated`;
 
   await createNotification({
     recipientId: params.customerId,

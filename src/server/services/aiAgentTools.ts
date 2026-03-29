@@ -136,7 +136,15 @@ export function createAIAgentTools(userId: number) {
     }),
     execute: async (params: any) => {
       try {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        // Generate proper sequential invoice number using company prefix
+        const companyDetails = await getCompanyDetails();
+        const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
+        let maxNum = 0;
+        for (const inv of allInvoices) {
+          const match = inv.invoiceNumber.match(/(\d+)$/);
+          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+        }
+        const invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, '0')}`;
         
         const invoice = await db.invoice.create({
           data: {
@@ -224,7 +232,15 @@ export function createAIAgentTools(userId: number) {
           }
         }
 
-        const quoteNumber = `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        // Generate proper sequential quotation number using company prefix
+        const companyDetails = await getCompanyDetails();
+        const allQuotations = await db.quotation.findMany({ select: { quoteNumber: true } });
+        let maxNum = 0;
+        for (const q of allQuotations) {
+          const match = q.quoteNumber.match(/(\d+)$/);
+          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+        }
+        const quoteNumber = `${companyDetails.quotationPrefix}-${String(maxNum + 1).padStart(5, '0')}`;
         
         const quotation = await db.quotation.create({
           data: {
@@ -705,7 +721,14 @@ ${JSON.stringify(lead, null, 2)}`;
     }),
     execute: async (params: any) => {
       try {
-        const projectNumber = `PRJ-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        // Generate proper sequential project number
+        const allProjects = await db.project.findMany({ select: { projectNumber: true } });
+        let maxNum = 0;
+        for (const p of allProjects) {
+          const match = p.projectNumber.match(/(\d+)$/);
+          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+        }
+        const projectNumber = `PRJ-${String(maxNum + 1).padStart(5, '0')}`;
         
         const project = await db.project.create({
           data: {

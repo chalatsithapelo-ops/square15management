@@ -148,6 +148,8 @@ export const createOrder = baseProcedure
       customerName: order.customerName,
       orderNumber: order.orderNumber,
       orderDescription: order.description,
+      serviceType: order.serviceType || undefined,
+      address: order.address || undefined,
       assignedToName: order.assignedTo ? `${order.assignedTo.firstName} ${order.assignedTo.lastName}` : undefined,
       userId: user.id, // Send from the user who created the order
     })
@@ -164,6 +166,8 @@ export const createOrder = baseProcedure
         artisanId: assignedToId,
         orderNumber: order.orderNumber,
         orderId: order.id,
+        serviceType: order.serviceType || undefined,
+        address: order.address || undefined,
       }).catch((notifyError) => {
         console.error("Failed to notify artisan about order assignment:", notifyError);
       });
@@ -171,9 +175,12 @@ export const createOrder = baseProcedure
 
     // Only notify admins if an admin created the order without assigning it.
     if ((user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN") && !input.assignedToId) {
+      const jobInfo = order.serviceType
+        ? ` – ${order.serviceType}${order.address ? ` at ${order.address}` : ""}`
+        : "";
       // Best effort, non-blocking
       void notifyAdmins({
-        message: `New order ${order.orderNumber} created by ${user.firstName} ${user.lastName}`,
+        message: `New order ${order.orderNumber}${jobInfo} created by ${user.firstName} ${user.lastName}`,
         type: "PM_ORDER_SUBMITTED",
         relatedEntityId: order.id,
         relatedEntityType: "ORDER",

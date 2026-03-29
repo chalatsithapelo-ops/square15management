@@ -522,6 +522,11 @@ export const updateOrderStatus = baseProcedure
       // Notifications (regular orders only) - best effort
       try {
         if (!input.isPMOrder && order && updatedOrder && input.status !== order.status) {
+          // Build job context string for informative notifications
+          const jobInfo = updatedOrder.serviceType
+            ? ` – ${updatedOrder.serviceType}${updatedOrder.address ? ` at ${updatedOrder.address}` : ""}`
+            : "";
+
           const customerUser = await db.user.findUnique({
             where: { email: updatedOrder.customerEmail },
             select: { id: true, role: true },
@@ -533,11 +538,13 @@ export const updateOrderStatus = baseProcedure
               orderNumber: updatedOrder.orderNumber,
               orderId: updatedOrder.id,
               newStatus: updatedOrder.status,
+              serviceType: updatedOrder.serviceType || undefined,
+              address: updatedOrder.address || undefined,
             });
           }
 
           await notifyAdmins({
-            message: `Order ${updatedOrder.orderNumber} status updated to ${updatedOrder.status}`,
+            message: `Order ${updatedOrder.orderNumber}${jobInfo} status updated to ${updatedOrder.status.replace(/_/g, " ")}`,
             type: "ORDER_STATUS_UPDATED" as any,
             relatedEntityId: updatedOrder.id,
             relatedEntityType: "ORDER",
@@ -548,7 +555,7 @@ export const updateOrderStatus = baseProcedure
             await createNotification({
               recipientId: updatedOrder.assignedToId,
               recipientRole: updatedOrder.assignedTo.role || "ARTISAN",
-              message: `Order ${updatedOrder.orderNumber} status updated to ${updatedOrder.status}`,
+              message: `Order ${updatedOrder.orderNumber}${jobInfo} status updated to ${updatedOrder.status.replace(/_/g, " ")}`,
               type: "ORDER_STATUS_UPDATED",
               relatedEntityId: updatedOrder.id,
               relatedEntityType: "ORDER",
@@ -573,6 +580,7 @@ export const updateOrderStatus = baseProcedure
               customerName: updatedOrder.customerName,
               orderNumber: updatedOrder.orderNumber,
               serviceType: updatedOrder.serviceType,
+              address: updatedOrder.address || undefined,
               newStatus: updatedOrder.status,
               assignedToName: updatedOrder.assignedTo
                 ? `${updatedOrder.assignedTo.firstName} ${updatedOrder.assignedTo.lastName}`
@@ -1159,12 +1167,17 @@ export const updateOrderStatus = baseProcedure
               lastName: completionLastName,
             });
 
+            // Build informative completion title: "Plumbing at Kasteel Office (ORD-00015)"
+            const completionCtx = updatedOrder.serviceType
+              ? `${updatedOrder.serviceType}${updatedOrder.address ? ` at ${updatedOrder.address}` : ""} (${updatedOrder.orderNumber})`
+              : updatedOrder.orderNumber;
+
             // Send the completion email
             await sendCompletionReportEmail({
               customerEmail: updatedOrder.customerEmail,
               customerName: updatedOrder.customerName,
               completionType: "ORDER",
-              completionTitle: updatedOrder.orderNumber,
+              completionTitle: completionCtx,
               completionDate: new Date(),
               pdfBuffer,
               pdfFilename: `Order_${updatedOrder.orderNumber}_Completion_Report.pdf`,

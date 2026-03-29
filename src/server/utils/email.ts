@@ -1444,6 +1444,8 @@ export async function sendOrderNotificationEmail(params: {
   customerName: string;
   orderNumber: string;
   orderDescription: string;
+  serviceType?: string;
+  address?: string;
   assignedToName?: string;
   userId?: number; // Optional: sender's user ID for personal email
   recipientType?: "CUSTOMER" | "CONTRACTOR";
@@ -1458,7 +1460,11 @@ export async function sendOrderNotificationEmail(params: {
 
   const isContractor = (params.recipientType || "CUSTOMER") === "CONTRACTOR";
 
-  const subject = `Order Confirmation: ${params.orderNumber}`;
+  // Informative subject: "Order Confirmation: ORD-00015 – Plumbing at Kasteel Office"
+  const jobCtx = params.serviceType
+    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    : "";
+  const subject = `Order Confirmation: ${params.orderNumber}${jobCtx}`;
 
   const html = `
     <!DOCTYPE html>
@@ -1525,6 +1531,8 @@ export async function sendOrderNotificationEmail(params: {
         
         <div class="info-box">
           <p style="margin: 5px 0;"><strong>Order Number:</strong> ${params.orderNumber}</p>
+          ${params.serviceType ? `<p style="margin: 5px 0;"><strong>Service Type:</strong> ${params.serviceType}</p>` : ''}
+          ${params.address ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${params.address}</p>` : ''}
           <p style="margin: 5px 0;"><strong>Description:</strong> ${params.orderDescription}</p>
           ${params.assignedToName ? `<p style="margin: 5px 0;"><strong>Assigned To:</strong> ${params.assignedToName}</p>` : ''}
         </div>
@@ -1706,6 +1714,7 @@ export async function sendOrderStatusUpdateEmail(params: {
   customerName: string;
   orderNumber: string;
   serviceType?: string;
+  address?: string;
   newStatus: string;
   assignedToName?: string;
   userId?: number; // Optional: sender's user ID for personal email
@@ -1714,9 +1723,12 @@ export async function sendOrderStatusUpdateEmail(params: {
   const companyDetails = await getCompanyDetails();
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
 
-  const subject = `Order Update: ${params.orderNumber} - ${params.newStatus.replace(/_/g, " ")}`;
-
   const statusLabel = params.newStatus.replace(/_/g, " ");
+  // Build informative subject: "Order Update: ORD-00015 – Plumbing at Kasteel Office – IN PROGRESS"
+  const jobCtx = params.serviceType
+    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    : "";
+  const subject = `Order Update: ${params.orderNumber}${jobCtx} – ${statusLabel}`;
 
   const html = `
     <!DOCTYPE html>
@@ -1743,6 +1755,7 @@ export async function sendOrderStatusUpdateEmail(params: {
         <div class="info-box">
           <p style="margin: 5px 0;"><strong>Order Number:</strong> ${params.orderNumber}</p>
           ${params.serviceType ? `<p style="margin: 5px 0;"><strong>Service Type:</strong> ${params.serviceType}</p>` : ""}
+          ${params.address ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${params.address}</p>` : ""}
           <p style="margin: 5px 0;"><strong>New Status:</strong> ${statusLabel}</p>
           ${params.assignedToName ? `<p style="margin: 5px 0;"><strong>Assigned To:</strong> ${params.assignedToName}</p>` : ""}
         </div>
