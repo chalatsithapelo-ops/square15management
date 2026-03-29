@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter } from "date-fns";
 import {
   ArrowLeft,
   Plus,
@@ -23,6 +24,12 @@ import {
   Briefcase,
   Receipt,
   Trash2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Users,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { AccessDenied } from "~/components/AccessDenied";
 
@@ -72,6 +79,8 @@ function PaymentRequestsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [rejectionModal, setRejectionModal] = useState<{ requestId: number; requestNumber: string } | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedPeriod, setSelectedPeriod] = useState("all_time");
+  const [showArtisanBreakdown, setShowArtisanBreakdown] = useState(false);
 
   const paymentRequestsQuery = useQuery(
     trpc.getPaymentRequests.queryOptions({
@@ -226,8 +235,35 @@ function PaymentRequestsPage() {
 
   const paymentRequests = paymentRequestsQuery.data || [];
   const artisans = artisansQuery.data || [];
-  
-  const filteredPaymentRequests = paymentRequests.filter((pr) =>
+
+  // Period filtering
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    switch (selectedPeriod) {
+      case "current_month":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "last_month": {
+        const lm = subMonths(now, 1);
+        return { start: startOfMonth(lm), end: endOfMonth(lm) };
+      }
+      case "current_quarter":
+        return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "ytd":
+        return { start: new Date(now.getFullYear(), 0, 1), end: now };
+      default:
+        return null; // all_time
+    }
+  }, [selectedPeriod]);
+
+  const periodFilteredRequests = useMemo(() => {
+    if (!dateRange) return paymentRequests;
+    return paymentRequests.filter((pr) => {
+      const d = new Date(pr.createdAt);
+      return d >= dateRange.start && d <= dateRange.end;
+    });
+  }, [paymentRequests, dateRange]);
+
+  const filteredPaymentRequests = periodFilteredRequests.filter((pr) =>
     (pr.artisan?.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (pr.artisan?.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     pr.requestNumber.toLowerCase().includes(searchTerm.toLowerCase())
@@ -235,12 +271,45 @@ function PaymentRequestsPage() {
 
   const statusMetrics = paymentRequestStatuses.map((status) => ({
     ...status,
-    count: paymentRequests.filter((pr) => pr.status === status.value).length,
+    count: periodFilteredRequests.filter((pr) => pr.status === status.value).length,
+    total: periodFilteredRequests.filter((pr) => pr.status === status.value).reduce((s, pr) => s + pr.calculatedAmount, 0),
   }));
 
-  const totalPending = paymentRequests
+  const totalPending = periodFilteredRequests
     .filter((pr) => pr.status === "PENDING" || pr.status === "APPROVED")
     .reduce((sum, pr) => sum + pr.calculatedAmount, 0);
+
+  const totalPaid = periodFilteredRequests
+    .filter((pr) => pr.status === "PAID")
+    .reduce((sum, pr) => sum + pr.calculatedAmount, 0);
+
+  const totalAll = periodFilteredRequests.reduce((sum, pr) => sum + pr.calculatedAmount, 0);
+
+  const avgPerRequest = periodFilteredRequests.length > 0 ? totalAll / periodFilteredRequests.length : 0;
+
+  const highestRequest = periodFilteredRequests.length > 0
+    ? periodFilteredRequests.reduce((max, pr) => pr.calculatedAmount > max.calculatedAmount ? pr : max, periodFilteredRequests[0])
+    : null;
+
+  // Per-artisan breakdown
+  const artisanBreakdown = useMemo(() => {
+    const map = new Map<number, { name: string; paid: number; pending: number; approved: number; rejected: number; total: number; count: number }>();
+    for (const pr of periodFilteredRequests) {
+      const aid = pr.artisan?.id || 0;
+      const name = pr.artisan ? `${pr.artisan.firstName} ${pr.artisan.lastName}` : 'Unknown';
+      if (!map.has(aid)) map.set(aid, { name, paid: 0, pending: 0, approved: 0, rejected: 0, total: 0, count: 0 });
+      const entry = map.get(aid)!;
+      entry.count++;
+      entry.total += pr.calculatedAmount;
+      if (pr.status === 'PAID') entry.paid += pr.calculatedAmount;
+      else if (pr.status === 'PENDING') entry.pending += pr.calculatedAmount;
+      else if (pr.status === 'APPROVED') entry.approved += pr.calculatedAmount;
+      else if (pr.status === 'REJECTED') entry.rejected += pr.calculatedAmount;
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [periodFilteredRequests]);
+
+  const topArtisan = artisanBreakdown.length > 0 ? artisanBreakdown[0] : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -275,24 +344,193 @@ function PaymentRequestsPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Period Filter */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <label className="text-sm font-semibold text-gray-700 min-w-fit">Period:</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'all_time', label: 'All Time' },
+                { value: 'current_month', label: 'This Month' },
+                { value: 'last_month', label: 'Last Month' },
+                { value: 'current_quarter', label: 'This Quarter' },
+                { value: 'ytd', label: 'Year to Date' },
+              ].map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setSelectedPeriod(p.value)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    selectedPeriod === p.value
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Summary Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-green-100">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Paid</span>
+            </div>
+            <p className="text-sm text-gray-500">Total Paid Out</p>
+            <p className="text-2xl font-bold text-green-600">R{totalPaid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-gray-400 mt-1">{statusMetrics.find(m => m.value === 'PAID')?.count || 0} requests</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-yellow-100">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+              <span className="text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">Pending</span>
+            </div>
+            <p className="text-sm text-gray-500">Awaiting Action</p>
+            <p className="text-2xl font-bold text-yellow-600">R{totalPending.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-gray-400 mt-1">{(statusMetrics.find(m => m.value === 'PENDING')?.count || 0) + (statusMetrics.find(m => m.value === 'APPROVED')?.count || 0)} requests</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-blue-100">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+              </div>
+              <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Average</span>
+            </div>
+            <p className="text-sm text-gray-500">Avg per Request</p>
+            <p className="text-2xl font-bold text-blue-600">R{avgPerRequest.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-gray-400 mt-1">{periodFilteredRequests.length} total requests</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-purple-100">
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+              </div>
+              <span className="text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">Total</span>
+            </div>
+            <p className="text-sm text-gray-500">Total Value</p>
+            <p className="text-2xl font-bold text-purple-600">R{totalAll.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-gray-400 mt-1">All statuses combined</p>
+          </div>
+        </div>
+
+        {/* Status Overview - with amounts */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Status Overview</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {statusMetrics.map((metric) => (
               <div
                 key={metric.value}
-                className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                className={`text-center p-4 rounded-lg transition-colors cursor-pointer border-2 ${
+                  statusFilter === metric.value ? 'border-pink-400 bg-pink-50' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                }`}
                 onClick={() => setStatusFilter(statusFilter === metric.value ? null : metric.value)}
               >
                 <div className="text-3xl font-bold text-gray-900 mb-1">{metric.count}</div>
                 <div className={`text-xs font-medium px-2 py-1 rounded-full inline-block ${metric.color}`}>
                   {metric.label}
                 </div>
+                <p className="text-xs text-gray-500 mt-2 font-medium">R{metric.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Per-Artisan Breakdown */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setShowArtisanBreakdown(!showArtisanBreakdown)}
+            className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Users className="w-5 h-5 text-pink-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Per-Artisan Breakdown</h2>
+              <span className="text-sm text-gray-500">({artisanBreakdown.length} artisans)</span>
+            </div>
+            {showArtisanBreakdown ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          </button>
+          {showArtisanBreakdown && (
+            <div className="border-t border-gray-200">
+              {artisanBreakdown.length === 0 ? (
+                <p className="p-6 text-sm text-gray-500 text-center">No payment data for selected period</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-5 py-3 font-semibold text-gray-700">Artisan</th>
+                        <th className="text-right px-5 py-3 font-semibold text-gray-700">Requests</th>
+                        <th className="text-right px-5 py-3 font-semibold text-green-700">Paid</th>
+                        <th className="text-right px-5 py-3 font-semibold text-yellow-700">Pending</th>
+                        <th className="text-right px-5 py-3 font-semibold text-blue-700">Approved</th>
+                        <th className="text-right px-5 py-3 font-semibold text-gray-700">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {artisanBreakdown.map((a, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-5 py-3 font-medium text-gray-900">{a.name}</td>
+                          <td className="px-5 py-3 text-right text-gray-600">{a.count}</td>
+                          <td className="px-5 py-3 text-right text-green-600 font-medium">R{a.paid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-5 py-3 text-right text-yellow-600 font-medium">R{a.pending.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-5 py-3 text-right text-blue-600 font-medium">R{a.approved.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-5 py-3 text-right font-bold text-gray-900">R{a.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold">
+                      <tr>
+                        <td className="px-5 py-3 text-gray-900">Total</td>
+                        <td className="px-5 py-3 text-right text-gray-700">{periodFilteredRequests.length}</td>
+                        <td className="px-5 py-3 text-right text-green-700">R{totalPaid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-5 py-3 text-right text-yellow-700">R{(statusMetrics.find(m => m.value === 'PENDING')?.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-5 py-3 text-right text-blue-700">R{(statusMetrics.find(m => m.value === 'APPROVED')?.total || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-5 py-3 text-right text-gray-900">R{totalAll.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Insights */}
+        {periodFilteredRequests.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {topArtisan && (
+              <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl border border-pink-200 p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-pink-600" />
+                  <p className="text-sm font-semibold text-pink-800">Top Artisan by Value</p>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{topArtisan.name}</p>
+                <p className="text-sm text-gray-600">
+                  {topArtisan.count} requests • R{topArtisan.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} total • R{topArtisan.paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} paid
+                </p>
+              </div>
+            )}
+            {highestRequest && (
+              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200 p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-blue-600" />
+                  <p className="text-sm font-semibold text-blue-800">Highest Single Request</p>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{highestRequest.requestNumber}</p>
+                <p className="text-sm text-gray-600">
+                  R{highestRequest.calculatedAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} • {highestRequest.artisan?.firstName} {highestRequest.artisan?.lastName} • {highestRequest.status}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {showAddForm && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
