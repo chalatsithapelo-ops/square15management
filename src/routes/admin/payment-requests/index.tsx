@@ -174,6 +174,36 @@ function PaymentRequestsPage() {
     })
   );
 
+  const paymentRequests = paymentRequestsQuery.data || [];
+  const artisans = artisansQuery.data || [];
+
+  // Period filtering (hooks must be before conditional returns)
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    switch (selectedPeriod) {
+      case "current_month":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "last_month": {
+        const lm = subMonths(now, 1);
+        return { start: startOfMonth(lm), end: endOfMonth(lm) };
+      }
+      case "current_quarter":
+        return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "ytd":
+        return { start: new Date(now.getFullYear(), 0, 1), end: now };
+      default:
+        return null; // all_time
+    }
+  }, [selectedPeriod]);
+
+  const periodFilteredRequests = useMemo(() => {
+    if (!dateRange) return paymentRequests;
+    return paymentRequests.filter((pr) => {
+      const d = new Date(pr.createdAt);
+      return d >= dateRange.start && d <= dateRange.end;
+    });
+  }, [paymentRequests, dateRange]);
+
   // Show loading state while checking permissions
   if (userPermissionsQuery.isLoading) {
     return (
@@ -232,36 +262,6 @@ function PaymentRequestsPage() {
       notes: data.notes,
     });
   };
-
-  const paymentRequests = paymentRequestsQuery.data || [];
-  const artisans = artisansQuery.data || [];
-
-  // Period filtering
-  const dateRange = useMemo(() => {
-    const now = new Date();
-    switch (selectedPeriod) {
-      case "current_month":
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case "last_month": {
-        const lm = subMonths(now, 1);
-        return { start: startOfMonth(lm), end: endOfMonth(lm) };
-      }
-      case "current_quarter":
-        return { start: startOfQuarter(now), end: endOfQuarter(now) };
-      case "ytd":
-        return { start: new Date(now.getFullYear(), 0, 1), end: now };
-      default:
-        return null; // all_time
-    }
-  }, [selectedPeriod]);
-
-  const periodFilteredRequests = useMemo(() => {
-    if (!dateRange) return paymentRequests;
-    return paymentRequests.filter((pr) => {
-      const d = new Date(pr.createdAt);
-      return d >= dateRange.start && d <= dateRange.end;
-    });
-  }, [paymentRequests, dateRange]);
 
   const filteredPaymentRequests = periodFilteredRequests.filter((pr) =>
     (pr.artisan?.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
