@@ -1460,9 +1460,16 @@ export async function sendOrderNotificationEmail(params: {
 
   const isContractor = (params.recipientType || "CUSTOMER") === "CONTRACTOR";
 
-  // Informative subject: "Order Confirmation: ORD-00015 – Plumbing at Kasteel Office"
+  // Informative subject with short building name only
+  const loc = params.address
+    ? params.address
+        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+        .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+        .trim()
+        .slice(0, 40)
+    : "";
   const jobCtx = params.serviceType
-    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    ? ` – ${params.serviceType}${loc ? ` at ${loc}` : ""}`
     : "";
   const subject = `Order Confirmation: ${params.orderNumber}${jobCtx}`;
 
@@ -1724,9 +1731,16 @@ export async function sendOrderStatusUpdateEmail(params: {
   const portalLink = `${getBaseUrl()}/customer/dashboard`;
 
   const statusLabel = params.newStatus.replace(/_/g, " ");
-  // Build informative subject: "Order Update: ORD-00015 – Plumbing at Kasteel Office – IN PROGRESS"
+  // Build informative subject with short building name only
+  const loc = params.address
+    ? params.address
+        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+        .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+        .trim()
+        .slice(0, 40)
+    : "";
   const jobCtx = params.serviceType
-    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    ? ` – ${params.serviceType}${loc ? ` at ${loc}` : ""}`
     : "";
   const subject = `Order Update: ${params.orderNumber}${jobCtx} – ${statusLabel}`;
 

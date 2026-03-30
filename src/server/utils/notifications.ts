@@ -4,6 +4,22 @@ import { notificationEvents } from "~/server/utils/notification-events";
 import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/server/utils/web-push";
 
 /**
+ * Extract a short building/location name from a full address.
+ * e.g. "Savyon Building (Pty) Ltd  C/O Johannesburg ..." → "Savyon Building"
+ */
+function shortLocation(address?: string): string | undefined {
+  if (!address) return undefined;
+  // Take text before common address delimiters
+  const short = address
+    .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+    .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+    .trim();
+  // Cap at 40 chars
+  if (short.length > 40) return short.slice(0, 37) + "...";
+  return short || undefined;
+}
+
+/**
  * Demo/test account emails – these accounts are isolated from production
  * notifications to prevent cross-contamination between demo and real data.
  */
@@ -168,8 +184,9 @@ export async function notifyArtisanOrderAssigned(params: {
   serviceType?: string;
   address?: string;
 }) {
+  const loc = shortLocation(params.address);
   const jobInfo = params.serviceType
-    ? ` – ${params.serviceType}${params.address ? ` at ${params.address}` : ""}`
+    ? ` – ${params.serviceType}${loc ? ` at ${loc}` : ""}`
     : "";
   await createNotification({
     recipientId: params.artisanId,
@@ -192,8 +209,9 @@ export async function notifyCustomerOrderStatus(params: {
   serviceType?: string;
   address?: string;
 }) {
+  const loc = shortLocation(params.address);
   const jobLabel = params.serviceType
-    ? `${params.serviceType}${params.address ? ` at ${params.address}` : ""} (${params.orderNumber})`
+    ? `${params.serviceType}${loc ? ` at ${loc}` : ""} (${params.orderNumber})`
     : `order ${params.orderNumber}`;
 
   const statusMessages: Record<string, string> = {

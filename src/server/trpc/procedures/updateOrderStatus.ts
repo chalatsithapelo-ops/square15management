@@ -523,8 +523,16 @@ export const updateOrderStatus = baseProcedure
       try {
         if (!input.isPMOrder && order && updatedOrder && input.status !== order.status) {
           // Build job context string for informative notifications
+          // Extract short building name from the full address
+          const loc = updatedOrder.address
+            ? updatedOrder.address
+                .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+                .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+                .trim()
+                .slice(0, 40)
+            : "";
           const jobInfo = updatedOrder.serviceType
-            ? ` – ${updatedOrder.serviceType}${updatedOrder.address ? ` at ${updatedOrder.address}` : ""}`
+            ? ` – ${updatedOrder.serviceType}${loc ? ` at ${loc}` : ""}`
             : "";
 
           const customerUser = await db.user.findUnique({
@@ -1167,9 +1175,16 @@ export const updateOrderStatus = baseProcedure
               lastName: completionLastName,
             });
 
-            // Build informative completion title: "Plumbing at Kasteel Office (ORD-00015)"
+            // Build informative completion title with short building name
+            const completionLoc = updatedOrder.address
+              ? updatedOrder.address
+                  .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+                  .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+                  .trim()
+                  .slice(0, 40)
+              : "";
             const completionCtx = updatedOrder.serviceType
-              ? `${updatedOrder.serviceType}${updatedOrder.address ? ` at ${updatedOrder.address}` : ""} (${updatedOrder.orderNumber})`
+              ? `${updatedOrder.serviceType}${completionLoc ? ` at ${completionLoc}` : ""} (${updatedOrder.orderNumber})`
               : updatedOrder.orderNumber;
 
             // Send the completion email

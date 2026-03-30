@@ -175,8 +175,15 @@ export const createOrder = baseProcedure
 
     // Only notify admins if an admin created the order without assigning it.
     if ((user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN") && !input.assignedToId) {
+      const loc = order.address
+        ? order.address
+            .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+            .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
+            .trim()
+            .slice(0, 40)
+        : "";
       const jobInfo = order.serviceType
-        ? ` – ${order.serviceType}${order.address ? ` at ${order.address}` : ""}`
+        ? ` – ${order.serviceType}${loc ? ` at ${loc}` : ""}`
         : "";
       // Best effort, non-blocking
       void notifyAdmins({
