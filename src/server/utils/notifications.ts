@@ -288,11 +288,17 @@ export async function notifyArtisanQuotationAssigned(params: {
   artisanId: number;
   quoteNumber: string;
   quotationId: number;
+  serviceType?: string;
+  address?: string;
 }) {
+  const loc = shortLocation(params.address);
+  const jobInfo = params.serviceType
+    ? ` – ${params.serviceType}${loc ? ` at ${loc}` : ""}`
+    : "";
   await createNotification({
     recipientId: params.artisanId,
     recipientRole: "ARTISAN",
-    message: `You have been assigned to quotation ${params.quoteNumber}`,
+    message: `You have been assigned to quotation ${params.quoteNumber}${jobInfo}`,
     type: "QUOTATION_ASSIGNED",
     relatedEntityId: params.quotationId,
     relatedEntityType: "QUOTATION",
@@ -306,9 +312,15 @@ export async function notifyAdminsQuotationReady(params: {
   quoteNumber: string;
   quotationId: number;
   artisanName: string;
+  serviceType?: string;
+  address?: string;
 }) {
+  const loc = shortLocation(params.address);
+  const jobLabel = params.serviceType
+    ? `${params.serviceType}${loc ? ` at ${loc}` : ""} (${params.quoteNumber})`
+    : `quotation ${params.quoteNumber}`;
   await notifyAdmins({
-    message: `${params.artisanName} has completed quotation ${params.quoteNumber} and submitted it for review`,
+    message: `${params.artisanName} has completed ${jobLabel} and submitted it for review`,
     type: "QUOTATION_READY_FOR_REVIEW",
     relatedEntityId: params.quotationId,
     relatedEntityType: "QUOTATION",
@@ -324,10 +336,16 @@ export async function notifyCustomerQuotationStatus(params: {
   quotationId: number;
   status: "APPROVED" | "REJECTED";
   rejectionReason?: string;
+  serviceType?: string;
+  address?: string;
 }) {
+  const loc = shortLocation(params.address);
+  const jobLabel = params.serviceType
+    ? `${params.serviceType}${loc ? ` at ${loc}` : ""} (${params.quoteNumber})`
+    : `quotation ${params.quoteNumber}`;
   const messages: Record<"APPROVED" | "REJECTED", string> = {
-    APPROVED: `Your quotation ${params.quoteNumber} has been approved`,
-    REJECTED: `Your quotation ${params.quoteNumber} has been rejected${params.rejectionReason ? `: ${params.rejectionReason}` : ""}`,
+    APPROVED: `Your ${jobLabel} has been approved`,
+    REJECTED: `Your ${jobLabel} has been rejected${params.rejectionReason ? `: ${params.rejectionReason}` : ""}`,
   };
 
   await createNotification({

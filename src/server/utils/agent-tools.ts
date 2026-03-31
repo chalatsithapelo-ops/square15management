@@ -779,7 +779,10 @@ export const updateQuotationStatusTool = tool({
   execute: async ({ authToken, quotationId, status, rejectionReason }) => {
     const user = await authenticateUser(authToken);
     
-    const quotation = await db.quotation.findUnique({ where: { id: quotationId } });
+    const quotation = await db.quotation.findUnique({
+      where: { id: quotationId },
+      include: { lead: { select: { serviceType: true } } },
+    });
     if (!quotation) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Quotation not found' });
     }
@@ -793,10 +796,22 @@ export const updateQuotationStatusTool = tool({
       where: { id: quotationId },
       data: updateData,
     });
+
+    // Build enriched label
+    const _svc = quotation.lead?.serviceType;
+    const _addr = quotation.address;
+    const _loc = _addr
+      ? _addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+          .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
+      : undefined;
+    const _shortLoc = _loc && _loc.length > 40 ? _loc.slice(0, 37) + '...' : _loc;
+    const _label = _svc
+      ? `${_svc}${_shortLoc ? ` at ${_shortLoc}` : ''} (${quotation.quoteNumber})`
+      : `Quotation ${quotation.quoteNumber}`;
     
     return {
       success: true,
-      message: `Quotation ${quotation.quoteNumber} status updated to ${status}`,
+      message: `${_label} status updated to ${status}`,
       quotation: {
         id: updatedQuotation.id,
         quoteNumber: updatedQuotation.quoteNumber,

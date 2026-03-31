@@ -1302,6 +1302,7 @@ export async function sendQuotationNotificationEmail(params: {
   validUntil?: Date | null;
   projectName?: string;
   serviceType?: string;
+  address?: string;
   userId?: number;
   loginCredentials?: { email: string; password: string };
 }): Promise<void> {
@@ -1312,7 +1313,17 @@ export async function sendQuotationNotificationEmail(params: {
     ? `Valid Until: ${params.validUntil.toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}`
     : "";
 
-  const subject = `Quotation ${params.quoteNumber} - R${params.quotationAmount.toLocaleString()}`;
+  // Build enriched subject with service type and location
+  const _addr = params.address;
+  const _loc = _addr
+    ? _addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+        .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
+    : undefined;
+  const _shortLoc = _loc && _loc.length > 40 ? _loc.slice(0, 37) + '...' : _loc;
+  const jobParts = [params.serviceType, _shortLoc].filter(Boolean).join(' at ');
+  const subject = jobParts
+    ? `Quotation ${params.quoteNumber} \u2013 ${jobParts} \u2013 R${params.quotationAmount.toLocaleString()}`
+    : `Quotation ${params.quoteNumber} - R${params.quotationAmount.toLocaleString()}`;
 
   const html = `
     <!DOCTYPE html>
@@ -1394,6 +1405,7 @@ export async function sendQuotationNotificationEmail(params: {
           <p style="margin: 5px 0;"><strong>Quotation Number:</strong> ${params.quoteNumber}</p>
           ${params.projectName ? `<p style="margin: 5px 0;"><strong>Project:</strong> ${params.projectName}</p>` : ''}
           ${params.serviceType ? `<p style="margin: 5px 0;"><strong>Service Type:</strong> ${params.serviceType}</p>` : ''}
+          ${params.address ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${params.address}</p>` : ''}
           ${validUntilText ? `<p style="margin: 5px 0;"><strong>${validUntilText}</strong></p>` : ''}
         </div>
         

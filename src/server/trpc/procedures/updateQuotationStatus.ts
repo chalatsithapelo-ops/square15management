@@ -197,6 +197,7 @@ export const updateQuotationStatus = baseProcedure
               id: true,
               customerName: true,
               serviceType: true,
+              address: true,
             },
           },
           project: {
@@ -278,6 +279,7 @@ export const updateQuotationStatus = baseProcedure
             validUntil: quotation.validUntil,
             projectName: quotation.project?.name,
             serviceType: quotation.lead?.serviceType,
+            address: quotation.address,
             userId: user.id,
             loginCredentials: {
               email: quotation.customerEmail,
@@ -295,12 +297,25 @@ export const updateQuotationStatus = baseProcedure
       if (quotation.assignedTo && input.status && input.status !== existingQuotation.status) {
         try {
           const { createNotification, notifyAdmins } = await import('~/server/utils/notifications');
+
+          // Build enriched label with service type + location
+          const svcType = quotation.lead?.serviceType;
+          const addr = quotation.address;
+          const loc = addr
+            ? addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+                .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
+            : undefined;
+          const shortLoc = loc && loc.length > 40 ? loc.slice(0, 37) + '...' : loc;
+          const jobLabel = svcType
+            ? `${svcType}${shortLoc ? ` at ${shortLoc}` : ''} (${quotation.quoteNumber})`
+            : `Quotation ${quotation.quoteNumber}`;
+          const statusText = input.status.replace(/_/g, ' ');
           
           // Notify the assigned user (artisan or contractor)
           await createNotification({
             recipientId: quotation.assignedTo.id,
             recipientRole: quotation.assignedTo.role || 'ARTISAN',
-            message: `Quotation ${quotation.quoteNumber} status updated to ${input.status.replace(/_/g, ' ')}`,
+            message: `${jobLabel} status updated to ${statusText}`,
             type: 'QUOTATION_STATUS_UPDATED',
             relatedEntityId: quotation.id,
             relatedEntityType: 'QUOTATION',
@@ -308,7 +323,7 @@ export const updateQuotationStatus = baseProcedure
 
           // Notify admins about quotation status changes
           await notifyAdmins({
-            message: `Quotation ${quotation.quoteNumber} status updated to ${input.status.replace(/_/g, ' ')}`,
+            message: `${jobLabel} status updated to ${statusText}`,
             type: 'QUOTATION_STATUS_UPDATED',
             relatedEntityId: quotation.id,
             relatedEntityType: 'QUOTATION',

@@ -184,6 +184,8 @@ export const createQuotation = baseProcedure
               artisanId: effectiveAssignedToId,
               quoteNumber: quotation.quoteNumber,
               quotationId: quotation.id,
+              serviceType: quotation.lead?.serviceType,
+              address: quotation.address,
             });
           }
         }

@@ -151,6 +151,8 @@ export const updateQuotationDetails = baseProcedure
               artisanId: input.assignedToId,
               quoteNumber: quotation.quoteNumber,
               quotationId: quotation.id,
+              serviceType: quotation.lead?.serviceType,
+              address: quotation.address,
             });
           }
         }

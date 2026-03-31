@@ -157,6 +157,7 @@ export const createQuotationFromPMRFQ = baseProcedure
           artisanId: input.assignedToId,
           quoteNumber: quotation.quoteNumber,
           quotationId: quotation.id,
+          address: quotation.address,
         }).catch((err: any) => console.error('Failed to notify artisan about quotation:', err));
       }
 
