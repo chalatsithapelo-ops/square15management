@@ -984,8 +984,14 @@ export const createInvoiceTool = tool({
       
       // Get company details for invoice prefix
       const companyDetails = await getCompanyDetails();
-      const count = await db.invoice.count();
-      const invoiceNumber = `${companyDetails.invoicePrefix}-${String(count + 1).padStart(5, "0")}`;
+      const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
+      const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
+      let maxNum = 0;
+      for (const inv of [...allInvoices, ...allPMInvoices]) {
+        const match = inv.invoiceNumber.match(/(\d+)$/);
+        if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+      }
+      const invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
       
       // Create a single line item from the description
       const lineItem = {

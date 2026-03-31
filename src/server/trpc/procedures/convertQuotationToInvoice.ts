@@ -57,20 +57,26 @@ export const convertQuotationToInvoice = baseProcedure
 
     const companyDetails = await getCompanyDetails();
 
-    // Generate invoice number
-    const invoiceCount = await db.invoice.count();
-    const pmInvoiceCount = await db.propertyManagerInvoice.count();
-    const totalCount = invoiceCount + pmInvoiceCount;
+    // Generate invoice number by scanning true max suffix
+    const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
+    const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
+    let maxNum = 0;
+    for (const inv of [...allInvoices, ...allPMInvoices]) {
+      const match = inv.invoiceNumber.match(/(\d+)$/);
+      if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+    }
     const prefix = companyDetails?.invoicePrefix || "INV";
-    let invoiceNumber = `${prefix}-${String(totalCount + 1).padStart(5, "0")}`;
+    let invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
 
-    // Ensure uniqueness
+    // Ensure uniqueness with retry loop
     let attempts = 0;
     while (attempts < 10) {
       const existing = await db.invoice.findUnique({ where: { invoiceNumber } });
-      if (!existing) break;
+      const existingPM = await db.propertyManagerInvoice.findUnique({ where: { invoiceNumber } });
+      if (!existing && !existingPM) break;
       attempts++;
-      invoiceNumber = `${prefix}-${String(totalCount + attempts + 1).padStart(5, "0")}`;
+      maxNum++;
+      invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
     }
 
     // Create the invoice from quotation data

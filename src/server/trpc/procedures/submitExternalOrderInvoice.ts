@@ -41,12 +41,16 @@ export const submitExternalOrderInvoice = baseProcedure
 
     const order = record.order;
 
-    // Generate unique invoice number
+    // Generate unique invoice number by scanning true max suffix
     const companyDetails = await getCompanyDetails();
-    const invoiceCount = await db.invoice.count();
-    const pmInvoiceCount = await db.propertyManagerInvoice.count();
-    const totalCount = invoiceCount + pmInvoiceCount;
-    const invoiceNumber = `${companyDetails.invoicePrefix}-${String(totalCount + 1).padStart(5, "0")}`;
+    const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
+    const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
+    let maxNum = 0;
+    for (const inv of [...allInvoices, ...allPMInvoices]) {
+      const match = inv.invoiceNumber.match(/(\d+)$/);
+      if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+    }
+    const invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
 
     const subtotal = input.invoiceTotal;
     const tax = 0;

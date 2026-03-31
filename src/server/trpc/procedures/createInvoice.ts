@@ -72,13 +72,25 @@ export const createInvoice = baseProcedure
         
         invoiceNumber = input.invoiceNumber;
       } else {
-        // Auto-generate unique invoice number with custom prefix
+        // Auto-generate unique invoice number by scanning the true max suffix
         const companyDetails = await getCompanyDetails();
-        // Count both Invoice and PropertyManagerInvoice tables to avoid duplicates
-        const invoiceCount = await db.invoice.count();
-        const pmInvoiceCount = await db.propertyManagerInvoice.count();
-        const totalCount = invoiceCount + pmInvoiceCount;
-        invoiceNumber = `${companyDetails.invoicePrefix}-${String(totalCount + 1).padStart(5, "0")}`;
+        const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
+        const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
+        let maxNum = 0;
+        for (const inv of [...allInvoices, ...allPMInvoices]) {
+          const match = inv.invoiceNumber.match(/(\d+)$/);
+          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+        }
+        invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+
+        // Retry loop in case of race condition
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const exists = await db.invoice.findUnique({ where: { invoiceNumber } });
+          const existsPM = await db.propertyManagerInvoice.findUnique({ where: { invoiceNumber } });
+          if (!exists && !existsPM) break;
+          maxNum++;
+          invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+        }
       }
 
       // Token already verified at line 41
