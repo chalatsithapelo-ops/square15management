@@ -329,6 +329,7 @@ async function generateReportInBackground(
     const totalRevenue = paidInvoices;
 
     // Calculate quotation expenses (from approved quotations)
+    // Quotation costs are estimates - keep for reference but don't include in actual expenses
     const quotationMaterialCosts = quotations
       .filter((q) => q.status === "APPROVED")
       .reduce((sum, q) => sum + (q.companyMaterialCost || 0), 0);
@@ -342,12 +343,12 @@ async function generateReportInBackground(
       .filter((pr) => pr.status === "PAID")
       .reduce((sum, pr) => sum + pr.calculatedAmount, 0);
 
-    // Material and labor costs
+    // Material and labor costs — only from actual completed/in-progress orders
     const orderMaterialCosts = orders.reduce((sum, o) => sum + o.materialCost, 0);
     const orderLabourCosts = orders.reduce((sum, o) => sum + o.labourCost, 0);
     
-    const totalMaterialCosts = orderMaterialCosts + quotationMaterialCosts;
-    const totalLabourCosts = orderLabourCosts + quotationLabourCosts;
+    const totalMaterialCosts = orderMaterialCosts;
+    const totalLabourCosts = orderLabourCosts;
 
     // Total expenses = artisan payments + material costs + labor costs
     const totalExpenses = artisanPayments + totalMaterialCosts + totalLabourCosts;

@@ -100,7 +100,7 @@ export default function ExpenseAnalytics({
           <p className="text-sm text-amber-700">Material Costs</p>
           <div className="mt-3 pt-3 border-t border-amber-200">
             <p className="text-xs text-amber-600">
-              {safeOrders.length + safeQuotations.filter(q => q.status === 'APPROVED').length} jobs
+              {safeOrders.filter(o => (o.materialCost || 0) > 0).length} orders with material costs
             </p>
           </div>
         </div>

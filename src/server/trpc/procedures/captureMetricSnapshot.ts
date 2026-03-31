@@ -120,17 +120,10 @@ export const captureMetricSnapshot = baseProcedure
 
       const orderMaterialCosts = orders.reduce((sum, o) => sum + o.materialCost, 0);
       const orderLabourCosts = orders.reduce((sum, o) => sum + o.labourCost, 0);
-      
-      const quotationMaterialCosts = quotations
-        .filter((q) => q.status === "APPROVED")
-        .reduce((sum, q) => sum + (q.companyMaterialCost || 0), 0);
-      
-      const quotationLabourCosts = quotations
-        .filter((q) => q.status === "APPROVED")
-        .reduce((sum, q) => sum + (q.companyLabourCost || 0), 0);
 
-      const materialCosts = orderMaterialCosts + quotationMaterialCosts;
-      const labourCosts = orderLabourCosts + quotationLabourCosts;
+      // Only use actual order costs (not quotation estimates)
+      const materialCosts = orderMaterialCosts;
+      const labourCosts = orderLabourCosts;
       const totalExpenses = artisanPayments + materialCosts + labourCosts;
 
       const netProfit = totalRevenue - totalExpenses;

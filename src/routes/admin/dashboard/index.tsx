@@ -331,22 +331,25 @@ function AdminDashboard() {
     : 0;
   const totalRevenue = invoiceRevenue + alternativeRevenueTotal;
 
-  // Expenses
+  // Expenses (only actual order costs - not quotation estimates)
   const orderMaterialCosts = ordersQuery.data
     ? filteredOrders.reduce((sum, o) => sum + (o.materialCost ?? 0), 0) : 0;
   const orderLabourCosts = ordersQuery.data
     ? filteredOrders.reduce((sum, o) => sum + (o.labourCost ?? 0), 0) : 0;
-  const quotationMaterialCosts = quotationsQuery.data
-    ? filteredQuotations.filter((q: any) => q.status === "APPROVED").reduce((sum, q: any) => sum + (q.companyMaterialCost ?? 0), 0) : 0;
-  const quotationLabourCosts = quotationsQuery.data
-    ? filteredQuotations.filter((q: any) => q.status === "APPROVED").reduce((sum, q: any) => sum + (q.companyLabourCost ?? 0), 0) : 0;
-  const materialCosts = orderMaterialCosts + quotationMaterialCosts;
-  const labourCosts = orderLabourCosts + quotationLabourCosts;
+  const materialCosts = orderMaterialCosts;
+  const labourCosts = orderLabourCosts;
   const artisanPayments = paymentRequestsQuery.data
     ? filteredPaymentRequests.filter((pr) => pr.status === "PAID").reduce((sum, pr) => sum + (pr.calculatedAmount ?? 0), 0) : 0;
   const operationalExpenseTotal = operationalExpensesQuery.data
     ? filteredOperationalExpenses.filter((e: any) => e.isApproved === true).reduce((sum, e: any) => sum + (e.amount ?? 0), 0) : 0;
   const totalExpenses = artisanPayments + materialCosts + labourCosts + operationalExpenseTotal;
+
+  // Receivables: unpaid invoices (Approved, Sent, Overdue)
+  const receivableInvoices = filteredInvoices.filter(inv => ['APPROVED', 'SENT', 'OVERDUE'].includes(inv.status));
+  const totalReceivables = receivableInvoices.reduce((sum, inv) => sum + (inv.total ?? 0), 0);
+  const receivablesSent = filteredInvoices.filter(inv => inv.status === 'SENT').reduce((sum, inv) => sum + (inv.total ?? 0), 0);
+  const receivablesOverdue = filteredInvoices.filter(inv => inv.status === 'OVERDUE').reduce((sum, inv) => sum + (inv.total ?? 0), 0);
+  const receivablesApproved = filteredInvoices.filter(inv => inv.status === 'APPROVED').reduce((sum, inv) => sum + (inv.total ?? 0), 0);
 
   // Profit
   const netProfit = totalRevenue - totalExpenses;
@@ -632,6 +635,27 @@ function AdminDashboard() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Receivables Breakdown */}
+                    <div className="bg-gradient-to-br from-cyan-50 to-sky-50 rounded-xl border border-cyan-100 p-5">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
+                        Receivables
+                        <span className="ml-auto text-sm font-bold text-cyan-600">R{totalReceivables.toLocaleString()}</span>
+                      </h3>
+                      {totalReceivables === 0 ? (
+                        <p className="text-xs text-gray-400 italic">No outstanding receivables this period</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {receivablesApproved > 0 && <BreakdownRow label="Approved (Not Sent)" value={receivablesApproved} total={totalReceivables} color="bg-yellow-400" />}
+                          {receivablesSent > 0 && <BreakdownRow label="Sent (Awaiting Payment)" value={receivablesSent} total={totalReceivables} color="bg-cyan-500" />}
+                          {receivablesOverdue > 0 && <BreakdownRow label="Overdue" value={receivablesOverdue} total={totalReceivables} color="bg-red-500" />}
+                          <div className="pt-3 border-t border-cyan-200/50 flex justify-between items-center">
+                            <span className="text-xs text-gray-500">{receivableInvoices.length} invoice{receivableInvoices.length !== 1 ? 's' : ''} outstanding</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

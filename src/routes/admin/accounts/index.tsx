@@ -227,17 +227,10 @@ function AccountsPage() {
 
   const orderMaterialCosts = filteredOrders.reduce((sum, o) => sum + (o.materialCost || 0), 0);
   const orderLabourCosts = filteredOrders.reduce((sum, o) => sum + (o.labourCost || 0), 0);
-  
-  const quotationMaterialCosts = filteredQuotations
-    .filter((q) => q.status === "APPROVED")
-    .reduce((sum, q) => sum + (q.companyMaterialCost || 0), 0);
-  
-  const quotationLabourCosts = filteredQuotations
-    .filter((q) => q.status === "APPROVED")
-    .reduce((sum, q) => sum + (q.companyLabourCost || 0), 0);
 
-  const materialCosts = orderMaterialCosts + quotationMaterialCosts;
-  const labourCosts = orderLabourCosts + quotationLabourCosts;
+  // Only use actual order costs for expenses (not quotation estimates)
+  const materialCosts = orderMaterialCosts;
+  const labourCosts = orderLabourCosts;
 
   const artisanPayments = filteredPaymentRequests
     .filter((pr) => pr.status === "PAID")
@@ -682,14 +675,14 @@ function AccountsPage() {
                 <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Materials</span>
-                    <p className="text-xs text-gray-400">Orders: R {orderMaterialCosts.toLocaleString()} + Quotations: R {quotationMaterialCosts.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">From {filteredOrders.filter(o => (o.materialCost || 0) > 0).length} orders</p>
                   </div>
                   <span className="text-sm font-bold text-red-700">R {materialCosts.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Labour</span>
-                    <p className="text-xs text-gray-400">Orders: R {orderLabourCosts.toLocaleString()} + Quotations: R {quotationLabourCosts.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">From {filteredOrders.filter(o => (o.labourCost || 0) > 0).length} orders</p>
                   </div>
                   <span className="text-sm font-bold text-red-700">R {labourCosts.toLocaleString()}</span>
                 </div>
@@ -724,12 +717,15 @@ function AccountsPage() {
         )}
 
         {/* Receivables Breakdown */}
-        {totalReceivables > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-cyan-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-cyan-200 p-6">
             <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4 text-cyan-600" />
               Receivables Breakdown
+              <span className="ml-auto text-lg font-bold text-cyan-600">R {totalReceivables.toLocaleString()}</span>
             </h4>
+            {totalReceivables === 0 ? (
+              <p className="text-sm text-gray-400 italic">No outstanding receivables this period</p>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {receivablesApproved > 0 && (
                 <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
@@ -759,8 +755,8 @@ function AccountsPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
-        )}
 
         {/* Alert for low profit margin */}
         {parseFloat(profitMargin) < 15 && totalRevenue > 0 && (

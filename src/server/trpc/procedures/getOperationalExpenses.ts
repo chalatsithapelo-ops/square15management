@@ -37,16 +37,11 @@ export const getOperationalExpenses = baseProcedure
 
     // Data isolation:
     // - Contractors only see their own operational expenses
-    // - Admins keep existing role-based filtering
-    if (user.role === "CONTRACTOR") {
+    // - Admins see ALL operational expenses (company-wide view)
+    if (user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER") {
       where.createdById = user.id;
-    } else {
-      where.createdBy = {
-        role: {
-          contains: user.role.includes("ADMIN") ? "ADMIN" : "CONTRACTOR",
-        },
-      };
     }
+    // Admins (SENIOR_ADMIN, JUNIOR_ADMIN, TECHNICAL_MANAGER, etc.) see all expenses
 
     // Demo data isolation
     await applyDemoIsolation(where, user, db);
