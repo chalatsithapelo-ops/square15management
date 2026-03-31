@@ -36,6 +36,9 @@ export const createOperationalExpense = baseProcedure
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
+    // Auto-approve if created by a user with approval authority
+    const canSelfApprove = user.role === "SENIOR_ADMIN" || user.role.includes("CONTRACTOR");
+
     // Create the operational expense
     const expense = await db.operationalExpense.create({
       data: {
@@ -50,6 +53,11 @@ export const createOperationalExpense = baseProcedure
         isRecurring: input.isRecurring,
         recurringPeriod: input.recurringPeriod || null,
         createdById: user.id,
+        ...(canSelfApprove ? {
+          isApproved: true,
+          approvedById: user.id,
+          approvedAt: new Date(),
+        } : {}),
       },
       include: {
         createdBy: {

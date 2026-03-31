@@ -7,7 +7,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, FileText,
   Sparkles, Download, AlertCircle, BarChart3, PieChart,
   Brain, Target, AlertTriangle, Lightbulb, TrendingUpIcon, Shield,
-  RotateCcw, Clock, Trash2, X, CheckCircle2
+  RotateCcw, Clock, Trash2, X, CheckCircle2, Check, Loader2
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths } from "date-fns";
@@ -114,6 +114,28 @@ function AccountsPage() {
       isApproved: true, // Only include approved expenses
     })
   );
+
+  // Fetch pending expenses for approval
+  const pendingExpensesQuery = useQuery(
+    trpc.getOperationalExpenses.queryOptions({
+      token: token!,
+      isApproved: false,
+    })
+  );
+
+  const approveExpenseMutation = useMutation(
+    trpc.approveOperationalExpense.mutationOptions({
+      onSuccess: () => {
+        toast.success("Expense approved!");
+        queryClient.invalidateQueries({ queryKey: ["getOperationalExpenses"] });
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to approve expense");
+      },
+    })
+  );
+
+  const pendingExpenses = pendingExpensesQuery.data || [];
 
   const alternativeRevenuesQuery = useQuery(
     trpc.getAlternativeRevenues.queryOptions({
@@ -859,6 +881,62 @@ function AccountsPage() {
             <div className="mt-4 pt-3 border-t border-cyan-100 flex justify-between items-center">
               <span className="text-sm font-bold text-gray-900">Total Outstanding</span>
               <span className="text-lg font-bold text-cyan-600">R {totalReceivables.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Pending Expense Approvals */}
+        {isSeniorAdmin && pendingExpenses.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-yellow-900">
+                    {pendingExpenses.length} Expense{pendingExpenses.length !== 1 ? 's' : ''} Pending Approval
+                  </h4>
+                  <p className="text-sm text-yellow-700">
+                    Total: R {pendingExpenses.reduce((s, e) => s + e.amount, 0).toLocaleString()} — approve to include in financial totals
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {pendingExpenses.map((exp) => (
+                <div key={exp.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 truncate">{exp.description}</span>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
+                        {exp.category.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      R {exp.amount.toLocaleString()} · {new Date(exp.date).toLocaleDateString()} · By {exp.createdBy?.firstName} {exp.createdBy?.lastName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-3">
+                    <button
+                      onClick={() => approveExpenseMutation.mutate({ token: token!, id: exp.id, isApproved: true })}
+                      disabled={approveExpenseMutation.isPending}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    >
+                      {approveExpenseMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => approveExpenseMutation.mutate({ token: token!, id: exp.id, isApproved: false })}
+                      disabled={approveExpenseMutation.isPending}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
