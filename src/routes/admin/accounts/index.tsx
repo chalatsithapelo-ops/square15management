@@ -43,7 +43,7 @@ function AccountsPage() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [generatingInsights, setGeneratingInsights] = useState(false);
-  const [expandedCard, setExpandedCard] = useState<'revenue' | 'expenses' | null>(null);
+  const [expandedCard, setExpandedCard] = useState<'revenue' | 'expenses' | 'receivables' | null>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<any>(null);
@@ -569,8 +569,11 @@ function AccountsPage() {
             <p className="text-xs text-slate-400 mt-2">{expandedCard === 'expenses' ? '▲ Hide breakdown' : '▼ Click for breakdown'}</p>
           </div>
 
-          {/* Receivables Card */}
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6">
+          {/* Receivables Card - Clickable */}
+          <div
+            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all border-none p-6 cursor-pointer ring-2 ring-transparent hover:ring-cyan-200"
+            onClick={() => setExpandedCard(expandedCard === 'receivables' ? null : 'receivables')}
+          >
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 rounded-xl bg-cyan-500 bg-opacity-10">
                 <Clock className="w-6 h-6 text-cyan-600" />
@@ -587,7 +590,7 @@ function AccountsPage() {
                 R {totalReceivables.toLocaleString()}
               </h3>
             )}
-            <p className="text-xs text-slate-400 mt-2">{receivableInvoices.length} invoice{receivableInvoices.length !== 1 ? 's' : ''} pending</p>
+            <p className="text-xs text-slate-400 mt-2">{expandedCard === 'receivables' ? '▲ Hide breakdown' : '▼ Click for breakdown'}</p>
           </div>
 
           {/* Net Profit/Loss */}
@@ -716,47 +719,149 @@ function AccountsPage() {
           </div>
         )}
 
-        {/* Receivables Breakdown */}
-        <div className="bg-white rounded-xl shadow-sm border border-cyan-200 p-6">
-            <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-cyan-600" />
-              Receivables Breakdown
-              <span className="ml-auto text-lg font-bold text-cyan-600">R {totalReceivables.toLocaleString()}</span>
+        {/* Receivables Breakdown Panel */}
+        {expandedCard === 'receivables' && (
+          <div className="bg-white rounded-xl shadow-lg border border-cyan-200 p-6 animate-in slide-in-from-top-2">
+            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-cyan-600" />
+              Outstanding Receivables Breakdown
             </h4>
             {totalReceivables === 0 ? (
               <p className="text-sm text-gray-400 italic">No outstanding receivables this period</p>
             ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {receivablesApproved > 0 && (
+            <>
+              {/* Status Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Approved (Not Yet Sent)</span>
-                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'APPROVED').length} invoices</p>
+                    <p className="text-xs text-gray-400">{receivableInvoices.filter(i => i.status === 'APPROVED').length} invoices</p>
                   </div>
                   <span className="text-sm font-bold text-yellow-700">R {receivablesApproved.toLocaleString()}</span>
                 </div>
-              )}
-              {receivablesSent > 0 && (
                 <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Sent (Awaiting Payment)</span>
-                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'SENT').length} invoices</p>
+                    <p className="text-xs text-gray-400">{receivableInvoices.filter(i => i.status === 'SENT').length} invoices</p>
                   </div>
                   <span className="text-sm font-bold text-blue-700">R {receivablesSent.toLocaleString()}</span>
                 </div>
-              )}
-              {receivablesOverdue > 0 && (
                 <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                   <div>
                     <span className="text-sm font-medium text-gray-700">Overdue (Collect Urgently)</span>
-                    <p className="text-xs text-gray-400">{filteredInvoices.filter(i => i.status === 'OVERDUE').length} invoices</p>
+                    <p className="text-xs text-gray-400">{receivableInvoices.filter(i => i.status === 'OVERDUE').length} invoices</p>
                   </div>
                   <span className="text-sm font-bold text-red-700">R {receivablesOverdue.toLocaleString()}</span>
                 </div>
-              )}
-            </div>
+              </div>
+
+              {/* Aging Analysis */}
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Aging Analysis</p>
+                {(() => {
+                  const now = new Date();
+                  const aging = receivableInvoices.reduce((acc, inv) => {
+                    const days = Math.floor((now.getTime() - new Date(inv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                    const bucket = days <= 30 ? 'current' : days <= 60 ? 'days30_60' : days <= 90 ? 'days60_90' : 'over90';
+                    acc[bucket].total += (inv.total || 0);
+                    acc[bucket].count += 1;
+                    return acc;
+                  }, { current: { total: 0, count: 0 }, days30_60: { total: 0, count: 0 }, days60_90: { total: 0, count: 0 }, over90: { total: 0, count: 0 } } as Record<string, { total: number; count: number }>);
+                  const buckets = [
+                    { key: 'current', label: 'Current (0-30 days)', color: 'green' },
+                    { key: 'days30_60', label: '30-60 days', color: 'yellow' },
+                    { key: 'days60_90', label: '60-90 days', color: 'orange' },
+                    { key: 'over90', label: '90+ days', color: 'red' },
+                  ];
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {buckets.map(b => (
+                        <div key={b.key} className={`p-3 rounded-lg bg-${b.color}-50 border border-${b.color}-100`}>
+                          <p className={`text-xs font-medium text-${b.color}-700`}>{b.label}</p>
+                          <p className={`text-lg font-bold text-${b.color}-800 mt-1`}>R {aging[b.key].total.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">{aging[b.key].count} invoice{aging[b.key].count !== 1 ? 's' : ''}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Per-Customer Breakdown */}
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">By Customer</p>
+                <div className="space-y-2">
+                  {(() => {
+                    const byCustomer = receivableInvoices.reduce((acc, inv) => {
+                      const name = inv.customerName || 'Unknown';
+                      if (!acc[name]) acc[name] = { total: 0, count: 0 };
+                      acc[name].total += (inv.total || 0);
+                      acc[name].count += 1;
+                      return acc;
+                    }, {} as Record<string, { total: number; count: number }>);
+                    return Object.entries(byCustomer)
+                      .sort(([, a], [, b]) => b.total - a.total)
+                      .map(([name, data]) => (
+                        <div key={name} className="flex justify-between items-center p-3 bg-cyan-50 rounded-lg">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">{name}</span>
+                            <p className="text-xs text-gray-400">{data.count} invoice{data.count !== 1 ? 's' : ''}</p>
+                          </div>
+                          <span className="text-sm font-bold text-cyan-700">R {data.total.toLocaleString()}</span>
+                        </div>
+                      ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Individual Invoice List */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Invoice Details</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">Invoice #</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">Customer</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">Status</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">Days Outstanding</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receivableInvoices
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                        .map(inv => {
+                          const daysOut = Math.floor((new Date().getTime() - new Date(inv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                          const statusColors: Record<string, string> = { APPROVED: 'bg-yellow-100 text-yellow-800', SENT: 'bg-blue-100 text-blue-800', OVERDUE: 'bg-red-100 text-red-800' };
+                          return (
+                            <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-2 px-3 font-medium text-gray-800">{inv.invoiceNumber}</td>
+                              <td className="py-2 px-3 text-gray-600">{inv.customerName || 'N/A'}</td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[inv.status] || 'bg-gray-100 text-gray-600'}`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className={`py-2 px-3 font-medium ${daysOut > 90 ? 'text-red-600' : daysOut > 60 ? 'text-orange-600' : daysOut > 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                {daysOut} days
+                              </td>
+                              <td className="py-2 px-3 text-right font-bold text-gray-800">R {(inv.total || 0).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
             )}
+            <div className="mt-4 pt-3 border-t border-cyan-100 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-900">Total Outstanding</span>
+              <span className="text-lg font-bold text-cyan-600">R {totalReceivables.toLocaleString()}</span>
+            </div>
           </div>
+        )}
 
         {/* Alert for low profit margin */}
         {parseFloat(profitMargin) < 15 && totalRevenue > 0 && (
