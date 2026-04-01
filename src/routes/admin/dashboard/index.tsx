@@ -637,22 +637,16 @@ function AdminDashboard() {
                       </div>
 
                       {/* Expense Breakdown */}
-                      <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 p-5">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                          Expense Breakdown
-                        </h3>
-                        <div className="space-y-3">
-                          <BreakdownRow label="Material Costs" value={materialCosts} total={totalExpenses} color="bg-orange-500" />
-                          <BreakdownRow label="Labour Costs" value={labourCosts} total={totalExpenses} color="bg-amber-400" />
-                          <BreakdownRow label="Artisan Payments" value={artisanPayments} total={totalExpenses} color="bg-blue-400" />
-                          <BreakdownRow label="Operational Expenses" value={operationalExpenseTotal} total={totalExpenses} color="bg-purple-400" />
-                          <div className="pt-3 border-t border-orange-200/50 flex justify-between items-center">
-                            <span className="text-sm font-semibold text-gray-700">Total Expenses</span>
-                            <span className="text-sm font-bold text-orange-600">R{totalExpenses.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <ExpenseBreakdownCard
+                        materialCosts={materialCosts}
+                        labourCosts={labourCosts}
+                        artisanPayments={artisanPayments}
+                        operationalExpenseTotal={operationalExpenseTotal}
+                        totalExpenses={totalExpenses}
+                        filteredOrders={filteredOrders}
+                        filteredPaymentRequests={filteredPaymentRequests}
+                        filteredOperationalExpenses={filteredOperationalExpenses}
+                      />
                     </div>
 
                     {/* Receivables Breakdown */}
@@ -948,6 +942,183 @@ function TrendBadge({
     <div className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
       <Icon className="h-3 w-3" />
       <span>{change.change}</span>
+    </div>
+  );
+}
+
+function ExpenseBreakdownCard({
+  materialCosts,
+  labourCosts,
+  artisanPayments,
+  operationalExpenseTotal,
+  totalExpenses,
+  filteredOrders,
+  filteredPaymentRequests,
+  filteredOperationalExpenses,
+}: {
+  materialCosts: number;
+  labourCosts: number;
+  artisanPayments: number;
+  operationalExpenseTotal: number;
+  totalExpenses: number;
+  filteredOrders: any[];
+  filteredPaymentRequests: any[];
+  filteredOperationalExpenses: any[];
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const toggle = (key: string) => setExpanded(expanded === key ? null : key);
+
+  const ordersWithCosts = filteredOrders.filter(
+    (o) => (o.materialCost ?? 0) > 0 || (o.labourCost ?? 0) > 0
+  );
+  const paidPaymentRequests = filteredPaymentRequests.filter(
+    (pr) => pr.status === "PAID"
+  );
+  const approvedOpEx = filteredOperationalExpenses.filter(
+    (e: any) => e.isApproved === true
+  );
+
+  return (
+    <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 p-5">
+      <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+        Expense Breakdown
+        <span className="ml-auto text-[10px] text-gray-400 font-normal">Click category for details</span>
+      </h3>
+      <div className="space-y-2">
+        {/* Material Costs */}
+        <div>
+          <button onClick={() => toggle("materials")} className="w-full text-left">
+            <BreakdownRow label="Material Costs" value={materialCosts} total={totalExpenses} color="bg-orange-500" />
+          </button>
+          {expanded === "materials" && (
+            <div className="mt-2 mb-3 ml-2 border-l-2 border-orange-300 pl-3 space-y-1.5 max-h-48 overflow-y-auto">
+              {ordersWithCosts.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">No material costs this period</p>
+              ) : (
+                ordersWithCosts.filter((o) => (o.materialCost ?? 0) > 0).map((o: any) => (
+                  <div key={`mat-${o.id}`} className="bg-white/70 rounded-lg px-3 py-2 text-[11px]">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-700">{o.orderNumber}</span>
+                        <span className="text-gray-400 mx-1">·</span>
+                        <span className="text-gray-500">{o.serviceType || "General"}</span>
+                      </div>
+                      <span className="font-bold text-orange-600 ml-2 whitespace-nowrap">R{(o.materialCost ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {o.assignedTo ? `${o.assignedTo.firstName} ${o.assignedTo.lastName}` : "Unassigned"}
+                      {o.customerName ? ` · ${o.customerName}` : ""}
+                      {o.address ? ` · ${o.address}` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Labour Costs */}
+        <div>
+          <button onClick={() => toggle("labour")} className="w-full text-left">
+            <BreakdownRow label="Labour Costs" value={labourCosts} total={totalExpenses} color="bg-amber-400" />
+          </button>
+          {expanded === "labour" && (
+            <div className="mt-2 mb-3 ml-2 border-l-2 border-amber-300 pl-3 space-y-1.5 max-h-48 overflow-y-auto">
+              {ordersWithCosts.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">No labour costs this period</p>
+              ) : (
+                ordersWithCosts.filter((o) => (o.labourCost ?? 0) > 0).map((o: any) => (
+                  <div key={`lab-${o.id}`} className="bg-white/70 rounded-lg px-3 py-2 text-[11px]">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-700">{o.orderNumber}</span>
+                        <span className="text-gray-400 mx-1">·</span>
+                        <span className="text-gray-500">{o.serviceType || "General"}</span>
+                      </div>
+                      <span className="font-bold text-amber-600 ml-2 whitespace-nowrap">R{(o.labourCost ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {o.assignedTo ? `${o.assignedTo.firstName} ${o.assignedTo.lastName}` : "Unassigned"}
+                      {o.customerName ? ` · ${o.customerName}` : ""}
+                      {o.address ? ` · ${o.address}` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Artisan Payments */}
+        <div>
+          <button onClick={() => toggle("artisan")} className="w-full text-left">
+            <BreakdownRow label="Artisan Payments" value={artisanPayments} total={totalExpenses} color="bg-blue-400" />
+          </button>
+          {expanded === "artisan" && (
+            <div className="mt-2 mb-3 ml-2 border-l-2 border-blue-300 pl-3 space-y-1.5 max-h-48 overflow-y-auto">
+              {paidPaymentRequests.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">No artisan payments this period</p>
+              ) : (
+                paidPaymentRequests.map((pr: any) => (
+                  <div key={`art-${pr.id}`} className="bg-white/70 rounded-lg px-3 py-2 text-[11px]">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-700">
+                          {pr.artisan ? `${pr.artisan.firstName} ${pr.artisan.lastName}` : "Unknown Artisan"}
+                        </span>
+                      </div>
+                      <span className="font-bold text-blue-600 ml-2 whitespace-nowrap">R{(pr.calculatedAmount ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {pr.orders && pr.orders.length > 0
+                        ? pr.orders.map((o: any) => `${o.orderNumber} (${o.serviceType || "General"}${o.customerName ? ` · ${o.customerName}` : ""})`).join(", ")
+                        : "No linked orders"}
+                      {pr.paidDate ? ` · Paid ${new Date(pr.paidDate).toLocaleDateString("en-ZA")}` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Operational Expenses */}
+        <div>
+          <button onClick={() => toggle("opex")} className="w-full text-left">
+            <BreakdownRow label="Operational Expenses" value={operationalExpenseTotal} total={totalExpenses} color="bg-purple-400" />
+          </button>
+          {expanded === "opex" && (
+            <div className="mt-2 mb-3 ml-2 border-l-2 border-purple-300 pl-3 space-y-1.5 max-h-48 overflow-y-auto">
+              {approvedOpEx.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">No operational expenses this period</p>
+              ) : (
+                approvedOpEx.map((e: any) => (
+                  <div key={`opex-${e.id}`} className="bg-white/70 rounded-lg px-3 py-2 text-[11px]">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-700">{e.description || "No description"}</span>
+                        {e.category && <span className="ml-1.5 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">{e.category}</span>}
+                      </div>
+                      <span className="font-bold text-purple-600 ml-2 whitespace-nowrap">R{(e.amount ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {e.createdBy ? `${e.createdBy.firstName} ${e.createdBy.lastName}` : ""}
+                      {e.date ? ` · ${new Date(e.date).toLocaleDateString("en-ZA")}` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="pt-3 border-t border-orange-200/50 flex justify-between items-center">
+          <span className="text-sm font-semibold text-gray-700">Total Expenses</span>
+          <span className="text-sm font-bold text-orange-600">R{totalExpenses.toLocaleString()}</span>
+        </div>
+      </div>
     </div>
   );
 }
