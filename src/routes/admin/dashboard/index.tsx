@@ -97,8 +97,13 @@ function AdminDashboard() {
       case "current_month":
         return new Date(now.getFullYear(), now.getMonth(), 1);
       case "current_quarter": {
-        const qMonth = Math.floor(now.getMonth() / 3) * 3;
-        return new Date(now.getFullYear(), qMonth, 1);
+        // Align quarters with SA financial year (starts March 1)
+        // Q1: Mar-May, Q2: Jun-Aug, Q3: Sep-Nov, Q4: Dec-Feb
+        const fyMonth = (now.getMonth() - 2 + 12) % 12; // 0=Mar, 1=Apr, ..., 11=Feb
+        const qStartFyMonth = Math.floor(fyMonth / 3) * 3; // 0, 3, 6, 9
+        const qStartMonth = (qStartFyMonth + 2) % 12; // Convert back: 2=Mar, 5=Jun, 8=Sep, 11=Dec
+        const qStartYear = qStartMonth > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
+        return new Date(qStartYear, qStartMonth, 1);
       }
       case "financial_year":
         // South Africa financial year starts 1 March
@@ -116,8 +121,11 @@ function AdminDashboard() {
       case "current_month":
         return now.toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
       case "current_quarter": {
-        const q = Math.floor(now.getMonth() / 3) + 1;
-        return `Q${q} ${now.getFullYear()}`;
+        // SA FY quarters: Q1=Mar-May, Q2=Jun-Aug, Q3=Sep-Nov, Q4=Dec-Feb
+        const fyMonthLabel = (now.getMonth() - 2 + 12) % 12;
+        const q = Math.floor(fyMonthLabel / 3) + 1;
+        const fyStartYear = now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1;
+        return `Q${q} FY ${fyStartYear}/${fyStartYear + 1}`;
       }
       case "financial_year": {
         const fyStart = now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1;
