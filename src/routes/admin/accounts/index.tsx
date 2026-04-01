@@ -172,9 +172,18 @@ function AccountsPage() {
         });
         break;
       case "current_quarter":
+        // SA FY quarters: Q1=Mar-May, Q2=Jun-Aug, Q3=Sep-Nov, Q4=Dec-Feb
+        const fyMonth = (now.getMonth() - 2 + 12) % 12; // 0=Mar, 1=Apr, ..., 11=Feb
+        const qStartFyMonth = Math.floor(fyMonth / 3) * 3; // 0, 3, 6, 9
+        const qStartCalMonth = (qStartFyMonth + 2) % 12; // 2=Mar, 5=Jun, 8=Sep, 11=Dec
+        const qStartYear = qStartCalMonth > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
+        const qEndCalMonth = (qStartCalMonth + 2) % 12; // last month of quarter
+        const qEndYear = qEndCalMonth < qStartCalMonth ? qStartYear + 1 : qStartYear;
+        const qStart = new Date(qStartYear, qStartCalMonth, 1);
+        const qEnd = endOfMonth(new Date(qEndYear, qEndCalMonth, 1));
         setDateRange({
-          start: startOfQuarter(now).toISOString().split('T')[0],
-          end: endOfQuarter(now).toISOString().split('T')[0]
+          start: qStart.toISOString().split('T')[0],
+          end: qEnd.toISOString().split('T')[0]
         });
         break;
       case "ytd":
@@ -329,8 +338,11 @@ function AccountsPage() {
       month = periodDate.getMonth() + 1;
     } else if (selectedPeriod === "current_quarter") {
       reportType = "QUARTERLY_PL";
-      year = now.getFullYear();
-      quarter = Math.ceil((now.getMonth() + 1) / 3);
+      // SA FY quarter: Q1=Mar-May, Q2=Jun-Aug, Q3=Sep-Nov, Q4=Dec-Feb
+      const fyMonthForReport = (now.getMonth() - 2 + 12) % 12;
+      quarter = Math.floor(fyMonthForReport / 3) + 1;
+      const fyStartYear = now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1;
+      year = fyStartYear;
       month = undefined;
     } else if (selectedPeriod === "ytd") {
       reportType = "ANNUAL_PL";
