@@ -270,12 +270,22 @@ function AdminDashboard() {
     [quotations, periodStart]
   );
   const filteredInvoices = useMemo(
-    () => invoices.filter((i) => isInPeriod(i.createdAt)),
+    () => invoices.filter((i) => {
+      // For PAID invoices, use paidDate (revenue recognition date)
+      // For unpaid invoices (receivables), use createdAt
+      const relevantDate = i.status === "PAID" && i.paidDate ? i.paidDate : i.createdAt;
+      return isInPeriod(relevantDate);
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [invoices, periodStart]
   );
   const filteredPaymentRequests = useMemo(
-    () => paymentRequests.filter((pr) => isInPeriod(pr.createdAt)),
+    () => paymentRequests.filter((pr) => {
+      // For PAID payment requests, use paidDate (expense recognition date)
+      // For unpaid requests, use createdAt
+      const relevantDate = pr.status === "PAID" && pr.paidDate ? pr.paidDate : pr.createdAt;
+      return isInPeriod(relevantDate);
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [paymentRequests, periodStart]
   );
