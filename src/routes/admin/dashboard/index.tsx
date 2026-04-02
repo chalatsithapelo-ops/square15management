@@ -144,9 +144,9 @@ function AdminDashboard() {
   // ── Query defaults ────────────────────────────────────────────────────
   const dashboardQueryDefaults = {
     enabled: !!token,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     refetchInterval: false as const,
-    staleTime: 30000,
+    staleTime: 5000,
     retry: 1,
   };
 

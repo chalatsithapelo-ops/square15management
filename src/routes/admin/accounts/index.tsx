@@ -196,7 +196,8 @@ function AccountsPage() {
   }, [selectedPeriod]);
 
   const filteredInvoices = invoices.filter(inv => {
-    const invDate = new Date(inv.createdAt);
+    // For PAID invoices, use paidDate (revenue recognition date)
+    const invDate = new Date(inv.status === 'PAID' && inv.paidDate ? inv.paidDate : inv.createdAt);
     return invDate >= new Date(dateRange.start) && invDate <= new Date(dateRange.end);
   });
 
@@ -206,7 +207,8 @@ function AccountsPage() {
   });
 
   const filteredPaymentRequests = paymentRequests.filter(pr => {
-    const prDate = new Date(pr.createdAt);
+    // For PAID payment requests, use paidDate (expense recognition date)
+    const prDate = new Date(pr.status === 'PAID' && pr.paidDate ? pr.paidDate : pr.createdAt);
     return prDate >= new Date(dateRange.start) && prDate <= new Date(dateRange.end);
   });
 
