@@ -27,8 +27,8 @@ export const getClients = baseProcedure
         : {})
       : { createdById: userId };
 
-    // Demo data isolation
-    await applyDemoIsolation(where, user, db);
+    // Demo data isolation — createdById is required (NOT NULL)
+    await applyDemoIsolation(where, user, db, 'createdById', true);
 
     return db.client.findMany({
       where,

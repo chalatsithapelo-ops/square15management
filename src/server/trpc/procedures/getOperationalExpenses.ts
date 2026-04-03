@@ -43,8 +43,8 @@ export const getOperationalExpenses = baseProcedure
     }
     // Admins (SENIOR_ADMIN, JUNIOR_ADMIN, TECHNICAL_MANAGER, etc.) see all expenses
 
-    // Demo data isolation
-    await applyDemoIsolation(where, user, db);
+    // Demo data isolation — createdById is required (NOT NULL), so pass fieldRequired=true
+    await applyDemoIsolation(where, user, db, 'createdById', true);
 
     const expenses = await db.operationalExpense.findMany({
       where,

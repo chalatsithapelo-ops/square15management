@@ -37,7 +37,8 @@ export const createOperationalExpense = baseProcedure
     const user = await authenticateUser(input.token);
 
     // Auto-approve if created by a user with approval authority
-    const canSelfApprove = user.role === "SENIOR_ADMIN" || user.role.includes("CONTRACTOR");
+    const adminRoles = ["SENIOR_ADMIN", "JUNIOR_ADMIN", "TECHNICAL_MANAGER"];
+    const canSelfApprove = adminRoles.includes(user.role) || user.role.includes("CONTRACTOR");
 
     // Create the operational expense
     const expense = await db.operationalExpense.create({
