@@ -366,6 +366,24 @@ import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTa
 import { restoreData } from "~/server/trpc/procedures/restoreData";
 import { getClients, createClient, updateClient, deleteClient } from "~/server/trpc/procedures/clients";
 
+// Bank Feed
+import {
+  getBankAccounts,
+  createBankAccount,
+  updateBankAccount,
+  deleteBankAccount,
+} from "~/server/trpc/procedures/bankAccounts";
+import {
+  getBankTransactions,
+  importCSVStatement,
+  recategorizeBankTransaction,
+  confirmBankTransaction,
+  reconcileBankAccountProcedure,
+  getBankFeedStats,
+  getImportBatches,
+  updateTransactionReconciliation,
+} from "~/server/trpc/procedures/bankTransactions";
+
 export const appRouter = createTRPCRouter({
   // Auth
   login,
@@ -805,6 +823,20 @@ export const appRouter = createTRPCRouter({
 
   // Data Restoration
   restoreData,
+
+  // Bank Feed
+  getBankAccounts,
+  createBankAccount,
+  updateBankAccount,
+  deleteBankAccount,
+  getBankTransactions,
+  importCSVStatement,
+  recategorizeBankTransaction,
+  confirmBankTransaction,
+  reconcileBankAccountProcedure,
+  getBankFeedStats,
+  getImportBatches,
+  updateTransactionReconciliation,
 });
 
 export type AppRouter = typeof appRouter;

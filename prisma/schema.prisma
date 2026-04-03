@@ -504,6 +504,12 @@ model User {
   // CRM Clients
   clientsCreated         Client[]         @relation("ClientCreator")
 
+  // Bank Feed Automation
+  bankAccounts           BankAccount[]    @relation("BankAccountCreator")
+  bankImportBatches      BankImportBatch[] @relation("BankImportBatchCreator")
+  categorizationsConfirmed TransactionCategorization[] @relation("CategorizationConfirmer")
+  categorizationRules    CategorizationRule[] @relation("CategorizationRuleCreator")
+
   @@index([employerId])
 }
 
@@ -3377,4 +3383,210 @@ model SARSTaxConfig {
   vatSubmissionFrequency String @default("BI_MONTHLY") // MONTHLY or BI_MONTHLY
 
   createdById Int?
+}
+
+// ─── Bank Feed Automation ────────────────────────────────────────────────────
+
+enum BankAccountType {
+  CHEQUE
+  SAVINGS
+  CREDIT_CARD
+  BUSINESS
+  PETROL_CARD
+}
+
+enum BankName {
+  FNB
+  ABSA
+  STANDARD_BANK
+  NEDBANK
+  CAPITEC
+  INVESTEC
+  TYMEBANK
+  DISCOVERY
+  OTHER
+}
+
+enum TransactionType {
+  DEBIT
+  CREDIT
+}
+
+enum CategorizationSource {
+  RULE
+  AI
+  MANUAL
+}
+
+enum ReconciliationStatus {
+  UNMATCHED
+  MATCHED
+  PARTIALLY_MATCHED
+  DISPUTED
+  IGNORED
+}
+
+model BankAccount {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accountName   String       // User-friendly name e.g. "FNB Business Cheque"
+  bankName      BankName
+  accountNumber String       // Last 4 digits only for display
+  branchCode    String?
+  accountType   BankAccountType @default(CHEQUE)
+  currency      String       @default("ZAR")
+  isActive      Boolean      @default(true)
+
+  // Email feed config
+  notificationEmail     String?  // Email address notifications come from (e.g. noreply@fnb.co.za)
+  notificationSubject   String?  // Subject line filter pattern
+  feedEnabled           Boolean  @default(false)
+  lastFeedCheck         DateTime?
+  lastFeedTransactionAt DateTime?
+
+  // Owner
+  createdById Int
+  createdBy   User @relation("BankAccountCreator", fields: [createdById], references: [id])
+
+  // Relations
+  transactions BankTransaction[]
+  importBatches BankImportBatch[]
+
+  @@unique([bankName, accountNumber])
+  @@index([createdById])
+  @@index([isActive])
+}
+
+model BankTransaction {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  bankAccountId   Int
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  transactionDate DateTime
+  description     String        // Original bank description
+  amount          Float         // Always positive
+  transactionType TransactionType // DEBIT or CREDIT
+  balance         Float?        // Running balance after transaction
+  reference       String?       // Bank reference number
+  rawDescription  String?       // Unprocessed original text
+
+  // Deduplication
+  transactionHash String @unique // SHA256(date + amount + description + balance)
+
+  // Import tracking
+  importBatchId Int?
+  importBatch   BankImportBatch? @relation(fields: [importBatchId], references: [id])
+  source        String @default("EMAIL") // EMAIL, CSV, API
+
+  // Categorization
+  categorization TransactionCategorization?
+
+  // Reconciliation
+  reconciliationStatus ReconciliationStatus @default(UNMATCHED)
+  reconciledAt         DateTime?
+
+  // Linked entities (after reconciliation)
+  linkedInvoiceId           Int?
+  linkedOperationalExpenseId Int?
+  linkedPaymentRequestId    Int?
+  linkedAlternativeRevenueId Int?
+
+  @@index([bankAccountId])
+  @@index([transactionDate])
+  @@index([reconciliationStatus])
+  @@index([importBatchId])
+}
+
+model BankImportBatch {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  bankAccountId    Int
+  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  fileName         String?    // Original file name for CSV imports
+  source           String     // EMAIL, CSV, API
+  importedById     Int
+  importedBy       User       @relation("BankImportBatchCreator", fields: [importedById], references: [id])
+
+  transactionCount Int        @default(0)
+  newCount         Int        @default(0) // Transactions that were new (not duplicates)
+  duplicateCount   Int        @default(0)
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  status           String     @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+  errorMessage     String?
+
+  transactions BankTransaction[]
+
+  @@index([bankAccountId])
+  @@index([importedById])
+}
+
+model TransactionCategorization {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bankTransactionId Int             @unique
+  bankTransaction   BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+
+  // Categorization
+  category          String          // Maps to ExpenseCategory or "REVENUE_*"
+  subcategory       String?
+  confidence        Float           @default(0) // 0-100
+  suggestedBy       CategorizationSource @default(AI)
+
+  // Linked entity (what this transaction maps to in the system)
+  linkedEntityType  String?         // INVOICE, OPERATIONAL_EXPENSE, PAYMENT_REQUEST, ALTERNATIVE_REVENUE, SALARY
+  linkedEntityId    Int?
+
+  // Review
+  isConfirmed       Boolean         @default(false)
+  confirmedById     Int?
+  confirmedBy       User?           @relation("CategorizationConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt       DateTime?
+  notes             String?
+
+  // AI reasoning
+  aiReasoning       String?         // Why the AI picked this category
+
+  @@index([category])
+  @@index([isConfirmed])
+  @@index([suggestedBy])
+}
+
+model CategorizationRule {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Matching pattern
+  pattern       String          // Regex or keyword to match against description
+  vendor        String?         // Exact vendor name match
+  amountMin     Float?          // Optional amount range filter
+  amountMax     Float?
+  transactionType TransactionType? // Only match DEBIT or CREDIT
+
+  // Result
+  category      String          // Target category
+  subcategory   String?
+  linkedEntityType String?      // What type of entity to create/link
+
+  // Rule metadata
+  priority      Int             @default(0) // Higher = checked first
+  isActive      Boolean         @default(true)
+  isSystemRule  Boolean         @default(false) // System-generated vs user-created
+  matchCount    Int             @default(0) // How many times this rule has matched
+  lastMatchedAt DateTime?
+
+  createdById   Int
+  createdBy     User            @relation("CategorizationRuleCreator", fields: [createdById], references: [id])
+
+  @@index([isActive, priority])
+  @@index([createdById])
 }

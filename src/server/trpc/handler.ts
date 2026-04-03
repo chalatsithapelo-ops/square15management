@@ -3,8 +3,41 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { startEmailPoller } from "../services/bankFeed/emailPoller";
+
+// ── Email Poller Bootstrap (lazy init on first request) ──────────────
+let emailPollerStarted = false;
+function bootstrapEmailPoller() {
+  if (emailPollerStarted) return;
+  emailPollerStarted = true;
+
+  const imapUser = process.env.SMTP_USER;
+  const imapPass = process.env.SMTP_PASS;
+
+  if (!imapUser || !imapPass) {
+    console.log("[Bank Feed] SMTP_USER/SMTP_PASS not configured — email poller disabled");
+    return;
+  }
+
+  try {
+    startEmailPoller({
+      host: "imap.gmail.com",
+      port: 993,
+      tls: true,
+      user: imapUser,
+      password: imapPass,
+      pollingIntervalMs: 5 * 60 * 1000, // 5 minutes
+    });
+    console.log("[Bank Feed] Email poller started (5 min interval)");
+  } catch (err) {
+    console.error("[Bank Feed] Failed to start email poller:", err);
+    emailPollerStarted = false; // allow retry
+  }
+}
 
 const handler = eventHandler(async (event) => {
+  // Start email poller on first request (lazy init)
+  bootstrapEmailPoller();
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (

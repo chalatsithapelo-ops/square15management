@@ -114,6 +114,12 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
 
+  // IMAP Configuration (for bank feed email polling - reuse SMTP credentials for Gmail)
+  IMAP_HOST: z.string().optional().default("imap.gmail.com"),
+  IMAP_PORT: z.string().optional().default("993").transform((val: string) => parseInt(val, 10)),
+  IMAP_USER: z.string().optional(),
+  IMAP_PASSWORD: z.string().optional(),
+
   // PayFast (optional - required only if using PayFast checkout)
   PAYFAST_MERCHANT_ID: optionalTrimmedString,
   PAYFAST_MERCHANT_KEY: optionalTrimmedString,
