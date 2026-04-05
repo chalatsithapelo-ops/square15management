@@ -729,12 +729,12 @@ function ArtisanDashboard() {
       setExpenseSlips([]);
     }
 
-    setPaymentType("hourly");
-    setHoursWorked("");
-    setDaysWorked("");
-    setHourlyRateInput(currentUser?.hourlyRate?.toString() || "");
-    setDailyRateInput(currentUser?.dailyRate?.toString() || "");
-    setPaymentNotes("");
+    setPaymentType(order?.draftPaymentType === "daily" ? "daily" : "hourly");
+    setHoursWorked(order?.draftHoursWorked ? order.draftHoursWorked.toString() : "");
+    setDaysWorked(order?.draftDaysWorked ? order.draftDaysWorked.toString() : "");
+    setHourlyRateInput(order?.draftHourlyRate ? order.draftHourlyRate.toString() : (currentUser?.hourlyRate?.toString() || ""));
+    setDailyRateInput(order?.draftDailyRate ? order.draftDailyRate.toString() : (currentUser?.dailyRate?.toString() || ""));
+    setPaymentNotes(order?.draftPaymentNotes || "");
   };
 
   const handleSaveJobDraft = async () => {
@@ -780,6 +780,9 @@ function ArtisanDashboard() {
             : undefined,
         paymentType: paymentType || undefined,
         paymentNotes: paymentNotes || undefined,
+        signedJobCardUrl: signedJobCardUrl || undefined,
+        clientRepName: clientRepName || undefined,
+        clientRepSignDate: clientRepSignDate || undefined,
       });
 
       // Close the modal after saving

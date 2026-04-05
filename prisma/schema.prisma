@@ -605,6 +605,14 @@ model Order {
   clientRepSignDate  DateTime?
   documents          String[]  @default([])
 
+  // Draft payment fields (persisted so artisan can resume later)
+  draftPaymentType  String?   // "hourly" or "daily"
+  draftHoursWorked  Float?
+  draftDaysWorked   Float?
+  draftHourlyRate   Float?
+  draftDailyRate    Float?
+  draftPaymentNotes String?
+
   // Relations
   materials     Material[]
   jobActivities JobActivity[]
@@ -1790,6 +1798,14 @@ model PropertyManagerOrder {
   signedJobCardUrl  String?
   clientRepName     String?
   clientRepSignDate DateTime?
+
+  // Draft payment fields (persisted so artisan can resume later)
+  draftPaymentType  String?
+  draftHoursWorked  Float?
+  draftDaysWorked   Float?
+  draftHourlyRate   Float?
+  draftDailyRate    Float?
+  draftPaymentNotes String?
 
   // Rating fields (added for work rating functionality)
   qualityRating         Float?

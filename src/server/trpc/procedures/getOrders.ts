@@ -120,7 +120,15 @@ export const getOrders = baseProcedure
           afterPictures: true,
           contractorSlipUrls: true,
           signedJobCardUrl: true,
+          clientRepName: true,
+          clientRepSignDate: true,
           documents: true,
+          draftPaymentType: user.role === "ARTISAN",
+          draftHoursWorked: user.role === "ARTISAN",
+          draftDaysWorked: user.role === "ARTISAN",
+          draftHourlyRate: user.role === "ARTISAN",
+          draftDailyRate: user.role === "ARTISAN",
+          draftPaymentNotes: user.role === "ARTISAN",
           assignedTo: {
             select: {
               id: true,

@@ -35,6 +35,9 @@ export const saveJobDraft = baseProcedure
       dailyRate: z.number().optional(),
       paymentType: z.enum(["hourly", "daily"]).optional(),
       paymentNotes: z.string().optional(),
+      signedJobCardUrl: z.string().optional(),
+      clientRepName: z.string().optional(),
+      clientRepSignDate: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -49,6 +52,37 @@ export const saveJobDraft = baseProcedure
 
     if (input.materialCost !== undefined) {
       updateData.materialCost = input.materialCost;
+    }
+
+    // Persist signature and client rep data
+    if (input.signedJobCardUrl !== undefined) {
+      updateData.signedJobCardUrl = input.signedJobCardUrl;
+    }
+    if (input.clientRepName !== undefined) {
+      updateData.clientRepName = input.clientRepName;
+    }
+    if (input.clientRepSignDate) {
+      updateData.clientRepSignDate = new Date(input.clientRepSignDate);
+    }
+
+    // Persist draft payment fields
+    if (input.paymentType !== undefined) {
+      updateData.draftPaymentType = input.paymentType;
+    }
+    if (input.hoursWorked !== undefined) {
+      updateData.draftHoursWorked = input.hoursWorked;
+    }
+    if (input.daysWorked !== undefined) {
+      updateData.draftDaysWorked = input.daysWorked;
+    }
+    if (input.hourlyRate !== undefined) {
+      updateData.draftHourlyRate = input.hourlyRate;
+    }
+    if (input.dailyRate !== undefined) {
+      updateData.draftDailyRate = input.dailyRate;
+    }
+    if (input.paymentNotes !== undefined) {
+      updateData.draftPaymentNotes = input.paymentNotes;
     }
 
     if (input.isPMOrder) {
