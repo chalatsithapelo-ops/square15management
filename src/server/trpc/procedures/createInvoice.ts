@@ -72,16 +72,18 @@ export const createInvoice = baseProcedure
         
         invoiceNumber = input.invoiceNumber;
       } else {
-        // Auto-generate unique invoice number by scanning the true max suffix
+        // Auto-generate unique invoice number by scanning the current prefix only
         const companyDetails = await getCompanyDetails();
+        const prefix = companyDetails.invoicePrefix;
         const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
         const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
         let maxNum = 0;
+        const prefixPattern = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
         for (const inv of [...allInvoices, ...allPMInvoices]) {
-          const match = inv.invoiceNumber.match(/(\d+)$/);
+          const match = inv.invoiceNumber.match(prefixPattern);
           if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
         }
-        invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+        invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
 
         // Retry loop in case of race condition
         for (let attempt = 0; attempt < 10; attempt++) {
@@ -89,7 +91,7 @@ export const createInvoice = baseProcedure
           const existsPM = await db.propertyManagerInvoice.findUnique({ where: { invoiceNumber } });
           if (!exists && !existsPM) break;
           maxNum++;
-          invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+          invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
         }
       }
 

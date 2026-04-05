@@ -68,26 +68,28 @@ export const createOrder = baseProcedure
       }
       orderNumber = input.orderNumber;
     } else {
-      // Auto-generate: scan ALL order numbers to find the true maximum suffix
+      // Auto-generate: scan order numbers matching the current prefix to find max suffix
+      const prefix = companyDetails.orderPrefix;
       const allOrders = await db.order.findMany({
         select: { orderNumber: true },
       });
       let maxNum = 0;
+      const prefixPattern = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
       for (const o of allOrders) {
-        const match = o.orderNumber.match(/(\d+)$/);
+        const match = o.orderNumber.match(prefixPattern);
         if (match) {
           const num = parseInt(match[1], 10);
           if (num > maxNum) maxNum = num;
         }
       }
-      orderNumber = `${companyDetails.orderPrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+      orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
 
       // Retry loop: if this number somehow exists (race condition), keep incrementing
       for (let attempt = 0; attempt < 10; attempt++) {
         const exists = await db.order.findUnique({ where: { orderNumber } });
         if (!exists) break;
         maxNum++;
-        orderNumber = `${companyDetails.orderPrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+        orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
       }
     }
 
