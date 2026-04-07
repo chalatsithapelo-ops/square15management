@@ -37,8 +37,8 @@ function AccountsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
   const [activeTab, setActiveTab] = useState("overview");
   const [dateRange, setDateRange] = useState({
-    start: startOfMonth(new Date()).toISOString().split('T')[0],
-    end: endOfMonth(new Date()).toISOString().split('T')[0]
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   });
   const [generatingReport, setGeneratingReport] = useState(false);
   const [aiInsights, setAiInsights] = useState<any>(null);
@@ -160,15 +160,15 @@ function AccountsPage() {
     switch (selectedPeriod) {
       case "current_month":
         setDateRange({
-          start: startOfMonth(now).toISOString().split('T')[0],
-          end: endOfMonth(now).toISOString().split('T')[0]
+          start: format(startOfMonth(now), 'yyyy-MM-dd'),
+          end: format(endOfMonth(now), 'yyyy-MM-dd')
         });
         break;
       case "last_month":
         const lastMonth = subMonths(now, 1);
         setDateRange({
-          start: startOfMonth(lastMonth).toISOString().split('T')[0],
-          end: endOfMonth(lastMonth).toISOString().split('T')[0]
+          start: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
+          end: format(endOfMonth(lastMonth), 'yyyy-MM-dd')
         });
         break;
       case "current_quarter":
@@ -182,51 +182,55 @@ function AccountsPage() {
         const qStart = new Date(qStartYear, qStartCalMonth, 1);
         const qEnd = endOfMonth(new Date(qEndYear, qEndCalMonth, 1));
         setDateRange({
-          start: qStart.toISOString().split('T')[0],
-          end: qEnd.toISOString().split('T')[0]
+          start: format(qStart, 'yyyy-MM-dd'),
+          end: format(qEnd, 'yyyy-MM-dd')
         });
         break;
       case "ytd":
         setDateRange({
           start: `${now.getFullYear()}-01-01`,
-          end: now.toISOString().split('T')[0]
+          end: format(now, 'yyyy-MM-dd')
         });
         break;
     }
   }, [selectedPeriod]);
 
+  // Parse date range strings as local time (date-only strings "YYYY-MM-DD" are parsed as UTC by new Date())
+  const rangeStart = new Date(dateRange.start + 'T00:00:00');
+  const rangeEnd = new Date(dateRange.end + 'T23:59:59.999');
+
   const filteredInvoices = invoices.filter(inv => {
     // For PAID invoices, use paidDate (revenue recognition date)
     const invDate = new Date(inv.status === 'PAID' && inv.paidDate ? inv.paidDate : inv.createdAt);
-    return invDate >= new Date(dateRange.start) && invDate <= new Date(dateRange.end);
+    return invDate >= rangeStart && invDate <= rangeEnd;
   });
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);
-    return orderDate >= new Date(dateRange.start) && orderDate <= new Date(dateRange.end);
+    return orderDate >= rangeStart && orderDate <= rangeEnd;
   });
 
   const filteredPaymentRequests = paymentRequests.filter(pr => {
     // For PAID payment requests, use paidDate (expense recognition date)
     const prDate = new Date(pr.status === 'PAID' && pr.paidDate ? pr.paidDate : pr.createdAt);
-    return prDate >= new Date(dateRange.start) && prDate <= new Date(dateRange.end);
+    return prDate >= rangeStart && prDate <= rangeEnd;
   });
 
   const filteredQuotations = quotations.filter(q => {
     const qDate = new Date(q.createdAt);
-    return qDate >= new Date(dateRange.start) && qDate <= new Date(dateRange.end);
+    return qDate >= rangeStart && qDate <= rangeEnd;
   });
 
   // Filter operational expenses by date range
-  const filteredOperationalExpenses = operationalExpenses.filter(exp => {
-    const expDate = new Date(exp.date);
-    return expDate >= new Date(dateRange.start) && expDate <= new Date(dateRange.end);
+  const filteredOperationalExpenses = operationalExpenses.filter((exp: any) => {
+    const expDate = new Date(exp.date || exp.createdAt);
+    return expDate >= rangeStart && expDate <= rangeEnd;
   });
 
   // Filter alternative revenues by date range
-  const filteredAlternativeRevenues = alternativeRevenues.filter(rev => {
-    const revDate = new Date(rev.date);
-    return revDate >= new Date(dateRange.start) && revDate <= new Date(dateRange.end);
+  const filteredAlternativeRevenues = alternativeRevenues.filter((rev: any) => {
+    const revDate = new Date(rev.date || rev.createdAt);
+    return revDate >= rangeStart && revDate <= rangeEnd;
   });
 
   // Calculate alternative revenue total
