@@ -79,6 +79,15 @@ export const getArtisanExpenseTracker = baseProcedure
               endTime: true,
             },
           },
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              total: true,
+              paidDate: true,
+            },
+          },
         },
       });
 
@@ -240,22 +249,44 @@ export const getArtisanExpenseTracker = baseProcedure
           expenseSlipsByCategory,
           flags,
           // Detail arrays for drill-down
-          orders: artisanOrders.map((o) => ({
-            id: o.id,
-            orderNumber: o.orderNumber,
-            customerName: o.customerName,
-            serviceType: o.serviceType,
-            status: o.status,
-            createdAt: o.createdAt,
-            materialCost: o.materialCost,
-            labourCost: o.labourCost,
-            totalCost: o.totalCost,
-            expenseSlipCount: o.expenseSlips.length,
-            expenseSlipTotal: o.expenseSlips.reduce(
-              (sum, es) => sum + (es.amount || 0),
-              0
-            ),
-          })),
+          orders: artisanOrders.map((o) => {
+            // Find payment requests linked to this order
+            const orderPayments = artisanPayments.filter(
+              (pr) => pr.orderIds.includes(o.id)
+            );
+            const latestPayment = orderPayments.length > 0
+              ? orderPayments.sort(
+                  (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                )[0]
+              : null;
+
+            return {
+              id: o.id,
+              orderNumber: o.orderNumber,
+              customerName: o.customerName,
+              serviceType: o.serviceType,
+              status: o.status,
+              createdAt: o.createdAt,
+              materialCost: o.materialCost,
+              labourCost: o.labourCost,
+              totalCost: o.totalCost,
+              expenseSlipCount: o.expenseSlips.length,
+              expenseSlipTotal: o.expenseSlips.reduce(
+                (sum, es) => sum + (es.amount || 0),
+                0
+              ),
+              // Invoice lifecycle
+              invoiceStatus: o.invoice?.status || null,
+              invoiceNumber: o.invoice?.invoiceNumber || null,
+              invoiceTotal: o.invoice?.total || null,
+              invoicePaidDate: o.invoice?.paidDate || null,
+              // Payment request lifecycle
+              paymentStatus: latestPayment?.status || null,
+              paymentRequestNumber: latestPayment?.requestNumber || null,
+              paymentAmount: latestPayment?.calculatedAmount || null,
+              paymentCount: orderPayments.length,
+            };
+          }),
           paymentRequests: artisanPayments.map((pr) => ({
             id: pr.id,
             requestNumber: pr.requestNumber,

@@ -162,8 +162,9 @@ function ArtisanExpensesPage() {
 
   // CSV Export
   const handleExport = () => {
-    const headers = ["Artisan", "Email", "Total Orders", "Material Costs", "Labour Costs", "Expense Slips", "Paid Payments", "Pending Payments", "Total Cost to Company", "Avg Cost/Job", "Flags"];
-    const rows = filteredArtisans.map((a) => [
+    // Summary sheet
+    const summaryHeaders = ["Artisan", "Email", "Total Orders", "Material Costs", "Labour Costs", "Expense Slips", "Paid Payments", "Pending Payments", "Total Cost to Company", "Avg Cost/Job", "Flags"];
+    const summaryRows = filteredArtisans.map((a) => [
       `${a.artisan.firstName} ${a.artisan.lastName}`,
       a.artisan.email,
       a.summary.totalOrders,
@@ -176,7 +177,38 @@ function ArtisanExpensesPage() {
       a.summary.avgCostPerJob.toFixed(2),
       a.flags.join("; "),
     ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+
+    // Detail sheet - all orders with lifecycle
+    const detailHeaders = ["Artisan", "Order #", "Customer", "Service", "Date", "Job Status", "Invoice Status", "Invoice #", "Payment Status", "Payment Amount", "Materials", "Labour", "Expense Slips", "Total"];
+    const detailRows = filteredArtisans.flatMap((a) =>
+      a.orders.map((o: any) => [
+        `${a.artisan.firstName} ${a.artisan.lastName}`,
+        o.orderNumber,
+        o.customerName,
+        o.serviceType,
+        new Date(o.createdAt).toLocaleDateString("en-ZA"),
+        o.status,
+        o.invoiceStatus || "Not Invoiced",
+        o.invoiceNumber || "",
+        o.paymentStatus || "No Request",
+        o.paymentAmount != null ? o.paymentAmount.toFixed(2) : "",
+        (o.materialCost || 0).toFixed(2),
+        (o.labourCost || 0).toFixed(2),
+        (o.expenseSlipTotal || 0).toFixed(2),
+        ((o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0)).toFixed(2),
+      ])
+    );
+
+    const csvLines = [
+      "=== ARTISAN SUMMARY ===",
+      summaryHeaders.map((h) => `"${h}"`).join(","),
+      ...summaryRows.map((r) => r.map((c) => `"${c}"`).join(",")),
+      "",
+      "=== ORDER DETAIL (End-to-End) ===",
+      detailHeaders.map((h) => `"${h}"`).join(","),
+      ...detailRows.map((r) => r.map((c) => `"${c}"`).join(",")),
+    ];
+    const csv = csvLines.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -479,7 +511,7 @@ function OrdersTable({ orders, R }: { orders: any[]; R: (v: number) => string })
   if (orders.length === 0)
     return <p className="text-sm text-gray-500 text-center py-6">No orders for this period.</p>;
 
-  const statusColor: Record<string, string> = {
+  const orderStatusColor: Record<string, string> = {
     COMPLETED: "bg-green-100 text-green-700",
     IN_PROGRESS: "bg-blue-100 text-blue-700",
     ASSIGNED: "bg-yellow-100 text-yellow-700",
@@ -487,45 +519,106 @@ function OrdersTable({ orders, R }: { orders: any[]; R: (v: number) => string })
     CANCELLED: "bg-red-100 text-red-700",
   };
 
+  const invoiceStatusColor: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-600",
+    PENDING_REVIEW: "bg-orange-100 text-orange-700",
+    PENDING_APPROVAL: "bg-amber-100 text-amber-700",
+    APPROVED: "bg-blue-100 text-blue-700",
+    SENT: "bg-indigo-100 text-indigo-700",
+    PAID: "bg-green-100 text-green-700",
+    OVERDUE: "bg-red-100 text-red-700",
+    CANCELLED: "bg-red-100 text-red-600",
+    REJECTED: "bg-red-100 text-red-700",
+  };
+
+  const paymentStatusColor: Record<string, string> = {
+    PENDING: "bg-yellow-100 text-yellow-700",
+    APPROVED: "bg-blue-100 text-blue-700",
+    PAID: "bg-green-100 text-green-700",
+    REJECTED: "bg-red-100 text-red-700",
+  };
+
+  const invoiceLabel: Record<string, string> = {
+    DRAFT: "Draft",
+    PENDING_REVIEW: "Pending Review",
+    PENDING_APPROVAL: "Pending Approval",
+    APPROVED: "Approved",
+    SENT: "Sent to Client",
+    PAID: "Paid",
+    OVERDUE: "Overdue",
+    CANCELLED: "Cancelled",
+    REJECTED: "Rejected",
+  };
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b">
-            <th className="pb-2 pr-4">Order #</th>
-            <th className="pb-2 pr-4">Customer</th>
-            <th className="pb-2 pr-4">Service</th>
-            <th className="pb-2 pr-4">Status</th>
-            <th className="pb-2 pr-4 text-right">Materials</th>
-            <th className="pb-2 pr-4 text-right">Labour</th>
-            <th className="pb-2 pr-4 text-right">Expense Slips</th>
+            <th className="pb-2 pr-3">Order #</th>
+            <th className="pb-2 pr-3">Customer</th>
+            <th className="pb-2 pr-3">Service</th>
+            <th className="pb-2 pr-3">Date</th>
+            <th className="pb-2 pr-3">Job Status</th>
+            <th className="pb-2 pr-3">Invoice</th>
+            <th className="pb-2 pr-3">Payment</th>
+            <th className="pb-2 pr-3 text-right">Materials</th>
+            <th className="pb-2 pr-3 text-right">Labour</th>
+            <th className="pb-2 pr-3 text-right">Slips</th>
             <th className="pb-2 text-right">Total</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {orders.map((o: any) => (
             <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-              <td className="py-2 pr-4 font-medium text-indigo-600">{o.orderNumber}</td>
-              <td className="py-2 pr-4 text-gray-700">{o.customerName}</td>
-              <td className="py-2 pr-4 text-gray-600">{o.serviceType}</td>
-              <td className="py-2 pr-4">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[o.status] || "bg-gray-100"}`}>
-                  {o.status}
+              <td className="py-2.5 pr-3 font-medium text-indigo-600">{o.orderNumber}</td>
+              <td className="py-2.5 pr-3 text-gray-700 max-w-[120px] truncate">{o.customerName}</td>
+              <td className="py-2.5 pr-3 text-gray-600 max-w-[100px] truncate">{o.serviceType}</td>
+              <td className="py-2.5 pr-3 text-gray-500 text-xs whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString("en-ZA")}</td>
+              <td className="py-2.5 pr-3">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${orderStatusColor[o.status] || "bg-gray-100"}`}>
+                  {o.status.replace("_", " ")}
                 </span>
               </td>
-              <td className="py-2 pr-4 text-right">{R(o.materialCost || 0)}</td>
-              <td className="py-2 pr-4 text-right">{R(o.labourCost || 0)}</td>
-              <td className="py-2 pr-4 text-right">{R(o.expenseSlipTotal || 0)}</td>
-              <td className="py-2 text-right font-medium">{R((o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0))}</td>
+              <td className="py-2.5 pr-3">
+                {o.invoiceStatus ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap inline-block w-fit ${invoiceStatusColor[o.invoiceStatus] || "bg-gray-100"}`}>
+                      {invoiceLabel[o.invoiceStatus] || o.invoiceStatus}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{o.invoiceNumber}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">Not invoiced</span>
+                )}
+              </td>
+              <td className="py-2.5 pr-3">
+                {o.paymentStatus ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap inline-block w-fit ${paymentStatusColor[o.paymentStatus] || "bg-gray-100"}`}>
+                      {o.paymentStatus}
+                    </span>
+                    {o.paymentAmount != null && (
+                      <span className="text-[10px] text-gray-400">{R(o.paymentAmount)}</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">No request</span>
+                )}
+              </td>
+              <td className="py-2.5 pr-3 text-right">{R(o.materialCost || 0)}</td>
+              <td className="py-2.5 pr-3 text-right">{R(o.labourCost || 0)}</td>
+              <td className="py-2.5 pr-3 text-right">{R(o.expenseSlipTotal || 0)}</td>
+              <td className="py-2.5 text-right font-medium">{R((o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0))}</td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-gray-200 font-semibold text-gray-900">
-            <td colSpan={4} className="py-2 pr-4">Totals</td>
-            <td className="py-2 pr-4 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0), 0))}</td>
-            <td className="py-2 pr-4 text-right">{R(orders.reduce((s: number, o: any) => s + (o.labourCost || 0), 0))}</td>
-            <td className="py-2 pr-4 text-right">{R(orders.reduce((s: number, o: any) => s + (o.expenseSlipTotal || 0), 0))}</td>
+            <td colSpan={7} className="py-2 pr-3">Totals</td>
+            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0), 0))}</td>
+            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.labourCost || 0), 0))}</td>
+            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.expenseSlipTotal || 0), 0))}</td>
             <td className="py-2 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0), 0))}</td>
           </tr>
         </tfoot>
