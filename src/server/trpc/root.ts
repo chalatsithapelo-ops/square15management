@@ -124,6 +124,7 @@ import { generatePropertyManagerInvoicePdf } from "~/server/trpc/procedures/gene
 import { generatePropertyManagerRFQPdfProcedure } from "~/server/trpc/procedures/generatePropertyManagerRFQPdf";
 import { uploadOrderDocuments } from "~/server/trpc/procedures/uploadOrderDocuments";
 import { getArtisanPerformanceMetrics } from "~/server/trpc/procedures/getArtisanPerformanceMetrics";
+import { getArtisanExpenseTracker } from "~/server/trpc/procedures/getArtisanExpenseTracker";
 import { uploadCompanyLogo } from "~/server/trpc/procedures/uploadCompanyLogo";
 import { deleteCompanyLogo } from "~/server/trpc/procedures/deleteCompanyLogo";
 import { getCompanyLogoUrl } from "~/server/trpc/procedures/getCompanyLogoUrl";
@@ -456,6 +457,7 @@ export const appRouter = createTRPCRouter({
   generatePropertyManagerRFQPdf: generatePropertyManagerRFQPdfProcedure,
   uploadOrderDocuments,
   getArtisanPerformanceMetrics,
+  getArtisanExpenseTracker,
   
   // Projects
   getProjects,
