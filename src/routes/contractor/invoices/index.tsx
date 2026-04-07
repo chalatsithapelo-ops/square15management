@@ -897,6 +897,8 @@ function InvoicesPage() {
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
+        // Link to the source order
+        orderId: referencedOrder && !referencedOrder.isPropertyManagerOrder ? referencedOrder.id : undefined,
         // Include PM order info if this is from a PM order
         isPMOrder: referencedOrder?.isPropertyManagerOrder || false,
         pmOrderId: referencedOrder?.isPropertyManagerOrder ? referencedOrder.id : undefined,
