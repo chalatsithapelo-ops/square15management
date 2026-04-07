@@ -10,7 +10,7 @@ export const getOrders = baseProcedure
   .input(
     z.object({
       token: z.string(),
-      status: z.enum(["PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+      status: z.enum(["PENDING_REVIEW", "PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
       assignedToId: z.number().optional(),
     })
   )

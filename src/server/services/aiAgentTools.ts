@@ -2180,7 +2180,7 @@ ${JSON.stringify(invoice, null, 2)}`;
   const listOrdersTool = tool({
     description: 'List ALL orders/jobs with filtering by status, customer, assigned artisan, date range. Shows individual orders AND aggregate totals. Use for questions like "how many active jobs", "list all pending orders", "what work is in progress".',
     parameters: z.object({
-      status: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by order status'),
+      status: z.enum(['PENDING_REVIEW', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by order status'),
       customerName: z.string().optional().describe('Filter by customer name (partial match)'),
       assignedToId: z.number().optional().describe('Filter by assigned artisan/employee user ID'),
       dateFrom: z.string().optional().describe('Start date filter (ISO format)'),
@@ -2723,7 +2723,7 @@ ${JSON.stringify(quotation, null, 2)}`;
     parameters: z.object({
       orderId: z.number().optional().describe('Order ID'),
       orderNumber: z.string().optional().describe('Order number'),
-      newStatus: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).describe('New order status'),
+      newStatus: z.enum(['PENDING_REVIEW', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).describe('New order status'),
       assignToId: z.number().optional().describe('Assign the order to this user ID (for ASSIGNED status)'),
       notes: z.string().optional().describe('Notes about the status change'),
     }),

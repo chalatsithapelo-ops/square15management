@@ -94,6 +94,7 @@ const serviceTypeOptions = [
 ] as const;
 
 const orderStatuses = [
+  { value: "PENDING_REVIEW", label: "Pending Review", color: "bg-orange-100 text-orange-800" },
   { value: "PENDING", label: "Pending", color: "bg-gray-100 text-gray-800" },
   { value: "ASSIGNED", label: "Assigned", color: "bg-yellow-100 text-yellow-800" },
   { value: "IN_PROGRESS", label: "In Progress", color: "bg-blue-100 text-blue-800" },

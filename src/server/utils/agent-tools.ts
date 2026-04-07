@@ -174,7 +174,7 @@ export const getOrdersTool = tool({
   description: 'Get a list of orders. Can filter by status, assigned artisan, or search by customer name/order number.',
   parameters: z.object({
     authToken: z.string().describe('Authentication token'),
-    status: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by order status'),
+    status: z.enum(['PENDING_REVIEW', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by order status'),
     assignedToId: z.number().optional().describe('Filter by assigned artisan ID'),
     searchQuery: z.string().optional().describe('Search by customer name or order number'),
     limit: z.number().default(20).describe('Maximum number of orders to return'),
@@ -226,7 +226,7 @@ export const updateOrderStatusTool = tool({
   parameters: z.object({
     authToken: z.string().describe('Authentication token'),
     orderId: z.number().describe('ID of the order to update'),
-    status: z.enum(['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).describe('New status for the order'),
+    status: z.enum(['PENDING_REVIEW', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).describe('New status for the order'),
     notes: z.string().optional().describe('Additional notes about the status change'),
   }),
   execute: async ({ authToken, orderId, status, notes }) => {

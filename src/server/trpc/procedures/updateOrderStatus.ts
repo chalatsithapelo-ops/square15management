@@ -20,7 +20,7 @@ export const updateOrderStatus = baseProcedure
       token: z.string(),
       orderId: z.number(),
       isPMOrder: z.boolean().optional(), // Flag to indicate PropertyManagerOrder
-      status: z.enum(["PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+      status: z.enum(["PENDING_REVIEW", "PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
       materialCost: z.number().optional(),
       labourCost: z.number().optional(),
       beforePictures: z.array(z.string()).optional(),

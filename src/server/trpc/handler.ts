@@ -4,6 +4,7 @@ import { appRouter } from "./root";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { startEmailPoller } from "../services/bankFeed/emailPoller";
+import { startOrderEmailPoller } from "../services/orderEmail/orderEmailPoller";
 
 // ── Email Poller Bootstrap (lazy init on first request) ──────────────
 let emailPollerStarted = false;
@@ -35,9 +36,42 @@ function bootstrapEmailPoller() {
   }
 }
 
+// ── Order Email Poller Bootstrap (lazy init on first request) ────────
+let orderPollerStarted = false;
+function bootstrapOrderEmailPoller() {
+  if (orderPollerStarted) return;
+  orderPollerStarted = true;
+
+  const imapUser = process.env.SMTP_USER;
+  const imapPass = process.env.SMTP_PASS;
+
+  if (!imapUser || !imapPass) {
+    console.log("[OrderEmail] SMTP_USER/SMTP_PASS not configured — order email poller disabled");
+    return;
+  }
+
+  try {
+    startOrderEmailPoller(
+      {
+        host: "imap.gmail.com",
+        port: 993,
+        tls: true,
+        user: imapUser,
+        password: imapPass,
+      },
+      5 * 60 * 1000 // 5 minutes
+    );
+    console.log("[OrderEmail] Order email poller started (5 min interval)");
+  } catch (err) {
+    console.error("[OrderEmail] Failed to start order email poller:", err);
+    orderPollerStarted = false;
+  }
+}
+
 const handler = eventHandler(async (event) => {
-  // Start email poller on first request (lazy init)
+  // Start email pollers on first request (lazy init)
   bootstrapEmailPoller();
+  bootstrapOrderEmailPoller();
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (

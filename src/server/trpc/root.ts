@@ -367,6 +367,9 @@ import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTa
 import { restoreData } from "~/server/trpc/procedures/restoreData";
 import { getClients, createClient, updateClient, deleteClient } from "~/server/trpc/procedures/clients";
 
+// Order Email Inbox
+import { getOrderInbox, reviewOrderEmail } from "~/server/trpc/procedures/orderInbox";
+
 // Bank Feed
 import {
   getBankAccounts,
@@ -458,6 +461,10 @@ export const appRouter = createTRPCRouter({
   uploadOrderDocuments,
   getArtisanPerformanceMetrics,
   getArtisanExpenseTracker,
+  
+  // Order Email Inbox
+  getOrderInbox,
+  reviewOrderEmail,
   
   // Projects
   getProjects,
