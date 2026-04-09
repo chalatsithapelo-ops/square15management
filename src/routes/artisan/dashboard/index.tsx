@@ -133,6 +133,7 @@ function ArtisanDashboard() {
   const [reviewHourlyRateInput, setReviewHourlyRateInput] = useState<string>("");
   const [reviewDailyRateInput, setReviewDailyRateInput] = useState<string>("");
   const [reviewPaymentNotes, setReviewPaymentNotes] = useState<string>("");
+  const [reviewClientUnavailableToSign, setReviewClientUnavailableToSign] = useState(false);
 
   // Milestone state
   const [startMilestoneId, setStartMilestoneId] = useState<number | null>(null);
@@ -700,6 +701,7 @@ function ArtisanDashboard() {
     if (order) {
       setAfterPictures(order.afterPictures?.length ? order.afterPictures : []);
       setSignedJobCardUrl(order.signedJobCardUrl || null);
+      setClientUnavailableToSign(order.clientUnavailableToSign || false);
       setClientRepName(order.clientRepName || "");
       setClientRepSignDate(
         order.clientRepSignDate
@@ -724,6 +726,7 @@ function ArtisanDashboard() {
     } else {
       setAfterPictures([]);
       setSignedJobCardUrl(null);
+      setClientUnavailableToSign(false);
       setClientRepName("");
       setClientRepSignDate("");
       setMaterialCost("");
@@ -784,6 +787,7 @@ function ArtisanDashboard() {
         signedJobCardUrl: signedJobCardUrl || undefined,
         clientRepName: clientRepName || undefined,
         clientRepSignDate: clientRepSignDate || undefined,
+        clientUnavailableToSign: clientUnavailableToSign || undefined,
       });
 
       // Close the modal after saving
@@ -1135,6 +1139,7 @@ function ArtisanDashboard() {
     setReviewJobOrderId(order.id);
     setReviewAfterPictures(order.afterPictures || []);
     setReviewSignedJobCardUrl(order.signedJobCardUrl || null);
+    setReviewClientUnavailableToSign(order.clientUnavailableToSign || false);
     setReviewClientRepName(order.clientRepName || "");
     setReviewClientRepSignDate(
       order.clientRepSignDate 
@@ -1214,19 +1219,21 @@ function ArtisanDashboard() {
       return;
     }
 
-    if (!reviewSignedJobCardUrl) {
-      toast.error("Please capture the customer's signature");
-      return;
-    }
+    if (!reviewClientUnavailableToSign) {
+      if (!reviewSignedJobCardUrl) {
+        toast.error("Please capture the customer's signature");
+        return;
+      }
 
-    if (!reviewClientRepName.trim()) {
-      toast.error("Please enter the client representative's name");
-      return;
-    }
+      if (!reviewClientRepName.trim()) {
+        toast.error("Please enter the client representative's name");
+        return;
+      }
 
-    if (!reviewClientRepSignDate) {
-      toast.error("Please select the date");
-      return;
+      if (!reviewClientRepSignDate) {
+        toast.error("Please select the date");
+        return;
+      }
     }
 
     if (reviewExpenseSlips.length === 0) {
@@ -1254,9 +1261,10 @@ function ArtisanDashboard() {
         token: token!,
         orderId: reviewJobOrderId!,
         afterPictures: reviewAfterPictures,
-        signedJobCardUrl: reviewSignedJobCardUrl,
-        clientRepName: reviewClientRepName.trim(),
-        clientRepSignDate: new Date(reviewClientRepSignDate).toISOString(),
+        signedJobCardUrl: reviewSignedJobCardUrl || undefined,
+        clientRepName: reviewClientRepName.trim() || undefined,
+        clientRepSignDate: reviewClientRepSignDate ? new Date(reviewClientRepSignDate).toISOString() : undefined,
+        clientUnavailableToSign: reviewClientUnavailableToSign || undefined,
         expenseSlips: reviewExpenseSlips,
         materialCost: finalMaterialCost,
         paymentRequestId: reviewPaymentRequestId || undefined,
@@ -1271,6 +1279,7 @@ function ArtisanDashboard() {
       setReviewJobOrderId(null);
       setReviewAfterPictures([]);
       setReviewSignedJobCardUrl(null);
+      setReviewClientUnavailableToSign(false);
       setReviewClientRepName("");
       setReviewClientRepSignDate("");
       setReviewMaterialCost("");
@@ -3891,6 +3900,7 @@ function ArtisanDashboard() {
                     setReviewJobOrderId(null);
                     setReviewAfterPictures([]);
                     setReviewSignedJobCardUrl(null);
+                    setReviewClientUnavailableToSign(false);
                     setReviewClientRepName("");
                     setReviewClientRepSignDate("");
                     setReviewMaterialCost("");
@@ -3930,7 +3940,33 @@ function ArtisanDashboard() {
                 />
               </div>
 
+              {/* Client availability toggle */}
+              <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reviewClientUnavailableToSign}
+                    onChange={(e) => {
+                      setReviewClientUnavailableToSign(e.target.checked);
+                      if (e.target.checked) {
+                        setReviewSignedJobCardUrl(null);
+                        setReviewClientRepName("");
+                        setReviewClientRepSignDate("");
+                      }
+                    }}
+                    className="mt-1 h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="font-medium text-amber-800">Client not available to sign</span>
+                    <p className="text-sm text-amber-600 mt-1">
+                      Check this if the client or their representative is not on-site to sign the job card.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
               {/* Step 2: Client Representative Information */}
+              {!reviewClientUnavailableToSign && (
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
@@ -3966,12 +4002,14 @@ function ArtisanDashboard() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Step 3: Customer Signature */}
+              {!reviewClientUnavailableToSign && (
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
-                    3
+                    {reviewClientUnavailableToSign ? 2 : 3}
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Customer Signature</h3>
                 </div>
@@ -3981,12 +4019,13 @@ function ArtisanDashboard() {
                   description="Update the customer's signature if needed"
                 />
               </div>
+              )}
 
               {/* Step 4: Expense Documentation */}
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
-                    4
+                    {reviewClientUnavailableToSign ? 2 : 4}
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Expense Documentation</h3>
                 </div>
@@ -4029,7 +4068,7 @@ function ArtisanDashboard() {
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
-                    5
+                    {reviewClientUnavailableToSign ? 3 : 5}
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Payment Request Details</h3>
                 </div>
@@ -4156,6 +4195,7 @@ function ArtisanDashboard() {
                     setReviewJobOrderId(null);
                     setReviewAfterPictures([]);
                     setReviewSignedJobCardUrl(null);
+                    setReviewClientUnavailableToSign(false);
                     setReviewClientRepName("");
                     setReviewClientRepSignDate("");
                     setReviewMaterialCost("");
@@ -4176,7 +4216,7 @@ function ArtisanDashboard() {
                   onClick={handleConfirmReviewJob}
                   disabled={
                     reviewAfterPictures.length < 3 ||
-                    !reviewSignedJobCardUrl ||
+                    (!reviewSignedJobCardUrl && !reviewClientUnavailableToSign) ||
                     reviewExpenseSlips.length === 0 ||
                     updateCompletedOrderMutation.isPending
                   }

@@ -15,6 +15,7 @@ export const updateCompletedOrderDetails = baseProcedure
       signedJobCardUrl: z.string().optional(),
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().datetime().optional(),
+      clientUnavailableToSign: z.boolean().optional(),
       materialCost: z.number().optional(),
       expenseSlips: z.array(z.object({
         url: z.string(),
@@ -89,6 +90,10 @@ export const updateCompletedOrderDetails = baseProcedure
 
       if (input.clientRepSignDate !== undefined) {
         updateData.clientRepSignDate = new Date(input.clientRepSignDate);
+      }
+
+      if (input.clientUnavailableToSign !== undefined) {
+        updateData.clientUnavailableToSign = input.clientUnavailableToSign;
       }
 
       if (input.materialCost !== undefined) {

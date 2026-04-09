@@ -38,6 +38,7 @@ export const saveJobDraft = baseProcedure
       signedJobCardUrl: z.string().optional(),
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().optional(),
+      clientUnavailableToSign: z.boolean().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -83,6 +84,9 @@ export const saveJobDraft = baseProcedure
     }
     if (input.paymentNotes !== undefined) {
       updateData.draftPaymentNotes = input.paymentNotes;
+    }
+    if (input.clientUnavailableToSign !== undefined) {
+      updateData.clientUnavailableToSign = input.clientUnavailableToSign;
     }
 
     if (input.isPMOrder) {
