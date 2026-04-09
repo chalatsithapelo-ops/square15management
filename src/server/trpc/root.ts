@@ -75,6 +75,10 @@ import { generateManagedCustomerStatements } from "~/server/trpc/procedures/gene
 import { sendStatementEmail } from "~/server/trpc/procedures/sendStatementEmail";
 import { markStatementViewed } from "~/server/trpc/procedures/markStatementViewed";
 import { getCustomerDetailsByEmail } from "~/server/trpc/procedures/getCustomerDetailsByEmail";
+import { searchCustomersForStatement } from "~/server/trpc/procedures/searchCustomersForStatement";
+import { sendSignatureRequest } from "~/server/trpc/procedures/sendSignatureRequest";
+import { getOrderForSigning } from "~/server/trpc/procedures/getOrderForSigning";
+import { submitRemoteSignature } from "~/server/trpc/procedures/submitRemoteSignature";
 import { getAssets } from "~/server/trpc/procedures/getAssets";
 import { createAsset } from "~/server/trpc/procedures/createAsset";
 import { updateAsset } from "~/server/trpc/procedures/updateAsset";
@@ -523,7 +527,13 @@ export const appRouter = createTRPCRouter({
   sendStatementEmail,
   markStatementViewed,
   getCustomerDetailsByEmail,
+  searchCustomersForStatement,
   
+  // Remote Signature
+  sendSignatureRequest,
+  getOrderForSigning,
+  submitRemoteSignature,
+
   // Assets
   getAssets,
   createAsset,

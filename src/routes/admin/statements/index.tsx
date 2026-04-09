@@ -22,6 +22,8 @@ import {
   Clock,
   Edit,
   X,
+  Building2,
+  Users,
 } from "lucide-react";
 import { StatementPreview } from "~/components/StatementPreview";
 import { Dialog, Transition } from "@headlessui/react";
@@ -65,6 +67,8 @@ function StatementsPage() {
   const [expandedStatementId, setExpandedStatementId] = useState<number | null>(null);
   const [editingStatement, setEditingStatement] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   const statementsQuery = useQuery(
     trpc.getStatements.queryOptions({
@@ -78,6 +82,14 @@ function StatementsPage() {
       customerEmail: customerEmail,
     }),
     enabled: shouldFetchCustomer && customerEmail.length > 0 && customerEmail.includes("@"),
+  });
+
+  const customerSearchResults = useQuery({
+    ...trpc.searchCustomersForStatement.queryOptions({
+      token: token!,
+      query: customerSearchQuery,
+    }),
+    enabled: customerSearchQuery.length >= 2,
   });
 
   const {
@@ -239,7 +251,8 @@ function StatementsPage() {
     (statement) =>
       statement.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       statement.client_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      statement.statement_number.toLowerCase().includes(searchTerm.toLowerCase())
+      statement.statement_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (statement.address && statement.address.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const completedStatements = statements.filter((s) => ["sent", "paid"].includes(s.status)).length;
@@ -351,6 +364,84 @@ function StatementsPage() {
         {showGenerateForm && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate New Statement</h2>
+
+            {/* Customer Search */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Customer <span className="text-gray-400 font-normal">(by name, email, company, or building)</span>
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={customerSearchQuery}
+                  onChange={(e) => {
+                    setCustomerSearchQuery(e.target.value);
+                    setShowCustomerDropdown(true);
+                  }}
+                  onFocus={() => customerSearchQuery.length >= 2 && setShowCustomerDropdown(true)}
+                  placeholder="Type customer name, email, company name, or building name..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {customerSearchResults.isLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-500 animate-spin" />
+                )}
+
+                {/* Search Results Dropdown */}
+                {showCustomerDropdown && customerSearchQuery.length >= 2 && customerSearchResults.data && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {customerSearchResults.data.length === 0 ? (
+                      <div className="p-3 text-sm text-gray-500">No customers found</div>
+                    ) : (
+                      customerSearchResults.data.map((customer, idx) => (
+                        <button
+                          key={`${customer.customerEmail}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            setValue("client_email", customer.customerEmail);
+                            setValue("customerName", customer.customerName);
+                            setValue("customerPhone", customer.customerPhone || "");
+                            setValue("address", customer.address || "");
+                            setCustomerSearchQuery("");
+                            setShowCustomerDropdown(false);
+                            toast.success("Customer selected!");
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-purple-50 border-b border-gray-100 last:border-0 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-gray-900 text-sm">{customer.customerName}</div>
+                              <div className="text-xs text-gray-500 flex items-center mt-0.5">
+                                <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+                                {customer.customerEmail}
+                              </div>
+                              {customer.address && (
+                                <div className="text-xs text-gray-400 truncate mt-0.5">{customer.address}</div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
+                              {customer.buildingName && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                  <Building2 className="h-3 w-3 mr-1" />
+                                  {customer.buildingName}
+                                </span>
+                              )}
+                              {customer.companyName && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-50 text-green-700">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  {customer.companyName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

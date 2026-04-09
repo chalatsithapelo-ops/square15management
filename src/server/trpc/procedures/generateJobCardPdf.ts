@@ -775,11 +775,8 @@ export const generateJobCardPdf = baseProcedure
                   .text("(Signature failed to embed)", 140, yPos);
               }
             } else if (order.clientUnavailableToSign) {
-              doc
-                .fontSize(9)
-                .fillColor("#b45309")
-                .font("Helvetica-Bold")
-                .text("Client was not available to sign", 140, yPos);
+              // Keep blank signature line - signature can be added later via remote signing
+              doc.text("_________________________________", 140, yPos);
             } else {
               if (order.signedJobCardUrl) {
                 // Signature URL exists but failed to load - show a message

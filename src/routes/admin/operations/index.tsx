@@ -134,6 +134,15 @@ function OperationsPage() {
   }>>([]);
   const [uploadingMaterialQuotation, setUploadingMaterialQuotation] = useState<number | null>(null);
   const [deleteConfirmOrderId, setDeleteConfirmOrderId] = useState<number | null>(null);
+  const [signatureRequestOrder, setSignatureRequestOrder] = useState<{
+    id: number;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+  } | null>(null);
+  const [sigReqName, setSigReqName] = useState("");
+  const [sigReqContact, setSigReqContact] = useState("");
+  const [sigReqMethod, setSigReqMethod] = useState<"email" | "whatsapp">("email");
 
   const ordersQuery = useQuery(
     trpc.getOrders.queryOptions({
@@ -218,6 +227,21 @@ function OperationsPage() {
       onError: (error) => {
         toast.error(error.message || "Failed to delete order");
         setDeleteConfirmOrderId(null);
+      },
+    })
+  );
+
+  const sendSignatureRequestMutation = useMutation(
+    trpc.sendSignatureRequest.mutationOptions({
+      onSuccess: (data) => {
+        if (data.method === "whatsapp" && data.whatsappUrl) {
+          window.open(data.whatsappUrl, "_blank");
+        }
+        toast.success(data.message);
+        setSignatureRequestOrder(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to send signature request");
       },
     })
   );
@@ -1942,6 +1966,25 @@ function OperationsPage() {
                           )}
                         </button>
                       )}
+                      {order.clientUnavailableToSign && !order.signedJobCardUrl && (
+                        <button
+                          onClick={() => {
+                            setSignatureRequestOrder({
+                              id: order.id,
+                              customerName: order.customerName,
+                              customerEmail: order.customerEmail,
+                              customerPhone: order.customerPhone,
+                            });
+                            setSigReqName(order.customerName);
+                            setSigReqContact(order.customerEmail);
+                            setSigReqMethod("email");
+                          }}
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                          title="Request the client to sign the job card electronically"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 mr-1" />Request Signature
+                        </button>
+                      )}
                     </>
                   )}
                   <label className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer">
@@ -2014,6 +2057,111 @@ function OperationsPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Signature Modal */}
+      {signatureRequestOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Request Signature</h3>
+              <button onClick={() => setSignatureRequestOrder(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Send a signature request to the building manager / client representative for this completed job card.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name</label>
+                <input
+                  type="text"
+                  value={sigReqName}
+                  onChange={(e) => setSigReqName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Send Method</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSigReqMethod("email");
+                      setSigReqContact(signatureRequestOrder.customerEmail);
+                    }}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      sigReqMethod === "email"
+                        ? "bg-blue-50 border-blue-300 text-blue-700"
+                        : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Mail className="h-4 w-4 inline mr-1" />Email
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSigReqMethod("whatsapp");
+                      setSigReqContact(signatureRequestOrder.customerPhone);
+                    }}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      sigReqMethod === "whatsapp"
+                        ? "bg-green-50 border-green-300 text-green-700"
+                        : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Phone className="h-4 w-4 inline mr-1" />WhatsApp
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {sigReqMethod === "email" ? "Email Address" : "Phone Number"}
+                </label>
+                <input
+                  type={sigReqMethod === "email" ? "email" : "tel"}
+                  value={sigReqContact}
+                  onChange={(e) => setSigReqContact(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setSignatureRequestOrder(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!sigReqName.trim() || !sigReqContact.trim()) {
+                    toast.error("Please fill in all fields");
+                    return;
+                  }
+                  sendSignatureRequestMutation.mutate({
+                    token: token!,
+                    orderId: signatureRequestOrder.id,
+                    recipientName: sigReqName.trim(),
+                    recipientEmail: sigReqContact.trim(),
+                    method: sigReqMethod,
+                  });
+                }}
+                disabled={sendSignatureRequestMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {sendSignatureRequestMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 inline mr-1 animate-spin" />Sending...</>
+                ) : (
+                  sigReqMethod === "email" ? "Send Email" : "Open WhatsApp"
+                )}
               </button>
             </div>
           </div>
