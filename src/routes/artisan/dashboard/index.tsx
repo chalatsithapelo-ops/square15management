@@ -3271,7 +3271,7 @@ function ArtisanDashboard() {
                           value="hourly"
                           checked={paymentType === "hourly"}
                           onChange={(e) => setPaymentType(e.target.value as "hourly" | "daily")}
-                          disabled={!signedJobCardUrl}
+                          disabled={!signedJobCardUrl && !clientUnavailableToSign}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
                         <span className="ml-2 text-sm text-gray-700">
@@ -3284,7 +3284,7 @@ function ArtisanDashboard() {
                           value="daily"
                           checked={paymentType === "daily"}
                           onChange={(e) => setPaymentType(e.target.value as "hourly" | "daily")}
-                          disabled={!signedJobCardUrl}
+                          disabled={!signedJobCardUrl && !clientUnavailableToSign}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
                         <span className="ml-2 text-sm text-gray-700">
@@ -3307,7 +3307,7 @@ function ArtisanDashboard() {
                         value={hoursWorked}
                         onChange={(e) => setHoursWorked(e.target.value)}
                         placeholder="e.g., 8"
-                        disabled={!signedJobCardUrl}
+                        disabled={!signedJobCardUrl && !clientUnavailableToSign}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     ) : (
@@ -3318,7 +3318,7 @@ function ArtisanDashboard() {
                         value={daysWorked}
                         onChange={(e) => setDaysWorked(e.target.value)}
                         placeholder="e.g., 1"
-                        disabled={!signedJobCardUrl}
+                        disabled={!signedJobCardUrl && !clientUnavailableToSign}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     )}
@@ -3337,7 +3337,7 @@ function ArtisanDashboard() {
                         value={hourlyRateInput}
                         onChange={(e) => setHourlyRateInput(e.target.value)}
                         placeholder={currentUser?.hourlyRate?.toString() || "Enter rate"}
-                        disabled={!signedJobCardUrl}
+                        disabled={!signedJobCardUrl && !clientUnavailableToSign}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     ) : (
@@ -3348,7 +3348,7 @@ function ArtisanDashboard() {
                         value={dailyRateInput}
                         onChange={(e) => setDailyRateInput(e.target.value)}
                         placeholder={currentUser?.dailyRate?.toString() || "Enter rate"}
-                        disabled={!signedJobCardUrl}
+                        disabled={!signedJobCardUrl && !clientUnavailableToSign}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     )}
@@ -3386,7 +3386,7 @@ function ArtisanDashboard() {
                       onChange={(e) => setPaymentNotes(e.target.value)}
                       placeholder="Add any additional notes about this payment request..."
                       rows={3}
-                      disabled={!signedJobCardUrl}
+                      disabled={!signedJobCardUrl && !clientUnavailableToSign}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     />
                   </div>
@@ -3445,7 +3445,7 @@ function ArtisanDashboard() {
                   onClick={handleConfirmCompleteJob}
                   disabled={
                     afterPictures.length < 3 ||
-                    !signedJobCardUrl ||
+                    (!signedJobCardUrl && !clientUnavailableToSign) ||
                     expenseSlips.length === 0 ||
                     updateOrderStatusMutation.isPending ||
                     createPaymentRequestMutation.isPending ||
