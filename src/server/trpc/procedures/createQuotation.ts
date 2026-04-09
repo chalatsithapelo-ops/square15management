@@ -45,6 +45,7 @@ export const createQuotation = baseProcedure
       labourRate: z.number().optional(),
       customerVatNumber: z.string().optional(),
       projectDescription: z.string().optional(),
+      quotationDate: z.string().optional(), // Custom quotation date (overrides createdAt)
     })
   )
   .mutation(async ({ input }) => {
@@ -143,6 +144,7 @@ export const createQuotation = baseProcedure
             user.role === "CONTRACTOR_JUNIOR_MANAGER"
               ? user.id
               : null,
+          ...(input.quotationDate ? { createdAt: new Date(input.quotationDate) } : {}),
         },
         include: {
           assignedTo: {

@@ -39,6 +39,7 @@ export const createInvoice = baseProcedure
       clientReferenceNumber: z.string().optional(), // Client reference / order number
       customerVatNumber: z.string().optional(), // Customer VAT number
       projectDescription: z.string().optional(), // Project description shown above line items on PDF
+      invoiceDate: z.string().optional(), // Custom invoice date (overrides createdAt)
     })
   )
   .mutation(async ({ input }) => {
@@ -143,6 +144,7 @@ export const createInvoice = baseProcedure
             notes: input.notes || null,
             // Start with DRAFT status for approval workflow
             status: "DRAFT",
+            ...(input.invoiceDate ? { createdAt: new Date(input.invoiceDate) } : {}),
           },
           include: {
             order: {
@@ -192,6 +194,7 @@ export const createInvoice = baseProcedure
           customerVatNumber: input.customerVatNumber || null,
           projectDescription: input.projectDescription || null,
           createdById: user.id, // Track who created this invoice for portal separation
+          ...(input.invoiceDate ? { createdAt: new Date(input.invoiceDate) } : {}),
         },
         include: {
           order: {
