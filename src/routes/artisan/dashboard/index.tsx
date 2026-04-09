@@ -85,6 +85,7 @@ function ArtisanDashboard() {
   const [signedJobCardUrl, setSignedJobCardUrl] = useState<string | null>(null);
   const [clientRepName, setClientRepName] = useState<string>("");
   const [clientRepSignDate, setClientRepSignDate] = useState<string>("");
+  const [clientUnavailableToSign, setClientUnavailableToSign] = useState(false);
   const [materialCost, setMaterialCost] = useState<string>("");
   const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
 
@@ -810,19 +811,21 @@ function ArtisanDashboard() {
       return;
     }
 
-    if (!signedJobCardUrl) {
-      toast.error("Please capture the customer's signature");
-      return;
-    }
+    if (!clientUnavailableToSign) {
+      if (!signedJobCardUrl) {
+        toast.error("Please capture the customer's signature");
+        return;
+      }
 
-    if (!clientRepName.trim()) {
-      toast.error("Please enter the client representative's name");
-      return;
-    }
+      if (!clientRepName.trim()) {
+        toast.error("Please enter the client representative's name");
+        return;
+      }
 
-    if (!clientRepSignDate) {
-      toast.error("Please select the date");
-      return;
+      if (!clientRepSignDate) {
+        toast.error("Please select the date");
+        return;
+      }
     }
 
     if (expenseSlips.length === 0) {
@@ -893,9 +896,10 @@ function ArtisanDashboard() {
         isPMOrder: order?.isPMOrder || false,
         status: "COMPLETED",
         afterPictures: afterPictures,
-        signedJobCardUrl: signedJobCardUrl,
-        clientRepName: clientRepName.trim(),
-        clientRepSignDate: new Date(clientRepSignDate).toISOString(),
+        signedJobCardUrl: signedJobCardUrl || undefined,
+        clientRepName: clientRepName.trim() || undefined,
+        clientRepSignDate: clientRepSignDate ? new Date(clientRepSignDate).toISOString() : undefined,
+        clientUnavailableToSign: clientUnavailableToSign || undefined,
         expenseSlips: expenseSlips,
         materialCost: finalMaterialCost,
         hoursWorked: paymentType === "hourly" ? parseFloat(hoursWorked) : undefined,
@@ -950,6 +954,7 @@ function ArtisanDashboard() {
       setSignedJobCardUrl(null);
       setClientRepName("");
       setClientRepSignDate("");
+      setClientUnavailableToSign(false);
       setMaterialCost("");
       setExpenseSlips([]);
       setPaymentType("hourly");
@@ -3104,7 +3109,33 @@ function ArtisanDashboard() {
                 />
               </div>
 
+              {/* Client availability toggle */}
+              <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clientUnavailableToSign}
+                    onChange={(e) => {
+                      setClientUnavailableToSign(e.target.checked);
+                      if (e.target.checked) {
+                        setSignedJobCardUrl(null);
+                        setClientRepName("");
+                        setClientRepSignDate("");
+                      }
+                    }}
+                    className="mt-1 h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="font-medium text-amber-800">Client not available to sign</span>
+                    <p className="text-sm text-amber-600 mt-1">
+                      Check this if the client or their representative is not on-site to sign the job card. The job will be completed without a signature.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
               {/* Step 2: Client Representative Information */}
+              {!clientUnavailableToSign && (
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
@@ -3143,8 +3174,10 @@ function ArtisanDashboard() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Step 3: Capture Customer Signature */}
+              {!clientUnavailableToSign && (
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
@@ -3161,12 +3194,13 @@ function ArtisanDashboard() {
                   description="Please have the customer draw their signature below to confirm the work has been completed to their satisfaction"
                 />
               </div>
+              )}
 
-              {/* Step 4: Upload Expense Slips and Enter Material Cost */}
+              {/* Step: Upload Expense Slips and Enter Material Cost */}
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
-                    4
+                    {clientUnavailableToSign ? 2 : 4}
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Expense Documentation</h3>
                 </div>
@@ -3212,11 +3246,11 @@ function ArtisanDashboard() {
                 </div>
               </div>
 
-              {/* Step 5: Payment Request */}
+              {/* Step: Payment Request */}
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
-                    5
+                    {clientUnavailableToSign ? 3 : 5}
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Payment Request</h3>
                 </div>

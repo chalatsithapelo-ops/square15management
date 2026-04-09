@@ -45,6 +45,7 @@ export const updateQuotationDetails = baseProcedure
       labourRate: z.number().nullable().optional(),
       customerVatNumber: z.string().optional(),
       projectDescription: z.string().optional(),
+      quotationDate: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -93,6 +94,9 @@ export const updateQuotationDetails = baseProcedure
       if (input.total !== undefined) updateData.total = input.total;
       if (input.validUntil !== undefined) {
         updateData.validUntil = input.validUntil ? new Date(input.validUntil) : null;
+      }
+      if (input.quotationDate !== undefined) {
+        updateData.createdAt = input.quotationDate ? new Date(input.quotationDate) : undefined;
       }
       if (input.notes !== undefined) updateData.notes = input.notes || null;
       if (input.assignedToId !== undefined) updateData.assignedToId = input.assignedToId;

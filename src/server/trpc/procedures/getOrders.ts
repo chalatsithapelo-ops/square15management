@@ -122,6 +122,7 @@ export const getOrders = baseProcedure
           signedJobCardUrl: true,
           clientRepName: true,
           clientRepSignDate: true,
+          clientUnavailableToSign: true,
           documents: true,
           draftPaymentType: user.role === "ARTISAN",
           draftHoursWorked: user.role === "ARTISAN",

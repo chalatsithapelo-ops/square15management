@@ -34,6 +34,7 @@ export const updateOrderStatus = baseProcedure
       signedJobCardUrl: z.string().optional(),
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().datetime().optional(),
+      clientUnavailableToSign: z.boolean().optional(),
       // Labor/job activity data for automatic job activity creation
       hoursWorked: z.number().optional(),
       daysWorked: z.number().optional(),
@@ -110,23 +111,26 @@ export const updateOrderStatus = baseProcedure
             message: "At least 3 after pictures are required to complete the job",
           });
         }
-        if (!input.signedJobCardUrl) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Signed job card is required to complete the job",
-          });
-        }
-        if (!input.clientRepName) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Client representative name is required to complete the job",
-          });
-        }
-        if (!input.clientRepSignDate) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Client representative sign date is required to complete the job",
-          });
+        // Only require signature fields when client is available to sign
+        if (!input.clientUnavailableToSign) {
+          if (!input.signedJobCardUrl) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Signed job card is required to complete the job",
+            });
+          }
+          if (!input.clientRepName) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Client representative name is required to complete the job",
+            });
+          }
+          if (!input.clientRepSignDate) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Client representative sign date is required to complete the job",
+            });
+          }
         }
         if (!input.expenseSlips || input.expenseSlips.length === 0) {
           throw new TRPCError({
@@ -135,6 +139,9 @@ export const updateOrderStatus = baseProcedure
           });
         }
         updateData.endTime = new Date();
+        if (input.clientUnavailableToSign) {
+          updateData.clientUnavailableToSign = true;
+        }
       }
 
       if (input.materialCost !== undefined) {

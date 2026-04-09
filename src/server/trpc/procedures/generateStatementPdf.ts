@@ -53,9 +53,10 @@ export const generateStatementPdf = baseProcedure
     }
 
     // Fetch PDF from MinIO using the MinIO client (with authentication)
-    // Parse the pdfUrl to extract bucket and object path
-    // Expected format: http://host:port/bucket/path/to/file.pdf
-    const urlParts = statement.pdfUrl.split('/');
+    // Convert the stored URL (which may use nginx proxy path like /minio/bucket/...)
+    // to the internal MinIO URL (http://host:port/bucket/...) before parsing
+    const internalUrl = getInternalMinioUrl(statement.pdfUrl);
+    const urlParts = internalUrl.split('/');
     const bucketName = urlParts[3]; // After http://host:port/
     const objectPath = urlParts.slice(4).join('/'); // Everything after bucket name
 

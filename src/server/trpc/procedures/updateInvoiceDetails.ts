@@ -37,6 +37,7 @@ export const updateInvoiceDetails = baseProcedure
       clientReferenceNumber: z.string().optional(),
       customerVatNumber: z.string().optional(),
       projectDescription: z.string().optional(),
+      invoiceDate: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -84,6 +85,9 @@ export const updateInvoiceDetails = baseProcedure
       if (input.total !== undefined) updateData.total = input.total;
       if (input.dueDate !== undefined) {
         updateData.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+      }
+      if (input.invoiceDate !== undefined) {
+        updateData.createdAt = input.invoiceDate ? new Date(input.invoiceDate) : undefined;
       }
       if (input.notes !== undefined) updateData.notes = input.notes || null;
       if (input.orderId !== undefined) updateData.orderId = input.orderId;

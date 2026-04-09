@@ -43,6 +43,7 @@ const invoiceSchema = z.object({
   customerEmail: z.string().email("Invalid email address"),
   customerPhone: z.string().min(1, "Phone number is required"),
   address: z.string().min(1, "Address is required"),
+  invoiceDate: z.string().optional(),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
   invoiceNumber: z.preprocess(
@@ -494,6 +495,7 @@ function InvoicesPage() {
       customerEmail: invoice.customerEmail,
       customerPhone: invoice.customerPhone,
       address: invoice.address,
+      invoiceDate: invoice.createdAt ? new Date(invoice.createdAt).toISOString().split('T')[0] : "",
       dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
       notes: invoice.notes || "",
       invoiceNumber: invoice.invoiceNumber,
@@ -1248,6 +1250,15 @@ function InvoicesPage() {
                   <p className="mt-1 text-xs text-gray-500">
                     Optional: Customer's VAT registration number (appears on PDF).
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+                  <input
+                    type="date"
+                    {...register("invoiceDate")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-danger-500"
+                  />
                 </div>
 
                 <div>

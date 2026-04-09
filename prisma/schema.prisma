@@ -601,10 +601,11 @@ model Order {
   beforePictures     String[]
   afterPictures      String[]
   contractorSlipUrls String[]  @default([])
-  signedJobCardUrl   String?
-  clientRepName      String?
-  clientRepSignDate  DateTime?
-  documents          String[]  @default([])
+  signedJobCardUrl        String?
+  clientRepName           String?
+  clientRepSignDate       DateTime?
+  clientUnavailableToSign Boolean   @default(false)
+  documents               String[]  @default([])
 
   // Draft payment fields (persisted so artisan can resume later)
   draftPaymentType  String?   // "hourly" or "daily"
@@ -1797,9 +1798,10 @@ model PropertyManagerOrder {
   afterPictures     String[]  @default([])
   materialCost      Float     @default(0)
   labourCost        Float     @default(0)
-  signedJobCardUrl  String?
-  clientRepName     String?
-  clientRepSignDate DateTime?
+  signedJobCardUrl        String?
+  clientRepName           String?
+  clientRepSignDate       DateTime?
+  clientUnavailableToSign Boolean   @default(false)
 
   // Draft payment fields (persisted so artisan can resume later)
   draftPaymentType  String?

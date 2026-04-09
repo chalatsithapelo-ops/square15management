@@ -49,6 +49,7 @@ const quotationSchema = z.object({
   customerEmail: z.string().email("Invalid email address"),
   customerPhone: z.string().min(1, "Phone number is required"),
   address: z.string().min(1, "Address is required"),
+  quotationDate: z.string().optional(),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
   assignedToId: z.number().optional(),
@@ -360,6 +361,7 @@ function QuotationsPage() {
       customerEmail: quotation.customerEmail,
       customerPhone: quotation.customerPhone,
       address: quotation.address,
+      quotationDate: quotation.createdAt ? new Date(quotation.createdAt).toISOString().split('T')[0] : "",
       validUntil: quotation.validUntil ? new Date(quotation.validUntil).toISOString().split('T')[0] : "",
       notes: quotation.notes || "",
       assignedToId: quotation.assignedToId || undefined,
@@ -778,6 +780,15 @@ function QuotationsPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quotation Date</label>
+                  <input
+                    type="date"
+                    {...register("quotationDate")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                  />
                 </div>
 
                 <div>

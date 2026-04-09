@@ -1723,6 +1723,11 @@ function OperationsPage() {
                     >
                       {orderStatuses.find((s) => s.value === order.status)?.label}
                     </span>
+                    {order.clientUnavailableToSign && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-amber-100 text-amber-800" title="Client was not available to sign the job card">
+                        No Signature
+                      </span>
+                    )}
                     <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{order.customerName}</span>
                     <span className="text-xs text-gray-500 hidden md:inline">• {order.serviceType}</span>
                   </div>

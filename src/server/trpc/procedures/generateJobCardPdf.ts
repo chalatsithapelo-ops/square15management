@@ -694,7 +694,9 @@ export const generateJobCardPdf = baseProcedure
 
             // Fetch signature image if available
             let signatureImageBuffer: Buffer | null = null;
-            if (order.signedJobCardUrl) {
+            if (order.clientUnavailableToSign) {
+              console.log(`[generateJobCardPdf] Client was unavailable to sign`);
+            } else if (order.signedJobCardUrl) {
               console.log(`[generateJobCardPdf] Attempting to load signature from: ${order.signedJobCardUrl}`);
               signatureImageBuffer = await fetchImageAsBuffer(order.signedJobCardUrl);
               if (signatureImageBuffer) {
@@ -772,6 +774,12 @@ export const generateJobCardPdf = baseProcedure
                   .font("Helvetica")
                   .text("(Signature failed to embed)", 140, yPos);
               }
+            } else if (order.clientUnavailableToSign) {
+              doc
+                .fontSize(9)
+                .fillColor("#b45309")
+                .font("Helvetica-Bold")
+                .text("Client was not available to sign", 140, yPos);
             } else {
               if (order.signedJobCardUrl) {
                 // Signature URL exists but failed to load - show a message
