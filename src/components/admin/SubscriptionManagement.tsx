@@ -564,6 +564,9 @@ function PackagesTab({ packages }: { packages: any[] | undefined }) {
         setEditingPackage(null);
         alert('Pricing updated successfully');
       },
+      onError: (error: any) => {
+        alert(error.message || 'Failed to update pricing');
+      },
     })
   );
 

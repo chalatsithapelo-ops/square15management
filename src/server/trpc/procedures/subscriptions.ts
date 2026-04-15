@@ -206,7 +206,7 @@ async function ensureDefaultPackagesExist() {
     await db.package.upsert({
       where: { name: pkg.name },
       create: pkg,
-      update: pkg,
+      update: {},  // Don't overwrite existing packages — preserve admin-edited pricing
     });
   }
 }
