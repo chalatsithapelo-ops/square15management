@@ -1883,7 +1883,7 @@ The campaign has been updated. You can preview it in CRM > Campaigns or ask me t
 
   // Tool 37: Suggest Campaign Ideas
   const suggestCampaignIdeasTool = tool({
-    description: 'Analyze current business data and suggest campaign ideas. Acts as a living marketing assistant that monitors lead pipeline, service demand, seasons, and proactively recommends campaigns. Use this to get AI-powered campaign recommendations.',
+    description: 'Analyze current business data and suggest campaign ideas. This tool ONLY returns text suggestions - it does NOT create any campaigns. After getting suggestions, you MUST use generateCampaignContentTool to actually create a campaign draft. Never tell the user a campaign was created just from this tool.',
     parameters: z.object({
       focusArea: z.enum(['general', 'seasonal', 'service_promo', 're_engagement', 'new_service', 'holiday']).optional().describe('Focus area for suggestions. Default: general (AI decides based on data)'),
     }),
@@ -1952,6 +1952,9 @@ The campaign has been updated. You can preview it in CRM > Campaigns or ask me t
 3️⃣ TOP SERVICE SPOTLIGHT: ${leadsByService[0]?.serviceType || 'General Maintenance'}
    🔧 Highlight your most in-demand service with a targeted promotion
    📧 Target: Leads interested in ${leadsByService[0]?.serviceType || 'maintenance'} | Focus: Conversion
+
+⚠️ IMPORTANT: These are SUGGESTIONS ONLY. No campaigns have been created yet.
+To actually create a campaign draft with full HTML design, tell me which suggestion you'd like and I will generate it for you.
 
 🎯 QUICK ACTIONS:
 • Say "Generate campaign for [suggestion]" to have me create it with full design
