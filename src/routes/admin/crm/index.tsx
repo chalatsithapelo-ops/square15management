@@ -417,6 +417,7 @@ function CRMPage() {
 
   const handleCloseBulkEmailModal = () => {
     setBulkEmailModalOpen(false);
+    setSelectedLeadIds(new Set());
   };
 
   const setPresetRange = (days: number) => {

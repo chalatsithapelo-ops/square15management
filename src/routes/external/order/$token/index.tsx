@@ -69,7 +69,12 @@ function ExternalOrderAcceptPage() {
 
           {alreadyUsed ? (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-              This link has already been used. Thank you.
+              <p>This link has already been used. Thank you.</p>
+              <div className="mt-3 flex gap-3">
+                <a href="/register" className="text-teal-700 underline hover:text-teal-900 font-medium">Register</a>
+                <span className="text-green-400">|</span>
+                <a href="/login" className="text-teal-700 underline hover:text-teal-900 font-medium">Go to login</a>
+              </div>
             </div>
           ) : (
             <>

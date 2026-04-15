@@ -135,6 +135,10 @@ function AccountsPage() {
     })
   );
 
+  const generateInsightsMutation = useMutation(
+    trpc.generateAccountsInsights.mutationOptions()
+  );
+
   const pendingExpenses = pendingExpensesQuery.data || [];
 
   const alternativeRevenuesQuery = useQuery(
@@ -803,8 +807,8 @@ function AccountsPage() {
                   const aging = receivableInvoices.reduce((acc, inv) => {
                     const days = Math.floor((now.getTime() - new Date(inv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                     const bucket = days <= 30 ? 'current' : days <= 60 ? 'days30_60' : days <= 90 ? 'days60_90' : 'over90';
-                    acc[bucket].total += (inv.total || 0);
-                    acc[bucket].count += 1;
+                    acc[bucket]!.total += (inv.total || 0);
+                    acc[bucket]!.count += 1;
                     return acc;
                   }, { current: { total: 0, count: 0 }, days30_60: { total: 0, count: 0 }, days60_90: { total: 0, count: 0 }, over90: { total: 0, count: 0 } } as Record<string, { total: number; count: number }>);
                   const buckets = [
@@ -818,8 +822,8 @@ function AccountsPage() {
                       {buckets.map(b => (
                         <div key={b.key} className={`p-3 rounded-lg bg-${b.color}-50 border border-${b.color}-100`}>
                           <p className={`text-xs font-medium text-${b.color}-700`}>{b.label}</p>
-                          <p className={`text-lg font-bold text-${b.color}-800 mt-1`}>R {aging[b.key].total.toLocaleString()}</p>
-                          <p className="text-xs text-gray-400">{aging[b.key].count} invoice{aging[b.key].count !== 1 ? 's' : ''}</p>
+                          <p className={`text-lg font-bold text-${b.color}-800 mt-1`}>R {aging[b.key]!.total.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">{aging[b.key]!.count} invoice{aging[b.key]!.count !== 1 ? 's' : ''}</p>
                         </div>
                       ))}
                     </div>
@@ -1029,7 +1033,7 @@ function AccountsPage() {
                         onClick={async () => {
                           setGeneratingInsights(true);
                           try {
-                            const result = await trpc.generateAccountsInsights.mutate({
+                            const result = await generateInsightsMutation.mutateAsync({
                               token: token!,
                               financialData: {
                                 period: selectedPeriod,
@@ -1044,12 +1048,12 @@ function AccountsPage() {
                                   labourCosts: 0,
                                 },
                                 profitability: {
-                                  netProfit: parseFloat(netProfit),
+                                  netProfit: netProfit,
                                   profitMargin: parseFloat(profitMargin),
                                 },
                                 cashFlow: {},
-                                assets: { total: totalAssets },
-                                liabilities: { total: totalLiabilities },
+                                assets: { total: assets.reduce((sum: number, a: any) => sum + (a.currentValue || a.purchasePrice || 0), 0) },
+                                liabilities: { total: liabilities.reduce((sum: number, l: any) => sum + (l.amount || 0), 0) },
                               },
                             });
                             setAiInsights(result.insights);

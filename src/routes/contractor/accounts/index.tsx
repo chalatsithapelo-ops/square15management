@@ -44,9 +44,9 @@ function ContractorAccountsPage() {
 
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
   const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState({
-    start: startOfMonth(new Date()).toISOString().split('T')[0],
-    end: endOfMonth(new Date()).toISOString().split('T')[0]
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
+    start: startOfMonth(new Date()).toISOString().split('T')[0]!,
+    end: endOfMonth(new Date()).toISOString().split('T')[0]!
   });
   const [generatingReport, setGeneratingReport] = useState(false);
   const [aiInsights, setAiInsights] = useState<any>(null);
@@ -231,7 +231,7 @@ function ContractorAccountsPage() {
 
   const artisanPayments = filteredPaymentRequests
     .filter(pr => pr.status === 'APPROVED' || pr.status === 'PAID')
-    .reduce((sum, pr) => sum + (pr.amount || 0), 0);
+    .reduce((sum, pr) => sum + (pr.calculatedAmount || 0), 0);
 
   const totalExpenses = artisanPayments + operationalExpenseTotal;
 
@@ -252,10 +252,14 @@ function ContractorAccountsPage() {
   const safeExpenses = Number(totalExpenses) || 0;
   const safeProfit = Number(netProfit) || 0;
 
+  const generateInsightsMut = useMutation(
+    trpc.generateAccountsInsights.mutationOptions()
+  );
+
   const generateAIInsights = async () => {
     setGeneratingInsights(true);
     try {
-      const result = await trpc.generateAccountsInsights.mutate({
+      const result = await generateInsightsMut.mutateAsync({
         token: token!,
         financialData: {
           period: selectedPeriod,
@@ -265,9 +269,9 @@ function ContractorAccountsPage() {
           },
           expenses: {
             total: totalExpenses,
-            artisanPayments: filteredPaymentRequests.filter(pr => pr.type === 'ARTISAN_PAYMENT').reduce((sum, pr) => sum + (pr.amount || 0), 0),
-            materialCosts: filteredPaymentRequests.filter(pr => pr.type === 'MATERIAL_COST').reduce((sum, pr) => sum + (pr.amount || 0), 0),
-            labourCosts: filteredPaymentRequests.filter(pr => pr.type === 'LABOUR_COST').reduce((sum, pr) => sum + (pr.amount || 0), 0),
+            artisanPayments: artisanPayments,
+            materialCosts: 0,
+            labourCosts: 0,
           },
           profitability: {
             netProfit,
@@ -277,7 +281,7 @@ function ContractorAccountsPage() {
             operatingCashFlow: totalRevenue - totalExpenses,
           },
           assets: {
-            total: assets.reduce((sum, a) => sum + (a.value || 0), 0),
+            total: assets.reduce((sum, a) => sum + ((a as any).currentValue || (a as any).purchasePrice || 0), 0),
           },
           liabilities: {
             total: liabilities.reduce((sum, l) => sum + (l.amount || 0), 0),
@@ -702,7 +706,7 @@ function ContractorAccountsPage() {
               )}
 
               {activeTab === 'budget' && (
-                <BudgetTracker orders={orders} projects={projects} />
+                <BudgetTracker orders={orders} projects={projects} quotations={quotations} />
               )}
 
               {activeTab === 'expenses' && (

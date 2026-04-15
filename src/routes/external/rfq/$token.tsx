@@ -132,6 +132,21 @@ function ExternalRFQQuotePage() {
           {alreadyUsed ? (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
               This link has already been used. Thank you.
+              <div className="mt-3">
+                <a
+                  href="/register"
+                  className="text-teal-600 hover:text-teal-700 font-medium underline"
+                >
+                  Register for an account
+                </a>
+                <span className="mx-2 text-gray-400">or</span>
+                <a
+                  href="/"
+                  className="text-teal-600 hover:text-teal-700 font-medium underline"
+                >
+                  Go to login
+                </a>
+              </div>
             </div>
           ) : (
             <>
