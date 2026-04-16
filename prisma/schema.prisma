@@ -916,6 +916,7 @@ model Quotation {
   propertyManagerPdfCopies PropertyManagerQuotationPdfCopy[] @relation("QuotationPdfCopies")
   generatedInvoice         Invoice?    @relation("QuotationInvoice")
   generatedOrder           Order?      @relation("QuotationOrder")
+  emailSource              QuoteEmailSource?
 }
 
 model QuotationLineItem {
@@ -3641,6 +3642,36 @@ model OrderEmailSource {
   // Link to created order
   orderId       Int?      @unique
   order         Order?    @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@index([fromEmail])
+}
+
+model QuoteEmailSource {
+  id            Int       @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+
+  // Email metadata
+  fromEmail     String
+  fromName      String?
+  subject       String
+  bodyPreview   String    // First 2000 chars of email body
+  receivedAt    DateTime
+  emailHash     String    @unique // MD5 dedup (from+subject+date)
+
+  // AI extraction result
+  aiExtracted   Json      // Full AI response JSON
+  aiConfidence  Float     @default(0) // 0-1 confidence score
+
+  // Processing status
+  status        String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, REJECTED, DUPLICATE
+  reviewedById  Int?
+  reviewedAt    DateTime?
+  reviewNotes   String?
+
+  // Link to created quotation
+  quotationId   Int?      @unique
+  quotation     Quotation? @relation(fields: [quotationId], references: [id])
 
   @@index([status])
   @@index([fromEmail])
