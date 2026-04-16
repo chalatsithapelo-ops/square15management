@@ -14,6 +14,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import toast from "react-hot-toast";
 import { AccessDenied } from "~/components/AccessDenied";
 import { UserEmailSettingsPanel } from "~/components/settings/UserEmailSettingsPanel";
+import { EmailAutomationSection } from "~/components/settings/EmailAutomationSection";
 
 export const Route = createFileRoute("/property-manager/settings/")({
   component: PropertyManagerSettings,
@@ -1201,7 +1202,10 @@ function PropertyManagerSettings() {
 
         {/* Email Tab Content */}
         {activeTab === "email" && (
-          <UserEmailSettingsPanel theme="teal" />
+          <div className="space-y-6">
+            <UserEmailSettingsPanel theme="teal" />
+            <EmailAutomationSection theme="teal" />
+          </div>
         )}
 
         {/* Branding Tab Content */}

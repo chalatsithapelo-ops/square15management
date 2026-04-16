@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { AccessDenied } from "~/components/AccessDenied";
 import { Link } from "@tanstack/react-router";
 import { UserEmailSettingsPanel } from "~/components/settings/UserEmailSettingsPanel";
+import { EmailAutomationSection } from "~/components/settings/EmailAutomationSection";
 
 export const Route = createFileRoute("/admin/settings/")({
   component: AdminSettings,
@@ -1268,6 +1269,11 @@ function AdminSettings() {
 
         {/* Resend Email API Configuration */}
         <ResendConfigSection />
+
+        {/* Email Automation (IMAP Pollers) */}
+        <div className="mt-6">
+          <EmailAutomationSection theme="blue" showRestart={true} />
+        </div>
 
         {/* Personal Email Settings (per-user SMTP) */}
         <div className="mt-6">

@@ -6,35 +6,35 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { startEmailPoller } from "../services/bankFeed/emailPoller";
 import { startOrderEmailPoller } from "../services/orderEmail/orderEmailPoller";
 import { startQuoteEmailPoller } from "../services/quoteEmail/quoteEmailPoller";
+import { loadPollerConfigFromDB } from "./procedures/emailAutomationSettings";
 
 // ── Bank Feed (Finance) Email Poller Bootstrap ───────────────────────
 let emailPollerStarted = false;
-function bootstrapEmailPoller() {
+async function bootstrapEmailPoller() {
   if (emailPollerStarted) return;
   emailPollerStarted = true;
 
-  const imapHost = process.env.FINANCE_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
-  const imapPort = parseInt(process.env.FINANCE_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
-  const imapUser = process.env.FINANCE_IMAP_USER || process.env.SMTP_USER;
-  const imapPass = process.env.FINANCE_IMAP_PASSWORD || process.env.SMTP_PASSWORD;
-
-  if (!imapUser || !imapPass) {
-    console.log("[Bank Feed] FINANCE_IMAP_USER/PASSWORD not configured — email poller disabled");
-    return;
-  }
-
   try {
-    startEmailPoller(
-      {
-        host: imapHost,
-        port: imapPort,
-        tls: true,
-        user: imapUser,
-        password: imapPass,
-      },
-      5 * 60 * 1000
-    );
-    console.log(`[Bank Feed] Email poller started for ${imapUser} (5 min interval)`);
+    // Try DB settings first, fall back to env vars
+    const dbConfig = await loadPollerConfigFromDB("finance").catch(() => null);
+
+    const config = dbConfig || (() => {
+      const imapHost = process.env.FINANCE_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
+      const imapPort = parseInt(process.env.FINANCE_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
+      const imapUser = process.env.FINANCE_IMAP_USER || process.env.SMTP_USER;
+      const imapPass = process.env.FINANCE_IMAP_PASSWORD || process.env.SMTP_PASSWORD;
+      if (!imapUser || !imapPass) return null;
+      return { host: imapHost, port: imapPort, tls: true, user: imapUser, password: imapPass };
+    })();
+
+    if (!config) {
+      console.log("[Bank Feed] FINANCE_IMAP_USER/PASSWORD not configured — email poller disabled");
+      emailPollerStarted = false;
+      return;
+    }
+
+    startEmailPoller(config, 5 * 60 * 1000);
+    console.log(`[Bank Feed] Email poller started for ${config.user} (5 min interval)`);
   } catch (err) {
     console.error("[Bank Feed] Failed to start email poller:", err);
     emailPollerStarted = false;
@@ -43,32 +43,30 @@ function bootstrapEmailPoller() {
 
 // ── Order Email Poller Bootstrap ─────────────────────────────────────
 let orderPollerStarted = false;
-function bootstrapOrderEmailPoller() {
+async function bootstrapOrderEmailPoller() {
   if (orderPollerStarted) return;
   orderPollerStarted = true;
 
-  const imapHost = process.env.ORDERS_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
-  const imapPort = parseInt(process.env.ORDERS_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
-  const imapUser = process.env.ORDERS_IMAP_USER || process.env.SMTP_USER;
-  const imapPass = process.env.ORDERS_IMAP_PASSWORD || process.env.SMTP_PASSWORD;
-
-  if (!imapUser || !imapPass) {
-    console.log("[OrderEmail] ORDERS_IMAP_USER/PASSWORD not configured — order email poller disabled");
-    return;
-  }
-
   try {
-    startOrderEmailPoller(
-      {
-        host: imapHost,
-        port: imapPort,
-        tls: true,
-        user: imapUser,
-        password: imapPass,
-      },
-      5 * 60 * 1000
-    );
-    console.log(`[OrderEmail] Order email poller started for ${imapUser} (5 min interval)`);
+    const dbConfig = await loadPollerConfigFromDB("orders").catch(() => null);
+
+    const config = dbConfig || (() => {
+      const imapHost = process.env.ORDERS_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
+      const imapPort = parseInt(process.env.ORDERS_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
+      const imapUser = process.env.ORDERS_IMAP_USER || process.env.SMTP_USER;
+      const imapPass = process.env.ORDERS_IMAP_PASSWORD || process.env.SMTP_PASSWORD;
+      if (!imapUser || !imapPass) return null;
+      return { host: imapHost, port: imapPort, tls: true, user: imapUser, password: imapPass };
+    })();
+
+    if (!config) {
+      console.log("[OrderEmail] ORDERS_IMAP_USER/PASSWORD not configured — order email poller disabled");
+      orderPollerStarted = false;
+      return;
+    }
+
+    startOrderEmailPoller(config, 5 * 60 * 1000);
+    console.log(`[OrderEmail] Order email poller started for ${config.user} (5 min interval)`);
   } catch (err) {
     console.error("[OrderEmail] Failed to start order email poller:", err);
     orderPollerStarted = false;
@@ -77,32 +75,30 @@ function bootstrapOrderEmailPoller() {
 
 // ── Quote Email Poller Bootstrap ─────────────────────────────────────
 let quotePollerStarted = false;
-function bootstrapQuoteEmailPoller() {
+async function bootstrapQuoteEmailPoller() {
   if (quotePollerStarted) return;
   quotePollerStarted = true;
 
-  const imapHost = process.env.QUOTES_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
-  const imapPort = parseInt(process.env.QUOTES_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
-  const imapUser = process.env.QUOTES_IMAP_USER;
-  const imapPass = process.env.QUOTES_IMAP_PASSWORD;
-
-  if (!imapUser || !imapPass) {
-    console.log("[QuoteEmail] QUOTES_IMAP_USER/PASSWORD not configured — quote email poller disabled");
-    return;
-  }
-
   try {
-    startQuoteEmailPoller(
-      {
-        host: imapHost,
-        port: imapPort,
-        tls: true,
-        user: imapUser,
-        password: imapPass,
-      },
-      5 * 60 * 1000
-    );
-    console.log(`[QuoteEmail] Quote email poller started for ${imapUser} (5 min interval)`);
+    const dbConfig = await loadPollerConfigFromDB("quotes").catch(() => null);
+
+    const config = dbConfig || (() => {
+      const imapHost = process.env.QUOTES_IMAP_HOST || process.env.IMAP_HOST || "imap.gmail.com";
+      const imapPort = parseInt(process.env.QUOTES_IMAP_PORT || process.env.IMAP_PORT || "993", 10);
+      const imapUser = process.env.QUOTES_IMAP_USER;
+      const imapPass = process.env.QUOTES_IMAP_PASSWORD;
+      if (!imapUser || !imapPass) return null;
+      return { host: imapHost, port: imapPort, tls: true, user: imapUser, password: imapPass };
+    })();
+
+    if (!config) {
+      console.log("[QuoteEmail] QUOTES_IMAP_USER/PASSWORD not configured — quote email poller disabled");
+      quotePollerStarted = false;
+      return;
+    }
+
+    startQuoteEmailPoller(config, 5 * 60 * 1000);
+    console.log(`[QuoteEmail] Quote email poller started for ${config.user} (5 min interval)`);
   } catch (err) {
     console.error("[QuoteEmail] Failed to start quote email poller:", err);
     quotePollerStarted = false;

@@ -6,6 +6,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import { isContractorRole } from "~/utils/roles";
 import { UserEmailSettingsPanel } from "~/components/settings/UserEmailSettingsPanel";
+import { EmailAutomationSection } from "~/components/settings/EmailAutomationSection";
 import { 
   Upload, 
   Loader2, 
@@ -496,11 +497,14 @@ function ContractorSettings() {
         </div>
 
         {activeTab === "email" && (
-          <UserEmailSettingsPanel
-            theme="green"
-            title="Email Settings"
-            description="Configure your SMTP settings to send emails through your own email account"
-          />
+          <div className="space-y-6">
+            <UserEmailSettingsPanel
+              theme="green"
+              title="Email Settings"
+              description="Configure your SMTP settings to send emails through your own email account"
+            />
+            <EmailAutomationSection theme="green" />
+          </div>
         )}
 
         {/* Company Information Tab */}

@@ -136,6 +136,7 @@ import { getCompanyDetails } from "~/server/trpc/procedures/getCompanyDetails";
 import { updateCompanyDetails } from "~/server/trpc/procedures/updateCompanyDetails";
 import { updatePdfSettings, getPdfSettings, updateAdminBranding, getAdminBranding } from "~/server/trpc/procedures/pdfSettings";
 import { updateResendSettings, getResendSettings, testResendConnection } from "~/server/trpc/procedures/resendSettings";
+import { getEmailAutomationSettings, updateEmailAutomationSettings, testEmailAutomationConnection, restartEmailPollers } from "~/server/trpc/procedures/emailAutomationSettings";
 import { getPropertyManagerCompanyDetails } from "~/server/trpc/procedures/getPropertyManagerCompanyDetails";
 import { updatePropertyManagerCompanyDetails } from "~/server/trpc/procedures/updatePropertyManagerCompanyDetails";
 import { getPropertyManagerBranding } from "~/server/trpc/procedures/getPropertyManagerBranding";
@@ -746,6 +747,10 @@ export const appRouter = createTRPCRouter({
   updateResendSettings,
   getResendSettings,
   testResendConnection,
+  getEmailAutomationSettings,
+  updateEmailAutomationSettings,
+  testEmailAutomationConnection,
+  restartEmailPollers,
   getPropertyManagerCompanyDetails,
   updatePropertyManagerCompanyDetails,
   getPropertyManagerBranding,
