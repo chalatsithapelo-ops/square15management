@@ -392,6 +392,16 @@ import {
   getImportBatches,
   updateTransactionReconciliation,
 } from "~/server/trpc/procedures/bankTransactions";
+import {
+  getApplicationByToken,
+  getAssessmentQuestions,
+  submitAssessment,
+  submitInterviewAnswer,
+  getRecruitmentApplications,
+  getRecruitmentApplicationDetail,
+  updateApplicationStatus,
+  onboardApplicant,
+} from "~/server/trpc/procedures/recruitment";
 
 export const appRouter = createTRPCRouter({
   // Auth
@@ -861,6 +871,16 @@ export const appRouter = createTRPCRouter({
   getBankFeedStats,
   getImportBatches,
   updateTransactionReconciliation,
+
+  // Recruitment Pipeline
+  getApplicationByToken,
+  getAssessmentQuestions,
+  submitAssessment,
+  submitInterviewAnswer,
+  getRecruitmentApplications,
+  getRecruitmentApplicationDetail,
+  updateApplicationStatus,
+  onboardApplicant,
 });
 
 export type AppRouter = typeof appRouter;

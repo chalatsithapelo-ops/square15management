@@ -511,6 +511,9 @@ model User {
   categorizationsConfirmed TransactionCategorization[] @relation("CategorizationConfirmer")
   categorizationRules    CategorizationRule[] @relation("CategorizationRuleCreator")
 
+  // Recruitment
+  reviewedApplications   ArtisanApplication[] @relation("ApplicationReviewer")
+
   @@index([employerId])
 }
 
@@ -3675,4 +3678,125 @@ model QuoteEmailSource {
 
   @@index([status])
   @@index([fromEmail])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// AI Artisan Recruitment Pipeline
+// ═══════════════════════════════════════════════════════════════════════
+
+enum ApplicationStatus {
+  NEW
+  ASSESSMENTS_PENDING
+  ASSESSMENTS_COMPLETE
+  INTERVIEW_PENDING
+  INTERVIEW_COMPLETE
+  UNDER_REVIEW
+  SHORTLISTED
+  APPROVED
+  REJECTED
+  ONBOARDED
+}
+
+model ArtisanApplication {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Personal info
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  idNumber        String?
+  dateOfBirth     DateTime?
+  gender          String?
+  city            String?
+  province        String?
+  address         String?
+
+  // Professional info
+  primaryTrade    String            // Plumbing, Electrical, Painting, etc.
+  secondaryTrades String[]  @default([])
+  yearsExperience Int
+  qualifications  String?           // Certs, trade test, etc.
+  portfolioUrls   String[]  @default([])
+  currentEmployer String?
+  availability    String?           // Immediate, 2 weeks, 1 month
+  expectedSalary  String?
+  hasOwnTools     Boolean   @default(false)
+  hasDriversLicense Boolean @default(false)
+  hasOwnTransport Boolean   @default(false)
+  motivationLetter String?  @db.Text
+
+  // Unique token for assessment/interview access
+  accessToken     String    @unique @default(cuid())
+
+  // Pipeline status
+  status          ApplicationStatus @default(NEW)
+
+  // AI Composite Score (0-100)
+  overallScore    Float?
+  aiSummary       String?   @db.Text
+  aiRedFlags      String?   @db.Text
+  aiStrengths     String?   @db.Text
+
+  // Reviewer
+  reviewedById    Int?
+  reviewedBy      User?     @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  reviewNotes     String?   @db.Text
+
+  // Link to created user after onboarding
+  onboardedUserId Int?      @unique
+
+  // Relations
+  assessments     ArtisanAssessment[]
+  interviewResponses ArtisanInterviewResponse[]
+
+  @@index([status])
+  @@index([primaryTrade])
+  @@index([email])
+  @@index([overallScore])
+}
+
+model ArtisanAssessment {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  applicationId   Int
+  application     ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  // Assessment type: IQ, EQ, MBTI, BIG_FIVE
+  type            String
+
+  // Raw responses stored as JSON
+  responses       Json
+
+  // Computed results
+  score           Float?            // Overall score for this assessment
+  results         Json?             // Structured results (e.g. MBTI type, Big Five scores)
+  aiAnalysis      String?   @db.Text // AI interpretation
+
+  @@unique([applicationId, type])
+  @@index([applicationId])
+}
+
+model ArtisanInterviewResponse {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+
+  applicationId   Int
+  application     ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  questionIndex   Int
+  question        String    @db.Text
+  answer          String    @db.Text
+
+  // AI evaluation
+  aiScore         Float?            // 0-10
+  aiAnalysis      String?   @db.Text
+  dimensions      Json?             // { professionalism: 8, problemSolving: 7, ... }
+
+  @@index([applicationId])
 }

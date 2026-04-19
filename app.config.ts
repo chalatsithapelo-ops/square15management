@@ -159,6 +159,31 @@ export default createApp({
       ],
     },
     {
+      type: "http",
+      name: "artisan-apply",
+      base: "/api/artisan/apply/",
+      handler: "./src/server/public-api/artisan-apply-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
       type: "spa",
       name: "client",
       handler: "./index.html",
