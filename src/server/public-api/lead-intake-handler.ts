@@ -1,8 +1,15 @@
-import { eventHandler, readBody, getMethod, setResponseHeaders } from "h3";
+import { eventHandler, readBody, getMethod } from "h3";
 import { db } from "~/server/db";
 import { sendEmail } from "~/server/utils/email";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { env } from "~/server/env";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Content-Type": "application/json",
+};
 
 /**
  * Public Lead Intake API - No authentication required.
@@ -14,25 +21,17 @@ import { env } from "~/server/env";
  * Returns: { success: true, leadId: number, message: string }
  */
 const handler = eventHandler(async (event) => {
-  // Set CORS headers for cross-origin requests from square15.co.za
-  setResponseHeaders(event, {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  });
-
   const method = getMethod(event);
 
   // Handle preflight OPTIONS request
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (method !== "POST") {
     return new Response(
       JSON.stringify({ success: false, error: "Method not allowed. Use POST." }),
-      { status: 405 }
+      { status: 405, headers: corsHeaders }
     );
   }
 
@@ -60,7 +59,7 @@ const handler = eventHandler(async (event) => {
     if (errors.length > 0) {
       return new Response(
         JSON.stringify({ success: false, errors }),
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -80,7 +79,7 @@ const handler = eventHandler(async (event) => {
           success: true,
           message: "Your enquiry has been received. We will contact you shortly.",
         }),
-        { status: 200 }
+        { status: 200, headers: corsHeaders }
       );
     }
 
@@ -94,7 +93,7 @@ const handler = eventHandler(async (event) => {
       console.error("[lead-intake] No admin user found to assign lead to");
       return new Response(
         JSON.stringify({ success: false, error: "System configuration error" }),
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -213,13 +212,13 @@ const handler = eventHandler(async (event) => {
         leadId: lead.id,
         message: "Thank you! Your enquiry has been received. We will contact you shortly.",
       }),
-      { status: 201 }
+      { status: 201, headers: corsHeaders }
     );
   } catch (error) {
     console.error("[lead-intake] Error:", error);
     return new Response(
       JSON.stringify({ success: false, error: "An unexpected error occurred. Please try again." }),
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 });

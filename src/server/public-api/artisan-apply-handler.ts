@@ -1,6 +1,17 @@
-import { eventHandler, readBody, getMethod, setResponseHeader, setResponseStatus, getQuery } from "h3";
+import { eventHandler, readBody, getMethod, getQuery } from "h3";
 import { db } from "~/server/db";
 import { sendEmail } from "~/server/utils/email";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Content-Type": "application/json",
+};
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: corsHeaders });
+}
 
 /**
  * Public Artisan Application API — No authentication required.
@@ -9,16 +20,10 @@ import { sendEmail } from "~/server/utils/email";
  * GET  /api/artisan/apply?token= — get application + assessments status
  */
 const handler = eventHandler(async (event) => {
-  setResponseHeader(event, "Access-Control-Allow-Origin", "*");
-  setResponseHeader(event, "Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  setResponseHeader(event, "Access-Control-Allow-Headers", "Content-Type");
-  setResponseHeader(event, "Content-Type", "application/json");
-
   const method = getMethod(event);
 
   if (method === "OPTIONS") {
-    setResponseStatus(event, 204);
-    return "";
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   // ── GET: Fetch application by token ──────────────────────────────
@@ -26,8 +31,7 @@ const handler = eventHandler(async (event) => {
     const query = getQuery(event);
     const token = query.token as string;
     if (!token) {
-      setResponseStatus(event, 400);
-      return { success: false, error: "Token required" };
+      return json({ success: false, error: "Token required" }, 400);
     }
 
     const application = await db.artisanApplication.findUnique({
@@ -39,11 +43,10 @@ const handler = eventHandler(async (event) => {
     });
 
     if (!application) {
-      setResponseStatus(event, 404);
-      return { success: false, error: "Application not found" };
+      return json({ success: false, error: "Application not found" }, 404);
     }
 
-    return {
+    return json({
       success: true,
       application: {
         id: application.id,
@@ -58,13 +61,12 @@ const handler = eventHandler(async (event) => {
         ),
         interviewComplete: application.interviewResponses.length >= 5,
       },
-    };
+    });
   }
 
   // ── POST: Submit new application ─────────────────────────────────
   if (method !== "POST") {
-    setResponseStatus(event, 405);
-    return { success: false, error: "Method not allowed" };
+    return json({ success: false, error: "Method not allowed" }, 405);
   }
 
   try {
@@ -79,8 +81,7 @@ const handler = eventHandler(async (event) => {
     if (body?.yearsExperience === undefined || body.yearsExperience < 0) errors.push("yearsExperience is required");
 
     if (errors.length > 0) {
-      setResponseStatus(event, 400);
-      return { success: false, errors };
+      return json({ success: false, errors }, 400);
     }
 
     // Rate-limit: check recent duplicate
@@ -92,11 +93,11 @@ const handler = eventHandler(async (event) => {
     });
 
     if (recent) {
-      return {
+      return json({
         success: true,
         message: "You have already submitted an application. Check your email for the assessment link.",
         accessToken: recent.accessToken,
-      };
+      });
     }
 
     const application = await db.artisanApplication.create({
@@ -155,17 +156,15 @@ const handler = eventHandler(async (event) => {
       `,
     }).catch((err) => console.error("[artisan-apply] Email error:", err));
 
-    setResponseStatus(event, 201);
-    return {
+    return json({
       success: true,
       applicationId: application.id,
       accessToken: application.accessToken,
       message: "Application submitted! Check your email for the assessment link.",
-    };
+    }, 201);
   } catch (error: any) {
     console.error("[artisan-apply] Error:", error);
-    setResponseStatus(event, 500);
-    return { success: false, error: "An unexpected error occurred" };
+    return json({ success: false, error: "An unexpected error occurred" }, 500);
   }
 });
 
