@@ -1,4 +1,4 @@
-import { eventHandler, readBody, getMethod, setResponseHeaders, getQuery } from "h3";
+import { eventHandler, readBody, getMethod, setResponseHeader, setResponseStatus, getQuery } from "h3";
 import { db } from "~/server/db";
 import { sendEmail } from "~/server/utils/email";
 
@@ -9,17 +9,16 @@ import { sendEmail } from "~/server/utils/email";
  * GET  /api/artisan/apply?token= — get application + assessments status
  */
 const handler = eventHandler(async (event) => {
-  setResponseHeaders(event, {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  });
+  setResponseHeader(event, "Access-Control-Allow-Origin", "*");
+  setResponseHeader(event, "Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  setResponseHeader(event, "Access-Control-Allow-Headers", "Content-Type");
+  setResponseHeader(event, "Content-Type", "application/json");
 
   const method = getMethod(event);
 
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    setResponseStatus(event, 204);
+    return "";
   }
 
   // ── GET: Fetch application by token ──────────────────────────────
@@ -27,7 +26,8 @@ const handler = eventHandler(async (event) => {
     const query = getQuery(event);
     const token = query.token as string;
     if (!token) {
-      return new Response(JSON.stringify({ success: false, error: "Token required" }), { status: 400 });
+      setResponseStatus(event, 400);
+      return { success: false, error: "Token required" };
     }
 
     const application = await db.artisanApplication.findUnique({
@@ -39,10 +39,11 @@ const handler = eventHandler(async (event) => {
     });
 
     if (!application) {
-      return new Response(JSON.stringify({ success: false, error: "Application not found" }), { status: 404 });
+      setResponseStatus(event, 404);
+      return { success: false, error: "Application not found" };
     }
 
-    return new Response(JSON.stringify({
+    return {
       success: true,
       application: {
         id: application.id,
@@ -57,12 +58,13 @@ const handler = eventHandler(async (event) => {
         ),
         interviewComplete: application.interviewResponses.length >= 5,
       },
-    }), { status: 200 });
+    };
   }
 
   // ── POST: Submit new application ─────────────────────────────────
   if (method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Method not allowed" }), { status: 405 });
+    setResponseStatus(event, 405);
+    return { success: false, error: "Method not allowed" };
   }
 
   try {
@@ -77,7 +79,8 @@ const handler = eventHandler(async (event) => {
     if (body?.yearsExperience === undefined || body.yearsExperience < 0) errors.push("yearsExperience is required");
 
     if (errors.length > 0) {
-      return new Response(JSON.stringify({ success: false, errors }), { status: 400 });
+      setResponseStatus(event, 400);
+      return { success: false, errors };
     }
 
     // Rate-limit: check recent duplicate
@@ -89,11 +92,11 @@ const handler = eventHandler(async (event) => {
     });
 
     if (recent) {
-      return new Response(JSON.stringify({
+      return {
         success: true,
         message: "You have already submitted an application. Check your email for the assessment link.",
         accessToken: recent.accessToken,
-      }), { status: 200 });
+      };
     }
 
     const application = await db.artisanApplication.create({
@@ -152,15 +155,17 @@ const handler = eventHandler(async (event) => {
       `,
     }).catch((err) => console.error("[artisan-apply] Email error:", err));
 
-    return new Response(JSON.stringify({
+    setResponseStatus(event, 201);
+    return {
       success: true,
       applicationId: application.id,
       accessToken: application.accessToken,
       message: "Application submitted! Check your email for the assessment link.",
-    }), { status: 201 });
+    };
   } catch (error: any) {
     console.error("[artisan-apply] Error:", error);
-    return new Response(JSON.stringify({ success: false, error: "An unexpected error occurred" }), { status: 500 });
+    setResponseStatus(event, 500);
+    return { success: false, error: "An unexpected error occurred" };
   }
 });
 
