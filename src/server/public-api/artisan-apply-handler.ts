@@ -1,8 +1,8 @@
-import { eventHandler, readBody, getMethod, getQuery } from "h3";
+import { eventHandler } from "h3";
 import { db } from "~/server/db";
 import { sendEmail } from "~/server/utils/email";
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
@@ -13,6 +13,26 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: corsHeaders });
 }
 
+/** Read raw JSON body from the underlying Node IncomingMessage. */
+function readJsonBody(event: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const req = event.node?.req ?? event.req;
+    // If it's a Web Request with .text(), use that
+    if (typeof req?.text === "function") {
+      req.text().then((t: string) => resolve(t ? JSON.parse(t) : {})).catch(reject);
+      return;
+    }
+    // Otherwise read from Node IncomingMessage stream
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf-8") || "{}")); }
+      catch (e) { reject(e); }
+    });
+    req.on("error", reject);
+  });
+}
+
 /**
  * Public Artisan Application API — No authentication required.
  *
@@ -20,7 +40,9 @@ function json(data: unknown, status = 200) {
  * GET  /api/artisan/apply?token= — get application + assessments status
  */
 const handler = eventHandler(async (event) => {
-  const method = getMethod(event);
+  const req = event.node?.req ?? event.req;
+  const method = (req.method ?? "GET").toUpperCase();
+  const url = new URL(req.url ?? "/", "http://localhost");
 
   if (method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -28,8 +50,7 @@ const handler = eventHandler(async (event) => {
 
   // ── GET: Fetch application by token ──────────────────────────────
   if (method === "GET") {
-    const query = getQuery(event);
-    const token = query.token as string;
+    const token = url.searchParams.get("token");
     if (!token) {
       return json({ success: false, error: "Token required" }, 400);
     }
@@ -70,7 +91,7 @@ const handler = eventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event);
+    const body = await readJsonBody(event);
 
     const errors: string[] = [];
     if (!body?.firstName?.trim()) errors.push("firstName is required");

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   User, Mail, Phone, Briefcase, MapPin, Wrench, FileText,
   Loader2, CheckCircle, ArrowRight, ArrowLeft, Send,
@@ -25,26 +25,58 @@ const PROVINCES = [
 
 const AVAILABILITY = ["Immediately", "1 week", "2 weeks", "1 month", "Negotiable"];
 
+const STORAGE_KEY = "sqr15_apply_form";
+const STEP_KEY = "sqr15_apply_step";
+
+function loadSavedForm() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return null;
+}
+
+function loadSavedStep() {
+  try {
+    const saved = localStorage.getItem(STEP_KEY);
+    if (saved) return Math.min(3, Math.max(1, parseInt(saved, 10) || 1));
+  } catch { /* ignore */ }
+  return 1;
+}
+
+const defaultForm = {
+  firstName: "", lastName: "", email: "", phone: "",
+  idNumber: "", dateOfBirth: "", gender: "",
+  city: "", province: "", address: "",
+  primaryTrade: "", secondaryTrades: [] as string[],
+  yearsExperience: "",
+  qualifications: "",
+  currentEmployer: "",
+  availability: "",
+  expectedSalary: "",
+  hasOwnTools: false, hasDriversLicense: false, hasOwnTransport: false,
+  motivationLetter: "",
+};
+
 function ApplyPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStepRaw] = useState(() => loadSavedStep());
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [accessToken, setAccessToken] = useState("");
 
-  const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "",
-    idNumber: "", dateOfBirth: "", gender: "",
-    city: "", province: "", address: "",
-    primaryTrade: "", secondaryTrades: [] as string[],
-    yearsExperience: "",
-    qualifications: "",
-    currentEmployer: "",
-    availability: "",
-    expectedSalary: "",
-    hasOwnTools: false, hasDriversLicense: false, hasOwnTransport: false,
-    motivationLetter: "",
-  });
+  const [form, setForm] = useState(() => ({ ...defaultForm, ...loadSavedForm() }));
+
+  // Persist form to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(form)); } catch { /* ignore */ }
+  }, [form]);
+
+  // Persist step
+  const setStep = useCallback((s: number) => {
+    setStepRaw(s);
+    try { localStorage.setItem(STEP_KEY, String(s)); } catch { /* ignore */ }
+  }, []);
 
   const set = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
 
@@ -87,6 +119,8 @@ function ApplyPage() {
         setAccessToken(data.accessToken);
         setSubmitted(true);
         toast.success("Application submitted!");
+        // Clear saved form data
+        try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STEP_KEY); } catch { /* ignore */ }
       } else {
         toast.error(data.errors?.join(", ") || data.error || "Submission failed");
       }
