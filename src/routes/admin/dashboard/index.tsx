@@ -37,6 +37,7 @@ import {
   Phone,
   Mail,
   Landmark,
+  UserPlus,
 } from "lucide-react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -453,6 +454,7 @@ function AdminDashboard() {
     { title: "Subscriptions", description: "Manage user subscriptions and packages", icon: Package, href: "/admin/subscriptions", color: "from-yellow-500 to-yellow-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
     { title: "Registrations", description: "Review and approve new account requests", icon: ClipboardList, href: "/admin/registrations", color: "from-yellow-500 to-yellow-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
     { title: "Settings", description: "Manage company branding and settings", icon: Settings, href: "/admin/settings", color: "from-gray-500 to-gray-600", stats: user?.role === "SENIOR_ADMIN" ? "Admin access" : "View only", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Recruitment", description: "AI-powered artisan recruitment & assessments", icon: UserPlus, href: "/admin/recruitment", color: "from-teal-500 to-emerald-600", stats: "AI recruitment" },
   ];
 
   const isDemoJuniorAdmin = user?.role === "JUNIOR_ADMIN" && user?.email === "junior@propmanagement.com";

@@ -1,0 +1,19 @@
+
+# Email Automation IMAP Configuration
+# Finance email (bank feed / bank notifications)
+FINANCE_IMAP_HOST=mail.square15.co.za
+FINANCE_IMAP_PORT=993
+FINANCE_IMAP_USER=finance@square15.co.za
+FINANCE_IMAP_PASSWORD=Chalatsi123#
+
+# Orders email (customer order requests)
+ORDERS_IMAP_HOST=mail.square15.co.za
+ORDERS_IMAP_PORT=993
+ORDERS_IMAP_USER=orders@square15.co.za
+ORDERS_IMAP_PASSWORD=Chalatsi123#
+
+# Quotes email (quote/quotation requests)
+QUOTES_IMAP_HOST=mail.square15.co.za
+QUOTES_IMAP_PORT=993
+QUOTES_IMAP_USER=quotes@square15.co.za
+QUOTES_IMAP_PASSWORD=Chalatsi123#
