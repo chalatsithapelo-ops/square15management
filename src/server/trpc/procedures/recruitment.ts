@@ -397,7 +397,7 @@ export const getRecruitmentApplications = baseProcedure
       include: {
         assessments: { select: { type: true, score: true, completedAt: true } },
         interviewResponses: { select: { questionIndex: true, aiScore: true } },
-        reviewedBy: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: { [input.sortBy || "createdAt"]: input.sortOrder || "desc" },
     });
@@ -422,7 +422,9 @@ export const getRecruitmentApplications = baseProcedure
         aiStrengths: a.aiStrengths,
         aiRedFlags: a.aiRedFlags,
         createdAt: a.createdAt,
-        reviewedBy: a.reviewedBy?.name || null,
+        reviewedBy: a.reviewedBy
+          ? `${a.reviewedBy.firstName} ${a.reviewedBy.lastName}`
+          : null,
         assessmentScores: {
           IQ: a.assessments.find(x => x.type === "IQ")?.score ?? null,
           EQ: a.assessments.find(x => x.type === "EQ")?.score ?? null,
@@ -464,7 +466,7 @@ export const getRecruitmentApplicationDetail = baseProcedure
       include: {
         assessments: true,
         interviewResponses: { orderBy: { questionIndex: "asc" } },
-        reviewedBy: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
 
@@ -558,7 +560,8 @@ export const onboardApplicant = baseProcedure
     // Create user account
     const newUser = await db.user.create({
       data: {
-        name: `${app.firstName} ${app.lastName}`,
+        firstName: app.firstName,
+        lastName: app.lastName,
         email: app.email,
         password: hashedPassword,
         role: input.role,
@@ -582,7 +585,7 @@ export const onboardApplicant = baseProcedure
     return {
       success: true,
       userId: newUser.id,
-      name: newUser.name,
+      name: `${newUser.firstName} ${newUser.lastName}`,
       email: newUser.email,
       role: newUser.role,
     };
