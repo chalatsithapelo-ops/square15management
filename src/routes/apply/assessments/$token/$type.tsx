@@ -445,10 +445,10 @@ function AssessmentPage() {
               {q.scenario && <p className="text-sm text-gray-500 italic mb-2">{q.scenario}</p>}
               <p className="text-gray-900 font-medium leading-relaxed">{q.question}</p>
               <div className="mt-4 space-y-2">
-                {(q.options as { text: string }[]).map((opt: { text: string }, i: number) => (
-                  <button key={i} onClick={() => setAnswers((p) => ({ ...p, [q.id]: i }))}
+                {(q.options as { id: number; text: string }[]).map((opt: { id: number; text: string }, i: number) => (
+                  <button key={`${q.id}-${opt.id}`} onClick={() => setAnswers((p) => ({ ...p, [q.id]: opt.id }))}
                     className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
-                      answers[q.id] === i
+                      answers[q.id] === opt.id
                         ? "bg-rose-50 border-rose-400 text-rose-900 font-medium"
                         : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                     }`}>

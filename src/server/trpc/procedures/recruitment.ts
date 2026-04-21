@@ -18,6 +18,7 @@ import { z } from "zod";
 import { baseProcedure } from "~/server/trpc/main";
 import { db } from "~/server/db";
 import { authenticateUser } from "~/server/utils/auth";
+import { sendEmail } from "~/server/utils/email";
 import {
   IQ_QUESTIONS,
   EQ_QUESTIONS,
@@ -34,6 +35,26 @@ import {
   computeOverallScore,
 } from "~/server/services/recruitment/scoringEngine";
 import { TRPCError } from "@trpc/server";
+
+function seededShuffle<T>(items: T[], seedInput: string): T[] {
+  const arr = [...items];
+  let seed = 0;
+  for (let i = 0; i < seedInput.length; i++) {
+    seed = (seed * 31 + seedInput.charCodeAt(i)) >>> 0;
+  }
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = arr[i] as T;
+    arr[i] = arr[j] as T;
+    arr[j] = tmp;
+  }
+  return arr;
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Public: Get application by access token
@@ -122,7 +143,11 @@ export const getAssessmentQuestions = baseProcedure
             id: q.id,
             scenario: q.scenario,
             question: q.question,
-            options: q.options.map(o => ({ text: o.text })), // strip scores
+            // Deterministically shuffle options per candidate to avoid answer-position patterns.
+            options: seededShuffle(
+              q.options.map((o, idx) => ({ id: idx, text: o.text })),
+              `${input.token}:${q.id}:eq`
+            ),
             category: q.category,
           })),
         };
@@ -311,9 +336,25 @@ export const submitInterviewAnswer = baseProcedure
       // All done — compute overall score
       await db.artisanApplication.update({
         where: { id: app.id },
-        data: { status: "INTERVIEW_COMPLETE" },
+        data: { status: "UNDER_REVIEW" },
       });
       await computeOverallScore(app.id);
+
+      // Candidate notification email (non-blocking)
+      sendEmail({
+        to: app.email,
+        subject: "Square15 — Assessment Completion Confirmed",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2D5016;">Assessments Completed Successfully</h2>
+            <p>Hi ${app.firstName},</p>
+            <p>Thank you for completing all psychometric assessments and the AI interview.</p>
+            <p>Your application is now <strong>under review</strong> by our recruitment team.</p>
+            <p>We will contact you at this email address with the outcome and next steps.</p>
+            <p style="margin-top: 24px; color: #666; font-size: 13px;">Square15 Management Recruitment Team</p>
+          </div>
+        `,
+      }).catch((err) => console.error("[recruitment] completion email error:", err));
     }
 
     return {

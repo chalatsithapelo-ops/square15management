@@ -386,6 +386,14 @@ function RecruitmentDashboard() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
           </div>
+        ) : listQuery.isError ? (
+          <div className="bg-white border border-red-200 rounded-xl p-8 text-center">
+            <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
+            <p className="mt-3 text-red-700 font-medium">Could not load recruitment applications</p>
+            <p className="mt-1 text-sm text-red-600">
+              {(listQuery.error as any)?.message || "Please refresh or log in again."}
+            </p>
+          </div>
         ) : filteredApps.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
             <Users className="w-10 h-10 text-gray-300 mx-auto" />
