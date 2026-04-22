@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getCompanyLogo, getContractorLogo } from "~/server/utils/logo";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { roundCurrency } from "~/utils/money";
 import {
   generatePdfFromData,
   getPdfSettings,
@@ -143,7 +144,7 @@ export const generateInvoicePdf = baseProcedure
       const lineItems: PDFLineItem[] = rawItems.map((item: any) => {
         const exclTotal = item.total || item.quantity * item.unitPrice;
         const vatPct = 15;
-        const inclTotal = exclTotal * (1 + vatPct / 100);
+        const inclTotal = roundCurrency(Number(exclTotal) * (1 + vatPct / 100));
         return {
           description: item.description || "",
           quantity: item.quantity || 1,
@@ -163,6 +164,10 @@ export const generateInvoicePdf = baseProcedure
       const statusLabel = invoice.status === "PAID" ? "PAID"
         : invoice.status === "OVERDUE" ? "OVERDUE"
         : "OUTSTANDING";
+
+      const displaySubtotal = roundCurrency(Number(invoice.subtotal) || 0);
+      const displayTotal = roundCurrency(Number(invoice.total) || 0);
+      const displayVat = roundCurrency(displayTotal - displaySubtotal);
 
       const data: FullPDFData = {
         template: pdfSettings.template as PDFTemplateLayout,
@@ -205,9 +210,9 @@ export const generateInvoicePdf = baseProcedure
         },
         items: lineItems,
         totals: {
-          subtotal: invoice.subtotal,
-          vat: invoice.tax,
-          total: invoice.total,
+          subtotal: displaySubtotal,
+          vat: displayVat,
+          total: displayTotal,
         },
         banking: companyDetails.companyBankName ? {
           bankName: companyDetails.companyBankName,

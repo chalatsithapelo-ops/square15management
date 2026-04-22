@@ -31,6 +31,7 @@ import {
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import { ReportModal } from "~/components/ReportModal";
+import { computeInvoiceTotals } from "~/utils/money";
 
 export const Route = createFileRoute("/contractor/invoices/")({
   beforeLoad: ({ location }) => {
@@ -842,17 +843,11 @@ function InvoicesPage() {
     );
   };
 
-  const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + (item.total || 0), 0);
-  };
+  const calculateSubtotal = () => computeInvoiceTotals(lineItems).subtotal;
 
-  const calculateTax = () => {
-    return calculateSubtotal() * 0.15;
-  };
+  const calculateTax = () => computeInvoiceTotals(lineItems).tax;
 
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
-  };
+  const calculateTotal = () => computeInvoiceTotals(lineItems).total;
 
   const calculateEstimatedProfit = () => {
     const subtotal = calculateSubtotal();

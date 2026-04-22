@@ -259,8 +259,21 @@ export function resolveTheme(themeName: string, customBrand?: { primary: string;
 
 // ===== Formatting Helpers =====
 
+/**
+ * Round half away from zero at 2dp. We avoid JS float drift (e.g. a stored
+ * VAT value of 654.0749999... rendering as "654.07" instead of "654.08") so
+ * that the per-step rounded subtotal + vat = total always reconciles on the
+ * printed PDF, even for historical rows that were persisted without per-step
+ * rounding.
+ */
+function roundCurrency2dp(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 function formatCurrency(amount: number): string {
-  return `R${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const rounded = roundCurrency2dp(amount);
+  return `R${rounded.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(d: Date): string {
@@ -703,9 +716,14 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   if (totals.totalDiscount !== undefined && totals.totalDiscount > 0) {
     totalLines.push(["Total Discount:", formatCurrency(totals.totalDiscount)]);
   }
-  totalLines.push(["Total Exclusive:", formatCurrency(totals.subtotal)]);
-  totalLines.push(["Total VAT:", formatCurrency(totals.vat)]);
-  totalLines.push(["Sub Total:", formatCurrency(totals.subtotal + totals.vat)]);
+  // Use the stored grand total as authoritative, then derive VAT = total − subtotal
+  // so that every printed line adds up exactly and the customer can verify the maths.
+  const displaySubtotal = roundCurrency2dp(totals.subtotal);
+  const displayGrand = roundCurrency2dp(totals.total);
+  const displayVat = roundCurrency2dp(displayGrand - displaySubtotal);
+  totalLines.push(["Total Exclusive:", formatCurrency(displaySubtotal)]);
+  totalLines.push(["Total VAT:", formatCurrency(displayVat)]);
+  totalLines.push(["Sub Total:", formatCurrency(displayGrand)]);
 
   totalLines.forEach(([label, value]) => {
     doc
@@ -730,7 +748,7 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .fillColor(colors.headerText)
     .font("Helvetica-Bold")
     .text("Grand Total:", totalsLabelX, totY + 2, { width: 95, align: "right" })
-    .text(formatCurrency(totals.total), totalsValueX, totY + 2, { width: totalsValueW, align: "right" });
+    .text(formatCurrency(displayGrand), totalsValueX, totY + 2, { width: totalsValueW, align: "right" });
 
   // ===== PAYMENT TERMS (critical section requested by user) =====
   const paymentTermsText = data.paymentTerms || data.document.paymentTerms;
@@ -977,16 +995,19 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
   // ===== TOTALS =====
   yPos += 20;
   const tX = 380;
+  const modernSubtotal = roundCurrency2dp(totals.subtotal);
+  const modernTotal = roundCurrency2dp(totals.total);
+  const modernVat = roundCurrency2dp(modernTotal - modernSubtotal);
   doc.fontSize(10).fillColor("#666666").font("Helvetica")
     .text("Subtotal:", tX, yPos, { width: 70, align: "right" })
     .fillColor("#333333").font("Helvetica-Bold")
-    .text(formatCurrency(totals.subtotal), 460, yPos, { width: 75, align: "right" });
+    .text(formatCurrency(modernSubtotal), 460, yPos, { width: 75, align: "right" });
 
   yPos += 20;
   doc.fillColor("#666666").font("Helvetica")
     .text("VAT (15%):", tX, yPos, { width: 70, align: "right" })
     .fillColor("#333333").font("Helvetica-Bold")
-    .text(formatCurrency(totals.vat), 460, yPos, { width: 75, align: "right" });
+    .text(formatCurrency(modernVat), 460, yPos, { width: 75, align: "right" });
 
   yPos += 20;
   doc.rect(380, yPos - 5, 165, 28).fill(colors.primary);
@@ -994,7 +1015,7 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
   doc.fontSize(12).fillColor(colors.headerText).font("Helvetica")
     .text("TOTAL:", tX, yPos + 3, { width: 70, align: "right" })
     .font("Helvetica-Bold")
-    .text(formatCurrency(totals.total), 460, yPos + 3, { width: 75, align: "right" });
+    .text(formatCurrency(modernTotal), 460, yPos + 3, { width: 75, align: "right" });
 
   // ===== PAYMENT DETAILS BOX =====
   if (banking) {

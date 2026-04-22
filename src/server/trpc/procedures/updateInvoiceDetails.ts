@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { computeInvoiceTotals } from "~/utils/money";
 
 export const updateInvoiceDetails = baseProcedure
   .input(
@@ -80,9 +81,18 @@ export const updateInvoiceDetails = baseProcedure
       if (input.customerPhone !== undefined) updateData.customerPhone = input.customerPhone;
       if (input.address !== undefined) updateData.address = input.address;
       if (input.items !== undefined) updateData.items = input.items;
-      if (input.subtotal !== undefined) updateData.subtotal = input.subtotal;
-      if (input.tax !== undefined) updateData.tax = input.tax;
-      if (input.total !== undefined) updateData.total = input.total;
+      // When items are supplied, always recanonicalise totals server-side so the
+      // web form and the downloaded PDF agree to the cent (fixes R5014.57 vs R5014.58).
+      if (input.items !== undefined) {
+        const canonical = computeInvoiceTotals(input.items);
+        updateData.subtotal = canonical.subtotal;
+        updateData.tax = canonical.tax;
+        updateData.total = canonical.total;
+      } else {
+        if (input.subtotal !== undefined) updateData.subtotal = input.subtotal;
+        if (input.tax !== undefined) updateData.tax = input.tax;
+        if (input.total !== undefined) updateData.total = input.total;
+      }
       if (input.dueDate !== undefined) {
         updateData.dueDate = input.dueDate ? new Date(input.dueDate) : null;
       }

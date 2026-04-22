@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { computeInvoiceTotals } from "~/utils/money";
 
 export const createInvoice = baseProcedure
   .input(
@@ -99,6 +100,13 @@ export const createInvoice = baseProcedure
       // Token already verified at line 41
       const parsed = z.object({ userId: z.number() }).parse(verified);
 
+      // Canonicalise totals server-side so the stored values always match
+      // what the form/PDF will display (avoids 5014.57 vs 5014.58 drift).
+      const canonical = computeInvoiceTotals(input.items);
+      const canonicalSubtotal = canonical.subtotal;
+      const canonicalTax = canonical.tax;
+      const canonicalTotal = canonical.total;
+
       const user = await db.user.findUnique({
         where: { id: parsed.userId },
       });
@@ -137,9 +145,9 @@ export const createInvoice = baseProcedure
             propertyManagerId: pmOrder.propertyManagerId,
             orderId: input.pmOrderId,
             items: input.items,
-            subtotal: input.subtotal,
-            tax: input.tax,
-            total: input.total,
+            subtotal: canonicalSubtotal,
+            tax: canonicalTax,
+            total: canonicalTotal,
             dueDate: input.dueDate ? new Date(input.dueDate) : twoWeeksFromNow,
             notes: input.notes || null,
             // Start with DRAFT status for approval workflow
@@ -179,9 +187,9 @@ export const createInvoice = baseProcedure
           customerPhone: input.customerPhone,
           address: input.address,
           items: input.items,
-          subtotal: input.subtotal,
-          tax: input.tax,
-          total: input.total,
+          subtotal: canonicalSubtotal,
+          tax: canonicalTax,
+          total: canonicalTotal,
           dueDate: input.dueDate ? new Date(input.dueDate) : twoWeeksFromNowRegular,
           notes: input.notes || null,
           orderId: input.orderId || null,

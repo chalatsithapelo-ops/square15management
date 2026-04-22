@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { ReportModal } from "~/components/ReportModal";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
+import { computeInvoiceTotals } from "~/utils/money";
 
 export const Route = createFileRoute("/admin/invoices/")({
   validateSearch: z.object({
@@ -780,17 +781,11 @@ function InvoicesPage() {
     setLineItems(newItems);
   };
 
-  const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + item.total, 0);
-  };
+  const calculateSubtotal = () => computeInvoiceTotals(lineItems).subtotal;
 
-  const calculateTax = () => {
-    return calculateSubtotal() * 0.15;
-  };
+  const calculateTax = () => computeInvoiceTotals(lineItems).tax;
 
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
-  };
+  const calculateTotal = () => computeInvoiceTotals(lineItems).total;
 
   const calculateEstimatedProfit = () => {
     const subtotal = calculateSubtotal();

@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getContractorLogo } from "~/server/utils/logo";
+import { roundCurrency } from "~/utils/money";
 import {
   generatePdfFromData,
   getPdfSettings,
@@ -113,6 +114,7 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
       const lineItems: PDFLineItem[] = (rawItems as any[]).map((item) => {
         const exclTotal = item.total || (item.quantity || 1) * (item.unitPrice || 0);
         const vatPct = 15;
+        const inclTotal = roundCurrency(Number(exclTotal) * (1 + vatPct / 100));
         return {
           description: item.description || "Service",
           quantity: item.quantity || 1,
@@ -120,7 +122,7 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
           discountPercent: 0,
           vatPercent: vatPct,
           exclTotal,
-          inclTotal: exclTotal * (1 + vatPct / 100),
+          inclTotal,
           unitOfMeasure: item.unitOfMeasure || "Sum",
         };
       });
@@ -128,6 +130,10 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
       const pmName = invoice.propertyManager
         ? `${invoice.propertyManager.firstName} ${invoice.propertyManager.lastName}`
         : "Property Manager";
+
+      const displaySubtotal = roundCurrency(Number(invoice.subtotal) || 0);
+      const displayTotal = roundCurrency(Number(invoice.total) || 0);
+      const displayVat = roundCurrency(displayTotal - displaySubtotal);
 
       const data: FullPDFData = {
         template: pdfSettings.template as PDFTemplateLayout,
@@ -161,9 +167,9 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
         },
         items: lineItems,
         totals: {
-          subtotal: invoice.subtotal,
-          vat: invoice.tax || 0,
-          total: invoice.total,
+          subtotal: displaySubtotal,
+          vat: displayVat,
+          total: displayTotal,
         },
         banking: contractorDetails.contractorCompanyBankName ? {
           bankName: contractorDetails.contractorCompanyBankName,
