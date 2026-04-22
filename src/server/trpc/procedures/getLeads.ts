@@ -33,8 +33,8 @@ export const getLeads = baseProcedure
     }
     // Admins see all leads (no additional filtering)
 
-    // Demo data isolation
-    await applyDemoIsolation(whereClause, user, db);
+    // Demo data isolation: Lead.createdById is non-nullable, so use required-field mode.
+    await applyDemoIsolation(whereClause, user, db, "createdById", true);
 
     const leads = await db.lead.findMany({
       where: whereClause,
