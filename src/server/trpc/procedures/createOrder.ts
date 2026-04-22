@@ -44,7 +44,13 @@ export const createOrder = baseProcedure
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    if (user.role !== "CONTRACTOR" && user.role !== "JUNIOR_ADMIN" && user.role !== "SENIOR_ADMIN") {
+    if (
+      user.role !== "CONTRACTOR" &&
+      user.role !== "JUNIOR_ADMIN" &&
+      user.role !== "SENIOR_ADMIN" &&
+      user.role !== "TECHNICAL_MANAGER" &&
+      user.role !== "MANAGER"
+    ) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "You do not have permission to create orders.",
@@ -176,7 +182,10 @@ export const createOrder = baseProcedure
     }
 
     // Only notify admins if an admin created the order without assigning it.
-    if ((user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN") && !input.assignedToId) {
+    if (
+      (user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "TECHNICAL_MANAGER" || user.role === "MANAGER") &&
+      !input.assignedToId
+    ) {
       const loc = order.address
         ? order.address
             .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]

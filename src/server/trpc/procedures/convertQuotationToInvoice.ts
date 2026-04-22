@@ -20,7 +20,7 @@ export const convertQuotationToInvoice = baseProcedure
     const user = await authenticateUser(input.token);
 
     // Only admins and contractors can convert
-    if (!["JUNIOR_ADMIN", "SENIOR_ADMIN", "CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"].includes(user.role)) {
+    if (!["JUNIOR_ADMIN", "SENIOR_ADMIN", "TECHNICAL_MANAGER", "MANAGER", "CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"].includes(user.role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "You do not have permission to convert quotations.",

@@ -17,7 +17,7 @@ export const convertQuotationToOrder = baseProcedure
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    if (!["JUNIOR_ADMIN", "SENIOR_ADMIN", "CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"].includes(user.role)) {
+    if (!["JUNIOR_ADMIN", "SENIOR_ADMIN", "TECHNICAL_MANAGER", "MANAGER", "CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER"].includes(user.role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "You do not have permission to convert quotations to orders.",
