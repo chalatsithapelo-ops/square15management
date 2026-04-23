@@ -494,25 +494,47 @@ model User {
   liabilitiesCreated Liability[] @relation("LiabilityCreator")
 
   // Task Management relations
-  staffMembers           StaffMember[]    @relation("PropertyManagerStaff")
-  pmTasks                PMTask[]         @relation("PropertyManagerTasks")
-  pmTaskCommentsAuthored PMTaskComment[]  @relation("PMTaskCommentsAuthored")
-  pmTaskUpdatesAuthored  PMTaskUpdate[]   @relation("PMTaskUpdatesAuthored")
+  staffMembers           StaffMember[]   @relation("PropertyManagerStaff")
+  pmTasks                PMTask[]        @relation("PropertyManagerTasks")
+  pmTaskCommentsAuthored PMTaskComment[] @relation("PMTaskCommentsAuthored")
+  pmTaskUpdatesAuthored  PMTaskUpdate[]  @relation("PMTaskUpdatesAuthored")
 
   // Staff self-service portal link
-  staffProfile           StaffMember?     @relation("StaffUserAccount")
+  staffProfile StaffMember? @relation("StaffUserAccount")
 
   // CRM Clients
-  clientsCreated         Client[]         @relation("ClientCreator")
+  clientsCreated Client[] @relation("ClientCreator")
 
   // Bank Feed Automation
-  bankAccounts           BankAccount[]    @relation("BankAccountCreator")
-  bankImportBatches      BankImportBatch[] @relation("BankImportBatchCreator")
+  bankAccounts             BankAccount[]               @relation("BankAccountCreator")
+  bankImportBatches        BankImportBatch[]           @relation("BankImportBatchCreator")
   categorizationsConfirmed TransactionCategorization[] @relation("CategorizationConfirmer")
-  categorizationRules    CategorizationRule[] @relation("CategorizationRuleCreator")
+  categorizationRules      CategorizationRule[]        @relation("CategorizationRuleCreator")
 
-  // Recruitment
-  reviewedApplications   ArtisanApplication[] @relation("ApplicationReviewer")
+  // Recruitment (legacy)
+  reviewedApplications ArtisanApplication[] @relation("ApplicationReviewer")
+
+  // Recruitment 2.0 — ATS
+  jobsCreated               Job[]                     @relation("JobCreator")
+  jobsAsHiringManager       Job[]                     @relation("JobHiringManager")
+  jobsAsRecruiter           Job[]                     @relation("JobRecruiter")
+  jobApprovals              JobApproval[]             @relation("JobApprover")
+  applicationsReferred      Application[]             @relation("ApplicationReferrer")
+  applicationsAssignedRec   Application[]             @relation("ApplicationRecruiter")
+  applicationsReviewedATS   Application[]             @relation("ApplicationReviewer2")
+  stageMovesByUser          ApplicationStageHistory[] @relation("StageMover")
+  scorecardSubmissionsMade  ScorecardSubmission[]     @relation("ScorecardInterviewer")
+  interviewPanelMemberships InterviewPanelMember[]    @relation("PanelMember")
+  interviewSlots            InterviewSlot[]           @relation("InterviewerSlots")
+  interviewBookingsCreated  InterviewBooking[]        @relation("BookingCreator")
+  offersCreated             Offer[]                   @relation("OfferCreator")
+  offerApprovals            OfferApproval[]           @relation("OfferApprover")
+  backgroundChecksRequested BackgroundCheck[]         @relation("BackgroundRequester")
+  applicationNotesAuthored  ApplicationNote[]         @relation("NoteAuthor")
+  applicationAttachmentsUp  ApplicationAttachment[]   @relation("AttachmentUploader")
+  applicationMessagesSent   ApplicationMessage[]      @relation("MessageSender")
+  talentPoolsCreated        TalentPool[]              @relation("TalentPoolCreator")
+  talentPoolAdditions       TalentPoolMembership[]    @relation("PoolAdder")
 
   @@index([employerId])
 }
@@ -587,7 +609,7 @@ model Order {
   leadId Int?
   lead   Lead? @relation(fields: [leadId], references: [id])
 
-  quotationId Int?   @unique
+  quotationId Int?       @unique
   quotation   Quotation? @relation("QuotationOrder", fields: [quotationId], references: [id], onDelete: SetNull)
 
   startTime             DateTime?
@@ -601,19 +623,19 @@ model Order {
   numLabourersNeeded    Int?
   totalLabourCostBudget Float?
 
-  beforePictures     String[]
-  afterPictures      String[]
-  contractorSlipUrls String[]  @default([])
-  signedJobCardUrl          String?
-  clientRepName              String?
-  clientRepSignDate          DateTime?
-  clientUnavailableToSign    Boolean   @default(false)
-  signatureRequestToken      String?   @unique
-  signatureRequestSentAt     DateTime?
-  documents                  String[]  @default([])
+  beforePictures          String[]
+  afterPictures           String[]
+  contractorSlipUrls      String[]  @default([])
+  signedJobCardUrl        String?
+  clientRepName           String?
+  clientRepSignDate       DateTime?
+  clientUnavailableToSign Boolean   @default(false)
+  signatureRequestToken   String?   @unique
+  signatureRequestSentAt  DateTime?
+  documents               String[]  @default([])
 
   // Draft payment fields (persisted so artisan can resume later)
-  draftPaymentType  String?   // "hourly" or "daily"
+  draftPaymentType  String? // "hourly" or "daily"
   draftHoursWorked  Float?
   draftDaysWorked   Float?
   draftHourlyRate   Float?
@@ -886,11 +908,11 @@ model Quotation {
   durationUnit        String? // 'HOURLY' or 'DAILY'
   quotationLineItems  Json? // Artisan's breakdown of scope and materials
 
-  status          QuotationStatus @default(DRAFT)
-  validUntil      DateTime?
-  notes           String?
+  status             QuotationStatus @default(DRAFT)
+  validUntil         DateTime?
+  notes              String?
   projectDescription String?
-  rejectionReason String?
+  rejectionReason    String?
 
   // Workflow fields (similar to Order)
   startTime      DateTime?
@@ -917,8 +939,8 @@ model Quotation {
   expenseSlips             QuotationExpenseSlip[]
   lineItems                QuotationLineItem[]
   propertyManagerPdfCopies PropertyManagerQuotationPdfCopy[] @relation("QuotationPdfCopies")
-  generatedInvoice         Invoice?    @relation("QuotationInvoice")
-  generatedOrder           Order?      @relation("QuotationOrder")
+  generatedInvoice         Invoice?                          @relation("QuotationInvoice")
+  generatedOrder           Order?                            @relation("QuotationOrder")
   emailSource              QuoteEmailSource?
 }
 
@@ -938,16 +960,16 @@ model QuotationLineItem {
 }
 
 model Invoice {
-  id            Int      @id @default(autoincrement())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  invoiceNumber String   @unique
-  customerName  String
-  customerEmail String
-  customerPhone String
-  address       String
+  id                    Int      @id @default(autoincrement())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  invoiceNumber         String   @unique
+  customerName          String
+  customerEmail         String
+  customerPhone         String
+  address               String
   clientReferenceNumber String?
-  customerVatNumber String?
+  customerVatNumber     String?
 
   items               Json // Array of { description, quantity, unitPrice, total }
   subtotal            Float
@@ -957,19 +979,19 @@ model Invoice {
   companyLabourCost   Float @default(0)
   estimatedProfit     Float @default(0)
 
-  status          InvoiceStatus @default(DRAFT)
-  isDisputed      Boolean       @default(false)
-  dueDate         DateTime?
-  paidDate        DateTime?
-  rejectionReason String?
+  status             InvoiceStatus @default(DRAFT)
+  isDisputed         Boolean       @default(false)
+  dueDate            DateTime?
+  paidDate           DateTime?
+  rejectionReason    String?
   projectDescription String?
-  pmApproved      Boolean       @default(false)
-  pmApprovedDate  DateTime?
+  pmApproved         Boolean       @default(false)
+  pmApprovedDate     DateTime?
 
   orderId Int?   @unique
   order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
-  quotationId Int?   @unique
+  quotationId Int?       @unique
   quotation   Quotation? @relation("QuotationInvoice", fields: [quotationId], references: [id], onDelete: SetNull)
 
   projectId Int?
@@ -995,10 +1017,10 @@ model InvoiceLineItem {
   unitOfMeasure String   @default("Sum")
 
   // SARS VAT compliance (Section 20 VAT Act)
-  vatRate     Float?  @default(15) // VAT rate percentage (15%, 0%, or null for exempt)
-  vatAmount   Float?  @default(0)  // VAT amount on this line item
-  netAmount   Float?               // Amount excluding VAT
-  supplyType  String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+  vatRate    Float?  @default(15) // VAT rate percentage (15%, 0%, or null for exempt)
+  vatAmount  Float?  @default(0) // VAT amount on this line item
+  netAmount  Float? // Amount excluding VAT
+  supplyType String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
 
   invoiceId Int
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -1023,12 +1045,12 @@ model Asset {
   images        String[]
 
   // SARS Depreciation / Wear & Tear (Section 11(e))
-  usefulLifeYears      Int?     // Estimated useful life in years
-  residualValue        Float?   @default(0) // Value at end of useful life
-  depreciationMethod   String?  @default("STRAIGHT_LINE") // STRAIGHT_LINE or REDUCING_BALANCE
-  sarsWearAndTearRate  Float?   // SARS wear-and-tear rate percentage (e.g., 20 for 20%)
-  accumulatedDepreciation Float? @default(0) // Total depreciation to date
-  lastDepreciationDate DateTime? // Date of last depreciation calculation
+  usefulLifeYears         Int? // Estimated useful life in years
+  residualValue           Float?    @default(0) // Value at end of useful life
+  depreciationMethod      String?   @default("STRAIGHT_LINE") // STRAIGHT_LINE or REDUCING_BALANCE
+  sarsWearAndTearRate     Float? // SARS wear-and-tear rate percentage (e.g., 20 for 20%)
+  accumulatedDepreciation Float?    @default(0) // Total depreciation to date
+  lastDepreciationDate    DateTime? // Date of last depreciation calculation
 
   // Capital vs Revenue classification
   expenditureType String? @default("CAPITAL") // CAPITAL or REVENUE
@@ -1054,7 +1076,7 @@ model Liability {
   creditor        String? // Name of creditor/lender
   referenceNumber String?
   notes           String?
-  images          String[] @default([])
+  images          String[]           @default([])
 
   // Track who created this liability (essential for portal separation)
   createdById Int?
@@ -1141,17 +1163,17 @@ model Payslip {
   uifReferenceNumber String?
 
   // SARS PAYE Compliance
-  employerUif      Float @default(0)  // Employer UIF contribution (1%)
-  sdlAmount        Float @default(0)  // Skills Development Levy (1%)
-  taxBracket       String?            // Tax bracket applied
-  taxRebate        Float @default(0)  // Primary/secondary/tertiary rebate
-  annualTaxableIncome Float?          // Projected annual taxable income
-  sarsSourceCode3601 Float?           // SARS 3601 - Salary
-  sarsSourceCode3701 Float?           // SARS 3701 - Bonus
-  sarsSourceCode3702 Float?           // SARS 3702 - Overtime
-  sarsSourceCode4101 Float?           // SARS 4101 - PAYE
-  sarsSourceCode4141 Float?           // SARS 4141 - UIF Employee
-  sarsSourceCode4142 Float?           // SARS 4142 - UIF Employer
+  employerUif         Float   @default(0) // Employer UIF contribution (1%)
+  sdlAmount           Float   @default(0) // Skills Development Levy (1%)
+  taxBracket          String? // Tax bracket applied
+  taxRebate           Float   @default(0) // Primary/secondary/tertiary rebate
+  annualTaxableIncome Float? // Projected annual taxable income
+  sarsSourceCode3601  Float? // SARS 3601 - Salary
+  sarsSourceCode3701  Float? // SARS 3701 - Bonus
+  sarsSourceCode3702  Float? // SARS 3702 - Overtime
+  sarsSourceCode4101  Float? // SARS 4101 - PAYE
+  sarsSourceCode4141  Float? // SARS 4141 - UIF Employee
+  sarsSourceCode4142  Float? // SARS 4142 - UIF Employer
 
   // Notes
   notes String?
@@ -1798,18 +1820,18 @@ model PropertyManagerOrder {
   progressPercentage Float @default(0)
 
   // Job execution fields (for artisan workflow)
-  startTime         DateTime?
-  endTime           DateTime?
-  beforePictures    String[]  @default([])
-  afterPictures     String[]  @default([])
-  materialCost      Float     @default(0)
-  labourCost        Float     @default(0)
-  signedJobCardUrl          String?
-  clientRepName              String?
-  clientRepSignDate          DateTime?
-  clientUnavailableToSign    Boolean   @default(false)
-  signatureRequestToken      String?   @unique
-  signatureRequestSentAt     DateTime?
+  startTime               DateTime?
+  endTime                 DateTime?
+  beforePictures          String[]  @default([])
+  afterPictures           String[]  @default([])
+  materialCost            Float     @default(0)
+  labourCost              Float     @default(0)
+  signedJobCardUrl        String?
+  clientRepName           String?
+  clientRepSignDate       DateTime?
+  clientUnavailableToSign Boolean   @default(false)
+  signatureRequestToken   String?   @unique
+  signatureRequestSentAt  DateTime?
 
   // Draft payment fields (persisted so artisan can resume later)
   draftPaymentType  String?
@@ -2858,11 +2880,11 @@ model OperationalExpense {
   documentUrl     String? // URL to receipt/invoice document
 
   // SARS VAT Input Tax (Section 16 VAT Act)
-  vatRate        Float?  @default(15) // VAT rate on this expense
-  inputVatAmount Float?  @default(0)  // Input VAT claimable
-  netAmount      Float?               // Amount excluding VAT
-  supplyType     String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
-  vendorVatNumber String?              // Vendor's VAT registration number
+  vatRate         Float?  @default(15) // VAT rate on this expense
+  inputVatAmount  Float?  @default(0) // Input VAT claimable
+  netAmount       Float? // Amount excluding VAT
+  supplyType      String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+  vendorVatNumber String? // Vendor's VAT registration number
 
   // Capital vs Revenue expenditure (IT14)
   expenditureType String? @default("REVENUE") // CAPITAL or REVENUE
@@ -2906,13 +2928,13 @@ model AlternativeRevenue {
   documentUrl     String? // URL to supporting document
 
   // SARS VAT Output Tax
-  vatRate        Float?  @default(15) // VAT rate on this revenue
-  outputVatAmount Float? @default(0)  // Output VAT on this revenue
-  netAmount      Float?               // Amount excluding VAT
-  supplyType     String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
+  vatRate         Float?  @default(15) // VAT rate on this revenue
+  outputVatAmount Float?  @default(0) // Output VAT on this revenue
+  netAmount       Float? // Amount excluding VAT
+  supplyType      String? @default("STANDARD") // STANDARD, ZERO_RATED, EXEMPT
 
   // SARS IT14 Income source code
-  sarsSourceCode String?  // e.g., 4001_SALES, 4003_SERVICES, 4007_RENTAL
+  sarsSourceCode String? // e.g., 4001_SALES, 4003_SERVICES, 4007_RENTAL
 
   // User who created the revenue entry
   createdById Int
@@ -3174,13 +3196,13 @@ model StaffMember {
   isActive Boolean @default(true)
 
   // Optional user account link (for self-service portal)
-  userId Int?   @unique
-  user   User?  @relation("StaffUserAccount", fields: [userId], references: [id])
+  userId Int?  @unique
+  user   User? @relation("StaffUserAccount", fields: [userId], references: [id])
 
   // Relations
-  tasksAssigned PMTask[]           @relation("StaffTaskAssignments")
-  taskComments  PMTaskComment[]    @relation("StaffTaskComments")
-  taskUpdates   PMTaskUpdate[]     @relation("StaffTaskUpdates")
+  tasksAssigned PMTask[]        @relation("StaffTaskAssignments")
+  taskComments  PMTaskComment[] @relation("StaffTaskComments")
+  taskUpdates   PMTaskUpdate[]  @relation("StaffTaskUpdates")
 
   @@unique([email, propertyManagerId])
   @@index([propertyManagerId])
@@ -3206,22 +3228,22 @@ model PMTask {
 
   // Task details
   title       String
-  description String    @db.Text
+  description String       @db.Text
   category    TaskCategory
   priority    TaskPriority @default(MEDIUM)
 
   // Location
-  buildingName    String?
-  buildingAddress String?
-  unitNumber      String?
+  buildingName     String?
+  buildingAddress  String?
+  unitNumber       String?
   specificLocation String? // e.g., "2nd floor lobby", "parking area B"
 
   // Status & workflow
-  status           TaskStatus @default(DRAFT)
-  progressPercentage Float    @default(0)
-  isPaused          Boolean   @default(false)
-  pausedAt          DateTime?
-  pauseReason       String?
+  status             TaskStatus @default(DRAFT)
+  progressPercentage Float      @default(0)
+  isPaused           Boolean    @default(false)
+  pausedAt           DateTime?
+  pauseReason        String?
 
   // Timeline
   dueDate        DateTime?
@@ -3232,36 +3254,36 @@ model PMTask {
   actualHours    Float?
 
   // Job execution fields (similar to artisan workflow)
-  startTime        DateTime?
-  endTime          DateTime?
-  beforePictures   String[]  @default([])
-  afterPictures    String[]  @default([])
-  materialCost     Float     @default(0)
-  labourCost       Float     @default(0)
+  startTime      DateTime?
+  endTime        DateTime?
+  beforePictures String[]  @default([])
+  afterPictures  String[]  @default([])
+  materialCost   Float     @default(0)
+  labourCost     Float     @default(0)
 
   // Report / findings
-  findings          String?   @db.Text
-  recommendations   String?   @db.Text
-  reportUrl         String?
-  signedOffBy       String?
-  signedOffDate     DateTime?
+  findings        String?   @db.Text
+  recommendations String?   @db.Text
+  reportUrl       String?
+  signedOffBy     String?
+  signedOffDate   DateTime?
 
   // Recurrence (for recurring tasks)
-  isRecurring       Boolean  @default(false)
-  recurrencePattern String?  // e.g., "DAILY", "WEEKLY", "MONTHLY"
+  isRecurring        Boolean   @default(false)
+  recurrencePattern  String? // e.g., "DAILY", "WEEKLY", "MONTHLY"
   nextRecurrenceDate DateTime?
 
   // Checklist items stored as JSON
-  checklist         String?  @db.Text  // JSON array of {item, completed}
+  checklist String? @db.Text // JSON array of {item, completed}
 
   // Attachments and notes
-  attachments  String[] @default([])
-  notes        String?  @db.Text
+  attachments String[] @default([])
+  notes       String?  @db.Text
 
   // Relations
-  comments    PMTaskComment[]
-  updates     PMTaskUpdate[]
-  materials   PMTaskMaterial[]
+  comments     PMTaskComment[]
+  updates      PMTaskUpdate[]
+  materials    PMTaskMaterial[]
   expenseSlips PMTaskExpenseSlip[]
 
   @@index([propertyManagerId])
@@ -3280,15 +3302,15 @@ model PMTaskComment {
   task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   // Who commented (PM or staff)
-  authorType    String  // "PM" or "STAFF"
+  authorType    String // "PM" or "STAFF"
   authorPMId    Int?
   authorPM      User?        @relation("PMTaskCommentsAuthored", fields: [authorPMId], references: [id])
   authorStaffId Int?
   authorStaff   StaffMember? @relation("StaffTaskComments", fields: [authorStaffId], references: [id])
 
-  message    String @db.Text
-  photos     String[] @default([])
-  documents  String[] @default([])
+  message   String   @db.Text
+  photos    String[] @default([])
+  documents String[] @default([])
 
   @@index([taskId])
 }
@@ -3301,7 +3323,7 @@ model PMTaskUpdate {
   task   PMTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   // Who made the update
-  updatedByType    String  // "PM" or "STAFF"
+  updatedByType    String // "PM" or "STAFF"
   updatedByPMId    Int?
   updatedByPM      User?        @relation("PMTaskUpdatesAuthored", fields: [updatedByPMId], references: [id])
   updatedByStaffId Int?
@@ -3356,17 +3378,17 @@ model AuditLog {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
-  userId    Int?
-  userName  String?  // Denormalized for quick access
-  action    String   // CREATE, UPDATE, DELETE, EXPORT, GENERATE_REPORT
-  entityType String  // e.g., Invoice, Payslip, Asset, OperationalExpense
+  userId     Int?
+  userName   String? // Denormalized for quick access
+  action     String // CREATE, UPDATE, DELETE, EXPORT, GENERATE_REPORT
+  entityType String // e.g., Invoice, Payslip, Asset, OperationalExpense
   entityId   Int?
-  changes    String?  // JSON diff of before/after values
+  changes    String? // JSON diff of before/after values
   ipAddress  String?
   userAgent  String?
 
   // Context
-  module     String?  // e.g., accounts, payroll, invoices
+  module      String? // e.g., accounts, payroll, invoices
   description String? // Human-readable description
 
   @@index([userId])
@@ -3381,8 +3403,8 @@ model SARSTaxConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  taxYear     String  @unique // e.g., "2024/2025"
-  isActive    Boolean @default(true)
+  taxYear  String  @unique // e.g., "2024/2025"
+  isActive Boolean @default(true)
 
   // Company Tax
   companyTaxRate Float @default(27) // 27% for companies
@@ -3391,24 +3413,24 @@ model SARSTaxConfig {
   standardVatRate Float @default(15)
 
   // SDL
-  sdlRate Float @default(1) // 1% of payroll
+  sdlRate      Float @default(1) // 1% of payroll
   sdlThreshold Float @default(500000) // Annual payroll threshold
 
   // UIF
   uifEmployeeRate Float @default(1)
   uifEmployerRate Float @default(1)
-  uifMaxEarnings Float @default(17712) // Monthly ceiling for UIF
+  uifMaxEarnings  Float @default(17712) // Monthly ceiling for UIF
 
   // Tax brackets (stored as JSON array)
-  taxBrackets String // JSON: [{min, max, rate, baseAmount}]
-  taxRebates  String // JSON: {primary, secondary, tertiary}
+  taxBrackets   String // JSON: [{min, max, rate, baseAmount}]
+  taxRebates    String // JSON: {primary, secondary, tertiary}
   taxThresholds String // JSON: {below65, age65to74, age75plus}
 
   // Important dates
-  provisionalTax1stDue DateTime?
-  provisionalTax2ndDue DateTime?
+  provisionalTax1stDue   DateTime?
+  provisionalTax2ndDue   DateTime?
   provisionalTaxTopUpDue DateTime?
-  vatSubmissionFrequency String @default("BI_MONTHLY") // MONTHLY or BI_MONTHLY
+  vatSubmissionFrequency String    @default("BI_MONTHLY") // MONTHLY or BI_MONTHLY
 
   createdById Int?
 }
@@ -3459,18 +3481,18 @@ model BankAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accountName   String       // User-friendly name e.g. "FNB Business Cheque"
+  accountName   String // User-friendly name e.g. "FNB Business Cheque"
   bankName      BankName
-  accountNumber String       // Last 4 digits only for display
+  accountNumber String // Last 4 digits only for display
   branchCode    String?
   accountType   BankAccountType @default(CHEQUE)
-  currency      String       @default("ZAR")
-  isActive      Boolean      @default(true)
+  currency      String          @default("ZAR")
+  isActive      Boolean         @default(true)
 
   // Email feed config
-  notificationEmail     String?  // Email address notifications come from (e.g. noreply@fnb.co.za)
-  notificationSubject   String?  // Subject line filter pattern
-  feedEnabled           Boolean  @default(false)
+  notificationEmail     String? // Email address notifications come from (e.g. noreply@fnb.co.za)
+  notificationSubject   String? // Subject line filter pattern
+  feedEnabled           Boolean   @default(false)
   lastFeedCheck         DateTime?
   lastFeedTransactionAt DateTime?
 
@@ -3479,7 +3501,7 @@ model BankAccount {
   createdBy   User @relation("BankAccountCreator", fields: [createdById], references: [id])
 
   // Relations
-  transactions BankTransaction[]
+  transactions  BankTransaction[]
   importBatches BankImportBatch[]
 
   @@unique([bankName, accountNumber])
@@ -3491,16 +3513,16 @@ model BankTransaction {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
-  bankAccountId   Int
-  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankAccountId Int
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
 
   transactionDate DateTime
-  description     String        // Original bank description
-  amount          Float         // Always positive
+  description     String // Original bank description
+  amount          Float // Always positive
   transactionType TransactionType // DEBIT or CREDIT
-  balance         Float?        // Running balance after transaction
-  reference       String?       // Bank reference number
-  rawDescription  String?       // Unprocessed original text
+  balance         Float? // Running balance after transaction
+  reference       String? // Bank reference number
+  rawDescription  String? // Unprocessed original text
 
   // Deduplication
   transactionHash String @unique // SHA256(date + amount + description + balance)
@@ -3508,7 +3530,7 @@ model BankTransaction {
   // Import tracking
   importBatchId Int?
   importBatch   BankImportBatch? @relation(fields: [importBatchId], references: [id])
-  source        String @default("EMAIL") // EMAIL, CSV, API
+  source        String           @default("EMAIL") // EMAIL, CSV, API
 
   // Categorization
   categorization TransactionCategorization?
@@ -3518,9 +3540,9 @@ model BankTransaction {
   reconciledAt         DateTime?
 
   // Linked entities (after reconciliation)
-  linkedInvoiceId           Int?
+  linkedInvoiceId            Int?
   linkedOperationalExpenseId Int?
-  linkedPaymentRequestId    Int?
+  linkedPaymentRequestId     Int?
   linkedAlternativeRevenueId Int?
 
   @@index([bankAccountId])
@@ -3533,20 +3555,20 @@ model BankImportBatch {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
-  bankAccountId    Int
-  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankAccountId Int
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
 
-  fileName         String?    // Original file name for CSV imports
-  source           String     // EMAIL, CSV, API
-  importedById     Int
-  importedBy       User       @relation("BankImportBatchCreator", fields: [importedById], references: [id])
+  fileName     String? // Original file name for CSV imports
+  source       String // EMAIL, CSV, API
+  importedById Int
+  importedBy   User    @relation("BankImportBatchCreator", fields: [importedById], references: [id])
 
-  transactionCount Int        @default(0)
-  newCount         Int        @default(0) // Transactions that were new (not duplicates)
-  duplicateCount   Int        @default(0)
+  transactionCount Int       @default(0)
+  newCount         Int       @default(0) // Transactions that were new (not duplicates)
+  duplicateCount   Int       @default(0)
   periodStart      DateTime?
   periodEnd        DateTime?
-  status           String     @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+  status           String    @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
   errorMessage     String?
 
   transactions BankTransaction[]
@@ -3564,24 +3586,24 @@ model TransactionCategorization {
   bankTransaction   BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
 
   // Categorization
-  category          String          // Maps to ExpenseCategory or "REVENUE_*"
-  subcategory       String?
-  confidence        Float           @default(0) // 0-100
-  suggestedBy       CategorizationSource @default(AI)
+  category    String // Maps to ExpenseCategory or "REVENUE_*"
+  subcategory String?
+  confidence  Float                @default(0) // 0-100
+  suggestedBy CategorizationSource @default(AI)
 
   // Linked entity (what this transaction maps to in the system)
-  linkedEntityType  String?         // INVOICE, OPERATIONAL_EXPENSE, PAYMENT_REQUEST, ALTERNATIVE_REVENUE, SALARY
-  linkedEntityId    Int?
+  linkedEntityType String? // INVOICE, OPERATIONAL_EXPENSE, PAYMENT_REQUEST, ALTERNATIVE_REVENUE, SALARY
+  linkedEntityId   Int?
 
   // Review
-  isConfirmed       Boolean         @default(false)
-  confirmedById     Int?
-  confirmedBy       User?           @relation("CategorizationConfirmer", fields: [confirmedById], references: [id])
-  confirmedAt       DateTime?
-  notes             String?
+  isConfirmed   Boolean   @default(false)
+  confirmedById Int?
+  confirmedBy   User?     @relation("CategorizationConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt   DateTime?
+  notes         String?
 
   // AI reasoning
-  aiReasoning       String?         // Why the AI picked this category
+  aiReasoning String? // Why the AI picked this category
 
   @@index([category])
   @@index([isConfirmed])
@@ -3594,26 +3616,26 @@ model CategorizationRule {
   updatedAt DateTime @updatedAt
 
   // Matching pattern
-  pattern       String          // Regex or keyword to match against description
-  vendor        String?         // Exact vendor name match
-  amountMin     Float?          // Optional amount range filter
-  amountMax     Float?
+  pattern         String // Regex or keyword to match against description
+  vendor          String? // Exact vendor name match
+  amountMin       Float? // Optional amount range filter
+  amountMax       Float?
   transactionType TransactionType? // Only match DEBIT or CREDIT
 
   // Result
-  category      String          // Target category
-  subcategory   String?
-  linkedEntityType String?      // What type of entity to create/link
+  category         String // Target category
+  subcategory      String?
+  linkedEntityType String? // What type of entity to create/link
 
   // Rule metadata
-  priority      Int             @default(0) // Higher = checked first
-  isActive      Boolean         @default(true)
-  isSystemRule  Boolean         @default(false) // System-generated vs user-created
-  matchCount    Int             @default(0) // How many times this rule has matched
+  priority      Int       @default(0) // Higher = checked first
+  isActive      Boolean   @default(true)
+  isSystemRule  Boolean   @default(false) // System-generated vs user-created
+  matchCount    Int       @default(0) // How many times this rule has matched
   lastMatchedAt DateTime?
 
-  createdById   Int
-  createdBy     User            @relation("CategorizationRuleCreator", fields: [createdById], references: [id])
+  createdById Int
+  createdBy   User @relation("CategorizationRuleCreator", fields: [createdById], references: [id])
 
   @@index([isActive, priority])
   @@index([createdById])
@@ -3621,60 +3643,60 @@ model CategorizationRule {
 
 // ── Email-to-Order Automation ────────────────────────────────────────
 model OrderEmailSource {
-  id            Int       @id @default(autoincrement())
-  createdAt     DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
 
   // Email metadata
-  fromEmail     String
-  fromName      String?
-  subject       String
-  bodyPreview   String    // First 2000 chars of email body
-  receivedAt    DateTime
-  emailHash     String    @unique // MD5 dedup (from+subject+date)
+  fromEmail   String
+  fromName    String?
+  subject     String
+  bodyPreview String // First 2000 chars of email body
+  receivedAt  DateTime
+  emailHash   String   @unique // MD5 dedup (from+subject+date)
 
   // AI extraction result
-  aiExtracted   Json      // Full AI response JSON
-  aiConfidence  Float     @default(0) // 0-1 confidence score
+  aiExtracted  Json // Full AI response JSON
+  aiConfidence Float @default(0) // 0-1 confidence score
 
   // Processing status
-  status        String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, REJECTED, DUPLICATE
-  reviewedById  Int?
-  reviewedAt    DateTime?
-  reviewNotes   String?
+  status       String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, REJECTED, DUPLICATE
+  reviewedById Int?
+  reviewedAt   DateTime?
+  reviewNotes  String?
 
   // Link to created order
-  orderId       Int?      @unique
-  order         Order?    @relation(fields: [orderId], references: [id])
+  orderId Int?   @unique
+  order   Order? @relation(fields: [orderId], references: [id])
 
   @@index([status])
   @@index([fromEmail])
 }
 
 model QuoteEmailSource {
-  id            Int       @id @default(autoincrement())
-  createdAt     DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
 
   // Email metadata
-  fromEmail     String
-  fromName      String?
-  subject       String
-  bodyPreview   String    // First 2000 chars of email body
-  receivedAt    DateTime
-  emailHash     String    @unique // MD5 dedup (from+subject+date)
+  fromEmail   String
+  fromName    String?
+  subject     String
+  bodyPreview String // First 2000 chars of email body
+  receivedAt  DateTime
+  emailHash   String   @unique // MD5 dedup (from+subject+date)
 
   // AI extraction result
-  aiExtracted   Json      // Full AI response JSON
-  aiConfidence  Float     @default(0) // 0-1 confidence score
+  aiExtracted  Json // Full AI response JSON
+  aiConfidence Float @default(0) // 0-1 confidence score
 
   // Processing status
-  status        String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, REJECTED, DUPLICATE
-  reviewedById  Int?
-  reviewedAt    DateTime?
-  reviewNotes   String?
+  status       String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, REJECTED, DUPLICATE
+  reviewedById Int?
+  reviewedAt   DateTime?
+  reviewNotes  String?
 
   // Link to created quotation
-  quotationId   Int?      @unique
-  quotation     Quotation? @relation(fields: [quotationId], references: [id])
+  quotationId Int?       @unique
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
 
   @@index([status])
   @@index([fromEmail])
@@ -3698,59 +3720,59 @@ enum ApplicationStatus {
 }
 
 model ArtisanApplication {
-  id              Int       @id @default(autoincrement())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Personal info
-  firstName       String
-  lastName        String
-  email           String
-  phone           String
-  idNumber        String?
-  dateOfBirth     DateTime?
-  gender          String?
-  city            String?
-  province        String?
-  address         String?
+  firstName   String
+  lastName    String
+  email       String
+  phone       String
+  idNumber    String?
+  dateOfBirth DateTime?
+  gender      String?
+  city        String?
+  province    String?
+  address     String?
 
   // Professional info
-  primaryTrade    String            // Plumbing, Electrical, Painting, etc.
-  secondaryTrades String[]  @default([])
-  yearsExperience Int
-  qualifications  String?           // Certs, trade test, etc.
-  portfolioUrls   String[]  @default([])
-  currentEmployer String?
-  availability    String?           // Immediate, 2 weeks, 1 month
-  expectedSalary  String?
-  hasOwnTools     Boolean   @default(false)
-  hasDriversLicense Boolean @default(false)
-  hasOwnTransport Boolean   @default(false)
-  motivationLetter String?  @db.Text
+  primaryTrade      String // Plumbing, Electrical, Painting, etc.
+  secondaryTrades   String[] @default([])
+  yearsExperience   Int
+  qualifications    String? // Certs, trade test, etc.
+  portfolioUrls     String[] @default([])
+  currentEmployer   String?
+  availability      String? // Immediate, 2 weeks, 1 month
+  expectedSalary    String?
+  hasOwnTools       Boolean  @default(false)
+  hasDriversLicense Boolean  @default(false)
+  hasOwnTransport   Boolean  @default(false)
+  motivationLetter  String?  @db.Text
 
   // Unique token for assessment/interview access
-  accessToken     String    @unique @default(cuid())
+  accessToken String @unique @default(cuid())
 
   // Pipeline status
-  status          ApplicationStatus @default(NEW)
+  status ApplicationStatus @default(NEW)
 
   // AI Composite Score (0-100)
-  overallScore    Float?
-  aiSummary       String?   @db.Text
-  aiRedFlags      String?   @db.Text
-  aiStrengths     String?   @db.Text
+  overallScore Float?
+  aiSummary    String? @db.Text
+  aiRedFlags   String? @db.Text
+  aiStrengths  String? @db.Text
 
   // Reviewer
-  reviewedById    Int?
-  reviewedBy      User?     @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
-  reviewedAt      DateTime?
-  reviewNotes     String?   @db.Text
+  reviewedById Int?
+  reviewedBy   User?     @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?   @db.Text
 
   // Link to created user after onboarding
-  onboardedUserId Int?      @unique
+  onboardedUserId Int? @unique
 
   // Relations
-  assessments     ArtisanAssessment[]
+  assessments        ArtisanAssessment[]
   interviewResponses ArtisanInterviewResponse[]
 
   @@index([status])
@@ -3760,43 +3782,732 @@ model ArtisanApplication {
 }
 
 model ArtisanAssessment {
-  id              Int       @id @default(autoincrement())
-  createdAt       DateTime  @default(now())
-  completedAt     DateTime?
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
 
-  applicationId   Int
-  application     ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId Int
+  application   ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   // Assessment type: IQ, EQ, MBTI, BIG_FIVE
-  type            String
+  type String
 
   // Raw responses stored as JSON
-  responses       Json
+  responses Json
 
   // Computed results
-  score           Float?            // Overall score for this assessment
-  results         Json?             // Structured results (e.g. MBTI type, Big Five scores)
-  aiAnalysis      String?   @db.Text // AI interpretation
+  score      Float? // Overall score for this assessment
+  results    Json? // Structured results (e.g. MBTI type, Big Five scores)
+  aiAnalysis String? @db.Text // AI interpretation
 
   @@unique([applicationId, type])
   @@index([applicationId])
 }
 
 model ArtisanInterviewResponse {
-  id              Int       @id @default(autoincrement())
-  createdAt       DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
 
-  applicationId   Int
-  application     ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId Int
+  application   ArtisanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  questionIndex   Int
-  question        String    @db.Text
-  answer          String    @db.Text
+  questionIndex Int
+  question      String @db.Text
+  answer        String @db.Text
 
   // AI evaluation
-  aiScore         Float?            // 0-10
-  aiAnalysis      String?   @db.Text
-  dimensions      Json?             // { professionalism: 8, problemSolving: 7, ... }
+  aiScore    Float? // 0-10
+  aiAnalysis String? @db.Text
+  dimensions Json? // { professionalism: 8, problemSolving: 7, ... }
+
+  @@index([applicationId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RECRUITMENT 2.0 — Modern Applicant Tracking System
+// Generalized Jobs, Pipelines, Applications, Scorecards, Interviews,
+// Offers, Talent Pool, Compliance & Analytics
+// ═══════════════════════════════════════════════════════════════════════
+
+enum JobStatus {
+  DRAFT
+  PENDING_APPROVAL
+  OPEN
+  ON_HOLD
+  CLOSED
+  CANCELLED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERNSHIP
+  APPRENTICESHIP
+}
+
+enum JobVisibility {
+  PUBLIC
+  INTERNAL
+  PRIVATE
+}
+
+enum StageBucket {
+  APPLIED
+  SCREENING
+  ASSESSMENT
+  INTERVIEW
+  OFFER
+  BACKGROUND_CHECK
+  HIRED
+  REJECTED
+  WITHDRAWN
+  ON_HOLD
+}
+
+enum OfferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum SourceChannel {
+  CAREER_SITE
+  REFERRAL
+  LINKEDIN
+  INDEED
+  FACEBOOK
+  WHATSAPP
+  WALK_IN
+  AGENCY
+  INTERNAL
+  REDISCOVERY
+  OTHER
+}
+
+model Job {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title            String
+  slug             String         @unique @default(cuid())
+  department       String?
+  location         String?
+  province         String?
+  employmentType   EmploymentType @default(FULL_TIME)
+  experienceLevel  String?
+  description      String         @db.Text
+  responsibilities String?        @db.Text
+  requirements     String?        @db.Text
+  niceToHaves      String?        @db.Text
+  minSalary        Float?
+  maxSalary        Float?
+  currency         String         @default("ZAR")
+  headcount        Int            @default(1)
+  openings         Int            @default(1)
+  status           JobStatus      @default(DRAFT)
+  visibility       JobVisibility  @default(PUBLIC)
+  targetCloseDate  DateTime?
+  openedAt         DateTime?
+  closedAt         DateTime?
+
+  category String? // e.g. Plumbing, Electrical, Admin, Driver
+
+  hiringManagerId Int?
+  hiringManager   User? @relation("JobHiringManager", fields: [hiringManagerId], references: [id])
+  recruiterId     Int?
+  recruiter       User? @relation("JobRecruiter", fields: [recruiterId], references: [id])
+
+  createdById Int
+  createdBy   User @relation("JobCreator", fields: [createdById], references: [id])
+
+  pipelineId Int?
+  pipeline   JobPipeline? @relation(fields: [pipelineId], references: [id])
+
+  requireIQ         Boolean @default(false)
+  requireEQ         Boolean @default(false)
+  requireBigFive    Boolean @default(false)
+  requireSJT        Boolean @default(false)
+  requireWorkSample Boolean @default(false)
+  requireInterview  Boolean @default(true)
+
+  scoringWeights Json? // { iq:0.15, eq:0.25, bigFive:0.25, interview:0.35 }
+  competencies   String[] @default([])
+
+  // Internal mobility flag
+  internalOnly          Boolean  @default(false)
+  eligibleInternalRoles String[] @default([])
+
+  applications    Application[]
+  approvals       JobApproval[]
+  scorecards      Scorecard[]
+  interviewPanels InterviewPanel[]
+  customStages    JobPipelineStage[] @relation("JobCustomStages")
+
+  @@index([status])
+  @@index([department])
+  @@index([category])
+  @@index([hiringManagerId])
+  @@index([visibility])
+}
+
+model JobApproval {
+  id         Int       @id @default(autoincrement())
+  createdAt  DateTime  @default(now())
+  jobId      Int
+  job        Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  approverId Int
+  approver   User      @relation("JobApprover", fields: [approverId], references: [id])
+  order      Int
+  decision   String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  notes      String?
+  decidedAt  DateTime?
+
+  @@index([jobId])
+}
+
+model JobPipeline {
+  id          Int                @id @default(autoincrement())
+  createdAt   DateTime           @default(now())
+  name        String             @unique
+  description String?
+  isDefault   Boolean            @default(false)
+  stages      JobPipelineStage[] @relation("PipelineStages")
+  jobs        Job[]
+}
+
+model JobPipelineStage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  name              String
+  order             Int
+  bucket            StageBucket @default(APPLIED)
+  slaHours          Int?
+  autoAdvance       Boolean     @default(false)
+  requiresScorecard Boolean     @default(false)
+
+  pipelineId Int?
+  pipeline   JobPipeline? @relation("PipelineStages", fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  jobId Int?
+  job   Job? @relation("JobCustomStages", fields: [jobId], references: [id], onDelete: Cascade)
+
+  applicationsAtStage Application[]             @relation("ApplicationCurrentStage")
+  stageHistories      ApplicationStageHistory[]
+
+  @@index([pipelineId])
+  @@index([jobId])
+}
+
+model Application {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Candidate snapshot
+  firstName        String
+  lastName         String
+  email            String
+  phone            String?
+  idNumber         String?
+  dateOfBirth      DateTime?
+  gender           String?
+  city             String?
+  province         String?
+  address          String?
+  primaryTrade     String?
+  yearsExperience  Int?
+  qualifications   String?   @db.Text
+  portfolioUrls    String[]  @default([])
+  resumeUrl        String?
+  motivationLetter String?   @db.Text
+  expectedSalary   String?
+  availability     String?
+  linkedInUrl      String?
+
+  // Link to job
+  jobId Int?
+  job   Job? @relation(fields: [jobId], references: [id])
+
+  // Link to legacy artisan app
+  legacyArtisanAppId Int? @unique
+
+  // Token
+  accessToken          String    @unique @default(cuid())
+  accessTokenExpiresAt DateTime?
+
+  // Pipeline
+  currentStageId Int?
+  currentStage   JobPipelineStage? @relation("ApplicationCurrentStage", fields: [currentStageId], references: [id])
+  stageBucket    StageBucket       @default(APPLIED)
+  stageEnteredAt DateTime          @default(now())
+
+  // AI + scoring
+  overallScore       Float?
+  humanScore         Float?
+  aiSummary          String? @db.Text
+  aiStrengths        String? @db.Text
+  aiRedFlags         String? @db.Text
+  aiMatchScore       Float? // 0-100 match vs job requirements
+  aiMatchExplanation String? @db.Text
+
+  // Source attribution
+  sourceChannel  SourceChannel @default(CAREER_SITE)
+  sourceDetail   String?
+  referrerUserId Int?
+  referrer       User?         @relation("ApplicationReferrer", fields: [referrerUserId], references: [id])
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+  landingUrl     String?
+
+  // Consent (POPIA)
+  consentGivenAt       DateTime?
+  consentVersion       String?
+  consentIp            String?
+  consentUserAgent     String?
+  privacyPolicyVersion String?
+  dataRetentionOptIn   Boolean   @default(false)
+
+  // Retention
+  retainUntil DateTime?
+  deletedAt   DateTime?
+
+  // Team
+  assignedRecruiterId Int?
+  assignedRecruiter   User?     @relation("ApplicationRecruiter", fields: [assignedRecruiterId], references: [id])
+  reviewedById        Int?
+  reviewedBy          User?     @relation("ApplicationReviewer2", fields: [reviewedById], references: [id])
+  reviewedAt          DateTime?
+  reviewNotes         String?   @db.Text
+
+  // Decision
+  rejectionReasonId Int?
+  rejectionReason   RejectionReason? @relation(fields: [rejectionReasonId], references: [id])
+  rejectionDetail   String?
+  withdrawnAt       DateTime?
+  withdrawnReason   String?
+  hiredAt           DateTime?
+  onboardedUserId   Int?             @unique
+
+  // Relations
+  assessments           ApplicationAssessment[]
+  interviewResponses    ApplicationInterviewResponse[]
+  scorecardSubmissions  ScorecardSubmission[]
+  interviewBookings     InterviewBooking[]
+  stageHistory          ApplicationStageHistory[]
+  offers                Offer[]
+  backgroundChecks      BackgroundCheck[]
+  referenceChecks       ReferenceCheck[]
+  notes                 ApplicationNote[]
+  attachments           ApplicationAttachment[]
+  demographicProfile    DemographicProfile?
+  consentEvents         ConsentEvent[]
+  messages              ApplicationMessage[]
+  talentPoolMemberships TalentPoolMembership[]
+
+  @@index([jobId])
+  @@index([stageBucket])
+  @@index([email])
+  @@index([currentStageId])
+  @@index([assignedRecruiterId])
+  @@index([reviewedById])
+  @@index([overallScore])
+  @@index([sourceChannel])
+  @@index([retainUntil])
+  @@index([deletedAt])
+}
+
+model ApplicationAssessment {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  completedAt   DateTime?
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          String // IQ, EQ, BIG_FIVE, SJT, WORK_SAMPLE
+  responses     Json
+  score         Float?
+  results       Json?
+  aiAnalysis    String?     @db.Text
+
+  @@unique([applicationId, type])
+  @@index([applicationId])
+}
+
+model ApplicationInterviewResponse {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questionIndex Int
+  question      String      @db.Text
+  answer        String      @db.Text
+  aiScore       Float?
+  aiAnalysis    String?     @db.Text
+  dimensions    Json?
+
+  @@index([applicationId])
+}
+
+model ApplicationStageHistory {
+  id            Int               @id @default(autoincrement())
+  createdAt     DateTime          @default(now())
+  applicationId Int
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStageId   Int?
+  toStageId     Int?
+  toStage       JobPipelineStage? @relation(fields: [toStageId], references: [id])
+  bucket        StageBucket
+  movedById     Int?
+  movedBy       User?             @relation("StageMover", fields: [movedById], references: [id])
+  reason        String?
+  durationHours Float?
+
+  @@index([applicationId])
+  @@index([toStageId])
+}
+
+model Scorecard {
+  id          Int                   @id @default(autoincrement())
+  createdAt   DateTime              @default(now())
+  name        String
+  description String?
+  isTemplate  Boolean               @default(false)
+  jobId       Int?
+  job         Job?                  @relation(fields: [jobId], references: [id])
+  criteria    ScorecardCriterion[]
+  submissions ScorecardSubmission[]
+
+  @@index([jobId])
+}
+
+model ScorecardCriterion {
+  id          Int       @id @default(autoincrement())
+  scorecardId Int
+  scorecard   Scorecard @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  weight      Float     @default(1.0)
+  order       Int       @default(0)
+
+  @@index([scorecardId])
+}
+
+model ScorecardSubmission {
+  id             Int         @id @default(autoincrement())
+  createdAt      DateTime    @default(now())
+  submittedAt    DateTime?
+  scorecardId    Int
+  scorecard      Scorecard   @relation(fields: [scorecardId], references: [id])
+  applicationId  Int
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId  Int
+  interviewer    User        @relation("ScorecardInterviewer", fields: [interviewerId], references: [id])
+  stage          String?
+  overallRating  Float?
+  recommendation String? // STRONG_HIRE, HIRE, NO_HIRE, STRONG_NO_HIRE
+  strengths      String?     @db.Text
+  concerns       String?     @db.Text
+  notes          String?     @db.Text
+  ratings        Json?
+  blindMode      Boolean     @default(false)
+
+  @@index([applicationId])
+  @@index([interviewerId])
+  @@index([scorecardId])
+}
+
+model InterviewPanel {
+  id        Int                    @id @default(autoincrement())
+  createdAt DateTime               @default(now())
+  jobId     Int?
+  job       Job?                   @relation(fields: [jobId], references: [id])
+  name      String
+  members   InterviewPanelMember[]
+  bookings  InterviewBooking[]
+}
+
+model InterviewPanelMember {
+  id       Int            @id @default(autoincrement())
+  panelId  Int
+  panel    InterviewPanel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  userId   Int
+  user     User           @relation("PanelMember", fields: [userId], references: [id])
+  role     String?
+  required Boolean        @default(true)
+
+  @@unique([panelId, userId])
+}
+
+model InterviewSlot {
+  id             Int               @id @default(autoincrement())
+  createdAt      DateTime          @default(now())
+  interviewerId  Int
+  interviewer    User              @relation("InterviewerSlots", fields: [interviewerId], references: [id])
+  startTime      DateTime
+  endTime        DateTime
+  timezone       String            @default("Africa/Johannesburg")
+  isRecurring    Boolean           @default(false)
+  recurrenceRule String?
+  available      Boolean           @default(true)
+  booking        InterviewBooking?
+
+  @@index([interviewerId])
+  @@index([startTime])
+}
+
+model InterviewBooking {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  panelId Int?
+  panel   InterviewPanel? @relation(fields: [panelId], references: [id])
+
+  slotId Int?           @unique
+  slot   InterviewSlot? @relation(fields: [slotId], references: [id])
+
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  timezone       String   @default("Africa/Johannesburg")
+
+  location            String?
+  meetingUrl          String?
+  stage               String?
+  status              String    @default("SCHEDULED")
+  agenda              String?   @db.Text
+  candidateNotifiedAt DateTime?
+  reminderSentAt      DateTime?
+  completedAt         DateTime?
+  cancellationReason  String?
+
+  createdById Int
+  createdBy   User @relation("BookingCreator", fields: [createdById], references: [id])
+
+  @@index([applicationId])
+  @@index([scheduledStart])
+}
+
+model RejectionReason {
+  id           Int           @id @default(autoincrement())
+  code         String        @unique
+  label        String
+  category     String
+  description  String?
+  active       Boolean       @default(true)
+  applications Application[]
+}
+
+model Offer {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  title        String
+  startDate    DateTime
+  baseSalary   Float
+  currency     String   @default("ZAR")
+  salaryPeriod String   @default("MONTHLY")
+  bonus        Float?
+  benefits     String?  @db.Text
+  otherTerms   String?  @db.Text
+
+  status        OfferStatus @default(DRAFT)
+  version       Int         @default(1)
+  expiresAt     DateTime?
+  sentAt        DateTime?
+  viewedAt      DateTime?
+  respondedAt   DateTime?
+  acceptedAt    DateTime?
+  declinedAt    DateTime?
+  withdrawnAt   DateTime?
+  declineReason String?
+
+  // Internal e-signature
+  signToken              String?   @unique @default(cuid())
+  candidateSignature     String?
+  candidateSignedAt      DateTime?
+  candidateSignIp        String?
+  candidateSignUserAgent String?
+  candidateInitials      String?
+
+  pdfUrl String?
+
+  createdById Int
+  createdBy   User @relation("OfferCreator", fields: [createdById], references: [id])
+
+  approvals OfferApproval[]
+
+  @@index([applicationId])
+  @@index([status])
+}
+
+model OfferApproval {
+  id         Int       @id @default(autoincrement())
+  createdAt  DateTime  @default(now())
+  offerId    Int
+  offer      Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  approverId Int
+  approver   User      @relation("OfferApprover", fields: [approverId], references: [id])
+  order      Int
+  decision   String    @default("PENDING")
+  notes      String?
+  decidedAt  DateTime?
+
+  @@index([offerId])
+}
+
+model BackgroundCheck {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  provider      String      @default("INTERNAL")
+  externalRef   String?
+  checkTypes    String[]    @default([])
+  status        String      @default("PENDING")
+  result        String?
+  reportUrl     String?
+  summary       String?     @db.Text
+  requestedById Int
+  requestedBy   User        @relation("BackgroundRequester", fields: [requestedById], references: [id])
+  completedAt   DateTime?
+
+  @@index([applicationId])
+}
+
+model ReferenceCheck {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  refereeName   String
+  refereeEmail  String
+  refereePhone  String?
+  relationship  String?
+  status        String      @default("PENDING")
+  token         String      @unique @default(cuid())
+  sentAt        DateTime?
+  completedAt   DateTime?
+  responses     Json?
+  aiSummary     String?     @db.Text
+  rating        Float?
+
+  @@index([applicationId])
+}
+
+model ApplicationNote {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorId      Int
+  author        User        @relation("NoteAuthor", fields: [authorId], references: [id])
+  body          String      @db.Text
+  mentions      Int[]       @default([])
+  isPrivate     Boolean     @default(true)
+
+  @@index([applicationId])
+}
+
+model ApplicationAttachment {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  label         String
+  fileName      String
+  fileUrl       String
+  fileType      String?
+  uploadedById  Int?
+  uploadedBy    User?       @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([applicationId])
+}
+
+model ApplicationMessage {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  channel       String // EMAIL, WHATSAPP, PORTAL, SMS
+  direction     String // OUTBOUND, INBOUND
+  subject       String?
+  body          String      @db.Text
+  sentById      Int?
+  sentBy        User?       @relation("MessageSender", fields: [sentById], references: [id])
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  templateKey   String?
+
+  @@index([applicationId])
+}
+
+model DemographicProfile {
+  id                         Int         @id @default(autoincrement())
+  createdAt                  DateTime    @default(now())
+  applicationId              Int         @unique
+  application                Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  race                       String?
+  gender                     String?
+  disability                 String?
+  nationality                String?
+  employmentEquityDesignated Boolean?
+  capturedAt                 DateTime    @default(now())
+  blindFromReviewers         Boolean     @default(true)
+}
+
+model TalentPool {
+  id          Int                    @id @default(autoincrement())
+  createdAt   DateTime               @default(now())
+  name        String                 @unique
+  description String?
+  tags        String[]               @default([])
+  createdById Int
+  createdBy   User                   @relation("TalentPoolCreator", fields: [createdById], references: [id])
+  members     TalentPoolMembership[]
+}
+
+model TalentPoolMembership {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  poolId        Int
+  pool          TalentPool  @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  notes         String?
+  addedById     Int
+  addedBy       User        @relation("PoolAdder", fields: [addedById], references: [id])
+
+  @@unique([poolId, applicationId])
+}
+
+model ConsentEvent {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  action        String // GRANTED, WITHDRAWN, DSAR_REQUEST, DELETION_REQUEST, POLICY_VIEW
+  version       String
+  ip            String?
+  userAgent     String?
+  notes         String?
 
   @@index([applicationId])
 }

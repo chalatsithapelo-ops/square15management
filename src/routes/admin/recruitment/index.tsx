@@ -106,11 +106,16 @@ function RecruitmentDashboard() {
     : apps;
 
   const detail = detailQuery.data as any;
-  const trades = [...new Set(apps.map((a: any) => a.primaryTrade))].sort();
+  const tradesSet = new Set<string>();
+  for (const a of apps as any[]) {
+    const t = a?.primaryTrade;
+    if (typeof t === "string" && t.length > 0) tradesSet.add(t);
+  }
+  const trades: string[] = Array.from(tradesSet).sort();
 
   // ─── Detail View ───
   if (selectedId && detail) {
-    const s = STATUS_CONFIG[detail.status] ?? STATUS_CONFIG.NEW;
+    const s = (STATUS_CONFIG[detail.status] ?? STATUS_CONFIG.NEW) as any;
     return (
       <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
         <div className="max-w-5xl mx-auto">
@@ -236,7 +241,7 @@ function RecruitmentDashboard() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Actions</h3>
             <div className="flex flex-wrap gap-2">
               {(["UNDER_REVIEW", "SHORTLISTED", "APPROVED", "REJECTED"] as AppStatus[]).map((st) => {
-                const cfg = STATUS_CONFIG[st];
+                const cfg = STATUS_CONFIG[st] as any;
                 if (detail.status === st) return null;
                 return (
                   <button key={st}
@@ -377,7 +382,7 @@ function RecruitmentDashboard() {
           <select value={tradeFilter} onChange={(e) => setTradeFilter(e.target.value)}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-teal-500">
             <option value="">All Trades</option>
-            {trades.map((t) => <option key={t} value={t}>{t}</option>)}
+            {trades.map((t: any) => <option key={String(t)} value={String(t)}>{String(t)}</option>)}
           </select>
         </div>
 
@@ -401,8 +406,8 @@ function RecruitmentDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredApps.map((a) => {
-              const st = STATUS_CONFIG[a.status] ?? STATUS_CONFIG.NEW;
+            {filteredApps.map((a: any) => {
+              const st = (STATUS_CONFIG[a.status] ?? STATUS_CONFIG.NEW) as any;
               const StIcon = st.icon;
               return (
                 <button key={a.id} onClick={() => setSelectedId(a.id)}
