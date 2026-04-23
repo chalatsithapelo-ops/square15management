@@ -60,6 +60,17 @@ function JobDetailPage() {
       onError: (e) => toast.error(e.message),
     }),
   );
+  const [editOpen, setEditOpen] = useState(false);
+  const updateMut = useMutation(
+    trpc.updateJob.mutationOptions({
+      onSuccess: () => {
+        toast.success("Job updated");
+        queryClient.invalidateQueries({ queryKey: trpc.getJobDetail.queryKey({ token, jobId }) });
+        setEditOpen(false);
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
 
   const job = jobQuery.data;
   const apps = appsQuery.data ?? [];
@@ -103,6 +114,12 @@ function JobDetailPage() {
                 <Copy className="w-4 h-4" /> Copy link
               </button>
             )}
+            <button
+              onClick={() => setEditOpen(true)}
+              className="px-3 py-2 border rounded-lg text-sm flex items-center gap-1.5 hover:bg-gray-50"
+            >
+              <Edit2 className="w-4 h-4" /> Edit
+            </button>
             {job?.status === "DRAFT" || job?.status === "PENDING_APPROVAL" ? (
               <button
                 onClick={() => publishMut.mutate({ token, jobId })}
@@ -216,6 +233,126 @@ function JobDetailPage() {
           </>
         )}
       </div>
+
+      {editOpen && job && (
+        <EditJobModal
+          job={job}
+          submitting={updateMut.isPending}
+          onClose={() => setEditOpen(false)}
+          onSave={(data) => updateMut.mutate({ token, jobId, ...data })}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditJobModal({
+  job, submitting, onClose, onSave,
+}: {
+  job: any;
+  submitting: boolean;
+  onClose: () => void;
+  onSave: (data: {
+    title?: string;
+    department?: string;
+    location?: string;
+    description?: string;
+    requirements?: string;
+    responsibilities?: string;
+    niceToHaves?: string;
+    minSalary?: number;
+    maxSalary?: number;
+    headcount?: number;
+  }) => void;
+}) {
+  const [form, setForm] = useState({
+    title: job.title ?? "",
+    department: job.department ?? "",
+    location: job.location ?? "",
+    description: job.description ?? "",
+    requirements: job.requirements ?? "",
+    responsibilities: job.responsibilities ?? "",
+    niceToHaves: job.niceToHaves ?? "",
+    minSalary: job.minSalary ? String(job.minSalary) : "",
+    maxSalary: job.maxSalary ? String(job.maxSalary) : "",
+    headcount: String(job.headcount ?? job.openings ?? 1),
+  });
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+        <div className="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold">Edit job</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <EditField label="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+          <div className="grid grid-cols-2 gap-3">
+            <EditField label="Department" value={form.department} onChange={(v) => setForm({ ...form, department: v })} />
+            <EditField label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <EditField label="Min salary (ZAR)" type="number" value={form.minSalary} onChange={(v) => setForm({ ...form, minSalary: v })} />
+            <EditField label="Max salary (ZAR)" type="number" value={form.maxSalary} onChange={(v) => setForm({ ...form, maxSalary: v })} />
+            <EditField label="Headcount" type="number" value={form.headcount} onChange={(v) => setForm({ ...form, headcount: v })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={4} className="w-full rounded-lg border px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Responsibilities</label>
+            <textarea value={form.responsibilities} onChange={(e) => setForm({ ...form, responsibilities: e.target.value })}
+              rows={3} className="w-full rounded-lg border px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Requirements</label>
+            <textarea value={form.requirements} onChange={(e) => setForm({ ...form, requirements: e.target.value })}
+              rows={3} className="w-full rounded-lg border px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Nice to haves</label>
+            <textarea value={form.niceToHaves} onChange={(e) => setForm({ ...form, niceToHaves: e.target.value })}
+              rows={2} className="w-full rounded-lg border px-3 py-2" />
+          </div>
+        </div>
+        <div className="p-5 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border">Cancel</button>
+          <button
+            disabled={!form.title || submitting}
+            onClick={() =>
+              onSave({
+                title: form.title,
+                department: form.department || undefined,
+                location: form.location || undefined,
+                description: form.description || undefined,
+                responsibilities: form.responsibilities || undefined,
+                requirements: form.requirements || undefined,
+                niceToHaves: form.niceToHaves || undefined,
+                minSalary: form.minSalary ? Number(form.minSalary) : undefined,
+                maxSalary: form.maxSalary ? Number(form.maxSalary) : undefined,
+                headcount: form.headcount ? Number(form.headcount) : undefined,
+              })
+            }
+            className="px-4 py-2 rounded-lg bg-teal-600 text-white disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditField({
+  label, value, onChange, type = "text",
+}: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border px-3 py-2" />
     </div>
   );
 }

@@ -329,7 +329,7 @@ function RecruitmentDashboard() {
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-6 h-6 text-teal-600" /> Artisan Recruitment
+              <Users className="w-6 h-6 text-teal-600" /> Recruitment
             </h1>
             <p className="text-sm text-gray-500 mt-1">{total} total applications</p>
           </div>
@@ -347,6 +347,58 @@ function RecruitmentDashboard() {
               <RefreshCw className={`w-3.5 h-3.5 ${listQuery.isRefetching ? "animate-spin" : ""}`} /> Refresh
             </button>
           </div>
+        </div>
+
+        {/* Management Hub — admin navigation to all recruitment surfaces */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <Link to="/admin/recruitment/jobs"
+            className="group bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-400 hover:shadow-md transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center group-hover:bg-teal-100">
+                <Briefcase className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Jobs</div>
+                <div className="text-xs text-gray-500">Create, edit & publish</div>
+              </div>
+            </div>
+          </Link>
+          <Link to="/admin/recruitment"
+            className="group bg-white border border-teal-300 ring-1 ring-teal-200 rounded-xl p-4 transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                <Users className="w-5 h-5 text-teal-700" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Candidates</div>
+                <div className="text-xs text-gray-500">Review & manage</div>
+              </div>
+            </div>
+          </Link>
+          <Link to="/admin/recruitment/analytics"
+            className="group bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-400 hover:shadow-md transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100">
+                <TrendingUp className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Analytics</div>
+                <div className="text-xs text-gray-500">Funnel & reports</div>
+              </div>
+            </div>
+          </Link>
+          <Link to="/careers"
+            className="group bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-400 hover:shadow-md transition-all">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100">
+                <Eye className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">Careers Site</div>
+                <div className="text-xs text-gray-500">Public jobs page</div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Status pills */}
