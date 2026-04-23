@@ -66,6 +66,12 @@ enum InvoiceStatus {
   REJECTED
 }
 
+enum CreditNoteStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
 enum PaymentRequestStatus {
   PENDING
   APPROVED
@@ -426,6 +432,7 @@ model User {
   jobActivities            JobActivity[]
   pmOrderJobActivities     PropertyManagerOrderJobActivity[] @relation("PMOrderJobActivities")
   invoicesCreated          Invoice[]                         @relation("InvoiceCreator")
+  creditNotesCreated       CreditNote[]                      @relation("CreditNoteCreator")
 
   // Messaging relations
   conversations Conversation[]
@@ -647,6 +654,7 @@ model Order {
   jobActivities JobActivity[]
   expenseSlips  ExpenseSlip[]
   invoice       Invoice?
+  creditNotes   CreditNote[]
   reviews       Review[]
   sourceEmail   OrderEmailSource?
 }
@@ -679,6 +687,7 @@ model Project {
   // Relations
   quotations   Quotation[]
   invoices     Invoice[]
+  creditNotes  CreditNote[]
   reviews      Review[]
   milestones   Milestone[]
   changeOrders ChangeOrder[]
@@ -1005,6 +1014,46 @@ model Invoice {
 
   // Relations
   lineItems InvoiceLineItem[]
+  creditNotes CreditNote[]
+}
+
+model CreditNote {
+  id               Int              @id @default(autoincrement())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  creditNoteNumber String           @unique
+  status           CreditNoteStatus @default(ISSUED)
+
+  reason           String
+  disputeReason    String?
+  notes            String?
+
+  customerName     String
+  customerEmail    String
+  customerPhone    String?
+  address          String?
+
+  items    Json
+  subtotal Float
+  tax      Float @default(0)
+  total    Float
+
+  invoiceId Int
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  orderId Int?
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdById Int?
+  createdBy   User? @relation("CreditNoteCreator", fields: [createdById], references: [id])
+
+  @@index([invoiceId])
+  @@index([orderId])
+  @@index([projectId])
+  @@index([customerEmail])
 }
 
 model InvoiceLineItem {
@@ -1462,9 +1511,11 @@ model Statement {
   period_start      DateTime
   period_end        DateTime
   invoice_ids       String[]        @default([])
+  credit_note_ids   String[]        @default([])
   invoice_details   Json // Array of invoice detail objects with order_number, building, description, etc.
   age_analysis      Json // Object with current, days_31_60, days_61_90, days_91_120, over_120
   subtotal          Float           @default(0)
+  total_credits     Float           @default(0)
   total_interest    Float           @default(0)
   total_amount_due  Float           @default(0)
   payments_received Float           @default(0)

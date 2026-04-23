@@ -184,6 +184,32 @@ export async function generateStatementInBackground(
     // Combine both lists
     const invoices = [...unpaidInvoices, ...paidInvoices];
 
+    const invoiceIds = invoices.map((i) => i.id);
+    const issuedCreditNotes = invoiceIds.length
+      ? await db.creditNote.findMany({
+          where: {
+            invoiceId: { in: invoiceIds },
+            status: "ISSUED",
+          },
+          select: {
+            id: true,
+            invoiceId: true,
+            creditNoteNumber: true,
+            total: true,
+            createdAt: true,
+            reason: true,
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+    const creditNotesByInvoice = new Map<number, Array<{ id: number; creditNoteNumber: string; total: number; createdAt: Date; reason: string }>>();
+    for (const cn of issuedCreditNotes) {
+      const list = creditNotesByInvoice.get(cn.invoiceId) || [];
+      list.push(cn);
+      creditNotesByInvoice.set(cn.invoiceId, list);
+    }
+
     const firstInvoice = invoices[0];
     if (!firstInvoice) {
       throw new Error("No outstanding or recently paid invoices found for this customer");
@@ -201,6 +227,7 @@ export async function generateStatementInBackground(
     const invoice_ids: string[] = [];
     const invoice_details: any[] = [];
     let subtotal = 0;
+    let total_credits = 0;
     let total_interest = 0;
     let payments_received = 0;
     
@@ -218,14 +245,18 @@ export async function generateStatementInBackground(
     invoices.forEach((invoice) => {
       invoice_ids.push(invoice.id.toString());
 
+      const creditNotes = creditNotesByInvoice.get(invoice.id) || [];
+      const creditAmount = creditNotes.reduce((sum, cn) => sum + (Number(cn.total) || 0), 0);
+
       // Calculate payment status
       const original_amount = invoice.total;
       const amount_paid = invoice.status === "PAID" ? invoice.total : 0;
-      const balance = original_amount - amount_paid;
+      const balance = Math.max(0, original_amount - amount_paid - creditAmount);
 
       if (invoice.status === "PAID") {
         payments_received += amount_paid;
       }
+      total_credits += creditAmount;
 
       // Calculate days overdue and interest
       let days_overdue = 0;
@@ -283,6 +314,9 @@ export async function generateStatementInBackground(
           description += ` (+${invoice.items.length - 1} more)`;
         }
       }
+      if (creditAmount > 0) {
+        description += `${description ? " " : ""}(Credits: -R${creditAmount.toFixed(2)})`;
+      }
 
       // Build invoice detail object
       invoice_details.push({
@@ -295,6 +329,14 @@ export async function generateStatementInBackground(
         due_date: invoice.dueDate ? invoice.dueDate.toISOString().split('T')[0] : null,
         original_amount,
         amount_paid,
+        credit_amount: creditAmount,
+        credit_notes: creditNotes.map((cn) => ({
+          id: cn.id,
+          credit_note_number: cn.creditNoteNumber,
+          date: cn.createdAt.toISOString().split("T")[0],
+          reason: cn.reason,
+          amount: cn.total,
+        })),
         balance,
         days_overdue,
         interest_charged,
@@ -374,9 +416,11 @@ export async function generateStatementInBackground(
         address,
         pdfUrl,
         invoice_ids,
+        credit_note_ids: issuedCreditNotes.map((cn) => String(cn.id)),
         invoice_details,
         age_analysis,
         subtotal,
+        total_credits,
         total_interest,
         total_amount_due,
         payments_received,

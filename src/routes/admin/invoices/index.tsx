@@ -27,6 +27,7 @@ import {
   Sparkles,
   FileText,
   FileSpreadsheet,
+  FileMinus,
 } from "lucide-react";
 import { ReportModal } from "~/components/ReportModal";
 import { AlternativeRevenueForm } from "~/components/AlternativeRevenueForm";
@@ -124,6 +125,13 @@ function InvoicesPage() {
   const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
   const [deleteConfirmInvoiceId, setDeleteConfirmInvoiceId] = useState<number | null>(null);
   const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
+  const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
+  const [selectedCreditInvoice, setSelectedCreditInvoice] = useState<any | null>(null);
+  const [creditReason, setCreditReason] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditNotesText, setCreditNotesText] = useState("");
+  const [creditDisputeReason, setCreditDisputeReason] = useState("");
+  const [generatingCreditPdfId, setGeneratingCreditPdfId] = useState<number | null>(null);
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -137,6 +145,12 @@ function InvoicesPage() {
 
   const invoicesQuery = useQuery(
     trpc.getInvoices.queryOptions({
+      token: token!,
+    })
+  );
+
+  const creditNotesQuery = useQuery(
+    trpc.getCreditNotes.queryOptions({
       token: token!,
     })
   );
@@ -284,6 +298,55 @@ function InvoicesPage() {
       onError: (error) => {
         toast.error(error.message || "Failed to generate PDF");
         setGeneratingPdfId(null);
+      },
+    })
+  );
+
+  const createCreditNoteMutation = useMutation(
+    trpc.createCreditNote.mutationOptions({
+      onSuccess: () => {
+        toast.success("Credit note created");
+        queryClient.invalidateQueries({ queryKey: trpc.getCreditNotes.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+        setShowCreditNoteModal(false);
+        setSelectedCreditInvoice(null);
+        setCreditReason("");
+        setCreditAmount("");
+        setCreditNotesText("");
+        setCreditDisputeReason("");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to create credit note");
+      },
+    })
+  );
+
+  const generateCreditNotePdfMutation = useMutation(
+    trpc.generateCreditNotePdf.mutationOptions({
+      onSuccess: (data, variables) => {
+        const byteCharacters = atob(data.pdf);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const notes: any[] = ((creditNotesQuery as any).data ?? []) as any[];
+        const note = notes.find((n: any) => n.id === variables.creditNoteId);
+        link.download = `credit-note-${note?.creditNoteNumber || variables.creditNoteId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        setGeneratingCreditPdfId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate credit note PDF");
+        setGeneratingCreditPdfId(null);
       },
     })
   );
@@ -547,6 +610,50 @@ function InvoicesPage() {
     generateInvoicePdfMutation.mutate({
       token: token!,
       invoiceId,
+    });
+  };
+
+  const openCreditNoteModal = (invoice: any) => {
+    setSelectedCreditInvoice(invoice);
+    setCreditReason(`Credit adjustment for invoice ${invoice.invoiceNumber}`);
+    setCreditAmount((invoice.total || 0).toFixed(2));
+    setCreditNotesText("");
+    setCreditDisputeReason("");
+    setShowCreditNoteModal(true);
+  };
+
+  const handleCreateCreditNote = () => {
+    if (!selectedCreditInvoice) return;
+    const amount = Number(creditAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid credit amount");
+      return;
+    }
+
+    createCreditNoteMutation.mutate({
+      token: token!,
+      invoiceId: selectedCreditInvoice.id,
+      reason: creditReason.trim() || `Credit note for ${selectedCreditInvoice.invoiceNumber}`,
+      disputeReason: creditDisputeReason.trim() || undefined,
+      notes: creditNotesText.trim() || undefined,
+      markInvoiceDisputed: Boolean(creditDisputeReason.trim()),
+      items: [
+        {
+          description: creditReason.trim() || `Credit for invoice ${selectedCreditInvoice.invoiceNumber}`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount,
+          unitOfMeasure: "Sum",
+        },
+      ],
+    });
+  };
+
+  const handleDownloadCreditNotePdf = (creditNoteId: number) => {
+    setGeneratingCreditPdfId(creditNoteId);
+    generateCreditNotePdfMutation.mutate({
+      token: token!,
+      creditNoteId,
     });
   };
 
@@ -1569,6 +1676,10 @@ function InvoicesPage() {
               const items = Array.isArray(invoice.items) ? invoice.items : [];
               const hasOrderReference = !!invoice.order;
               const totalCostToCompany = (invoice.companyMaterialCost || 0) + (invoice.companyLabourCost || 0);
+              const allCreditNotes: any[] = ((creditNotesQuery as any).data ?? []) as any[];
+              const invoiceCreditNotes = allCreditNotes.filter((cn: any) => cn.invoiceId === invoice.id);
+              const totalCredits = invoiceCreditNotes.reduce((sum: number, cn: any) => sum + (Number(cn.total) || 0), 0);
+              const netAfterCredits = Math.max(0, Number(invoice.total || 0) - totalCredits);
               
               return (
                 <div id={`invoice-${invoice.id}`} key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
@@ -1616,6 +1727,11 @@ function InvoicesPage() {
                       {/* Right: Amount + Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-sm font-bold text-gray-900">R{(invoice.total || 0).toLocaleString()}</span>
+                        {totalCredits > 0 && (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+                            Credits: -R{totalCredits.toFixed(2)}
+                          </span>
+                        )}
                         {isAdmin && invoice.estimatedProfit !== undefined && (
                           <span className={`text-xs font-semibold ${invoice.estimatedProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
                             (P: R{invoice.estimatedProfit.toLocaleString()})
@@ -1703,6 +1819,12 @@ function InvoicesPage() {
                       {/* Action Buttons */}
                       <div className="flex flex-wrap gap-2 py-2 border-t border-gray-100">
                         <button
+                          onClick={() => openCreditNoteModal(invoice)}
+                          className="px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors inline-flex items-center"
+                        >
+                          <FileMinus className="h-3.5 w-3.5 mr-1" />Create Credit Note
+                        </button>
+                        <button
                           onClick={() => handleExportPdf(invoice.id)}
                           disabled={generateInvoicePdfMutation.isPending && generatingPdfId === invoice.id}
                           className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
@@ -1778,7 +1900,33 @@ function InvoicesPage() {
                         <div className="flex items-center"><Mail className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerEmail}</div>
                         <div className="flex items-center"><Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />{invoice.customerPhone}</div>
                         <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-gray-400" />Total: R{(invoice.total || 0).toLocaleString()}</div>
+                        {totalCredits > 0 && (
+                          <div className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5 text-gray-400" />Net after credits: R{netAfterCredits.toFixed(2)}</div>
+                        )}
                       </div>
+
+                      {invoiceCreditNotes.length > 0 && (
+                        <div className="bg-amber-50 rounded-lg border border-amber-200 p-3">
+                          <h4 className="text-xs font-semibold text-amber-900 mb-2">Credit Notes ({invoiceCreditNotes.length})</h4>
+                          <div className="space-y-2">
+                            {invoiceCreditNotes.map((cn: any) => (
+                              <div key={cn.id} className="flex items-center justify-between text-xs bg-white border border-amber-100 rounded p-2">
+                                <div>
+                                  <div className="font-semibold text-gray-900">{cn.creditNoteNumber} • -R{Number(cn.total || 0).toFixed(2)}</div>
+                                  <div className="text-gray-600">{cn.reason}</div>
+                                </div>
+                                <button
+                                  onClick={() => handleDownloadCreditNotePdf(cn.id)}
+                                  disabled={generatingCreditPdfId === cn.id}
+                                  className="px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 disabled:opacity-50 inline-flex items-center"
+                                >
+                                  {generatingCreditPdfId === cn.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Cost Breakdown - compact single section */}
                       {isAdmin && (invoice.companyMaterialCost !== undefined || invoice.companyLabourCost !== undefined) && (
@@ -1902,6 +2050,77 @@ function InvoicesPage() {
       <div className="p-4 md:p-8">
         <AlternativeRevenueForm />
       </div>
+
+      {/* Delete Invoice Confirmation Modal */}
+      {showCreditNoteModal && selectedCreditInvoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Credit Note</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Linked invoice: <span className="font-medium">{selectedCreditInvoice.invoiceNumber}</span>
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
+                <input
+                  type="text"
+                  value={creditReason}
+                  onChange={(e) => setCreditReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Credit Amount (R) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dispute Reference (optional)</label>
+                <input
+                  type="text"
+                  value={creditDisputeReason}
+                  onChange={(e) => setCreditDisputeReason(e.target.value)}
+                  placeholder="e.g. Disputed line item / incorrect quantity"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  value={creditNotesText}
+                  onChange={(e) => setCreditNotesText(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => {
+                  setShowCreditNoteModal(false);
+                  setSelectedCreditInvoice(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateCreditNote}
+                disabled={createCreditNoteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+              >
+                {createCreditNoteMutation.isPending ? "Creating..." : "Create Credit Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Invoice Confirmation Modal */}
       {deleteConfirmInvoiceId && (

@@ -51,7 +51,7 @@ export interface PDFCustomerInfo {
 }
 
 export interface PDFDocumentDetails {
-  documentType: "QUOTATION" | "INVOICE" | "ORDER" | "JOB CARD" | "RFQ" | "STATEMENT";
+  documentType: "QUOTATION" | "INVOICE" | "CREDIT_NOTE" | "ORDER" | "JOB CARD" | "RFQ" | "STATEMENT";
   documentNumber: string;
   reference?: string;
   date: Date;
@@ -321,7 +321,13 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   }
 
   // Document type - large text on right
-  const docTypeLabel = docInfo.documentType === "QUOTATION" ? "QUOTE" : docInfo.documentType === "INVOICE" ? "TAX INVOICE" : docInfo.documentType;
+  const docTypeLabel = docInfo.documentType === "QUOTATION"
+    ? "QUOTE"
+    : docInfo.documentType === "INVOICE"
+    ? "TAX INVOICE"
+    : docInfo.documentType === "CREDIT_NOTE"
+    ? "CREDIT NOTE"
+    : docInfo.documentType;
   doc
     .fontSize(22)
     .fillColor("#333333")
@@ -339,12 +345,16 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   // Use contextual labels based on document type
   if (docInfo.documentType === "INVOICE") {
     docDetails.push(["INVOICE NO:", docInfo.documentNumber]);
+  } else if (docInfo.documentType === "CREDIT_NOTE") {
+    docDetails.push(["CREDIT NOTE NO:", docInfo.documentNumber]);
   } else {
     docDetails.push(["NUMBER:", docInfo.documentNumber]);
   }
   if (docInfo.reference) {
     if (docInfo.documentType === "INVOICE") {
       docDetails.push(["CLIENT ORDER NO:", docInfo.reference]);
+    } else if (docInfo.documentType === "CREDIT_NOTE") {
+      docDetails.push(["INVOICE NO:", docInfo.reference]);
     } else if (docInfo.documentType === "QUOTATION") {
       docDetails.push(["CLIENT QUOTE NO:", docInfo.reference]);
     } else {

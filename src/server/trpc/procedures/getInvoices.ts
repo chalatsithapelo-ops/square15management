@@ -163,6 +163,22 @@ export const getInvoices = baseProcedure
               projectNumber: true,
             },
           },
+          creditNotes: {
+            where: {
+              status: { in: ["ISSUED", "DRAFT"] },
+            },
+            select: {
+              id: true,
+              creditNoteNumber: true,
+              total: true,
+              status: true,
+              reason: true,
+              createdAt: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",

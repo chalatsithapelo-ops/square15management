@@ -59,6 +59,9 @@ import { getInvoices } from "~/server/trpc/procedures/getInvoices";
 import { createInvoice } from "~/server/trpc/procedures/createInvoice";
 import { updateInvoiceStatus } from "~/server/trpc/procedures/updateInvoiceStatus";
 import { updateInvoiceDetails } from "~/server/trpc/procedures/updateInvoiceDetails";
+import { createCreditNote } from "~/server/trpc/procedures/createCreditNote";
+import { getCreditNotes } from "~/server/trpc/procedures/getCreditNotes";
+import { generateCreditNotePdf } from "~/server/trpc/procedures/generateCreditNotePdf";
 import { generateStatement } from "~/server/trpc/procedures/generateStatement";
 import { submitCustomerPayment } from "~/server/trpc/procedures/submitCustomerPayment";
 import { createCustomerPayfastCheckout } from "~/server/trpc/procedures/createCustomerPayfastCheckout";
@@ -600,6 +603,9 @@ export const appRouter = createTRPCRouter({
   createInvoice,
   updateInvoiceStatus,
   updateInvoiceDetails,
+  createCreditNote,
+  getCreditNotes,
+  generateCreditNotePdf,
   
   // Statements
   generateStatement,
