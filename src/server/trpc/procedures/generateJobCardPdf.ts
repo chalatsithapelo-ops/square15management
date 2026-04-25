@@ -100,7 +100,7 @@ export const generateJobCardPdf = baseProcedure
       // Get user details to check role
       const user = await db.user.findUnique({
         where: { id: parsed.userId },
-        select: { role: true },
+        select: { role: true, email: true },
       });
 
       if (!user) {
@@ -114,7 +114,8 @@ export const generateJobCardPdf = baseProcedure
       const isArtisan = user.role === "ARTISAN";
       const isContractor = user.role === "CONTRACTOR" || user.role === "CONTRACTOR_JUNIOR_MANAGER" || user.role === "CONTRACTOR_SENIOR_MANAGER";
       const isAdminPortalUser = user.role === "ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN";
-      
+      const isCustomer = user.role === "CUSTOMER";
+
       if (!isAdminPortalUser) {
         if (isArtisan && order.assignedToId !== parsed.userId) {
           throw new TRPCError({
@@ -126,6 +127,18 @@ export const generateJobCardPdf = baseProcedure
         // For PM orders, verify contractor has access
         if (input.isPMOrder && isContractor) {
           if (order.contractorId !== parsed.userId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You do not have access to this order",
+            });
+          }
+        }
+
+        // Customers can only download job cards for their own orders.
+        if (isCustomer) {
+          const customerEmail = (order.customerEmail ?? "").toLowerCase();
+          const userEmail = (user.email ?? "").toLowerCase();
+          if (!customerEmail || customerEmail !== userEmail) {
             throw new TRPCError({
               code: "FORBIDDEN",
               message: "You do not have access to this order",
@@ -225,99 +238,166 @@ export const generateJobCardPdf = baseProcedure
               })}`, 50, 225);
 
             // ===== CUSTOMER DETAILS BOX =====
-            
+
             const customerBoxTop = 260;
-            
-            // Box with accent color border
+            const CUSTOMER_BOX_LEFT = 50;
+            const CUSTOMER_BOX_WIDTH = 240;
+            const CUSTOMER_TEXT_LEFT = 60;
+            const CUSTOMER_TEXT_WIDTH = 220;
+
+            const ARTISAN_BOX_LEFT = 310;
+            const ARTISAN_BOX_WIDTH = 235;
+            const ARTISAN_TEXT_LEFT = 320;
+            const ARTISAN_TEXT_WIDTH = 215;
+
+            const HEADER_BAND_HEIGHT = 28;
+            const PADDING_AFTER_HEADER = 10;
+            const LINE_GAP = 4;
+            const PADDING_BOTTOM = 12;
+            const MIN_BOX_HEIGHT = 110;
+
+            type Line = { text: string; bold: boolean; size: number };
+
+            const measureBlock = (lines: Line[], width: number): number => {
+              let total = 0;
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                doc.font(line.bold ? "Helvetica-Bold" : "Helvetica").fontSize(line.size);
+                total += doc.heightOfString(line.text || " ", { width });
+                if (i < lines.length - 1) total += LINE_GAP;
+              }
+              return total;
+            };
+
+            const renderBlock = (
+              lines: Line[],
+              x: number,
+              y: number,
+              width: number,
+              boldColor: string,
+              normalColor: string,
+            ) => {
+              let cursor = y;
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                doc
+                  .font(line.bold ? "Helvetica-Bold" : "Helvetica")
+                  .fontSize(line.size)
+                  .fillColor(line.bold ? boldColor : normalColor)
+                  .text(line.text || " ", x, cursor, { width });
+                cursor += doc.heightOfString(line.text || " ", { width });
+                if (i < lines.length - 1) cursor += LINE_GAP;
+              }
+            };
+
+            const customerLines: Line[] = [
+              { text: order.customerName, bold: true, size: 10 },
+              { text: order.address, bold: false, size: 9 },
+              { text: order.customerEmail, bold: false, size: 9 },
+              { text: `Tel: ${order.customerPhone}`, bold: false, size: 9 },
+            ];
+
+            const artisanLines: Line[] = order.assignedTo
+              ? [
+                  {
+                    text: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
+                    bold: true,
+                    size: 10,
+                  },
+                  { text: order.assignedTo.email, bold: false, size: 9 },
+                  { text: `Tel: ${order.assignedTo.phone || "N/A"}`, bold: false, size: 9 },
+                ]
+              : [];
+
+            const customerContentHeight = measureBlock(customerLines, CUSTOMER_TEXT_WIDTH);
+            const artisanContentHeight =
+              artisanLines.length > 0 ? measureBlock(artisanLines, ARTISAN_TEXT_WIDTH) : 0;
+
+            const contentHeight = Math.max(customerContentHeight, artisanContentHeight);
+            const boxHeight = Math.max(
+              MIN_BOX_HEIGHT,
+              HEADER_BAND_HEIGHT + PADDING_AFTER_HEADER + contentHeight + PADDING_BOTTOM,
+            );
+
+            // Customer box border + background
             doc
-              .rect(50, customerBoxTop, 240, 110)
+              .rect(CUSTOMER_BOX_LEFT, customerBoxTop, CUSTOMER_BOX_WIDTH, boxHeight)
               .lineWidth(2)
               .strokeColor(env.BRAND_ACCENT_COLOR)
               .stroke();
-            
-            // Light background
-            doc.rect(51, customerBoxTop + 1, 238, 108).fill("#f9fafb");
-
-            // Header with accent color
             doc
-              .rect(50, customerBoxTop, 240, 28)
+              .rect(
+                CUSTOMER_BOX_LEFT + 1,
+                customerBoxTop + 1,
+                CUSTOMER_BOX_WIDTH - 2,
+                boxHeight - 2,
+              )
+              .fill("#f9fafb");
+
+            // Customer header band
+            doc
+              .rect(CUSTOMER_BOX_LEFT, customerBoxTop, CUSTOMER_BOX_WIDTH, HEADER_BAND_HEIGHT)
               .fill(env.BRAND_ACCENT_COLOR);
-            
             doc
               .fontSize(11)
               .fillColor("#ffffff")
               .font("Helvetica-Bold")
-              .text("CUSTOMER DETAILS", 60, customerBoxTop + 8);
+              .text("CUSTOMER DETAILS", CUSTOMER_TEXT_LEFT, customerBoxTop + 8);
 
-            // Customer information
-            doc
-              .fontSize(10)
-              .fillColor("#1a1a1a")
-              .font("Helvetica-Bold")
-              .text(order.customerName, 60, customerBoxTop + 38, { width: 220 })
-              .font("Helvetica")
-              .fontSize(9)
-              .fillColor("#333333")
-              .text(order.address, 60, customerBoxTop + 53, { width: 220 })
-              .text(`Tel: ${order.customerPhone}`, 60, customerBoxTop + 73, { width: 220 });
+            // Customer content
+            renderBlock(
+              customerLines,
+              CUSTOMER_TEXT_LEFT,
+              customerBoxTop + HEADER_BAND_HEIGHT + PADDING_AFTER_HEADER,
+              CUSTOMER_TEXT_WIDTH,
+              "#1a1a1a",
+              "#333333",
+            );
 
             // ===== ARTISAN DETAILS BOX =====
-            
-            const artisanBoxLeft = 310;
-            
-            // Box with primary color border
+
+            // Artisan box border + background
             doc
-              .rect(artisanBoxLeft, customerBoxTop, 235, 110)
+              .rect(ARTISAN_BOX_LEFT, customerBoxTop, ARTISAN_BOX_WIDTH, boxHeight)
               .lineWidth(2)
               .strokeColor(env.BRAND_PRIMARY_COLOR)
               .stroke();
-            
-            // Light background
-            doc.rect(artisanBoxLeft + 1, customerBoxTop + 1, 233, 108).fill("#f9fafb");
-
-            // Header with primary color
             doc
-              .rect(artisanBoxLeft, customerBoxTop, 235, 28)
+              .rect(
+                ARTISAN_BOX_LEFT + 1,
+                customerBoxTop + 1,
+                ARTISAN_BOX_WIDTH - 2,
+                boxHeight - 2,
+              )
+              .fill("#f9fafb");
+
+            // Artisan header band
+            doc
+              .rect(ARTISAN_BOX_LEFT, customerBoxTop, ARTISAN_BOX_WIDTH, HEADER_BAND_HEIGHT)
               .fill(env.BRAND_PRIMARY_COLOR);
-            
             doc
               .fontSize(11)
               .fillColor("#ffffff")
               .font("Helvetica-Bold")
-              .text("ARTISAN DETAILS", artisanBoxLeft + 10, customerBoxTop + 8);
+              .text("ARTISAN DETAILS", ARTISAN_TEXT_LEFT, customerBoxTop + 8);
 
-            // Artisan information
-            if (order.assignedTo) {
-              doc
-                .fontSize(10)
-                .fillColor("#1a1a1a")
-                .font("Helvetica-Bold")
-                .text(
-                  `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
-                  artisanBoxLeft + 10,
-                  customerBoxTop + 38,
-                  { width: 215 }
-                )
-                .font("Helvetica")
-                .fontSize(9)
-                .fillColor("#333333")
-                .text(
-                  order.assignedTo.email,
-                  artisanBoxLeft + 10,
-                  customerBoxTop + 53,
-                  { width: 215 }
-                )
-                .text(
-                  `Tel: ${order.assignedTo.phone || "N/A"}`,
-                  artisanBoxLeft + 10,
-                  customerBoxTop + 68,
-                  { width: 215 }
-                );
+            // Artisan content
+            if (artisanLines.length > 0) {
+              renderBlock(
+                artisanLines,
+                ARTISAN_TEXT_LEFT,
+                customerBoxTop + HEADER_BAND_HEIGHT + PADDING_AFTER_HEADER,
+                ARTISAN_TEXT_WIDTH,
+                "#1a1a1a",
+                "#333333",
+              );
             }
 
+            const customerSectionBottom = customerBoxTop + boxHeight;
+
             // ===== WORK DETAILS SECTION =====
-            
-            let yPos = 395;
+
+            let yPos = customerSectionBottom + 25;
             
             doc
               .fontSize(14)

@@ -344,7 +344,7 @@ function CustomerDashboard() {
   );
 
   const generateOrderPdfMutation = useMutation(
-    trpc.generateOrderPdf.mutationOptions({
+    trpc.generateJobCardPdf.mutationOptions({
       onSuccess: (data, variables) => {
         const byteCharacters = atob(data.pdf);
         const byteNumbers = new Array(byteCharacters.length);
@@ -357,16 +357,16 @@ function CustomerDashboard() {
         const link = document.createElement("a");
         link.href = url;
         const order = orders.find(o => o.id === variables.orderId);
-        link.download = `order-${order?.orderNumber || variables.orderId}.pdf`;
+        link.download = `job-card-${order?.orderNumber || variables.orderId}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        toast.success("Order summary PDF downloaded successfully!");
+        toast.success("Job card PDF downloaded successfully!");
         setGeneratingOrderPdfId(null);
       },
       onError: (error) => {
-        toast.error(error.message || "Failed to generate order PDF");
+        toast.error(error.message || "Failed to generate job card PDF");
         setGeneratingOrderPdfId(null);
       },
     })
@@ -848,7 +848,7 @@ function OrdersTab({
                     ) : (
                       <>
                         <Download className="h-4 w-4 mr-2" />
-                        Download Order Summary
+                        Download Job Card
                       </>
                     )}
                   </button>
@@ -913,7 +913,7 @@ function OrdersTab({
                     ) : (
                       <>
                         <Download className="h-4 w-4 mr-2" />
-                        Download Order Summary
+                        Download Job Card
                       </>
                     )}
                   </button>
