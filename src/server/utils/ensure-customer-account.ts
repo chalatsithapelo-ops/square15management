@@ -16,6 +16,7 @@ export async function ensureCustomerAccount(params: {
   email: string;
   firstName: string;
   lastName: string;
+  enforceDeterministicPassword?: boolean;
 }): Promise<{
   user: { id: number; email: string; firstName: string; lastName: string; role: string };
   plainPassword: string;
@@ -31,11 +32,48 @@ export async function ensureCustomerAccount(params: {
   // Check if user already exists
   const existing = await db.user.findUnique({
     where: { email },
-    select: { id: true, email: true, firstName: true, lastName: true, role: true },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      password: true,
+    },
   });
 
   if (existing) {
-    return { user: existing, plainPassword, isNew: false };
+    if (existing.role === "CUSTOMER" && (params.enforceDeterministicPassword ?? true)) {
+      const hasExpectedPassword = await bcrypt.compare(plainPassword, existing.password);
+
+      if (!hasExpectedPassword || existing.firstName !== firstName || existing.lastName !== lastName) {
+        const hashedPassword = await bcrypt.hash(plainPassword, 10);
+        const updated = await db.user.update({
+          where: { id: existing.id },
+          data: {
+            password: hashedPassword,
+            firstName,
+            lastName,
+          },
+          select: { id: true, email: true, firstName: true, lastName: true, role: true },
+        });
+
+        console.log(`[ensureCustomerAccount] Synced CUSTOMER credentials for ${email} (password: ${firstName.toLowerCase()}123)`);
+        return { user: updated, plainPassword, isNew: false };
+      }
+    }
+
+    return {
+      user: {
+        id: existing.id,
+        email: existing.email,
+        firstName: existing.firstName,
+        lastName: existing.lastName,
+        role: existing.role,
+      },
+      plainPassword,
+      isNew: false,
+    };
   }
 
   // Create new CUSTOMER account

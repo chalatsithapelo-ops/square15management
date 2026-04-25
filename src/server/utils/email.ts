@@ -221,6 +221,7 @@ export async function sendWeeklyProgressReportEmail(params: {
   progressPercentage: number;
   pdfBuffer: Buffer;
   weekNumber: number;
+  customerLoginCredentials?: { email: string; password: string };
 }): Promise<void> {
   const companyDetails = await getCompanyDetails();
   
@@ -237,6 +238,8 @@ export async function sendWeeklyProgressReportEmail(params: {
   });
 
   const subject = `Weekly Progress Report - ${params.projectName} - Week ${params.weekNumber}`;
+  const customerPortalLink = `${getBaseUrl()}/customer/dashboard`;
+  const loginCredentialsHtml = getLoginCredentialsHtml(params.customerLoginCredentials, customerPortalLink);
 
   const html = `
     <!DOCTYPE html>
@@ -367,6 +370,8 @@ export async function sendWeeklyProgressReportEmail(params: {
           </ul>
           
           <p>If you have any questions or concerns about this report, please don't hesitate to contact us.</p>
+
+          ${loginCredentialsHtml}
         </div>
         
         <div class="footer">

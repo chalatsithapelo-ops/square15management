@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,6 +72,8 @@ function ProjectsPage() {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [showCustomProjectType, setShowCustomProjectType] = useState(false);
+  const [autofillMessage, setAutofillMessage] = useState("");
 
   const projectsQuery = useQuery(
     trpc.getProjects.queryOptions({
@@ -80,14 +82,126 @@ function ProjectsPage() {
     })
   );
 
+  const projectTypesQuery = useQuery(
+    trpc.getProjectTypes.queryOptions(
+      {
+        token: token!,
+      },
+      {
+        enabled: !!token,
+      }
+    )
+  );
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm<ProjectForm>({
     resolver: zodResolver(projectSchema),
   });
+
+  const defaultProjectTypes = [
+    "Affordable Housing",
+    "Social Housing",
+    "Shopping Center",
+    "Commercial Development",
+    "Residential Development",
+  ];
+
+  const projectTypeOptions = useMemo(() => {
+    const dynamicTypes = projectTypesQuery.data || [];
+    return Array.from(new Set([...defaultProjectTypes, ...dynamicTypes])).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [projectTypesQuery.data]);
+
+  type CustomerProfile = {
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    address: string;
+    uses: number;
+  };
+
+  const customerProfiles = useMemo(() => {
+    const profiles = new Map<string, CustomerProfile>();
+
+    for (const project of projectsQuery.data || []) {
+      const emailKey = (project.customerEmail || "").trim().toLowerCase();
+      if (!emailKey) continue;
+
+      const existing = profiles.get(emailKey);
+      if (existing) {
+        existing.uses += 1;
+      } else {
+        profiles.set(emailKey, {
+          customerName: project.customerName || "",
+          customerEmail: project.customerEmail || "",
+          customerPhone: project.customerPhone || "",
+          address: project.address || "",
+          uses: 1,
+        });
+      }
+    }
+
+    return Array.from(profiles.values()).sort((a, b) => b.uses - a.uses);
+  }, [projectsQuery.data]);
+
+  const selectedProjectType = watch("projectType");
+
+  const applyCustomerAutofill = (profile: CustomerProfile) => {
+    const currentName = (watch("customerName") || "").trim();
+    const currentEmail = (watch("customerEmail") || "").trim();
+    const currentPhone = (watch("customerPhone") || "").trim();
+    const currentAddress = (watch("address") || "").trim();
+
+    if (!currentName && profile.customerName) {
+      setValue("customerName", profile.customerName, { shouldDirty: true, shouldValidate: true });
+    }
+    if (!currentEmail && profile.customerEmail) {
+      setValue("customerEmail", profile.customerEmail, { shouldDirty: true, shouldValidate: true });
+    }
+    if (!currentPhone && profile.customerPhone) {
+      setValue("customerPhone", profile.customerPhone, { shouldDirty: true, shouldValidate: true });
+    }
+    if (!currentAddress && profile.address) {
+      setValue("address", profile.address, { shouldDirty: true, shouldValidate: true });
+    }
+
+    setAutofillMessage(
+      `Auto-filled customer details from ${profile.uses} previous project${profile.uses > 1 ? "s" : ""}.`
+    );
+  };
+
+  const tryAutofillCustomerDetails = (value: string, mode: "email" | "name" | "phone") => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || customerProfiles.length === 0) return;
+
+    let match: CustomerProfile | undefined;
+
+    if (mode === "email") {
+      match = customerProfiles.find((p) => p.customerEmail.trim().toLowerCase() === normalized);
+    } else if (mode === "phone") {
+      match = customerProfiles.find(
+        (p) => p.customerPhone.replace(/\s+/g, "") === value.replace(/\s+/g, "")
+      );
+    } else {
+      match = customerProfiles.find((p) => p.customerName.trim().toLowerCase() === normalized);
+    }
+
+    if (match) {
+      applyCustomerAutofill(match);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedProjectType || projectTypeOptions.length === 0) return;
+    setShowCustomProjectType(!projectTypeOptions.includes(selectedProjectType));
+  }, [projectTypeOptions, selectedProjectType]);
 
   const createProjectMutation = useMutation(
     trpc.createProject.mutationOptions({
@@ -97,6 +211,8 @@ function ProjectsPage() {
           queryKey: ["getProjects"] 
         });
         reset();
+        setShowCustomProjectType(false);
+        setAutofillMessage("");
         setShowAddForm(false);
       },
       onError: (error) => {
@@ -141,6 +257,8 @@ function ProjectsPage() {
           queryKey: ["getProjects"] 
         });
         reset();
+        setShowCustomProjectType(false);
+        setAutofillMessage("");
         setShowAddForm(false);
         setEditingProjectId(null);
       },
@@ -178,6 +296,10 @@ function ProjectsPage() {
         toast.error(error.message || "Failed to generate project report");
       },
     })
+  );
+
+  const generateProjectInsightsMutation = useMutation(
+    trpc.generateProjectInsights.mutationOptions()
   );
 
   const getBudgetStatus = (project: any) => {
@@ -218,6 +340,8 @@ function ProjectsPage() {
   const handleEditProject = (project: any) => {
     setEditingProjectId(project.id);
     setShowAddForm(true);
+    setAutofillMessage("");
+    setShowCustomProjectType(!projectTypeOptions.includes(project.projectType));
     reset({
       name: project.name,
       description: project.description,
@@ -297,6 +421,8 @@ function ProjectsPage() {
                 onClick={() => {
                   setShowAddForm(!showAddForm);
                   setEditingProjectId(null);
+                  setShowCustomProjectType(false);
+                  setAutofillMessage("");
                   reset();
                 }}
                 className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-md transition-all"
@@ -334,18 +460,18 @@ function ProjectsPage() {
                       const totalEstimatedBudget = projects.reduce((sum, p) => sum + (p.estimatedBudget || 0), 0);
                       const totalActualCost = projects.reduce((sum, p) => sum + (p.actualCost || 0), 0);
                       
-                      const result = await trpc.generateProjectInsights.mutate({
+                      const result = await generateProjectInsightsMutation.mutateAsync({
                         token: token!,
                         projectsData: {
                           projects: projects.slice(0, 20).map(p => ({
                             name: p.name,
-                            status: p.status,
-                            projectType: p.projectType,
-                            estimatedBudget: p.estimatedBudget,
+                            status: String(p.status),
+                            projectType: p.projectType || undefined,
+                            estimatedBudget: p.estimatedBudget ?? undefined,
                             actualCost: p.actualCost,
-                            startDate: p.startDate,
-                            endDate: p.endDate,
-                            customerName: p.customerName,
+                            startDate: p.startDate ? new Date(p.startDate).toISOString() : undefined,
+                            endDate: p.endDate ? new Date(p.endDate).toISOString() : undefined,
+                            customerName: p.customerName || undefined,
                             milestones: [],
                           })),
                           summary: {
@@ -524,17 +650,45 @@ function ProjectsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Project Type *
                 </label>
+                <input type="hidden" {...register("projectType")} />
                 <select
-                  {...register("projectType")}
+                  value={showCustomProjectType ? "__custom__" : (selectedProjectType || "")}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    if (value === "__custom__") {
+                      setShowCustomProjectType(true);
+                      setValue("projectType", "", { shouldDirty: true, shouldValidate: true });
+                      return;
+                    }
+
+                    setShowCustomProjectType(false);
+                    setValue("projectType", value, { shouldDirty: true, shouldValidate: true });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="">Select type</option>
-                  <option value="Affordable Housing">Affordable Housing</option>
-                  <option value="Social Housing">Social Housing</option>
-                  <option value="Shopping Center">Shopping Center</option>
-                  <option value="Commercial Development">Commercial Development</option>
-                  <option value="Residential Development">Residential Development</option>
+                  {projectTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                  <option value="__custom__">Other (Enter new type)</option>
                 </select>
+                {showCustomProjectType && (
+                  <input
+                    type="text"
+                    value={selectedProjectType || ""}
+                    onChange={(e) =>
+                      setValue("projectType", e.target.value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter new project type"
+                  />
+                )}
                 {errors.projectType && (
                   <p className="mt-1 text-sm text-red-600">{errors.projectType.message}</p>
                 )}
@@ -546,7 +700,9 @@ function ProjectsPage() {
                 </label>
                 <input
                   type="text"
-                  {...register("customerName")}
+                  {...register("customerName", {
+                    onBlur: (e) => tryAutofillCustomerDetails(e.target.value, "name"),
+                  })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="John Doe"
                 />
@@ -561,7 +717,9 @@ function ProjectsPage() {
                 </label>
                 <input
                   type="email"
-                  {...register("customerEmail")}
+                  {...register("customerEmail", {
+                    onBlur: (e) => tryAutofillCustomerDetails(e.target.value, "email"),
+                  })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="john@example.com"
                 />
@@ -576,7 +734,9 @@ function ProjectsPage() {
                 </label>
                 <input
                   type="text"
-                  {...register("customerPhone")}
+                  {...register("customerPhone", {
+                    onBlur: (e) => tryAutofillCustomerDetails(e.target.value, "phone"),
+                  })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="+27 123 456 789"
                 />
@@ -597,6 +757,9 @@ function ProjectsPage() {
                 />
                 {errors.address && (
                   <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                )}
+                {autofillMessage && (
+                  <p className="mt-1 text-xs text-teal-700">{autofillMessage}</p>
                 )}
               </div>
 
@@ -655,6 +818,8 @@ function ProjectsPage() {
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingProjectId(null);
+                    setShowCustomProjectType(false);
+                    setAutofillMessage("");
                     reset();
                   }}
                   className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"

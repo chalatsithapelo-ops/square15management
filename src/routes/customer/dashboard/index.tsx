@@ -34,6 +34,7 @@ import { FileAttachment } from "~/components/FileAttachment";
 import { MetricCard } from "~/components/MetricCard";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
 import { PaymentModal } from "~/components/customer/PaymentModal";
+import GanttChart from "~/components/projects/GanttChart";
 
 export const Route = createFileRoute("/customer/dashboard/")({
   beforeLoad: ({ location }) => {
@@ -1490,6 +1491,7 @@ function ProjectsTab({
 }) {
   const trpc = useTRPC();
   const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
+  const [projectDetailView, setProjectDetailView] = useState<"reports" | "timeline">("reports");
 
   // Query to get milestones for a specific project when expanded
   const milestonesQuery = useQuery(
@@ -1500,6 +1502,16 @@ function ProjectsTab({
       enabled: expandedProjectId !== null,
     })
   );
+
+  const ganttMilestones = useMemo(() => {
+    return (milestonesQuery.data || []).map((milestone) => ({
+      ...milestone,
+      startDate: milestone.startDate ? new Date(milestone.startDate).toISOString() : null,
+      endDate: milestone.endDate ? new Date(milestone.endDate).toISOString() : null,
+      actualStartDate: milestone.actualStartDate ? new Date(milestone.actualStartDate).toISOString() : null,
+      actualEndDate: milestone.actualEndDate ? new Date(milestone.actualEndDate).toISOString() : null,
+    }));
+  }, [milestonesQuery.data]);
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; className: string }> = {
@@ -1584,13 +1596,45 @@ function ProjectsTab({
           </div>
 
           {expandedProjectId === project.id && milestonesQuery.data && (
-            <WeeklyReportsSection
-              milestones={milestonesQuery.data}
-              token={token}
-              onExportWeeklyReportPdf={onExportWeeklyReportPdf}
-              generatingWeeklyReportPdfId={generatingWeeklyReportPdfId}
-              isGeneratingWeeklyReport={isGeneratingWeeklyReport}
-            />
+            <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h5 className="text-sm font-semibold text-gray-900">Project Updates</h5>
+                <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1">
+                  <button
+                    onClick={() => setProjectDetailView("reports")}
+                    className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                      projectDetailView === "reports"
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    Weekly Reports
+                  </button>
+                  <button
+                    onClick={() => setProjectDetailView("timeline")}
+                    className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                      projectDetailView === "timeline"
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    Gantt Timeline
+                  </button>
+                </div>
+              </div>
+
+              {projectDetailView === "reports" ? (
+                <WeeklyReportsSection
+                  milestones={milestonesQuery.data}
+                  token={token}
+                  onExportWeeklyReportPdf={onExportWeeklyReportPdf}
+                  generatingWeeklyReportPdfId={generatingWeeklyReportPdfId}
+                  isGeneratingWeeklyReport={isGeneratingWeeklyReport}
+                />
+              ) : (
+                <GanttChart milestones={ganttMilestones} />
+              )}
+            </div>
           )}
 
           <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
@@ -1611,10 +1655,14 @@ function ProjectsTab({
               </button>
             )}
             <button
-              onClick={() => setExpandedProjectId(expandedProjectId === project.id ? null : project.id)}
+              onClick={() => {
+                const isClosing = expandedProjectId === project.id;
+                setExpandedProjectId(isClosing ? null : project.id);
+                setProjectDetailView("reports");
+              }}
               className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors ml-auto"
             >
-              {expandedProjectId === project.id ? "Hide" : "View"} Weekly Reports
+              {expandedProjectId === project.id ? "Hide" : "View"} Updates
             </button>
           </div>
         </div>

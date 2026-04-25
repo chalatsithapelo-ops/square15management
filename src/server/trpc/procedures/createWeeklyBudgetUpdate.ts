@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { generateAndUploadWeeklyReportPdf } from "~/server/utils/weekly-report-pdf";
 import { sendWeeklyProgressReportEmail } from "~/server/utils/email";
+import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 
 export const createWeeklyBudgetUpdate = baseProcedure
   .input(
@@ -114,6 +115,7 @@ export const createWeeklyBudgetUpdate = baseProcedure
           where: { id: milestone.projectId },
           select: {
             customerEmail: true,
+            customerName: true,
             name: true,
           },
         });
@@ -132,8 +134,27 @@ export const createWeeklyBudgetUpdate = baseProcedure
         
         // Compile list of recipients (customer + all admins)
         const recipients: string[] = [];
+        let customerLoginCredentials: { email: string; password: string } | undefined;
+
         if (project?.customerEmail) {
           recipients.push(project.customerEmail);
+
+          const [firstName = "customer", ...lastNameParts] = (project.customerName || "Customer User")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+          const { plainPassword } = await ensureCustomerAccount({
+            email: project.customerEmail,
+            firstName,
+            lastName: lastNameParts.join(" ") || "User",
+            enforceDeterministicPassword: true,
+          });
+
+          customerLoginCredentials = {
+            email: project.customerEmail,
+            password: plainPassword,
+          };
         }
         recipients.push(...admins.map((admin) => admin.email));
         
@@ -153,6 +174,7 @@ export const createWeeklyBudgetUpdate = baseProcedure
             progressPercentage: input.progressPercentage,
             pdfBuffer,
             weekNumber: weeklyUpdate.id,
+            customerLoginCredentials,
           });
           
           console.log(`[createWeeklyBudgetUpdate] Email sent successfully to all stakeholders`);
