@@ -3,10 +3,11 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { startEmailPoller } from "../services/bankFeed/emailPoller";
+import { startEmailPoller, startEmailIdle } from "../services/bankFeed/emailPoller";
 import { startOrderEmailPoller } from "../services/orderEmail/orderEmailPoller";
 import { startQuoteEmailPoller } from "../services/quoteEmail/quoteEmailPoller";
 import { loadPollerConfigFromDB } from "./procedures/emailAutomationSettings";
+import { startBankFeedPoller } from "../services/bankFeed/providerConnector";
 
 // ── Bank Feed (Finance) Email Poller Bootstrap ───────────────────────
 let emailPollerStarted = false;
@@ -33,8 +34,17 @@ async function bootstrapEmailPoller() {
       return;
     }
 
-    startEmailPoller(config, 5 * 60 * 1000);
-    console.log(`[Bank Feed] Email poller started for ${config.user} (5 min interval)`);
+    // Choose IDLE (push, real-time) vs poll based on BANK_FEED_IDLE env flag.
+    // IDLE is recommended for production once stable; poll is the safe default.
+    const useIdle = process.env.BANK_FEED_IDLE === "1" || process.env.BANK_FEED_IDLE === "true";
+    if (useIdle) {
+      startEmailIdle(config);
+      console.log(`[Bank Feed] IMAP IDLE (push) started for ${config.user}`);
+    } else {
+      const intervalMs = parseInt(process.env.BANK_FEED_POLL_MS || `${5 * 60 * 1000}`, 10);
+      startEmailPoller(config, intervalMs);
+      console.log(`[Bank Feed] Email poller started for ${config.user} (${intervalMs / 1000}s interval)`);
+    }
   } catch (err) {
     console.error("[Bank Feed] Failed to start email poller:", err);
     emailPollerStarted = false;
@@ -105,11 +115,38 @@ async function bootstrapQuoteEmailPoller() {
   }
 }
 
+// ── Stitch Direct Bank Feed Poller Bootstrap ─────────────────────────
+let stitchPollerStarted = false;
+function bootstrapStitchPoller() {
+  if (stitchPollerStarted) return;
+  const enabled =
+    process.env.STITCH_ENABLED === "1" || process.env.STITCH_ENABLED === "true";
+  if (!enabled) return;
+  if (!process.env.BANK_FEED_TOKEN_ENC_KEY) {
+    console.warn(
+      "[Stitch] STITCH_ENABLED=1 but BANK_FEED_TOKEN_ENC_KEY missing — direct bank-feed poller NOT started"
+    );
+    return;
+  }
+  stitchPollerStarted = true;
+  try {
+    const intervalMs = parseInt(process.env.STITCH_POLL_MS || `${15 * 60 * 1000}`, 10);
+    startBankFeedPoller(intervalMs);
+    console.log(
+      `[Stitch] Direct bank-feed poller started (${intervalMs / 1000}s interval, webhook is primary)`
+    );
+  } catch (err) {
+    console.error("[Stitch] Failed to start direct bank-feed poller:", err);
+    stitchPollerStarted = false;
+  }
+}
+
 const handler = eventHandler(async (event) => {
   // Start email pollers on first request (lazy init)
   bootstrapEmailPoller();
   bootstrapOrderEmailPoller();
   bootstrapQuoteEmailPoller();
+  bootstrapStitchPoller();
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (

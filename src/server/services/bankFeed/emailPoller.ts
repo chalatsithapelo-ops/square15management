@@ -9,6 +9,7 @@ import { db } from "~/server/db";
 import { parseEmailNotification, detectBank } from "./emailParsers";
 import { createTransactionHash, storeTransaction } from "./transactionStore";
 import { categorizeTransaction } from "./categorizationEngine";
+import { bankFeedEvents } from "./eventBus";
 
 interface ImapConfig {
   user: string;
@@ -211,7 +212,9 @@ async function processEmail(
 ): Promise<boolean> {
   const fromAddress = email.from?.value?.[0]?.address || "";
   const subject = email.subject || "";
-  const body = email.text || email.html?.replace(/<[^>]*>/g, " ") || "";
+  const html = email.html as string | false | undefined;
+  const htmlBody: string = typeof html === "string" ? html.replace(/<[^>]*>/g, " ") : "";
+  const body = email.text || htmlBody || "";
 
   const bank = detectBank(fromAddress);
   if (!bank) return false;
@@ -275,5 +278,172 @@ async function processEmail(
   // Auto-categorize
   await categorizeTransaction(transaction.id, parsed.description, parsed.amount, parsed.transactionType);
 
+  // Notify SSE subscribers (Cashbook & Bank Feed pages auto-refresh)
+  bankFeedEvents.emitTransaction({
+    bankAccountId: matchedAccount.id,
+    transactionId: transaction.id,
+    transactionDate: parsed.date.toISOString(),
+    amount: parsed.amount,
+    transactionType: parsed.transactionType,
+    description: parsed.description,
+    source: "EMAIL",
+  });
+
   return true;
+}
+
+// ===========================================================================
+// IMAP IDLE — push-mode delivery
+// ===========================================================================
+// Replaces the 5-minute polling cycle with a persistent IMAP connection that
+// uses the IDLE extension (RFC 2177). The mail server pushes "new mail"
+// notifications to us in real time, typically within 1 second of arrival.
+//
+// Auto-fallback: if IDLE is unsupported or the connection drops, we
+// reconnect with exponential backoff (max 60s).
+//
+// Enabled via env BANK_FEED_IDLE=1. The handler.ts bootstrap chooses between
+// `startEmailPoller` (poll) and `startEmailIdle` (push).
+
+let idleImap: Imap | null = null;
+let idleStopRequested = false;
+let idleReconnectAttempt = 0;
+let idleConfig: ImapConfig | null = null;
+
+export function startEmailIdle(config: ImapConfig) {
+  if (idleImap) {
+    console.log("[BankFeed] IMAP IDLE already running");
+    return;
+  }
+  idleConfig = config;
+  idleStopRequested = false;
+  idleReconnectAttempt = 0;
+  connectIdle();
+}
+
+export function stopEmailIdle() {
+  idleStopRequested = true;
+  if (idleImap) {
+    try {
+      idleImap.end();
+    } catch {
+      // ignore
+    }
+    idleImap = null;
+  }
+  console.log("[BankFeed] IMAP IDLE stopped");
+}
+
+function connectIdle() {
+  if (!idleConfig || idleStopRequested) return;
+
+  const imap = new Imap({
+    user: idleConfig.user,
+    password: idleConfig.password,
+    host: idleConfig.host,
+    port: idleConfig.port,
+    tls: idleConfig.tls,
+    tlsOptions: { rejectUnauthorized: false },
+    keepalive: { interval: 10_000, idleInterval: 300_000, forceNoop: true },
+  });
+
+  idleImap = imap;
+
+  imap.once("ready", () => {
+    idleReconnectAttempt = 0;
+    imap.openBox("INBOX", false, (err) => {
+      if (err) {
+        console.error("[BankFeed][IDLE] openBox error:", err.message);
+        try { imap.end(); } catch {}
+        return;
+      }
+      console.log("[BankFeed][IDLE] Connected. Listening for new mail…");
+
+      // Process any pre-existing unread bank emails on connect
+      processCurrentUnread().catch((e) =>
+        console.error("[BankFeed][IDLE] Initial sweep error:", e)
+      );
+
+      // The `imap` library emits 'mail' for every IDLE update.
+      imap.on("mail", (numNew: number) => {
+        console.log(`[BankFeed][IDLE] ${numNew} new message(s) — processing…`);
+        processCurrentUnread().catch((e) =>
+          console.error("[BankFeed][IDLE] Process error:", e)
+        );
+      });
+    });
+  });
+
+  imap.once("error", (err: Error) => {
+    console.error("[BankFeed][IDLE] Connection error:", err.message);
+  });
+
+  imap.once("end", () => {
+    idleImap = null;
+    if (idleStopRequested) return;
+    // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s (cap)
+    idleReconnectAttempt += 1;
+    const delay = Math.min(60_000, 2_000 * 2 ** (idleReconnectAttempt - 1));
+    console.log(`[BankFeed][IDLE] Disconnected. Reconnecting in ${delay / 1000}s (attempt ${idleReconnectAttempt})`);
+    setTimeout(connectIdle, delay);
+  });
+
+  imap.connect();
+}
+
+/**
+ * Sweep current UNSEEN messages from the open INBOX. Reuses the same parsing
+ * pipeline as the polling path to avoid divergent behaviour.
+ */
+async function processCurrentUnread(): Promise<void> {
+  if (!idleImap) return;
+  const imap = idleImap;
+
+  const bankAccounts = await db.bankAccount.findMany({
+    where: { feedEnabled: true, isActive: true },
+  });
+  if (bankAccounts.length === 0) return;
+
+  await new Promise<void>((resolve) => {
+    imap.search(["UNSEEN"], (searchErr, results) => {
+      if (searchErr || !results || results.length === 0) {
+        return resolve();
+      }
+      const fetch = imap.fetch(results, { bodies: "", markSeen: true });
+      const pending: Promise<void>[] = [];
+
+      fetch.on("message", (msg) => {
+        msg.on("body", (stream) => {
+          pending.push(
+            new Promise<void>((res) => {
+              simpleParser(stream as any, async (parseErr, parsed) => {
+                if (!parseErr && parsed) {
+                  try {
+                    await processEmail(parsed, bankAccounts);
+                  } catch (e: any) {
+                    console.error("[BankFeed][IDLE] processEmail error:", e.message);
+                  }
+                }
+                res();
+              });
+            })
+          );
+        });
+      });
+
+      fetch.once("end", async () => {
+        await Promise.all(pending);
+        await db.bankAccount.updateMany({
+          where: { feedEnabled: true, isActive: true },
+          data: { lastFeedCheck: new Date() },
+        });
+        resolve();
+      });
+
+      fetch.once("error", (e) => {
+        console.error("[BankFeed][IDLE] fetch error:", e);
+        resolve();
+      });
+    });
+  });
 }

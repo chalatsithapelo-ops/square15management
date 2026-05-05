@@ -12,6 +12,7 @@ export const convertQuotationToOrder = baseProcedure
       quotationId: z.number(),
       assignedToId: z.number().optional(),
       notes: z.string().optional(),
+      slaHours: z.number().int().positive().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -66,6 +67,10 @@ export const convertQuotationToOrder = baseProcedure
 
     const serviceType = quotation.lead?.serviceType || quotation.projectDescription || "Service from Quotation";
 
+    const willAssign = !!(input.assignedToId || quotation.assignedToId);
+    const slaStartedAt = willAssign && input.slaHours ? new Date() : null;
+    const slaDueAt = slaStartedAt && input.slaHours ? new Date(slaStartedAt.getTime() + input.slaHours * 60 * 60 * 1000) : null;
+
     const order = await db.order.create({
       data: {
         orderNumber,
@@ -79,10 +84,15 @@ export const convertQuotationToOrder = baseProcedure
         assignedToId: input.assignedToId || quotation.assignedToId,
         leadId: quotation.leadId,
         quotationId: quotation.id,
+        clientId: quotation.clientId,
+        clientBuildingId: quotation.clientBuildingId,
         materialCost: quotation.companyMaterialCost,
         labourCost: quotation.companyLabourCost,
         totalCost: quotation.total,
         notes: input.notes || `Created from quotation ${quotation.quoteNumber}`,
+        slaHours: input.slaHours ?? null,
+        slaStartedAt,
+        slaDueAt,
       },
     });
 

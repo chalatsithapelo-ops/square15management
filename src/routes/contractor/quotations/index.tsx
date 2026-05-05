@@ -10,6 +10,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import { ClientSelector } from "~/components/ClientSelector";
+import { LineItemTemplatePicker } from "~/components/LineItemTemplatePicker";
 import RFQReportModal from "~/components/RFQReportModal";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import {
@@ -130,6 +131,8 @@ function QuotationsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
   const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
+  const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [selectedClientBuildingId, setSelectedClientBuildingId] = useState<number | undefined>(undefined);
 
   const isManager = user?.role === "CONTRACTOR_JUNIOR_MANAGER" || user?.role === "CONTRACTOR_SENIOR_MANAGER";
 
@@ -193,6 +196,8 @@ function QuotationsPage() {
         queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
         reset();
         setClientSelectorResetKey((k) => k + 1);
+        setSelectedClientId(undefined);
+        setSelectedClientBuildingId(undefined);
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
@@ -566,6 +571,8 @@ function QuotationsPage() {
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
+        clientId: selectedClientId,
+        clientBuildingId: selectedClientBuildingId,
       });
     }
   };
@@ -699,6 +706,8 @@ function QuotationsPage() {
                     setValue("customerPhone", client.phone, { shouldValidate: true });
                     setValue("address", client.address, { shouldValidate: true });
                     if (client.vatNumber) setValue("customerVatNumber", client.vatNumber);
+                    setSelectedClientId(client.clientId);
+                    setSelectedClientBuildingId(client.clientBuildingId);
                   }}
                 />
                 <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
@@ -933,6 +942,11 @@ function QuotationsPage() {
                         </>
                       )}
                     </button>
+                    <LineItemTemplatePicker
+                      token={token!}
+                      onInsert={(item) => setLineItems((prev) => [...prev, item])}
+                      canManage={true}
+                    />
                     <button
                       type="button"
                       onClick={addLineItem}

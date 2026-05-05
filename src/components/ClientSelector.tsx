@@ -13,10 +13,21 @@ interface ClientSelectorProps {
     address: string;
     companyName?: string;
     vatNumber?: string;
+    /** Newly populated: id of the saved client (omitted for ad-hoc entries). */
+    clientId?: number;
+    /** Newly populated: id of the chosen ClientBuilding (omitted if using primary client address). */
+    clientBuildingId?: number;
   }) => void;
   /** Reset trigger – bump to clear the selector */
   resetKey?: number;
 }
+
+type ClientBuildingLite = {
+  id: number;
+  name: string;
+  address: string;
+  isPrimary: boolean;
+};
 
 export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProps) {
   const trpc = useTRPC();
@@ -35,12 +46,32 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
   const [qaAddress, setQaAddress] = useState("");
   const [qaVatNumber, setQaVatNumber] = useState("");
 
+  // Building picker state — when a client with multiple buildings is chosen,
+  // we show a secondary list before firing onSelect.
+  type PendingClient = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    address: string | null;
+    companyName: string | null;
+    vatNumber: string | null;
+    buildings: ClientBuildingLite[];
+  };
+  const [pendingClient, setPendingClient] = useState<PendingClient | null>(null);
+  const [showAddBuilding, setShowAddBuilding] = useState(false);
+  const [bldgName, setBldgName] = useState("");
+  const [bldgAddress, setBldgAddress] = useState("");
+  const [bldgNotes, setBldgNotes] = useState("");
+
   // Reset when parent form resets
   useEffect(() => {
     setSelectedClientName("");
     setSearch("");
     setOpen(false);
     setShowQuickAdd(false);
+    setPendingClient(null);
+    setShowAddBuilding(false);
   }, [resetKey]);
 
   // Close dropdown on outside click
@@ -64,6 +95,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
       onSuccess: (newClient) => {
         toast.success("Client saved!");
         queryClient.invalidateQueries({ queryKey: trpc.getClients.queryKey() });
+        // Brand new client — no buildings yet, fire onSelect directly
         onSelect({
           name: newClient.name,
           email: newClient.email,
@@ -71,6 +103,7 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
           address: newClient.address || "",
           companyName: newClient.companyName || undefined,
           vatNumber: newClient.vatNumber || undefined,
+          clientId: newClient.id,
         });
         setSelectedClientName(newClient.name);
         setShowQuickAdd(false);
@@ -83,6 +116,35 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
         setQaVatNumber("");
       },
       onError: (err) => toast.error(err.message || "Failed to save client"),
+    })
+  );
+
+  const createBuildingMutation = useMutation(
+    trpc.createClientBuilding.mutationOptions({
+      onSuccess: (b) => {
+        toast.success("Building saved!");
+        queryClient.invalidateQueries({ queryKey: trpc.getClients.queryKey() });
+        if (pendingClient) {
+          onSelect({
+            name: pendingClient.name,
+            email: pendingClient.email,
+            phone: pendingClient.phone,
+            address: b.address,
+            companyName: pendingClient.companyName || undefined,
+            vatNumber: pendingClient.vatNumber || undefined,
+            clientId: pendingClient.id,
+            clientBuildingId: b.id,
+          });
+          setSelectedClientName(`${pendingClient.name} — ${b.name}`);
+        }
+        setPendingClient(null);
+        setShowAddBuilding(false);
+        setBldgName("");
+        setBldgAddress("");
+        setBldgNotes("");
+        setOpen(false);
+      },
+      onError: (err) => toast.error(err.message || "Failed to save building"),
     })
   );
 
@@ -101,6 +163,23 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
   }, [clients, search]);
 
   const handleSelectClient = (client: (typeof clients)[0]) => {
+    const buildings: ClientBuildingLite[] = ((client as any).buildings ?? []) as ClientBuildingLite[];
+    if (buildings.length > 0) {
+      // Defer onSelect until building is chosen
+      setPendingClient({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        companyName: client.companyName,
+        vatNumber: client.vatNumber,
+        buildings,
+      });
+      setShowAddBuilding(false);
+      setSearch("");
+      return;
+    }
     onSelect({
       name: client.name,
       email: client.email,
@@ -108,10 +187,57 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
       address: client.address || "",
       companyName: client.companyName || undefined,
       vatNumber: client.vatNumber || undefined,
+      clientId: client.id,
     });
     setSelectedClientName(client.name);
     setSearch("");
     setOpen(false);
+  };
+
+  const handlePickBuilding = (b: ClientBuildingLite | null) => {
+    if (!pendingClient) return;
+    if (b) {
+      onSelect({
+        name: pendingClient.name,
+        email: pendingClient.email,
+        phone: pendingClient.phone,
+        address: b.address,
+        companyName: pendingClient.companyName || undefined,
+        vatNumber: pendingClient.vatNumber || undefined,
+        clientId: pendingClient.id,
+        clientBuildingId: b.id,
+      });
+      setSelectedClientName(`${pendingClient.name} — ${b.name}`);
+    } else {
+      // "Use main address" — no building FK
+      onSelect({
+        name: pendingClient.name,
+        email: pendingClient.email,
+        phone: pendingClient.phone,
+        address: pendingClient.address || "",
+        companyName: pendingClient.companyName || undefined,
+        vatNumber: pendingClient.vatNumber || undefined,
+        clientId: pendingClient.id,
+      });
+      setSelectedClientName(pendingClient.name);
+    }
+    setPendingClient(null);
+    setOpen(false);
+  };
+
+  const handleAddBuilding = () => {
+    if (!pendingClient) return;
+    if (!bldgName.trim() || !bldgAddress.trim()) {
+      toast.error("Building name and address are required");
+      return;
+    }
+    createBuildingMutation.mutate({
+      token,
+      clientId: pendingClient.id,
+      name: bldgName.trim(),
+      address: bldgAddress.trim(),
+      notes: bldgNotes.trim() || undefined,
+    });
   };
 
   const handleQuickAdd = () => {
@@ -159,7 +285,108 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
       </div>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-80 overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-hidden">
+          {pendingClient ? (
+            // ── Building picker for selected client ──
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <span className="text-sm font-medium text-gray-800 truncate">
+                    Pick site for {pendingClient.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingClient(null);
+                    setShowAddBuilding(false);
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Back
+                </button>
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {pendingClient.address && (
+                  <button
+                    type="button"
+                    onClick={() => handlePickBuilding(null)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50"
+                  >
+                    <div className="text-sm font-medium text-gray-900">Main address</div>
+                    <div className="text-xs text-gray-500 truncate">{pendingClient.address}</div>
+                  </button>
+                )}
+                {pendingClient.buildings.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handlePickBuilding(b)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-b-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {b.name}
+                          {b.isPrimary && (
+                            <span className="ml-1 text-[10px] text-blue-600 uppercase">primary</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">{b.address}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-gray-100">
+                {!showAddBuilding ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBuilding(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add new building / site
+                  </button>
+                ) : (
+                  <div className="p-3 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Building / site name *"
+                      value={bldgName}
+                      onChange={(e) => setBldgName(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Address *"
+                      value={bldgAddress}
+                      onChange={(e) => setBldgAddress(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Notes"
+                      value={bldgNotes}
+                      onChange={(e) => setBldgNotes(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddBuilding}
+                      disabled={createBuildingMutation.isPending}
+                      className="w-full py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                    >
+                      {createBuildingMutation.isPending ? "Saving..." : "Save & Use"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+          <>
           {/* Search */}
           <div className="p-2 border-b border-gray-100">
             <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-md">
@@ -282,6 +509,8 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { notifyAdmins, notifyArtisanOrderAssigned } from "~/server/utils/notifications";
 import { sendOrderNotificationEmail } from "~/server/utils/email";
+import { resolveClientId, resolveClientBuildingId } from "~/server/trpc/procedures/clients";
 
 export const createOrder = baseProcedure
   .input(
@@ -39,6 +40,11 @@ export const createOrder = baseProcedure
         supplierQuotationUrl: z.string().optional(),
         supplierQuotationAmount: z.number().optional(),
       })).optional(),
+      // Reusable client linkage (auto-upsert if not provided)
+      clientId: z.number().optional(),
+      clientBuildingId: z.number().optional(),
+      companyName: z.string().optional(),
+      customerVatNumber: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -120,6 +126,23 @@ export const createOrder = baseProcedure
       }
     }
 
+    // Resolve / auto-upsert client + building so the customer info is
+    // saved on first input and reused on later orders/invoices.
+    const resolvedClientId = await resolveClientId(db, user.id, {
+      existingClientId: input.clientId ?? null,
+      customerName: input.customerName,
+      companyName: input.companyName ?? null,
+      customerEmail: input.customerEmail,
+      customerPhone: input.customerPhone,
+      address: input.address,
+      customerVatNumber: input.customerVatNumber ?? null,
+    });
+    const resolvedBuildingId = await resolveClientBuildingId(db, {
+      existingClientBuildingId: input.clientBuildingId ?? null,
+      clientId: resolvedClientId,
+      address: input.address,
+    });
+
     const order = await db.order.create({
       data: {
         orderNumber,
@@ -132,6 +155,8 @@ export const createOrder = baseProcedure
         assignedToId,
         status,
         leadId: input.leadId || null,
+        clientId: resolvedClientId,
+        clientBuildingId: resolvedBuildingId,
         callOutFee: input.callOutFee || 0,
         labourRate: input.labourRate || null,
         totalMaterialBudget: input.totalMaterialBudget || null,

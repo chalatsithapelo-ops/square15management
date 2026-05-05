@@ -51,6 +51,19 @@ import { updateQuotationStatus } from "~/server/trpc/procedures/updateQuotationS
 import { updateQuotationDetails } from "~/server/trpc/procedures/updateQuotationDetails";
 import { convertQuotationToInvoice } from "~/server/trpc/procedures/convertQuotationToInvoice";
 import { convertQuotationToOrder } from "~/server/trpc/procedures/convertQuotationToOrder";
+import { convertOrderToInvoice } from "~/server/trpc/procedures/convertOrderToInvoice";
+import {
+  getLineItemTemplates,
+  createLineItemTemplate,
+  updateLineItemTemplate,
+  deleteLineItemTemplate,
+} from "~/server/trpc/procedures/lineItemTemplates";
+import {
+  bulkUpdateQuotationStatus,
+  bulkDeleteQuotations,
+} from "~/server/trpc/procedures/bulkQuotationActions";
+import { getPipeline } from "~/server/trpc/procedures/getPipeline";
+import { setOrderSla } from "~/server/trpc/procedures/setOrderSla";
 import { deleteQuotation } from "~/server/trpc/procedures/deleteQuotation";
 import { deletePaymentRequest } from "~/server/trpc/procedures/deletePaymentRequest";
 import { deleteOrder } from "~/server/trpc/procedures/deleteOrder";
@@ -373,7 +386,7 @@ import { updateStaffTaskStatus } from "~/server/trpc/procedures/updateStaffTaskS
 import { addStaffTaskComment } from "~/server/trpc/procedures/addStaffTaskComment";
 import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTaskChecklist";
 import { restoreData } from "~/server/trpc/procedures/restoreData";
-import { getClients, createClient, updateClient, deleteClient } from "~/server/trpc/procedures/clients";
+import { getClients, createClient, updateClient, deleteClient, getClient, getClientBuildings, createClientBuilding, updateClientBuilding, deleteClientBuilding } from "~/server/trpc/procedures/clients";
 
 // Order Email Inbox
 import { getOrderInbox, reviewOrderEmail } from "~/server/trpc/procedures/orderInbox";
@@ -386,6 +399,13 @@ import {
   deleteBankAccount,
 } from "~/server/trpc/procedures/bankAccounts";
 import {
+  linkBankAccountStart,
+  linkBankAccountComplete,
+  unlinkBankAccountFeed,
+  backfillBankAccountFeed,
+  getBankAccountFeedStatus,
+} from "~/server/trpc/procedures/bankFeedConnector";
+import {
   getBankTransactions,
   importCSVStatement,
   recategorizeBankTransaction,
@@ -395,6 +415,11 @@ import {
   getImportBatches,
   updateTransactionReconciliation,
 } from "~/server/trpc/procedures/bankTransactions";
+import { getFeatureFlags } from "~/server/trpc/procedures/featureFlags";
+import {
+  getCashbookSummary,
+  getReconciliationGaps,
+} from "~/server/trpc/procedures/cashbook";
 import {
   getApplicationByToken,
   getAssessmentQuestions,
@@ -500,9 +525,14 @@ export const appRouter = createTRPCRouter({
   
   // CRM - Clients
   getClients,
+  getClient,
   createClient,
   updateClient,
   deleteClient,
+  getClientBuildings,
+  createClientBuilding,
+  updateClientBuilding,
+  deleteClientBuilding,
 
   // CRM - Leads
   createLead,
@@ -593,6 +623,15 @@ export const appRouter = createTRPCRouter({
   updateQuotationDetails,
   convertQuotationToInvoice,
   convertQuotationToOrder,
+  convertOrderToInvoice,
+  getLineItemTemplates,
+  createLineItemTemplate,
+  updateLineItemTemplate,
+  deleteLineItemTemplate,
+  bulkUpdateQuotationStatus,
+  bulkDeleteQuotations,
+  getPipeline,
+  setOrderSla,
   deleteQuotation,
   deletePaymentRequest,
   deleteOrder,
@@ -941,6 +980,11 @@ export const appRouter = createTRPCRouter({
   createBankAccount,
   updateBankAccount,
   deleteBankAccount,
+  linkBankAccountStart,
+  linkBankAccountComplete,
+  unlinkBankAccountFeed,
+  backfillBankAccountFeed,
+  getBankAccountFeedStatus,
   getBankTransactions,
   importCSVStatement,
   recategorizeBankTransaction,
@@ -949,6 +993,9 @@ export const appRouter = createTRPCRouter({
   getBankFeedStats,
   getImportBatches,
   updateTransactionReconciliation,
+  getFeatureFlags,
+  getCashbookSummary,
+  getReconciliationGaps,
 
   // Recruitment Pipeline (legacy — Artisan)
   getApplicationByToken,

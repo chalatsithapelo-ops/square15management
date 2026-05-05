@@ -19,6 +19,7 @@ import CashFlowStatement from "~/components/accounts/CashFlowStatement";
 import ExpenseAnalytics from "~/components/accounts/ExpenseAnalytics";
 import BudgetTracker from "~/components/accounts/BudgetTracker";
 import ExpenseUpload from "~/components/accounts/ExpenseUpload";
+import { CashbookPanel } from "~/components/accounts/CashbookPanel";
 import { CustomizableDashboard } from "~/components/admin/CustomizableDashboard";
 import { FinancialReportsSection } from "~/components/FinancialReportsSection";
 import { ComprehensiveFinancialDashboard } from "~/components/admin/ComprehensiveFinancialDashboard";
@@ -35,6 +36,10 @@ function AccountsPage() {
   const isSeniorAdmin = user?.role === "SENIOR_ADMIN";
 
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [activeTab, setActiveTab] = useState("overview");
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -59,6 +64,12 @@ function AccountsPage() {
       token: token!,
     })
   );
+
+  // Cashbook feature flag (W1-W3 of bank-feed change-management rollout)
+  const featureFlagsQuery = useQuery(
+    trpc.getFeatureFlags.queryOptions({})
+  );
+  const cashbookEnabled = featureFlagsQuery.data?.cashbookEnabled === true;
 
   const ordersQuery = useQuery(
     trpc.getOrders.queryOptions({
@@ -168,6 +179,15 @@ function AccountsPage() {
           end: format(endOfMonth(now), 'yyyy-MM-dd')
         });
         break;
+      case "specific_month": {
+        const [y, m] = selectedMonth.split("-").map(Number);
+        const monthDate = new Date(y, (m || 1) - 1, 1);
+        setDateRange({
+          start: format(startOfMonth(monthDate), 'yyyy-MM-dd'),
+          end: format(endOfMonth(monthDate), 'yyyy-MM-dd')
+        });
+        break;
+      }
       case "last_month":
         const lastMonth = subMonths(now, 1);
         setDateRange({
@@ -197,7 +217,7 @@ function AccountsPage() {
         });
         break;
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, selectedMonth]);
 
   // Parse date range strings as local time (date-only strings "YYYY-MM-DD" are parsed as UTC by new Date())
   const rangeStart = new Date(dateRange.start + 'T00:00:00');
@@ -538,11 +558,20 @@ function AccountsPage() {
               className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="current_month">Current Month</option>
+              <option value="specific_month">Specific Month</option>
               <option value="last_month">Last Month</option>
               <option value="current_quarter">Current Quarter</option>
               <option value="ytd">Year to Date</option>
               <option value="custom">Custom Range</option>
             </select>
+            {selectedPeriod === "specific_month" && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
             {selectedPeriod === "custom" && (
               <>
                 <input
@@ -995,6 +1024,7 @@ function AccountsPage() {
                   { id: 'budget', label: 'Budget Tracker', icon: DollarSign },
                   { id: 'expenses', label: 'Expense Upload', icon: TrendingDown },
                   { id: 'sars', label: 'SARS Compliance', icon: Shield },
+                  ...(cashbookEnabled ? [{ id: 'cashbook', label: 'Cashbook (Live)', icon: DollarSign }] : []),
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1259,6 +1289,13 @@ function AccountsPage() {
 
               {activeTab === 'expenses' && (
                 <ExpenseUpload />
+              )}
+
+              {activeTab === 'cashbook' && cashbookEnabled && (
+                <CashbookPanel
+                  startDate={dateRange.start}
+                  endDate={dateRange.end}
+                />
               )}
 
               {activeTab === 'sars' && (

@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getCompanyDetails } from "~/server/utils/company-details";
 import { computeInvoiceTotals } from "~/utils/money";
+import { resolveClientId, resolveClientBuildingId } from "~/server/trpc/procedures/clients";
 
 export const createInvoice = baseProcedure
   .input(
@@ -41,6 +42,10 @@ export const createInvoice = baseProcedure
       customerVatNumber: z.string().optional(), // Customer VAT number
       projectDescription: z.string().optional(), // Project description shown above line items on PDF
       invoiceDate: z.string().optional(), // Custom invoice date (overrides createdAt)
+      // Reusable client linkage (auto-upsert if not provided)
+      clientId: z.number().optional(),
+      clientBuildingId: z.number().optional(),
+      companyName: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -179,6 +184,24 @@ export const createInvoice = baseProcedure
       // Otherwise, create a regular invoice
       const twoWeeksFromNowRegular = new Date();
       twoWeeksFromNowRegular.setDate(twoWeeksFromNowRegular.getDate() + 14);
+
+      // Resolve / auto-upsert client + building so the customer info is
+      // saved on first input and reused on later quotations/invoices.
+      const resolvedClientId = await resolveClientId(db, user.id, {
+        existingClientId: input.clientId ?? null,
+        customerName: input.customerName,
+        companyName: input.companyName ?? null,
+        customerEmail: input.customerEmail,
+        customerPhone: input.customerPhone,
+        address: input.address,
+        customerVatNumber: input.customerVatNumber ?? null,
+      });
+      const resolvedBuildingId = await resolveClientBuildingId(db, {
+        existingClientBuildingId: input.clientBuildingId ?? null,
+        clientId: resolvedClientId,
+        address: input.address,
+      });
+
       const invoice = await db.invoice.create({
         data: {
           invoiceNumber,
@@ -194,6 +217,8 @@ export const createInvoice = baseProcedure
           notes: input.notes || null,
           orderId: input.orderId || null,
           projectId: input.projectId || null,
+          clientId: resolvedClientId,
+          clientBuildingId: resolvedBuildingId,
           status: (user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER") ? "DRAFT" : "PENDING_REVIEW",
           companyMaterialCost: input.companyMaterialCost || 0,
           companyLabourCost: input.companyLabourCost || 0,

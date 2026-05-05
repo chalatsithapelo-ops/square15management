@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import RFQReportModal from "~/components/RFQReportModal";
 import { ClientSelector } from "~/components/ClientSelector";
+import { LineItemTemplatePicker } from "~/components/LineItemTemplatePicker";
 import {
   ArrowLeft,
   Plus,
@@ -129,7 +130,30 @@ function QuotationsPage() {
   const [downloadingRFQReportPdfId, setDownloadingRFQReportPdfId] = useState<number | null>(null);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
   const [expandedQuotations, setExpandedQuotations] = useState<Set<number>>(new Set());
+  const [selectedQuotationIds, setSelectedQuotationIds] = useState<Set<number>>(new Set());
+  const bulkUpdateMutation = useMutation(
+    trpc.bulkUpdateQuotationStatus.mutationOptions({
+      onSuccess: (res: any) => {
+        toast.success(`Updated ${res?.count ?? "selected"} quotation(s)`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+        setSelectedQuotationIds(new Set());
+      },
+      onError: (e: any) => toast.error(e?.message || "Bulk update failed"),
+    })
+  );
+  const bulkDeleteMutation = useMutation(
+    trpc.bulkDeleteQuotations.mutationOptions({
+      onSuccess: (res: any) => {
+        toast.success(`Deleted ${res?.count ?? "selected"} quotation(s)`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+        setSelectedQuotationIds(new Set());
+      },
+      onError: (e: any) => toast.error(e?.message || "Bulk delete failed"),
+    })
+  );
   const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
+  const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [selectedClientBuildingId, setSelectedClientBuildingId] = useState<number | undefined>(undefined);
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [convertingQuotation, setConvertingQuotation] = useState<any>(null);
   const [convertCreateOrder, setConvertCreateOrder] = useState(true);
@@ -190,6 +214,8 @@ function QuotationsPage() {
         queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
         reset();
         setClientSelectorResetKey((k) => k + 1);
+        setSelectedClientId(undefined);
+        setSelectedClientBuildingId(undefined);
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
@@ -547,6 +573,8 @@ function QuotationsPage() {
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
+        clientId: selectedClientId,
+        clientBuildingId: selectedClientBuildingId,
       });
     }
   };
@@ -639,6 +667,8 @@ function QuotationsPage() {
                     setValue("customerPhone", client.phone, { shouldValidate: true });
                     setValue("address", client.address, { shouldValidate: true });
                     if (client.vatNumber) setValue("customerVatNumber", client.vatNumber);
+                    setSelectedClientId(client.clientId);
+                    setSelectedClientBuildingId(client.clientBuildingId);
                   }}
                 />
                 <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
@@ -873,6 +903,11 @@ function QuotationsPage() {
                         </>
                       )}
                     </button>
+                    <LineItemTemplatePicker
+                      token={token!}
+                      onInsert={(item) => setLineItems((prev) => [...prev, item])}
+                      canManage={true}
+                    />
                     <button
                       type="button"
                       onClick={addLineItem}
@@ -1036,6 +1071,99 @@ function QuotationsPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {selectedQuotationIds.size > 0 && (
+            <div className="sticky top-0 z-10 px-4 sm:px-6 py-3 bg-brand-secondary-50 border-b border-brand-secondary-200 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-brand-secondary-900">
+                {selectedQuotationIds.size} selected
+              </span>
+              <div className="flex-1" />
+              <button
+                type="button"
+                disabled={bulkUpdateMutation.isPending}
+                onClick={() =>
+                  bulkUpdateMutation.mutate({
+                    token: token!,
+                    quotationIds: Array.from(selectedQuotationIds),
+                    status: "SENT_TO_CUSTOMER",
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+              >
+                Send to customer
+              </button>
+              <button
+                type="button"
+                disabled={bulkUpdateMutation.isPending}
+                onClick={() =>
+                  bulkUpdateMutation.mutate({
+                    token: token!,
+                    quotationIds: Array.from(selectedQuotationIds),
+                    status: "APPROVED",
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={bulkUpdateMutation.isPending}
+                onClick={() => {
+                  const reason = window.prompt("Rejection reason (optional):") || undefined;
+                  bulkUpdateMutation.mutate({
+                    token: token!,
+                    quotationIds: Array.from(selectedQuotationIds),
+                    status: "REJECTED",
+                    rejectionReason: reason,
+                  });
+                }}
+                className="px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50"
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleteMutation.isPending}
+                onClick={() => {
+                  if (!window.confirm(`Delete ${selectedQuotationIds.size} quotation(s)? Quotations linked to orders or invoices cannot be deleted.`)) return;
+                  bulkDeleteMutation.mutate({
+                    token: token!,
+                    quotationIds: Array.from(selectedQuotationIds),
+                  });
+                }}
+                className="px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedQuotationIds(new Set())}
+                className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          {filteredQuotations.length > 0 && (
+            <div className="px-4 sm:px-6 py-2 border-b border-gray-200 bg-gray-50 flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={
+                  filteredQuotations.length > 0 &&
+                  filteredQuotations.every((q: any) => selectedQuotationIds.has(q.id))
+                }
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedQuotationIds(new Set(filteredQuotations.map((q: any) => q.id)));
+                  } else {
+                    setSelectedQuotationIds(new Set());
+                  }
+                }}
+              />
+              <span className="text-xs text-gray-600">Select all on this page</span>
+            </div>
+          )}
           <div className="divide-y divide-gray-200">
             {filteredQuotations.map((quotation) => {
               const isExpanded = expandedQuotations.has(quotation.id);
@@ -1054,6 +1182,20 @@ function QuotationsPage() {
                 <div className="px-4 sm:px-6 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 flex-shrink-0"
+                        checked={selectedQuotationIds.has(quotation.id)}
+                        onChange={(e) => {
+                          setSelectedQuotationIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(quotation.id);
+                            else next.delete(quotation.id);
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
                       {hasDetails && (
                         <button
                           onClick={() => toggleQuotationExpansion(quotation.id)}
@@ -1102,7 +1244,7 @@ function QuotationsPage() {
                             )}
                           </button>
                         )}
-                        {quotation.status === "APPROVED_BY_CUSTOMER" && isAdmin && (
+                        {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && (
                           <>
                             <button
                               onClick={() => {
@@ -1113,6 +1255,7 @@ function QuotationsPage() {
                               }}
                               disabled={convertToOrderMutation.isPending}
                               className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                              title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
                             >
                               <Briefcase className="h-3.5 w-3.5 mr-1" />Assign Job
                             </button>
@@ -1203,7 +1346,7 @@ function QuotationsPage() {
                         <Download className="h-3.5 w-3.5 mr-1 inline" />PDF
                       </button>
                     )}
-                    {quotation.status === "APPROVED_BY_CUSTOMER" && isAdmin && (
+                    {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && (
                       <>
                         <button
                           onClick={() => {
@@ -1214,6 +1357,7 @@ function QuotationsPage() {
                           }}
                           disabled={convertToOrderMutation.isPending}
                           className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg disabled:opacity-50"
+                          title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
                         >
                           <Briefcase className="h-3.5 w-3.5 mr-1 inline" />Assign Job
                         </button>

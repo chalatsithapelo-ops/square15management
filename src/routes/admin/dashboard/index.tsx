@@ -52,7 +52,7 @@ import { useState, useMemo } from "react";
 import { ROLES } from "~/utils/roles";
 import type { Permission } from "~/server/utils/permissions";
 
-type DashboardPeriod = "current_month" | "current_quarter" | "financial_year" | "all_time";
+type DashboardPeriod = "current_month" | "specific_month" | "current_quarter" | "financial_year" | "all_time";
 type DrillDownCategory = "new_leads" | "active_jobs" | "completed" | "work_in_progress" | "pending_quotes" | "overdue_invoices" | "paid_invoices" | "outstanding_payments" | "active_projects" | null;
 
 // All admin-side roles that should access the dashboard
@@ -90,6 +90,11 @@ function AdminDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(true);
   const [showFinancials, setShowFinancials] = useState(true);
   const [period, setPeriod] = useState<DashboardPeriod>("current_month");
+  // Default specific month = current month in YYYY-MM format
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [drillDown, setDrillDown] = useState<DrillDownCategory>(null);
 
   // ── Period filtering ──────────────────────────────────────────────────
@@ -98,6 +103,10 @@ function AdminDashboard() {
     switch (period) {
       case "current_month":
         return new Date(now.getFullYear(), now.getMonth(), 1);
+      case "specific_month": {
+        const [y, m] = selectedMonth.split("-").map(Number);
+        return new Date(y, (m || 1) - 1, 1);
+      }
       case "current_quarter": {
         // Align quarters with SA financial year (starts March 1)
         // Q1: Mar-May, Q2: Jun-Aug, Q3: Sep-Nov, Q4: Dec-Feb
@@ -115,13 +124,32 @@ function AdminDashboard() {
       case "all_time":
         return new Date(2000, 0, 1);
     }
-  }, [period]);
+  }, [period, selectedMonth]);
+
+  // Upper bound — only enforced when looking at a specific past month.
+  // For other modes (current_month, current_quarter, financial_year, all_time)
+  // we leave it open-ended (existing behaviour).
+  const periodEnd = useMemo(() => {
+    if (period === "specific_month") {
+      const [y, m] = selectedMonth.split("-").map(Number);
+      // last instant of the selected month
+      return new Date(y, (m || 1), 0, 23, 59, 59, 999);
+    }
+    return null as Date | null;
+  }, [period, selectedMonth]);
 
   const periodLabel = useMemo(() => {
     const now = new Date();
     switch (period) {
       case "current_month":
         return now.toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
+      case "specific_month": {
+        const [y, m] = selectedMonth.split("-").map(Number);
+        return new Date(y, (m || 1) - 1, 1).toLocaleDateString("en-ZA", {
+          month: "long",
+          year: "numeric",
+        });
+      }
       case "current_quarter": {
         // SA FY quarters: Q1=Mar-May, Q2=Jun-Aug, Q3=Sep-Nov, Q4=Dec-Feb
         const fyMonthLabel = (now.getMonth() - 2 + 12) % 12;
@@ -136,11 +164,14 @@ function AdminDashboard() {
       case "all_time":
         return "All Time";
     }
-  }, [period]);
+  }, [period, selectedMonth]);
 
   const isInPeriod = (date: string | Date | null | undefined) => {
     if (!date) return false;
-    return new Date(date) >= periodStart;
+    const d = new Date(date);
+    if (d < periodStart) return false;
+    if (periodEnd && d > periodEnd) return false;
+    return true;
   };
 
   // ── Query defaults ────────────────────────────────────────────────────
@@ -487,27 +518,44 @@ function AdminDashboard() {
             </div>
 
             {/* Center: Period selector */}
-            <div className="hidden md:flex items-center bg-white/10 backdrop-blur-sm rounded-lg p-0.5">
-              {(
-                [
-                  { key: "current_month", label: "This Month" },
-                  { key: "current_quarter", label: "Quarter" },
-                  { key: "financial_year", label: "FY" },
-                  { key: "all_time", label: "All Time" },
-                ] as { key: DashboardPeriod; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={opt.key}
-                  onClick={() => setPeriod(opt.key)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    period === opt.key
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="hidden md:flex items-center gap-2">
+              <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-lg p-0.5">
+                {(
+                  [
+                    { key: "current_month", label: "This Month" },
+                    { key: "current_quarter", label: "Quarter" },
+                    { key: "financial_year", label: "FY" },
+                    { key: "all_time", label: "All Time" },
+                  ] as { key: DashboardPeriod; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setPeriod(opt.key)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      period === opt.key
+                        ? "bg-white text-indigo-700 shadow-sm"
+                        : "text-white/70 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {/* Pick a specific month */}
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setPeriod("specific_month");
+                }}
+                title="Pick a specific month"
+                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all border-0 focus:outline-none focus:ring-2 focus:ring-white/40 ${
+                  period === "specific_month"
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "bg-white/10 text-white"
+                }`}
+              />
             </div>
 
             {/* Right: Actions */}
@@ -528,7 +576,7 @@ function AdminDashboard() {
           </div>
 
           {/* Mobile period selector */}
-          <div className="md:hidden pb-3 flex gap-1 overflow-x-auto">
+          <div className="md:hidden pb-3 flex gap-1 overflow-x-auto items-center">
             {(
               [
                 { key: "current_month", label: "This Month" },
@@ -549,6 +597,20 @@ function AdminDashboard() {
                 {opt.label}
               </button>
             ))}
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                setPeriod("specific_month");
+              }}
+              title="Pick a specific month"
+              className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap border-0 focus:outline-none ${
+                period === "specific_month"
+                  ? "bg-white text-indigo-700"
+                  : "bg-white/10 text-white"
+              }`}
+            />
           </div>
         </div>
       </header>

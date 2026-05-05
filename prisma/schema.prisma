@@ -512,6 +512,9 @@ model User {
   // CRM Clients
   clientsCreated Client[] @relation("ClientCreator")
 
+  // Line item templates
+  lineItemTemplates LineItemTemplate[] @relation("LineItemTemplateCreator")
+
   // Bank Feed Automation
   bankAccounts             BankAccount[]               @relation("BankAccountCreator")
   bankImportBatches        BankImportBatch[]           @relation("BankImportBatchCreator")
@@ -561,8 +564,52 @@ model Client {
   createdById Int
   createdBy   User @relation("ClientCreator", fields: [createdById], references: [id])
 
+  // Reusable client → multiple sites/buildings
+  buildings  ClientBuilding[]
+  quotations Quotation[]      @relation("ClientQuotations")
+  orders     Order[]          @relation("ClientOrders")
+  invoices   Invoice[]        @relation("ClientInvoices")
+
   @@index([createdById])
   @@index([email])
+}
+
+model ClientBuilding {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientId Int
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name      String
+  address   String
+  notes     String?
+  isPrimary Boolean @default(false)
+
+  quotations Quotation[] @relation("ClientBuildingQuotations")
+  orders     Order[]     @relation("ClientBuildingOrders")
+  invoices   Invoice[]   @relation("ClientBuildingInvoices")
+
+  @@index([clientId])
+}
+
+model LineItemTemplate {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  description   String
+  unitPrice     Float
+  unitOfMeasure String   @default("Sum")
+  category      String?
+  isActive      Boolean  @default(true)
+
+  createdById Int?
+  createdBy   User? @relation("LineItemTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([isActive])
 }
 
 model Lead {
@@ -610,6 +657,11 @@ model Order {
   isPaused      Boolean     @default(false)
   pausedAt      DateTime?
 
+  // SLA tracking
+  slaHours      Int?
+  slaStartedAt  DateTime?
+  slaDueAt      DateTime?
+
   assignedToId Int?
   assignedTo   User? @relation("AssignedArtisan", fields: [assignedToId], references: [id])
 
@@ -618,6 +670,12 @@ model Order {
 
   quotationId Int?       @unique
   quotation   Quotation? @relation("QuotationOrder", fields: [quotationId], references: [id], onDelete: SetNull)
+
+  // Reusable client linkage (snapshots remain in customerName/Email/Phone/address)
+  clientId         Int?
+  client           Client?         @relation("ClientOrders", fields: [clientId], references: [id], onDelete: SetNull)
+  clientBuildingId Int?
+  clientBuilding   ClientBuilding? @relation("ClientBuildingOrders", fields: [clientBuildingId], references: [id], onDelete: SetNull)
 
   startTime             DateTime?
   endTime               DateTime?
@@ -941,6 +999,12 @@ model Quotation {
   projectId Int?
   project   Project? @relation(fields: [projectId], references: [id])
 
+  // Reusable client linkage (snapshots remain in customerName/Email/Phone/address)
+  clientId         Int?
+  client           Client?         @relation("ClientQuotations", fields: [clientId], references: [id], onDelete: SetNull)
+  clientBuildingId Int?
+  clientBuilding   ClientBuilding? @relation("ClientBuildingQuotations", fields: [clientBuildingId], references: [id], onDelete: SetNull)
+
   pictures     String[]
   measurements String?
 
@@ -1005,6 +1069,12 @@ model Invoice {
 
   projectId Int?
   project   Project? @relation(fields: [projectId], references: [id])
+
+  // Reusable client linkage (snapshots remain in customerName/Email/Phone/address)
+  clientId         Int?
+  client           Client?         @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: SetNull)
+  clientBuildingId Int?
+  clientBuilding   ClientBuilding? @relation("ClientBuildingInvoices", fields: [clientBuildingId], references: [id], onDelete: SetNull)
 
   notes String?
 
@@ -3547,6 +3617,18 @@ model BankAccount {
   lastFeedCheck         DateTime?
   lastFeedTransactionAt DateTime?
 
+  // External aggregator linkage (Stitch / Mono) - Phase 2 direct bank feed
+  externalProvider      String?
+  externalAccountId     String?
+  externalLinkageId     String?
+  externalRefreshToken  String?
+  externalAccessToken   String?
+  externalTokenExpiry   DateTime?
+  externalSyncCursor    String?
+  externalLastSyncAt    DateTime?
+  externalLastError     String?
+  externalConsentExpiry DateTime?
+
   // Owner
   createdById Int
   createdBy   User @relation("BankAccountCreator", fields: [createdById], references: [id])
@@ -3558,6 +3640,23 @@ model BankAccount {
   @@unique([bankName, accountNumber])
   @@index([createdById])
   @@index([isActive])
+  @@index([externalProvider, externalAccountId])
+}
+
+model BankFeedWebhookLog {
+  id             Int       @id @default(autoincrement())
+  receivedAt     DateTime  @default(now())
+  provider       String
+  eventType      String
+  signatureValid Boolean
+  rawPayload     Json
+  processedAt    DateTime?
+  error          String?
+  bankAccountId  Int?
+
+  @@index([receivedAt])
+  @@index([bankAccountId])
+  @@index([provider, eventType])
 }
 
 model BankTransaction {
@@ -4562,3 +4661,4 @@ model ConsentEvent {
 
   @@index([applicationId])
 }
+

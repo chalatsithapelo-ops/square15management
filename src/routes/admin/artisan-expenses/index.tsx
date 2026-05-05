@@ -37,7 +37,11 @@ function ArtisanExpensesPage() {
   const [expandedArtisan, setExpandedArtisan] = useState<number | null>(null);
   const [drilldownTab, setDrilldownTab] = useState<"orders" | "payments" | "slips">("orders");
   const [sortBy, setSortBy] = useState<"cost" | "name" | "orders" | "flags">("cost");
-  const [periodFilter, setPeriodFilter] = useState<"all" | "current_month" | "current_quarter" | "financial_year">("all");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "current_month" | "specific_month" | "current_quarter" | "financial_year">("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   // Permission check
   const userPermissionsQuery = useQuery(
@@ -60,6 +64,11 @@ function ArtisanExpensesPage() {
     switch (periodFilter) {
       case "current_month":
         return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
+      case "specific_month": {
+        const [y, m] = selectedMonth.split("-").map(Number);
+        const mi = (m || 1) - 1;
+        return { start: new Date(y, mi, 1), end: new Date(y, mi + 1, 0, 23, 59, 59, 999) };
+      }
       case "current_quarter": {
         const fyMonth = (now.getMonth() - 2 + 12) % 12;
         const qStartFyMonth = Math.floor(fyMonth / 3) * 3;
@@ -77,7 +86,7 @@ function ArtisanExpensesPage() {
       default:
         return null;
     }
-  }, [periodFilter]);
+  }, [periodFilter, selectedMonth]);
 
   const isInPeriod = (date: string | Date | null | undefined) => {
     if (!periodBounds || !date) return true; // "all" = no filter
@@ -280,9 +289,18 @@ function ArtisanExpensesPage() {
           >
             <option value="all">All Time</option>
             <option value="current_month">Current Month</option>
+            <option value="specific_month">Specific Month</option>
             <option value="current_quarter">Current Quarter</option>
             <option value="financial_year">Financial Year</option>
           </select>
+          {periodFilter === "specific_month" && (
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}

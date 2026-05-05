@@ -184,6 +184,81 @@ export default createApp({
       ],
     },
     {
+      type: "http",
+      name: "bank-feed-stream",
+      base: "/api/bank-feed/stream/",
+      handler: "./src/server/bank-feed/stream-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
+      type: "http",
+      name: "stitch-webhook",
+      base: "/api/bank-feed/stitch-webhook/",
+      handler: "./src/server/bank-feed/stitch-webhook-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
+      type: "http",
+      name: "stitch-callback",
+      base: "/api/bank-feed/stitch-callback/",
+      handler: "./src/server/bank-feed/stitch-callback-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
       type: "spa",
       name: "client",
       handler: "./index.html",

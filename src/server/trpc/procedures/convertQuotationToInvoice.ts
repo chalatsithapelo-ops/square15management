@@ -103,6 +103,8 @@ export const convertQuotationToInvoice = baseProcedure
         quotationId: quotation.id,
         projectId: quotation.projectId,
         clientReferenceNumber: quotation.clientReferenceQuoteNumber,
+        clientId: quotation.clientId,
+        clientBuildingId: quotation.clientBuildingId,
       },
     });
 
@@ -138,6 +140,8 @@ export const convertQuotationToInvoice = baseProcedure
           assignedToId: input.assignedToId || quotation.assignedToId,
           leadId: quotation.leadId,
           quotationId: quotation.id,
+          clientId: quotation.clientId,
+          clientBuildingId: quotation.clientBuildingId,
           materialCost: quotation.companyMaterialCost,
           labourCost: quotation.companyLabourCost,
           totalCost: quotation.total,

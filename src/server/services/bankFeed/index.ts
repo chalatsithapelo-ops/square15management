@@ -11,4 +11,6 @@ export type { CSVParseResult } from "./csvParsers";
 export { createTransactionHash, storeTransaction, storeBatchTransactions } from "./transactionStore";
 export { categorizeTransaction, recategorizeTransaction, confirmCategorization } from "./categorizationEngine";
 export { reconcileBankAccount, reconcileTransaction } from "./reconciliationEngine";
-export { startEmailPoller, stopEmailPoller, pollEmails } from "./emailPoller";
+export { startEmailPoller, stopEmailPoller, pollEmails, startEmailIdle, stopEmailIdle } from "./emailPoller";
+export { bankFeedEvents } from "./eventBus";
+export type { BankFeedTransactionEvent } from "./eventBus";

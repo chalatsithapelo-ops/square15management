@@ -4,6 +4,7 @@
 
 import { createHash } from "crypto";
 import { db } from "~/server/db";
+import { bankFeedEvents } from "./eventBus";
 
 export interface StoreTransactionInput {
   bankAccountId: number;
@@ -89,7 +90,7 @@ export async function storeBatchTransactions(
         continue;
       }
 
-      await storeTransaction({
+      const created = await storeTransaction({
         bankAccountId,
         transactionDate: tx.date,
         description: tx.description,
@@ -103,6 +104,17 @@ export async function storeBatchTransactions(
       });
 
       newCount++;
+
+      // Notify SSE subscribers (live UI refresh)
+      bankFeedEvents.emitTransaction({
+        bankAccountId,
+        transactionId: created.id,
+        transactionDate: tx.date.toISOString(),
+        amount: tx.amount,
+        transactionType: tx.transactionType,
+        description: tx.description,
+        source: (source === "CSV" || source === "EMAIL" || source === "API") ? source : "MANUAL",
+      });
     } catch (err: any) {
       errors.push(`Failed to store transaction: ${err.message}`);
     }

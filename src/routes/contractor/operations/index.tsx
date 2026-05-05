@@ -9,6 +9,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { RequireSubscriptionFeature } from "~/components/RequireSubscriptionFeature";
 import { SignedMinioLink } from "~/components/SignedMinioUrl";
+import { SLABadge } from "~/components/SLABadge";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -314,6 +315,19 @@ function OperationsPage() {
       onError: (error) => {
         toast.error(error.message || "Failed to delete order");
         setDeleteConfirmOrderId(null);
+      },
+    })
+  );
+
+  const convertOrderToInvoiceMutation = useMutation(
+    trpc.convertOrderToInvoice.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(`Invoice ${data.invoice.invoiceNumber} created successfully!`);
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate invoice from order");
       },
     })
   );
@@ -1979,6 +1993,12 @@ function OperationsPage() {
                       >
                         {orderStatuses.find((s) => s.value === order.status)?.label}
                       </span>
+                      <SLABadge
+                        slaDueAt={(order as any).slaDueAt}
+                        slaHours={(order as any).slaHours}
+                        status={order.status}
+                        completedAt={order.endTime}
+                      />
                     </div>
                     
                     <div className="text-sm font-medium text-gray-700 mb-3">{order.customerName}</div>
@@ -2348,9 +2368,34 @@ function OperationsPage() {
                             </>
                           )}
                         </button>
+                        {!(order as any).invoice && (
+                          <button
+                            onClick={() => {
+                              convertOrderToInvoiceMutation.mutate({
+                                token: token!,
+                                orderId: order.id,
+                              });
+                            }}
+                            disabled={convertOrderToInvoiceMutation.isPending}
+                            className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
+                            title="Generate an invoice from this completed order"
+                          >
+                            {convertOrderToInvoiceMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Receipt className="h-4 w-4 mr-1" />
+                                Generate Invoice
+                              </>
+                            )}
+                          </button>
+                        )}
                       </>
                     )}
-                    
+
                     <label className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center">
                       {uploadingDocs && selectedOrderForDocs === order.id ? (
                         <>

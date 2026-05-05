@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { ClientSelector } from "~/components/ClientSelector";
+import { LineItemTemplatePicker } from "~/components/LineItemTemplatePicker";
 import {
   ArrowLeft,
   Plus,
@@ -125,6 +126,8 @@ function InvoicesPage() {
   const [downloadingMergedInvoiceId, setDownloadingMergedInvoiceId] = useState<number | null>(null);
   const [deleteConfirmInvoiceId, setDeleteConfirmInvoiceId] = useState<number | null>(null);
   const [clientSelectorResetKey, setClientSelectorResetKey] = useState(0);
+  const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [selectedClientBuildingId, setSelectedClientBuildingId] = useState<number | undefined>(undefined);
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [selectedCreditInvoice, setSelectedCreditInvoice] = useState<any | null>(null);
   const [creditReason, setCreditReason] = useState("");
@@ -216,6 +219,8 @@ function InvoicesPage() {
         queryClient.invalidateQueries({ queryKey: trpc.getPropertyManagerOrders.queryKey() });
         reset();
         setClientSelectorResetKey((k) => k + 1);
+        setSelectedClientId(undefined);
+        setSelectedClientBuildingId(undefined);
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
@@ -939,6 +944,8 @@ function InvoicesPage() {
         // Include PM order info if this is from a PM order
         isPMOrder: referencedOrder?.isPropertyManagerOrder || false,
         pmOrderId: referencedOrder?.isPropertyManagerOrder ? referencedOrder.id : undefined,
+        clientId: selectedClientId,
+        clientBuildingId: selectedClientBuildingId,
       });
     }
   };
@@ -1231,6 +1238,8 @@ function InvoicesPage() {
                     setValue("customerPhone", client.phone, { shouldValidate: true });
                     setValue("address", client.address, { shouldValidate: true });
                     if (client.vatNumber) setValue("customerVatNumber", client.vatNumber);
+                    setSelectedClientId(client.clientId);
+                    setSelectedClientBuildingId(client.clientBuildingId);
                   }}
                 />
                 <p className="mt-1.5 text-xs text-blue-600">Select a saved client to auto-fill the fields below, or type manually.</p>
@@ -1509,13 +1518,20 @@ function InvoicesPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-gray-900">Line Items</h3>
-                  <button
-                    type="button"
-                    onClick={addLineItem}
-                    className="text-sm text-brand-danger-600 hover:text-brand-danger-700 font-medium"
-                  >
-                    + Add Item
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <LineItemTemplatePicker
+                      token={token!}
+                      onInsert={(item) => setLineItems((prev) => [...prev, item])}
+                      canManage={true}
+                    />
+                    <button
+                      type="button"
+                      onClick={addLineItem}
+                      className="text-sm text-brand-danger-600 hover:text-brand-danger-700 font-medium"
+                    >
+                      + Add Item
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {lineItems.map((item, index) => (

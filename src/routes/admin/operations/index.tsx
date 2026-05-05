@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { SignedMinioLink } from "~/components/SignedMinioUrl";
+import { SLABadge } from "~/components/SLABadge";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -227,6 +228,19 @@ function OperationsPage() {
       onError: (error) => {
         toast.error(error.message || "Failed to delete order");
         setDeleteConfirmOrderId(null);
+      },
+    })
+  );
+
+  const convertOrderToInvoiceMutation = useMutation(
+    trpc.convertOrderToInvoice.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(`Invoice ${data.invoice.invoiceNumber} created successfully!`);
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate invoice from order");
       },
     })
   );
@@ -1747,6 +1761,12 @@ function OperationsPage() {
                     >
                       {orderStatuses.find((s) => s.value === order.status)?.label}
                     </span>
+                    <SLABadge
+                      slaDueAt={(order as any).slaDueAt}
+                      slaHours={(order as any).slaHours}
+                      status={order.status}
+                      completedAt={order.endTime}
+                    />
                     {order.clientUnavailableToSign && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-amber-100 text-amber-800" title="Client was not available to sign the job card">
                         No Signature
@@ -1963,6 +1983,25 @@ function OperationsPage() {
                             <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Preparing...</>
                           ) : (
                             <><FileText className="h-3.5 w-3.5 mr-1" />Invoice + Order + Job Card</>
+                          )}
+                        </button>
+                      )}
+                      {!order.invoice && (
+                        <button
+                          onClick={() => {
+                            convertOrderToInvoiceMutation.mutate({
+                              token: token!,
+                              orderId: order.id,
+                            });
+                          }}
+                          disabled={convertOrderToInvoiceMutation.isPending}
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+                          title="Generate an invoice from this completed order, pre-populated with client and line items"
+                        >
+                          {convertOrderToInvoiceMutation.isPending ? (
+                            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Generating...</>
+                          ) : (
+                            <><Receipt className="h-3.5 w-3.5 mr-1" />Generate Invoice</>
                           )}
                         </button>
                       )}

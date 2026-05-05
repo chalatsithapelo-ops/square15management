@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
+import { useBankFeedStream } from "~/hooks/useBankFeedStream";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useState, useMemo, useCallback, useRef } from "react";
@@ -98,6 +99,16 @@ function BankFeedPage() {
   const stats = statsQuery.data;
   const accounts = accountsQuery.data || [];
 
+  // Live push: invalidate stats and any bank-transaction lists when new
+  // transactions arrive via the SSE stream.
+  useBankFeedStream({
+    enabled: !!token,
+    onTransaction: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+    },
+  });
+
   // ── Tab Content ──────────────────────────────────────────────────────────
 
   return (
@@ -117,12 +128,20 @@ function BankFeedPage() {
               <p className="text-sm text-gray-500">Automated bank transaction processing & reconciliation</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowAddAccount(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" /> Add Account
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/admin/bank-feed/link"
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
+            >
+              <Landmark className="w-4 h-4" /> Link Direct Feed
+            </Link>
+            <button
+              onClick={() => setShowAddAccount(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" /> Add Account
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}

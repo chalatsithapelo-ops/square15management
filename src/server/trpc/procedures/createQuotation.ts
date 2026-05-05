@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { resolveClientId, resolveClientBuildingId } from "~/server/trpc/procedures/clients";
 
 export const createQuotation = baseProcedure
   .input(
@@ -46,6 +47,10 @@ export const createQuotation = baseProcedure
       customerVatNumber: z.string().optional(),
       projectDescription: z.string().optional(),
       quotationDate: z.string().optional(), // Custom quotation date (overrides createdAt)
+      // Reusable client linkage (auto-upsert if not provided)
+      clientId: z.number().optional(),
+      clientBuildingId: z.number().optional(),
+      companyName: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -112,6 +117,23 @@ export const createQuotation = baseProcedure
         });
       }
 
+      // Resolve / auto-upsert client + building so the customer info is
+      // saved on first input and reused on later quotations/invoices.
+      const resolvedClientId = await resolveClientId(db, user.id, {
+        existingClientId: input.clientId ?? null,
+        customerName: input.customerName,
+        companyName: input.companyName ?? null,
+        customerEmail: input.customerEmail,
+        customerPhone: input.customerPhone,
+        address: input.address,
+        customerVatNumber: input.customerVatNumber ?? null,
+      });
+      const resolvedBuildingId = await resolveClientBuildingId(db, {
+        existingClientBuildingId: input.clientBuildingId ?? null,
+        clientId: resolvedClientId,
+        address: input.address,
+      });
+
       const quotation = await db.quotation.create({
         data: {
           quoteNumber,
@@ -135,6 +157,8 @@ export const createQuotation = baseProcedure
           labourRate: input.labourRate || null,
           customerVatNumber: input.customerVatNumber || null,
           projectDescription: input.projectDescription || null,
+          clientId: resolvedClientId,
+          clientBuildingId: resolvedBuildingId,
           status: (user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER") ? "DRAFT" : "DRAFT",
           // Ensure contractor-created quotations are attributable to the contractor/company.
           // This drives contractor visibility and reporting in getQuotations.

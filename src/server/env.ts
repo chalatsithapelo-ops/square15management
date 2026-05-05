@@ -120,6 +120,40 @@ const envSchema = z.object({
   IMAP_USER: z.string().optional(),
   IMAP_PASSWORD: z.string().optional(),
 
+  // Bank Feed feature flags & runtime tuning
+  // CASHBOOK_ENABLED: gates the new "Cashbook" tab on Management Accounts.
+  //   Default OFF in production so existing reports remain unchanged for staff
+  //   while the new feature is being rolled out (W1-W3 of change-management).
+  // BANK_FEED_IDLE: when "1" or "true", emailPoller uses IMAP IDLE (push,
+  //   sub-second). Otherwise it polls every BANK_FEED_POLL_MS (default 5min).
+  CASHBOOK_ENABLED: z
+    .string()
+    .optional()
+    .transform((val) => val === "1" || val === "true"),
+  BANK_FEED_IDLE: z
+    .string()
+    .optional()
+    .transform((val) => val === "1" || val === "true"),
+  BANK_FEED_POLL_MS: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 5 * 60 * 1000)),
+
+  // ── Direct Bank Feed (Stitch / Mono aggregator) ─────────────────────
+  // STITCH_ENABLED: feature flag for the Stitch direct-bank connector.
+  //   When "1"/"true" the bootstrap will start the Stitch poll cron and
+  //   require all STITCH_* and BANK_FEED_TOKEN_ENC_KEY values.
+  STITCH_ENABLED: z.string().optional().transform((val) => val === "1" || val === "true"),
+  STITCH_CLIENT_ID: optionalTrimmedString,
+  STITCH_CLIENT_SECRET: optionalTrimmedString,
+  STITCH_REDIRECT_URI: optionalTrimmedString,
+  STITCH_WEBHOOK_SECRET: optionalTrimmedString,
+  STITCH_API_BASE: z.string().optional().default("https://api.stitch.money/graphql"),
+  STITCH_AUTH_BASE: z.string().optional().default("https://secure.stitch.money/connect"),
+  STITCH_POLL_MS: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 15 * 60 * 1000)),
+  // 64 hex chars = 32 bytes for AES-256-GCM. Required if any STITCH_*/MONO_* used.
+  BANK_FEED_TOKEN_ENC_KEY: optionalTrimmedString,
+
   // PayFast (optional - required only if using PayFast checkout)
   PAYFAST_MERCHANT_ID: optionalTrimmedString,
   PAYFAST_MERCHANT_KEY: optionalTrimmedString,
