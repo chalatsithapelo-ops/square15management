@@ -90,6 +90,7 @@ import { updateStatementDetails } from "~/server/trpc/procedures/updateStatement
 import { generateManagedCustomerStatements } from "~/server/trpc/procedures/generateManagedCustomerStatements";
 import { sendStatementEmail } from "~/server/trpc/procedures/sendStatementEmail";
 import { markStatementViewed } from "~/server/trpc/procedures/markStatementViewed";
+import { deleteStatement } from "~/server/trpc/procedures/deleteStatement";
 import { getCustomerDetailsByEmail } from "~/server/trpc/procedures/getCustomerDetailsByEmail";
 import { searchCustomersForStatement } from "~/server/trpc/procedures/searchCustomersForStatement";
 import { sendSignatureRequest } from "~/server/trpc/procedures/sendSignatureRequest";
@@ -654,6 +655,7 @@ export const appRouter = createTRPCRouter({
   generateManagedCustomerStatements,
   sendStatementEmail,
   markStatementViewed,
+  deleteStatement,
   getCustomerDetailsByEmail,
   searchCustomersForStatement,
   

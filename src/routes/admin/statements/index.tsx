@@ -22,6 +22,7 @@ import {
   Clock,
   Edit,
   X,
+  Trash2,
   Building2,
   Users,
 } from "lucide-react";
@@ -67,6 +68,7 @@ function StatementsPage() {
   const [expandedStatementId, setExpandedStatementId] = useState<number | null>(null);
   const [editingStatement, setEditingStatement] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [deletingStatementId, setDeletingStatementId] = useState<number | null>(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
@@ -199,6 +201,19 @@ function StatementsPage() {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update statement");
+      },
+    })
+  );
+
+  const deleteStatementMutation = useMutation(
+    trpc.deleteStatement.mutationOptions({
+      onSuccess: () => {
+        toast.success("Statement deleted");
+        queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
+        setDeletingStatementId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to delete statement");
       },
     })
   );
@@ -686,6 +701,14 @@ function StatementsPage() {
                           )}
                         </button>
                       )}
+                      <button
+                        onClick={() => setDeletingStatementId(statement.id)}
+                        disabled={deleteStatementMutation.isPending}
+                        className="px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -709,6 +732,94 @@ function StatementsPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Statement Confirmation Modal */}
+      <Transition appear show={deletingStatementId !== null} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => {
+            if (!deleteStatementMutation.isPending) {
+              setDeletingStatementId(null);
+            }
+          }}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/40" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-150"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title className="text-lg font-semibold text-gray-900 flex items-center">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                    Delete statement?
+                  </Dialog.Title>
+                  <p className="mt-3 text-sm text-gray-600">
+                    {(() => {
+                      const s = statements.find((x) => x.id === deletingStatementId);
+                      return s
+                        ? `This will permanently delete ${s.statement_number} for ${s.client_email}. This action cannot be undone.`
+                        : "This will permanently delete the statement. This action cannot be undone.";
+                    })()}
+                  </p>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                      onClick={() => setDeletingStatementId(null)}
+                      disabled={deleteStatementMutation.isPending}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 inline-flex items-center"
+                      disabled={deleteStatementMutation.isPending}
+                      onClick={() => {
+                        if (deletingStatementId !== null) {
+                          deleteStatementMutation.mutate({
+                            token: token!,
+                            statementId: deletingStatementId,
+                          });
+                        }
+                      }}
+                    >
+                      {deleteStatementMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
 
       {/* Edit Statement Modal */}
       <Transition appear show={showEditModal} as={Fragment}>
