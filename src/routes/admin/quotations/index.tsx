@@ -87,11 +87,13 @@ function getAvailableStatusTransitions(currentStatus: string, userRole: string) 
     PENDING_SENIOR_MANAGER_REVIEW: isAdminRole
       ? ["APPROVED", "REJECTED", "IN_PROGRESS"]
       : [],
-    APPROVED: ["SENT_TO_CUSTOMER"],
-    SENT_TO_CUSTOMER: isAdminRole ? ["APPROVED_BY_CUSTOMER", "REJECTED_BY_CUSTOMER"] : [],
+    APPROVED: isAdminRole
+      ? ["SENT_TO_CUSTOMER", "APPROVED_BY_CUSTOMER", "REJECTED_BY_CUSTOMER", "REJECTED"]
+      : ["SENT_TO_CUSTOMER"],
+    SENT_TO_CUSTOMER: isAdminRole ? ["APPROVED_BY_CUSTOMER", "REJECTED_BY_CUSTOMER", "REJECTED"] : [],
     REJECTED: ["DRAFT"],
-    APPROVED_BY_CUSTOMER: [],
-    REJECTED_BY_CUSTOMER: isAdminRole ? ["SENT_TO_CUSTOMER", "DRAFT"] : [],
+    APPROVED_BY_CUSTOMER: isAdminRole ? ["REJECTED_BY_CUSTOMER"] : [],
+    REJECTED_BY_CUSTOMER: isAdminRole ? ["SENT_TO_CUSTOMER", "APPROVED_BY_CUSTOMER", "DRAFT"] : [],
   };
 
   return transitions[currentStatus] || [];
