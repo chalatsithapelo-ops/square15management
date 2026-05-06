@@ -65,8 +65,10 @@ function ArtisanExpensesPage() {
       case "current_month":
         return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
       case "specific_month": {
-        const [y, m] = selectedMonth.split("-").map(Number);
-        const mi = (m || 1) - 1;
+        const parts = selectedMonth.split("-");
+        const y = Number(parts[0]) || new Date().getFullYear();
+        const monthNum = Number(parts[1]) || 1;
+        const mi = monthNum - 1;
         return { start: new Date(y, mi, 1), end: new Date(y, mi + 1, 0, 23, 59, 59, 999) };
       }
       case "current_quarter": {
@@ -116,7 +118,9 @@ function ArtisanExpensesPage() {
         const totalPaid = paidPayments.reduce((s, pr) => s + pr.calculatedAmount, 0);
         const totalPending = filteredPayments.filter((pr) => pr.status === "PENDING").reduce((s, pr) => s + pr.calculatedAmount, 0);
         const totalApproved = filteredPayments.filter((pr) => pr.status === "APPROVED").reduce((s, pr) => s + pr.calculatedAmount, 0);
-        const totalCostToCompany = totalMaterialCost + totalLabourCost + totalPaid + totalExpenseSlips;
+        // Note: expense slips ARE the materials — they're not added on top.
+        // The materialCost field on the order already aggregates uploaded slips.
+        const totalCostToCompany = totalMaterialCost + totalLabourCost + totalPaid;
 
         return {
           ...a,
@@ -582,8 +586,9 @@ function OrdersTable({ orders, R }: { orders: any[]; R: (v: number) => string })
             <th className="pb-2 pr-3">Payment</th>
             <th className="pb-2 pr-3 text-right">Materials</th>
             <th className="pb-2 pr-3 text-right">Labour</th>
-            <th className="pb-2 pr-3 text-right">Slips</th>
-            <th className="pb-2 text-right">Total</th>
+            <th className="pb-2 pr-3 text-right">Total Cost</th>
+            <th className="pb-2 pr-3 text-right">Invoiced</th>
+            <th className="pb-2 text-right">Profit</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -626,8 +631,28 @@ function OrdersTable({ orders, R }: { orders: any[]; R: (v: number) => string })
               </td>
               <td className="py-2.5 pr-3 text-right">{R(o.materialCost || 0)}</td>
               <td className="py-2.5 pr-3 text-right">{R(o.labourCost || 0)}</td>
-              <td className="py-2.5 pr-3 text-right">{R(o.expenseSlipTotal || 0)}</td>
-              <td className="py-2.5 text-right font-medium">{R((o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0))}</td>
+              <td className="py-2.5 pr-3 text-right font-medium">{R((o.materialCost || 0) + (o.labourCost || 0))}</td>
+              <td className="py-2.5 pr-3 text-right">
+                {o.invoiceTotal != null ? (
+                  R(o.invoiceTotal)
+                ) : (
+                  <span className="text-xs text-gray-400 italic">—</span>
+                )}
+              </td>
+              <td className="py-2.5 text-right font-semibold">
+                {o.invoiceTotal != null ? (
+                  (() => {
+                    const profit = (o.invoiceTotal || 0) - ((o.materialCost || 0) + (o.labourCost || 0));
+                    return (
+                      <span className={profit >= 0 ? "text-green-600" : "text-red-600"}>
+                        {R(profit)}
+                      </span>
+                    );
+                  })()
+                ) : (
+                  <span className="text-xs text-gray-400 italic">—</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -636,8 +661,14 @@ function OrdersTable({ orders, R }: { orders: any[]; R: (v: number) => string })
             <td colSpan={7} className="py-2 pr-3">Totals</td>
             <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0), 0))}</td>
             <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.labourCost || 0), 0))}</td>
-            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.expenseSlipTotal || 0), 0))}</td>
-            <td className="py-2 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0) + (o.labourCost || 0) + (o.expenseSlipTotal || 0), 0))}</td>
+            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.materialCost || 0) + (o.labourCost || 0), 0))}</td>
+            <td className="py-2 pr-3 text-right">{R(orders.reduce((s: number, o: any) => s + (o.invoiceTotal || 0), 0))}</td>
+            <td className="py-2 text-right">{(() => {
+              const totalInvoiced = orders.reduce((s: number, o: any) => s + (o.invoiceTotal || 0), 0);
+              const totalCost = orders.reduce((s: number, o: any) => s + (o.materialCost || 0) + (o.labourCost || 0), 0);
+              const profit = totalInvoiced - totalCost;
+              return <span className={profit >= 0 ? "text-green-600" : "text-red-600"}>{R(profit)}</span>;
+            })()}</td>
           </tr>
         </tfoot>
       </table>

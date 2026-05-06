@@ -189,9 +189,11 @@ export const getArtisanExpenseTracker = baseProcedure
             o.status === "ASSIGNED"
         ).length;
 
-        // Total cost to company for this artisan
+        // Total cost to company for this artisan.
+        // Note: expense slips ARE materials (uploaded slips already roll up
+        // into order.materialCost), so we don't add them again here.
         const totalCostToCompany =
-          totalMaterialCost + totalLabourCost + totalPaid + totalExpenseSlips;
+          totalMaterialCost + totalLabourCost + totalPaid;
 
         // Average cost per job
         const avgCostPerJob =
