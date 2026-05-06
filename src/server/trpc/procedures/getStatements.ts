@@ -6,12 +6,18 @@ import { authenticateUser, isAdmin } from "~/server/utils/auth";
 
 const StatementView = z.enum(["ISSUED", "RECEIVED"]);
 
+// Hard upper bound to prevent runaway queries even when no limit is specified.
+const MAX_PAGE_SIZE = 500;
+
 export const getStatements = baseProcedure
   .input(
     z.object({
       token: z.string(),
       customerEmail: z.string().email().optional(),
       view: StatementView.optional(),
+      // Optional pagination – omit for full backwards-compatible behavior.
+      limit: z.number().int().positive().max(MAX_PAGE_SIZE).optional(),
+      offset: z.number().int().min(0).optional(),
     })
   )
   .query(async ({ input }) => {
@@ -20,17 +26,21 @@ export const getStatements = baseProcedure
 
     const where: any = {};
 
+    const take = input.limit ?? MAX_PAGE_SIZE;
+    const skip = input.offset ?? 0;
+
+    const runQuery = () =>
+      db.statement.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+      });
+
     // If customer, only show their statements
     if (user.role === "CUSTOMER") {
       where.client_email = user.email;
-      const statements = await db.statement.findMany({
-        where,
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return statements;
+      return runQuery();
     }
 
     // Property Manager: supports two views
@@ -70,14 +80,7 @@ export const getStatements = baseProcedure
         }
       }
 
-      const statements = await db.statement.findMany({
-        where,
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return statements;
+      return runQuery();
     }
 
     // Admins can see all statements, with optional filtering
@@ -85,25 +88,10 @@ export const getStatements = baseProcedure
       if (input.customerEmail) {
         where.client_email = input.customerEmail;
       }
-
-      const statements = await db.statement.findMany({
-        where,
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return statements;
+      return runQuery();
     }
 
     // Default: non-admin users can only view statements addressed to their own email
     where.client_email = user.email;
-    const statements = await db.statement.findMany({
-      where,
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return statements;
+    return runQuery();
   });

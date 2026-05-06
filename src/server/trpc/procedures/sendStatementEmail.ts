@@ -11,6 +11,8 @@ export const sendStatementEmail = baseProcedure
     z.object({
       token: z.string(),
       statementId: z.number(),
+      // Set to true to deliberately re-send a statement that has already been sent.
+      force: z.boolean().optional().default(false),
     })
   )
   .mutation(async ({ input }) => {
@@ -24,6 +26,18 @@ export const sendStatementEmail = baseProcedure
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Statement not found",
+      });
+    }
+
+    // Idempotency: prevent accidental duplicate sends. Caller must explicitly
+    // pass `force: true` to resend a statement that has already been delivered.
+    if (
+      !input.force &&
+      ["sent", "viewed", "paid"].includes(statement.status as string)
+    ) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: `Statement ${statement.statement_number} has already been sent (status: ${statement.status}). Pass force=true to re-send.`,
       });
     }
 

@@ -25,12 +25,36 @@ export const markStatementViewed = baseProcedure
       });
     }
 
-    // Only the recipient (client_email) or admin can mark as viewed.
-    if (!isAdmin(user) && statement.client_email !== user.email) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "You can only mark your own statements as viewed",
-      });
+    // Authorization: admin, recipient, or PM that manages the recipient.
+    if (!isAdmin(user)) {
+      if (statement.client_email === user.email) {
+        // recipient – allowed
+      } else if (user.role === "PROPERTY_MANAGER") {
+        const managed = await db.propertyManagerCustomer.findFirst({
+          where: {
+            propertyManagerId: user.id,
+            email: statement.client_email,
+          },
+          select: { id: true },
+        });
+        if (!managed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only mark statements you manage as viewed",
+          });
+        }
+      } else {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only mark your own statements as viewed",
+        });
+      }
+    }
+
+    // Don't downgrade a paid statement back to viewed; only transition from
+    // sent/generated/overdue.
+    if (statement.status === "paid") {
+      return { success: true, statement };
     }
 
     const updated = await db.statement.update({
