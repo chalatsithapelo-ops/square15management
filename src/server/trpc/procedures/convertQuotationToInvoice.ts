@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { notifyArtisanOrderAssigned } from "~/server/utils/notifications";
 
 export const convertQuotationToInvoice = baseProcedure
   .input(
@@ -127,6 +128,9 @@ export const convertQuotationToInvoice = baseProcedure
       // Get service type from lead or quotation description
       const serviceType = quotation.lead?.serviceType || quotation.projectDescription || "Service from Quotation";
 
+      // Resolve final artisan assignment (input wins, fall back to the artisan already on the quotation)
+      const resolvedAssignedToId = input.assignedToId ?? quotation.assignedToId ?? null;
+
       order = await db.order.create({
         data: {
           orderNumber,
@@ -136,8 +140,8 @@ export const convertQuotationToInvoice = baseProcedure
           address: quotation.address,
           serviceType,
           description: quotation.projectDescription || `Job from quotation ${quotation.quoteNumber}`,
-          status: input.assignedToId ? "ASSIGNED" : "PENDING",
-          assignedToId: input.assignedToId || quotation.assignedToId,
+          status: resolvedAssignedToId ? "ASSIGNED" : "PENDING",
+          assignedToId: resolvedAssignedToId,
           leadId: quotation.leadId,
           quotationId: quotation.id,
           clientId: quotation.clientId,
@@ -154,6 +158,19 @@ export const convertQuotationToInvoice = baseProcedure
         where: { id: invoice.id },
         data: { orderId: order.id },
       });
+
+      // Notify the assigned artisan so the flow continues (mirror createOrder behaviour)
+      if (resolvedAssignedToId && resolvedAssignedToId !== user.id) {
+        void notifyArtisanOrderAssigned({
+          artisanId: resolvedAssignedToId,
+          orderNumber: order.orderNumber,
+          orderId: order.id,
+          serviceType: order.serviceType || undefined,
+          address: order.address || undefined,
+        }).catch((notifyError) => {
+          console.error("Failed to notify artisan about order assignment:", notifyError);
+        });
+      }
     }
 
     return {
