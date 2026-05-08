@@ -90,7 +90,7 @@ export const createOrder = baseProcedure
       for (const o of allOrders) {
         const match = o.orderNumber.match(prefixPattern);
         if (match) {
-          const num = parseInt(match[1], 10);
+          const num = parseInt(match[1] ?? "0", 10);
           if (num > maxNum) maxNum = num;
         }
       }
@@ -212,8 +212,8 @@ export const createOrder = baseProcedure
       !input.assignedToId
     ) {
       const loc = order.address
-        ? order.address
-            .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+        ? (order.address
+            .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
             .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
             .trim()
             .slice(0, 40)

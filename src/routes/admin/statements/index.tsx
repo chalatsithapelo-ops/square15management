@@ -303,7 +303,7 @@ function StatementsPage() {
       },
     };
 
-    const badge = badges[status] || badges.generated;
+    const badge = badges[status] || badges.generated!;
     const Icon = badge.icon;
 
     return (

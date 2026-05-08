@@ -103,7 +103,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ messages, setMessages }) => {
     // Attachments array construction
     const currentAttachments = attachment ? [{
       mimeType: attachment.file.type,
-      data: attachment.preview.split(',')[1] // Remove 'data:mime;base64,' prefix
+      data: attachment.preview.split(',')[1] ?? '' // Remove 'data:mime;base64,' prefix
     }] : [];
 
     const userMsg: ChatMessage = {

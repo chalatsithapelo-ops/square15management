@@ -278,13 +278,13 @@ function ProjectManagerDashboard() {
                 name="Delayed"
                 value={metrics.delayedMilestones}
                 icon={Clock}
-                color={metrics.delayedMilestones > 0 ? "red" : "gray"}
+                color={(metrics.delayedMilestones > 0 ? "red" : "gray") as any}
               />
               <MetricCard
                 name="High Risks"
                 value={metrics.highRisks}
                 icon={AlertTriangle}
-                color={metrics.highRisks > 0 ? "red" : "gray"}
+                color={(metrics.highRisks > 0 ? "red" : "gray") as any}
               />
               <MetricCard
                 name="Over Budget"
@@ -350,24 +350,24 @@ function ProjectManagerDashboard() {
             </div>
 
             {/* Project Health Cards */}
-            <ProjectHealthCards projects={projects} />
+            <ProjectHealthCards projects={projects as any} />
 
             {/* Main Dashboard Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               {/* Milestone Progress Summary */}
-              <MilestoneProgressSummary projects={projects} />
+              <MilestoneProgressSummary projects={projects as any} />
 
               {/* Budget Overview */}
-              <ProjectBudgetOverview projects={projects} />
+              <ProjectBudgetOverview projects={projects as any} />
             </div>
 
             {/* Payment Requests and Risks */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Payment Requests Summary */}
-              <PaymentRequestsSummary paymentRequests={paymentRequests} projects={projects} />
+              <PaymentRequestsSummary paymentRequests={paymentRequests as any} projects={projects as any} />
 
               {/* Risk Alerts */}
-              <RiskAlertsDashboard projects={projects} />
+              <RiskAlertsDashboard projects={projects as any} />
             </div>
           </>
         )}

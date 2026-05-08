@@ -129,7 +129,7 @@ async function matchByReference(
 ): Promise<CategorizationResult | null> {
   // Look for invoice number patterns (INV-0042, QUO-123, etc.)
   const invoiceMatch = description.match(/\b(INV[-\s]?\d+)\b/i);
-  if (invoiceMatch && transactionType === "CREDIT") {
+  if (invoiceMatch && invoiceMatch[1] && transactionType === "CREDIT") {
     const invoiceNumber = invoiceMatch[1].replace(/\s/g, "-").toUpperCase();
     const invoice = await db.invoice.findFirst({
       where: { invoiceNumber: { contains: invoiceNumber, mode: "insensitive" } },
@@ -149,7 +149,7 @@ async function matchByReference(
 
   // Look for payment request references
   const paymentMatch = description.match(/\b(PAY[-\s]?\d+)\b/i);
-  if (paymentMatch && transactionType === "DEBIT") {
+  if (paymentMatch && paymentMatch[1] && transactionType === "DEBIT") {
     const paymentNumber = paymentMatch[1].replace(/\s/g, "-").toUpperCase();
     const payment = await db.paymentRequest.findFirst({
       where: { requestNumber: { contains: paymentNumber, mode: "insensitive" } },
@@ -178,7 +178,7 @@ async function matchByReference(
       take: 3,
     });
 
-    if (recentInvoices.length === 1) {
+    if (recentInvoices.length === 1 && recentInvoices[0]) {
       return {
         category: "INVOICE_PAYMENT",
         confidence: 85,

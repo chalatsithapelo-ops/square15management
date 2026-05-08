@@ -62,9 +62,9 @@ export function decryptToken(payload: string): string {
   }
   const [ivHex, ctHex, tagHex] = parts;
   const key = getKey();
-  const iv = Buffer.from(ivHex, "hex");
-  const ciphertext = Buffer.from(ctHex, "hex");
-  const authTag = Buffer.from(tagHex, "hex");
+  const iv = Buffer.from(ivHex!, "hex");
+  const ciphertext = Buffer.from(ctHex!, "hex");
+  const authTag = Buffer.from(tagHex!, "hex");
   if (iv.length !== IV_LEN) {
     throw new Error(`decryptToken: IV length must be ${IV_LEN} bytes`);
   }

@@ -120,7 +120,7 @@ export async function pollOrderEmails(config: OrderImapConfig): Promise<number> 
         const fromAddress = email.from?.value?.[0]?.address || "";
         const fromName = email.from?.value?.[0]?.name || null;
         const subject = email.subject || "";
-        const body = email.text || email.html?.replace(/<[^>]*>/g, " ") || "";
+        const body = email.text || (typeof email.html === "string" ? email.html.replace(/<[^>]*>/g, " ") : "") || "";
         const receivedAt = email.date || new Date();
 
         // Skip bank notifications

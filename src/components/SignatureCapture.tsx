@@ -92,6 +92,7 @@ export function SignatureCapture({
 
     const rect = canvas.getBoundingClientRect();
     const touch = e.touches[0];
+    if (!touch) return;
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 
@@ -113,6 +114,7 @@ export function SignatureCapture({
 
     const rect = canvas.getBoundingClientRect();
     const touch = e.touches[0];
+    if (!touch) return;
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 

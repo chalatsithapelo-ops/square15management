@@ -189,6 +189,10 @@ function ProjectsPage() {
     })
   );
 
+  const generateProjectInsightsMutation = useMutation(
+    trpc.generateProjectInsights.mutationOptions({})
+  );
+
   const getBudgetStatus = (project: any) => {
     if (!project.estimatedBudget || project.estimatedBudget === 0) {
       return { status: "no-budget", color: "text-gray-600", bgColor: "bg-gray-100" };
@@ -343,7 +347,7 @@ function ProjectsPage() {
                       const totalEstimatedBudget = projects.reduce((sum, p) => sum + (p.estimatedBudget || 0), 0);
                       const totalActualCost = projects.reduce((sum, p) => sum + (p.actualCost || 0), 0);
                       
-                      const result = await trpc.generateProjectInsights.mutate({
+                      const result = await generateProjectInsightsMutation.mutateAsync({
                         token: token!,
                         projectsData: {
                           projects: projects.slice(0, 20).map(p => ({
@@ -968,8 +972,8 @@ function ProjectsPage() {
                         View Milestones
                       </button>
                       <Link
-                        to="/contractor/projects/$projectId/report"
-                        params={{ projectId: project.id.toString() }}
+                        to={"/contractor/projects/$projectId/report" as any}
+                        params={{ projectId: project.id.toString() } as any}
                         className="w-full px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors text-center"
                       >
                         View Report

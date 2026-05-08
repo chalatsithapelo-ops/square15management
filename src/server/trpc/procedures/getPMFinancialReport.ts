@@ -114,11 +114,11 @@ export const getPMFinancialReport = baseProcedure
             id: user.id,
             name: `${user.firstName} ${user.lastName}`,
           },
-          summary: metrics.length > 0 ? {
+          summary: metrics.length > 0 && metrics[0] ? {
             latestPeriod: {
-              period: `${metrics[0].periodStart.toLocaleDateString()} - ${metrics[0].periodEnd.toLocaleDateString()}`,
-              operatingCashFlow: metrics[0].operatingCashFlow,
-              netCashFlow: metrics[0].netCashFlow,
+              period: `${metrics[0]!.periodStart.toLocaleDateString()} - ${metrics[0]!.periodEnd.toLocaleDateString()}`,
+              operatingCashFlow: metrics[0]!.operatingCashFlow,
+              netCashFlow: metrics[0]!.netCashFlow,
             },
             totals: {
               totalOperatingCashFlow: metrics.reduce((sum, m) => sum + m.operatingCashFlow, 0),

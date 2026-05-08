@@ -106,7 +106,7 @@ function AdminDashboard() {
         return new Date(now.getFullYear(), now.getMonth(), 1);
       case "specific_month": {
         const [y, m] = selectedMonth.split("-").map(Number);
-        return new Date(y, (m || 1) - 1, 1);
+        return new Date(y ?? 1970, (m || 1) - 1, 1);
       }
       case "current_quarter": {
         // Align quarters with SA financial year (starts March 1)
@@ -134,7 +134,7 @@ function AdminDashboard() {
     if (period === "specific_month") {
       const [y, m] = selectedMonth.split("-").map(Number);
       // last instant of the selected month
-      return new Date(y, (m || 1), 0, 23, 59, 59, 999);
+      return new Date(y ?? 1970, (m || 1), 0, 23, 59, 59, 999);
     }
     return null as Date | null;
   }, [period, selectedMonth]);
@@ -146,7 +146,7 @@ function AdminDashboard() {
         return now.toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
       case "specific_month": {
         const [y, m] = selectedMonth.split("-").map(Number);
-        return new Date(y, (m || 1) - 1, 1).toLocaleDateString("en-ZA", {
+        return new Date(y ?? 1970, (m || 1) - 1, 1).toLocaleDateString("en-ZA", {
           month: "long",
           year: "numeric",
         });

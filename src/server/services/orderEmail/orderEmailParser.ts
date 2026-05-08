@@ -111,7 +111,7 @@ Set confidence based on how much data was clearly available:
     console.error("[OrderEmail] AI extraction failed:", err.message);
     // Fallback: use basic email metadata
     return {
-      customerName: fromName || fromEmail.split("@")[0],
+      customerName: fromName || fromEmail.split("@")[0] || fromEmail,
       customerEmail: fromEmail,
       customerPhone: "Not provided",
       address: "Address not specified — check email",
@@ -158,7 +158,7 @@ export async function processOrderEmail(
   for (const o of allOrders) {
     const match = o.orderNumber.match(prefixPattern);
     if (match) {
-      const num = parseInt(match[1], 10);
+      const num = parseInt(match[1] ?? "0", 10);
       if (num > maxNum) maxNum = num;
     }
   }

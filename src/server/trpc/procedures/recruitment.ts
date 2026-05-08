@@ -142,7 +142,7 @@ export const getAssessmentQuestions = baseProcedure
           questions: EQ_QUESTIONS.map(q => ({
             id: q.id,
             scenario: q.scenario,
-            question: q.question,
+            question: q.scenario,
             // Deterministically shuffle options per candidate to avoid answer-position patterns.
             options: seededShuffle(
               q.options.map((o, idx) => ({ id: idx, text: o.text })),
@@ -567,7 +567,6 @@ export const onboardApplicant = baseProcedure
         role: input.role,
         phone: app.phone,
         employerId: input.employerId || user.id,
-        isActive: true,
       },
     });
 

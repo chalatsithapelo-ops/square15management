@@ -17,7 +17,7 @@ import {
 
 const contractorRoles = ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER", "CONTRACTOR_JUNIOR_MANAGER"] as const;
 
-async function canAccessCreditNote(user: { id: number; role: string; contractorCompanyName: string | null }, createdById: number | null, customerEmail: string) {
+async function canAccessCreditNote(user: { id: number; role: string; contractorCompanyName: string | null; email?: string }, createdById: number | null, customerEmail: string) {
   if (isAdmin(user as any)) return true;
 
   if (contractorRoles.includes(user.role as any)) {

@@ -98,7 +98,7 @@ export function RevenueComparisonChart({
       return `Week of ${new Date(period).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })}`;
     } else {
       const [year, month] = period.split('-');
-      return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short' });
+      return new Date(parseInt(year ?? '0'), parseInt(month ?? '1') - 1).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short' });
     }
   };
 
@@ -157,10 +157,10 @@ export function RevenueComparisonChart({
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
                 return [value, 'Invoices'];
-              }}
+              }) as any}
               labelFormatter={formatPeriodLabel}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />

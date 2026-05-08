@@ -488,7 +488,7 @@ function OperationsPage() {
         
         // Auto-select the top-ranked artisan (first in the array)
         if (data.rankedArtisans && data.rankedArtisans.length > 0) {
-          const topArtisan = data.rankedArtisans[0];
+          const topArtisan = data.rankedArtisans[0]!;
           setValue("assignedToId", topArtisan.artisanId);
           toast.success(`Top match: ${topArtisan.artisan?.firstName} ${topArtisan.artisan?.lastName} (${topArtisan.matchScore}/100)`);
         }

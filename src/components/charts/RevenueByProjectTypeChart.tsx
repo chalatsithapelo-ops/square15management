@@ -97,7 +97,7 @@ export function RevenueByProjectTypeChart({ data, isLoading }: RevenueByProjectT
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
-              formatter={(value: number) => formatCurrency(value)}
+              formatter={((value: number) => formatCurrency(value)) as any}
             />
             <Legend 
               verticalAlign="bottom" 

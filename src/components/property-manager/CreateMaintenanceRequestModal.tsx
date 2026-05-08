@@ -69,8 +69,8 @@ export function CreateMaintenanceRequestModal({
     enabled: !!token,
   });
 
-  const contractors = contractorsQuery.data?.contractors || [];
-  const buildings = buildingsQuery.data?.buildings || [];
+  const contractors = (contractorsQuery.data as any)?.contractors || [];
+  const buildings = ((buildingsQuery.data as any)?.buildings || (buildingsQuery.data as any) || []) as any[];
 
   const {
     register,
@@ -126,7 +126,7 @@ export function CreateMaintenanceRequestModal({
       buildingId: selectedBuilding ? parseInt(selectedBuilding) : undefined,
       contractorId: selectedContractor && !useManualEntry ? parseInt(selectedContractor) : undefined,
       contractorInfo: contractorData,
-    });
+    } as any);
   };
 
   const handleClose = () => {
@@ -147,7 +147,7 @@ export function CreateMaintenanceRequestModal({
         setManualContractorData({
           companyName: contractor.companyName || `${contractor.firstName} ${contractor.lastName}`,
           email: contractor.email,
-          phone: contractor.phone,
+          phone: contractor.phone ?? "",
           contactPerson: `${contractor.firstName} ${contractor.lastName}`,
         });
       }

@@ -597,7 +597,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
 
   const updateMaterial = (index: number, field: string, value: string) => {
     const newMaterials = [...materials];
-    newMaterials[index] = { ...newMaterials[index], [field]: value };
+    newMaterials[index] = { ...newMaterials[index], [field]: value } as any;
     setMaterials(newMaterials);
   };
 
@@ -1239,7 +1239,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
 
       {/* Milestones View */}
       {viewMode === "gantt" ? (
-        <GanttChart milestones={milestones} />
+        <GanttChart milestones={milestones as any} />
       ) : (
         <div className="space-y-4">
           {milestones.length === 0 ? (

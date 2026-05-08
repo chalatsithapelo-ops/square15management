@@ -191,7 +191,7 @@ export function EmployeeResponseTimeChart({ data, isLoading }: EmployeeResponseT
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string, props: any) => {
+              formatter={((value: number, name: string, props: any) => {
                 const item = props.payload;
                 const performance = getPerformanceLabel(value);
                 const performanceColor = 
@@ -212,7 +212,7 @@ export function EmployeeResponseTimeChart({ data, isLoading }: EmployeeResponseT
                   </div>,
                   "Avg Response Time"
                 ];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />
             <Legend 

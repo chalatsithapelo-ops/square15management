@@ -61,7 +61,7 @@ export function BudgetUtilizationTrendChart({ data, isLoading }: BudgetUtilizati
 
   // Calculate average utilization
   const avgUtilization = sortedData.reduce((sum, d) => sum + d.budgetUtilizationPercentage, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1] ?? { budgetUtilizationPercentage: 0, totalBudget: 0, totalSpent: 0, period: '' } as typeof sortedData[number];
+  const latestData = sortedData[sortedData.length - 1] ?? ({ budgetUtilizationPercentage: 0, totalBudget: 0, totalSpent: 0, period: '' } as unknown as typeof sortedData[number]);
   const isHealthy = avgUtilization <= 90;
 
   return (

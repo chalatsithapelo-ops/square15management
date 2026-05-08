@@ -7,6 +7,11 @@
     "**/*.js",
     "**/*.jsx"
   ],
+  "exclude": [
+    "node_modules",
+    "src/server/scripts/seed-quick-data.ts",
+    "src/server/scripts/setup.ts"
+  ],
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,

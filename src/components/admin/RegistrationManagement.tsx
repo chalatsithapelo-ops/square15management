@@ -423,13 +423,13 @@ export function RegistrationManagement() {
                     {selectedRegistration.derivedStatus === "REJECTED" && (
                       <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
                         <div className="font-semibold">Rejected</div>
-                        {selectedRegistration.rejectedAt && (
+                        {(selectedRegistration as any).rejectedAt && (
                           <div className="mt-1 text-xs text-red-700">
-                            Rejected on {new Date(selectedRegistration.rejectedAt).toLocaleString()}
+                            Rejected on {new Date((selectedRegistration as any).rejectedAt).toLocaleString()}
                           </div>
                         )}
-                        {selectedRegistration.rejectionReason && (
-                          <div className="mt-2 whitespace-pre-wrap text-red-900">{selectedRegistration.rejectionReason}</div>
+                        {(selectedRegistration as any).rejectionReason && (
+                          <div className="mt-2 whitespace-pre-wrap text-red-900">{(selectedRegistration as any).rejectionReason}</div>
                         )}
                         {typeof selectedRejectionEmailSent === "boolean" && (
                           <div className="mt-2 text-xs text-red-800">

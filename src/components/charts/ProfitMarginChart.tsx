@@ -101,12 +101,12 @@ export function ProfitMarginChart({ data, isLoading }: ProfitMarginChartProps) {
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Profit Margin') {
                   return [formatPercent(value), name];
                 }
                 return [formatCurrency(value), name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

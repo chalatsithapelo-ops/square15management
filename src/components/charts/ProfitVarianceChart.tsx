@@ -108,14 +108,14 @@ export function ProfitVarianceChart({
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 const labels: Record<string, string> = {
                   expectedProfit: 'Expected Profit',
                   actualProfit: 'Actual Profit',
                   variance: 'Variance',
                 };
                 return [formatCurrency(value), labels[name] || name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

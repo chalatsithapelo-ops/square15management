@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import { FileText, Download, Loader2, TrendingUp, Calendar, AlertCircle, Filter, FileSpreadsheet } from "lucide-react";
@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 export function FinancialReportsSection() {
   const { token } = useAuthStore();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [reportType, setReportType] = useState<string>("MONTHLY_PL");
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -477,11 +478,11 @@ export function FinancialReportsSection() {
                         <button
                           onClick={async () => {
                             try {
-                              const result = await trpc.getPresignedDownloadUrl.query({
+                              const result = await queryClient.fetchQuery(trpc.getPresignedDownloadUrl.queryOptions({
                                 token: token!,
                                 url: report.pdfUrl!,
                                 expiresInSeconds: 600,
-                              });
+                              }));
                               window.open(result.url, '_blank');
                             } catch (err: any) {
                               toast.error(err.message || 'Failed to generate download link');
@@ -498,11 +499,11 @@ export function FinancialReportsSection() {
                         <button
                           onClick={async () => {
                             try {
-                              const result = await trpc.getPresignedDownloadUrl.query({
+                              const result = await queryClient.fetchQuery(trpc.getPresignedDownloadUrl.queryOptions({
                                 token: token!,
                                 url: report.csvUrl!,
                                 expiresInSeconds: 600,
-                              });
+                              }));
                               window.open(result.url, '_blank');
                             } catch (err: any) {
                               toast.error(err.message || 'Failed to generate download link');

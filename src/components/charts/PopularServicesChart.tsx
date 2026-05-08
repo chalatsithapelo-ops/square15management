@@ -134,12 +134,12 @@ export function PopularServicesChart({ data, isLoading }: PopularServicesChartPr
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
                 if (name === 'orderCount') return [value, 'Orders'];
                 if (name === 'completedCount') return [value, 'Completed'];
                 return [value, name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />
             <Legend 

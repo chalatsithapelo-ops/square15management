@@ -96,7 +96,7 @@ export const createQuotation = baseProcedure
         for (const q of allQuotations) {
           const match = q.quoteNumber.match(pattern);
           if (match) {
-            const num = parseInt(match[1], 10);
+            const num = parseInt(match[1] ?? "0", 10);
             if (num > maxSuffix) maxSuffix = num;
           }
         }

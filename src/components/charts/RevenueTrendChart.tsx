@@ -79,7 +79,7 @@ export function RevenueTrendChart({ data, isLoading }: RevenueTrendChartProps) {
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
-              formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+              formatter={((value: number) => [formatCurrency(value), 'Revenue']) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

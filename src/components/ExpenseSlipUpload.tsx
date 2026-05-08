@@ -83,7 +83,7 @@ export function ExpenseSlipUpload({
 
   const removeSlip = (index: number) => {
     setPendingSlips((prev) => {
-      URL.revokeObjectURL(prev[index].previewUrl);
+      URL.revokeObjectURL(prev[index]!.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
   };
@@ -107,7 +107,7 @@ export function ExpenseSlipUpload({
   };
 
   const requestAiSuggestion = async (index: number) => {
-    const slip = pendingSlips[index];
+    const slip = pendingSlips[index]!;
     
     setPendingSlips(prev => 
       prev.map((s, i) => i === index ? { ...s, loadingAiSuggestion: true } : s)
@@ -137,7 +137,7 @@ export function ExpenseSlipUpload({
   };
 
   const applyAiSuggestion = (index: number) => {
-    const slip = pendingSlips[index];
+    const slip = pendingSlips[index]!;
     if (slip.aiSuggestion) {
       updateSlipCategory(index, slip.aiSuggestion);
       toast.success("AI suggestion applied");

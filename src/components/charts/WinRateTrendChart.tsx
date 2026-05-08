@@ -52,14 +52,14 @@ export function WinRateTrendChart({ data, isLoading }: WinRateTrendChartProps) {
 
   // Calculate average win rate and trend
   const avgWinRate = sortedData.reduce((sum, d) => sum + d.winRate, 0) / sortedData.length;
-  const recentRate = sortedData[sortedData.length - 1].winRate;
+  const recentRate = sortedData[sortedData.length - 1]?.winRate ?? 0;
   const isPositiveTrend = recentRate >= avgWinRate;
 
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
   const formatMonthLabel = (month: string) => {
     const [year, monthNum] = month.split('-');
-    return new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('en-US', { 
+    return new Date(parseInt(year ?? '0'), parseInt(monthNum ?? '1') - 1).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short' 
     });
@@ -112,10 +112,10 @@ export function WinRateTrendChart({ data, isLoading }: WinRateTrendChartProps) {
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Win Rate') return [formatPercent(value), name];
                 return [value, name];
-              }}
+              }) as any}
               labelFormatter={formatMonthLabel}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />

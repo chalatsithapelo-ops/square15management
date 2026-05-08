@@ -1321,7 +1321,7 @@ export async function sendQuotationNotificationEmail(params: {
   // Build enriched subject with service type and location
   const _addr = params.address;
   const _loc = _addr
-    ? _addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+    ? (_addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
         .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
     : undefined;
   const _shortLoc = _loc && _loc.length > 40 ? _loc.slice(0, 37) + '...' : _loc;
@@ -1479,8 +1479,8 @@ export async function sendOrderNotificationEmail(params: {
 
   // Informative subject with short building name only
   const loc = params.address
-    ? params.address
-        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+    ? (params.address
+        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
         .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
         .trim()
         .slice(0, 40)
@@ -1750,8 +1750,8 @@ export async function sendOrderStatusUpdateEmail(params: {
   const statusLabel = params.newStatus.replace(/_/g, " ");
   // Build informative subject with short building name only
   const loc = params.address
-    ? params.address
-        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+    ? (params.address
+        .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
         .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
         .trim()
         .slice(0, 40)

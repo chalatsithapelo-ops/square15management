@@ -121,7 +121,7 @@ Set confidence based on how much data was clearly available:
   } catch (err: any) {
     console.error("[QuoteEmail] AI extraction failed:", err.message);
     return {
-      customerName: fromName || fromEmail.split("@")[0],
+      customerName: fromName || fromEmail.split("@")[0] || fromEmail,
       customerEmail: fromEmail,
       customerPhone: "Not provided",
       address: "Address not specified — check email",
@@ -160,7 +160,7 @@ export async function processQuoteEmail(
 
   // 3. Generate quote number
   const companyDetails = await getCompanyDetails();
-  const prefix = companyDetails.quotePrefix;
+  const prefix = (companyDetails as any).quotePrefix || "QUO";
   const allQuotes = await db.quotation.findMany({ select: { quoteNumber: true } });
   let maxNum = 0;
   const prefixPattern = new RegExp(
@@ -169,7 +169,7 @@ export async function processQuoteEmail(
   for (const q of allQuotes) {
     const match = q.quoteNumber.match(prefixPattern);
     if (match) {
-      const num = parseInt(match[1], 10);
+      const num = parseInt(match[1] ?? "0", 10);
       if (num > maxNum) maxNum = num;
     }
   }

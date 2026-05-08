@@ -207,7 +207,7 @@ export function PayslipsTab() {
     toast.loading(`Downloading ${selectedPayslips.length} payslips...`);
 
     for (let i = 0; i < selectedPayslips.length; i++) {
-      const payslip = selectedPayslips[i];
+      const payslip = selectedPayslips[i]!;
       try {
         const pdfData = await generatePayslipPdfMutation.mutateAsync({
           token: token!,

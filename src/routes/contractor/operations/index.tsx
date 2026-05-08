@@ -436,49 +436,28 @@ function OperationsPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const [artisanQueryParams, setArtisanQueryParams] = useState<{
-    token: string;
-    serviceType: string;
-    description: string;
-    address?: string;
-  } | null>(null);
+  const suggestArtisanMutation = useMutation(
+    trpc.suggestArtisanForJob.mutationOptions({
+      onSuccess: (data) => {
+        setArtisanSuggestions(data);
+        setShowArtisanSuggestions(true);
 
-  const suggestArtisanQuery = useQuery({
-    ...trpc.suggestArtisanForJob.queryOptions(
-      artisanQueryParams || {
-        token: "",
-        serviceType: "",
-        description: "",
-      }
-    ),
-    enabled: artisanQueryParams !== null,
-  });
-
-  useEffect(() => {
-    if (suggestArtisanQuery.data && !suggestArtisanQuery.isLoading) {
-      const data = suggestArtisanQuery.data;
-      setArtisanSuggestions(data);
-      setShowArtisanSuggestions(true);
-
-      // Auto-select the top-ranked artisan (first in the array)
-      if (data.rankedArtisans && data.rankedArtisans.length > 0) {
-        const topArtisan = data.rankedArtisans[0];
-        if (topArtisan) {
-          setValue("assignedToId", topArtisan.artisanId);
-          toast.success(`Top match: ${topArtisan.artisan?.firstName} ${topArtisan.artisan?.lastName} (${topArtisan.matchScore}/100)`);
+        if (data.rankedArtisans && data.rankedArtisans.length > 0) {
+          const topArtisan = data.rankedArtisans[0];
+          if (topArtisan) {
+            setValue("assignedToId", topArtisan.artisanId);
+            toast.success(`Top match: ${topArtisan.artisan?.firstName} ${topArtisan.artisan?.lastName} (${topArtisan.matchScore}/100)`);
+          }
         }
-      }
 
-      setSuggestingArtisan(false);
-      setArtisanQueryParams(null); // Reset to prevent re-triggering
-    }
-
-    if (suggestArtisanQuery.error) {
-      toast.error((suggestArtisanQuery.error as any).message || "Failed to suggest artisans");
-      setSuggestingArtisan(false);
-      setArtisanQueryParams(null);
-    }
-  }, [suggestArtisanQuery.data, suggestArtisanQuery.error, suggestArtisanQuery.isLoading, setValue]);
+        setSuggestingArtisan(false);
+      },
+      onError: (error: any) => {
+        toast.error(error?.message || "Failed to suggest artisans");
+        setSuggestingArtisan(false);
+      },
+    })
+  );
 
   // Watch description field for auto-classification
   const description = watch("description");
@@ -654,7 +633,7 @@ function OperationsPage() {
     }
 
     setSuggestingArtisan(true);
-    setArtisanQueryParams({
+    suggestArtisanMutation.mutate({
       token: token!,
       serviceType,
       description,
@@ -893,7 +872,7 @@ function OperationsPage() {
             if (!stream) return 0;
             try {
               if (stream instanceof PDFRawStream) {
-                return decodePDFRawStream(stream).length;
+                return (decodePDFRawStream(stream) as any).length;
               }
             } catch {
               // ignore

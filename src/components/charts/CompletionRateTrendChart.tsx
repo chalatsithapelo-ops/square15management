@@ -58,7 +58,7 @@ export function CompletionRateTrendChart({ data, isLoading }: CompletionRateTren
 
   // Calculate average completion rate
   const avgCompletionRate = sortedData.reduce((sum, d) => sum + d.milestoneCompletionRate, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1] ?? { milestoneCompletionRate: 0, projectsCompletedCount: 0, period: '' } as typeof sortedData[number];
+  const latestData = sortedData[sortedData.length - 1] ?? ({ milestoneCompletionRate: 0, projectsCompletedCount: 0, period: '' } as unknown as typeof sortedData[number]);
   const isOnTrack = avgCompletionRate >= 70;
 
   return (

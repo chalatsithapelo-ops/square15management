@@ -73,7 +73,7 @@ export function EditRFQModal({ isOpen, onClose, rfq }: EditRFQModalProps) {
     formState: { errors },
     reset,
   } = useForm<RFQFormInput>({
-    resolver: zodResolver<RFQFormInput>(rfqSchema),
+    resolver: zodResolver(rfqSchema) as any,
   });
 
   useEffect(() => {

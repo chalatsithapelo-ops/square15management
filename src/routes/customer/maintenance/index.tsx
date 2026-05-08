@@ -100,7 +100,7 @@ function CustomerMaintenancePage() {
     queryFn: async () => {
       if (!token) return [];
       try {
-        const result = await trpc.getContractors.query({ token });
+        const result = await queryClient.fetchQuery(trpc.getContractors.queryOptions({ token }));
         return result.contractors || [];
       } catch {
         return [];

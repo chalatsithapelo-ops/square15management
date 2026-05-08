@@ -153,7 +153,7 @@ function AssessmentHubPage() {
               purple: { bg: "bg-purple-50", icon: "text-purple-600", border: "border-purple-200" },
               amber: { bg: "bg-amber-50", icon: "text-amber-600", border: "border-amber-200" },
             };
-            const colors = colorClasses[cfg.color];
+            const colors = colorClasses[cfg.color] ?? { bg: "bg-gray-50", icon: "text-gray-600", border: "border-gray-200" };
 
             return (
               <div

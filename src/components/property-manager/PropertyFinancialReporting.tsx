@@ -32,11 +32,11 @@ export function PropertyFinancialReporting() {
           periodStart,
           periodEnd,
         })
-      : { enabled: false, queryKey: ["disabled"] }
+      : ({ enabled: false, queryKey: ["disabled"] } as any)
   );
 
-  const buildings = buildingsQuery.data?.buildings || [];
-  const reportData = reportQuery.data;
+  const buildings = ((buildingsQuery.data as any)?.buildings || (buildingsQuery.data as any) || []) as any[];
+  const reportData = reportQuery.data as any;
 
   // Color palette for charts
   const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6"];
@@ -193,7 +193,7 @@ export function PropertyFinancialReporting() {
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
-                  formatter={(value) => `R ${value.toLocaleString("en-ZA")}`}
+                  formatter={(value: any) => `R ${(value ?? 0).toLocaleString("en-ZA")}`}
                 />
                 <Legend />
                 <Line
@@ -337,7 +337,7 @@ export function PropertyFinancialReporting() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="period" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(value) => `R ${value.toLocaleString("en-ZA")}`} />
+              <Tooltip formatter={(value: any) => `R ${(value ?? 0).toLocaleString("en-ZA")}`} />
               <Legend />
               <Bar dataKey="operatingCashFlow" fill="#10b981" name="Operating Activities" />
               <Bar dataKey="investingCashFlow" fill="#f59e0b" name="Investing Activities" />

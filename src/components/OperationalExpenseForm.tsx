@@ -95,7 +95,7 @@ export function OperationalExpenseForm({ onClose }: OperationalExpenseFormProps)
     watch,
     setValue,
   } = useForm<ExpenseForm>({
-    resolver: zodResolver(expenseSchema),
+    resolver: zodResolver(expenseSchema) as any,
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       isRecurring: false,

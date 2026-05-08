@@ -78,13 +78,13 @@ function ApplyPage() {
     try { localStorage.setItem(STEP_KEY, String(s)); } catch { /* ignore */ }
   }, []);
 
-  const set = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
+  const set = (field: string, value: any) => setForm((p: any) => ({ ...p, [field]: value }));
 
   const toggleSecondaryTrade = (trade: string) => {
-    setForm((p) => ({
+    setForm((p: any) => ({
       ...p,
       secondaryTrades: p.secondaryTrades.includes(trade)
-        ? p.secondaryTrades.filter((t) => t !== trade)
+        ? p.secondaryTrades.filter((t: any) => t !== trade)
         : [...p.secondaryTrades, trade],
     }));
   };

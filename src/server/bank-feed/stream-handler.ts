@@ -43,8 +43,8 @@ const handler = eventHandler(async (event) => {
       : null;
 
   // We must use the underlying Node response to write SSE chunks.
-  const res = event.node?.res;
-  const req = event.node?.req;
+  const res = event.node?.res as any;
+  const req = event.node?.req as any;
   if (!res || !req) {
     return new Response(JSON.stringify({ error: "Stream unavailable" }), {
       status: 500,

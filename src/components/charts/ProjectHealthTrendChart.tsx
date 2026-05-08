@@ -57,7 +57,7 @@ export function ProjectHealthTrendChart({ data, isLoading }: ProjectHealthTrendC
 
   // Calculate average health score
   const avgHealthScore = sortedData.reduce((sum, d) => sum + d.averageProjectHealthScore, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1] ?? { healthScore: 0, criticalCount: 0, warningCount: 0, healthyCount: 0, period: '' } as typeof sortedData[number];
+  const latestData = sortedData[sortedData.length - 1] ?? ({ healthScore: 0, criticalCount: 0, warningCount: 0, healthyCount: 0, period: '' } as unknown as typeof sortedData[number]);
   
   // Determine health status
   const getHealthStatus = (score: number) => {
