@@ -415,7 +415,7 @@ function InvoicesPage() {
   };
 
   const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
-    const blob = new Blob([bytes], { type: "application/pdf" });
+    const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -743,7 +743,7 @@ function InvoicesPage() {
           const lengthOfStream = (stream: any): number => {
             if (!stream) return 0;
             try {
-              if (stream instanceof PDFRawStream) return decodePDFRawStream(stream).length;
+              if (stream instanceof PDFRawStream) return (decodePDFRawStream(stream) as any).length;
             } catch {
               // ignore
             }
@@ -849,7 +849,7 @@ function InvoicesPage() {
 
   const handleGenerateDescription = (index: number) => {
     const item = lineItems[index];
-    
+    if (!item) return;
     if (!item.description || item.description.trim().length < 3) {
       toast.error("Please enter at least a brief description (3+ characters) to generate AI content");
       return;
@@ -884,10 +884,10 @@ function InvoicesPage() {
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newItems = [...lineItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    newItems[index] = { ...newItems[index], [field]: value } as LineItem;
     
     if (field === "quantity" || field === "unitPrice") {
-      newItems[index].total = newItems[index].quantity * newItems[index].unitPrice;
+      newItems[index]!.total = newItems[index]!.quantity * newItems[index]!.unitPrice;
     }
     
     setLineItems(newItems);

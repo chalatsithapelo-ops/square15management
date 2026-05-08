@@ -302,7 +302,7 @@ function OperationsPage() {
   };
 
   const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
-    const blob = new Blob([bytes], { type: "application/pdf" });
+    const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -361,7 +361,7 @@ function OperationsPage() {
           const lengthOfStream = (stream: any): number => {
             if (!stream) return 0;
             try {
-              if (stream instanceof PDFRawStream) return decodePDFRawStream(stream).length;
+              if (stream instanceof PDFRawStream) return (decodePDFRawStream(stream) as any).length;
             } catch {
               // ignore
             }
@@ -554,7 +554,7 @@ function OperationsPage() {
 
   const updateMaterial = (index: number, field: string, value: string) => {
     const newMaterials = [...materials];
-    newMaterials[index] = { ...newMaterials[index], [field]: value };
+    newMaterials[index] = { ...newMaterials[index], [field]: value } as typeof newMaterials[number];
     setMaterials(newMaterials);
   };
 
@@ -1796,7 +1796,7 @@ function OperationsPage() {
                   {docCount > 0 && <span className="text-blue-700 font-medium">{docCount} doc{docCount !== 1 ? 's' : ''}</span>}
                   {order.status === "COMPLETED" && order.invoice && (
                     <Link
-                      to="/admin/invoices/"
+                      to="/admin/invoices"
                       search={{ invoiceId: order.invoice.id }}
                       className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
                     >
@@ -1875,7 +1875,7 @@ function OperationsPage() {
                     <div>
                       <p className="text-xs font-medium text-gray-700 mb-1">Attached Documents:</p>
                       <div className="space-y-1">
-                        {order.documents.map((docUrl, idx) => (
+                        {order.documents.map((docUrl: string, idx: number) => (
                           <FileAttachment key={idx} url={docUrl} isOwnMessage={false} />
                         ))}
                       </div>
@@ -1927,7 +1927,7 @@ function OperationsPage() {
                         </div>
                       </div>
                       <Link
-                        to="/admin/invoices/"
+                        to="/admin/invoices"
                         search={{ invoiceId: order.invoice.id }}
                         className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                       >

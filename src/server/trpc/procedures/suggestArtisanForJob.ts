@@ -17,7 +17,7 @@ export const suggestArtisanForJob = baseProcedure
       estimatedValue: z.number().optional(),
     })
   )
-  .query(async ({ input }) => {
+  .mutation(async ({ input }) => {
     try {
       // Verify authentication
       const verified = jwt.verify(input.token, env.JWT_SECRET);
