@@ -216,6 +216,15 @@ enum NotificationType {
   TASK_COMPLETED
   TASK_COMMENT_ADDED
   TASK_OVERDUE
+  OHS_INCIDENT_REPORTED
+  OHS_INCIDENT_UPDATED
+  OHS_RISK_ASSESSMENT_PUBLISHED
+  OHS_TOOLBOX_TALK_PUBLISHED
+  OHS_TOOLBOX_TALK_OVERDUE
+  OHS_TRAINING_DUE
+  OHS_DOCUMENT_PUBLISHED
+  OHS_INSPECTION_DUE
+  OHS_CORRECTIVE_ACTION_ASSIGNED
 }
 
 // ===== Task Management Enums =====
@@ -546,6 +555,26 @@ model User {
   talentPoolsCreated        TalentPool[]              @relation("TalentPoolCreator")
   talentPoolAdditions       TalentPoolMembership[]    @relation("PoolAdder")
 
+  // OHS module back-relations
+  ohsDocumentsCreated       OhsDocument[]         @relation("OhsDocumentCreator")
+  ohsDocumentsForContractor OhsDocument[]         @relation("OhsDocumentContractor")
+  ohsRiskAssessmentsCreated OhsRiskAssessment[]   @relation("OhsRiskCreator")
+  ohsRiskAssessmentsApproved OhsRiskAssessment[]  @relation("OhsRiskApprover")
+  ohsRiskAssessmentsForContractor OhsRiskAssessment[] @relation("OhsRiskContractor")
+  ohsIncidentsReported      OhsIncident[]         @relation("OhsIncidentReporter")
+  ohsIncidentsAsInjured     OhsIncident[]         @relation("OhsIncidentInjured")
+  ohsIncidentsForContractor OhsIncident[]         @relation("OhsIncidentContractor")
+  ohsCorrectiveResponsible  OhsCorrectiveAction[] @relation("OhsCorrectiveResponsible")
+  ohsCorrectiveVerified     OhsCorrectiveAction[] @relation("OhsCorrectiveVerifier")
+  ohsToolboxCreated         OhsToolboxTalk[]      @relation("OhsToolboxCreator")
+  ohsToolboxForContractor   OhsToolboxTalk[]      @relation("OhsToolboxContractor")
+  ohsAcknowledgements       OhsAcknowledgement[]  @relation("OhsAck")
+  ohsTraining               OhsTrainingRecord[]   @relation("OhsTraining")
+  ohsInspectionsPerformed   OhsInspection[]       @relation("OhsInspector")
+  ohsInspectionsForContractor OhsInspection[]     @relation("OhsInspectionContractor")
+  ohsPpeReceived            OhsPpeIssue[]         @relation("OhsPpeRecipient")
+  ohsPpeIssued              OhsPpeIssue[]         @relation("OhsPpeIssuer")
+
   @@index([employerId])
 }
 
@@ -590,6 +619,10 @@ model ClientBuilding {
   quotations Quotation[] @relation("ClientBuildingQuotations")
   orders     Order[]     @relation("ClientBuildingOrders")
   invoices   Invoice[]   @relation("ClientBuildingInvoices")
+
+  ohsRiskAssessments OhsRiskAssessment[]
+  ohsIncidents       OhsIncident[]
+  ohsInspections     OhsInspection[]
 
   @@index([clientId])
 }
@@ -715,6 +748,11 @@ model Order {
   creditNotes   CreditNote[]
   reviews       Review[]
   sourceEmail   OrderEmailSource?
+
+  ohsRiskAssessments OhsRiskAssessment[]
+  ohsIncidents       OhsIncident[]
+  ohsToolboxTalks    OhsToolboxTalk[]
+  ohsInspections     OhsInspection[]
 }
 
 model Project {
@@ -749,6 +787,11 @@ model Project {
   reviews      Review[]
   milestones   Milestone[]
   changeOrders ChangeOrder[]
+
+  ohsRiskAssessments OhsRiskAssessment[]
+  ohsIncidents       OhsIncident[]
+  ohsToolboxTalks    OhsToolboxTalk[]
+  ohsInspections     OhsInspection[]
 }
 
 model Milestone {
@@ -4661,4 +4704,404 @@ model ConsentEvent {
 
   @@index([applicationId])
 }
+
+// ===========================================================================
+// Occupational Health & Safety (OHS) Module
+// Built around the South African OHS Act 85 of 1993 + Construction Regs 2014.
+// All records are auditable, exportable to PDF, and surfaced across portals.
+// ===========================================================================
+
+enum OhsDocumentType {
+  POLICY               // OHS Policy / Health & Safety Policy (Sec 7)
+  PROCEDURE            // SOP / Safe Work Procedure
+  SAFE_WORK_METHOD     // Safe Work Method Statement (SWMS)
+  RISK_ASSESSMENT      // Generic / baseline risk assessment template
+  EMERGENCY_PLAN       // Emergency Preparedness & Response Plan
+  TOOLBOX_TALK         // Toolbox talk / safety briefing template
+  CHECKLIST            // Inspection / pre-task checklist
+  MSDS                 // Material Safety Data Sheet
+  PERMIT               // Permit-to-work (hot work, confined space, working at heights, etc.)
+  TRAINING_MATERIAL    // Training / induction materials
+  LEGAL_APPOINTMENT    // Sec 16(2), 17, 8(2)(i) appointment letters
+  OTHER
+}
+
+enum OhsRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OhsRiskStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OhsIncidentType {
+  NEAR_MISS
+  FIRST_AID
+  MEDICAL_TREATMENT
+  LOST_TIME_INJURY      // LTI
+  FATALITY
+  PROPERTY_DAMAGE
+  ENVIRONMENTAL
+  DANGEROUS_OCCURRENCE  // Sec 24
+  OCCUPATIONAL_DISEASE
+  OTHER
+}
+
+enum OhsIncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OhsIncidentStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  CORRECTIVE_ACTION
+  CLOSED
+  REPORTED_TO_DOL  // Department of Employment & Labour (Sec 24)
+}
+
+enum OhsCorrectiveActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  CANCELLED
+}
+
+enum OhsTrainingStatus {
+  REQUIRED
+  SCHEDULED
+  COMPLETED
+  EXPIRED
+}
+
+enum OhsInspectionType {
+  DAILY_SITE
+  MONTHLY_SITE
+  EQUIPMENT
+  ELECTRICAL
+  FIRE_EQUIPMENT
+  FIRST_AID_BOX
+  PPE
+  VEHICLE
+  SCAFFOLD
+  OTHER
+}
+
+enum OhsInspectionResult {
+  PASS
+  PASS_WITH_FINDINGS
+  FAIL
+}
+
+// --- OHS Document Library (policies, procedures, SOPs, MSDS, permits...) ---
+model OhsDocument {
+  id              Int             @id @default(autoincrement())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  type            OhsDocumentType
+  title           String
+  reference       String?         // Document reference number (e.g. OHS-POL-001)
+  version         String          @default("1.0")
+  effectiveDate   DateTime?
+  reviewDate      DateTime?       // Next mandatory review
+  status          OhsRiskStatus   @default(DRAFT)
+  // Rich content (markdown / HTML body of the procedure / policy).
+  content         String          @db.Text
+  // Optional structured sections payload (purpose, scope, responsibilities, definitions, references, procedure steps, records).
+  sections        Json?
+  // Optional uploaded source PDF (MinIO key).
+  sourcePdfUrl    String?
+  // Generated/published PDF for download.
+  publishedPdfUrl String?
+  // Tags for searchability (e.g. "working-at-heights", "electrical").
+  tags            String[]        @default([])
+  // Owner / scope.
+  createdById     Int
+  createdBy       User            @relation("OhsDocumentCreator", fields: [createdById], references: [id])
+  contractorId    Int?
+  contractor      User?           @relation("OhsDocumentContractor", fields: [contractorId], references: [id])
+  // Required acknowledgements?
+  requiresAck     Boolean         @default(false)
+  // Acknowledgement records.
+  acks            OhsAcknowledgement[]
+
+  @@index([type])
+  @@index([status])
+  @@index([contractorId])
+}
+
+// --- AI-assisted Risk Assessments ---
+model OhsRiskAssessment {
+  id              Int             @id @default(autoincrement())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  reference       String?
+  title           String
+  activity        String          // The activity / task being assessed
+  location        String?
+  status          OhsRiskStatus   @default(DRAFT)
+  effectiveDate   DateTime?
+  reviewDate      DateTime?
+  // Scope linkage (any of these can be null).
+  projectId       Int?
+  project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId         Int?
+  order           Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  clientBuildingId Int?
+  clientBuilding  ClientBuilding? @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  // Personnel.
+  createdById     Int
+  createdBy       User            @relation("OhsRiskCreator", fields: [createdById], references: [id])
+  approvedById    Int?
+  approvedBy      User?           @relation("OhsRiskApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  contractorId    Int?
+  contractor      User?           @relation("OhsRiskContractor", fields: [contractorId], references: [id])
+  // Overall residual risk after controls.
+  overallRisk     OhsRiskLevel    @default(LOW)
+  // AI metadata.
+  aiGenerated     Boolean         @default(false)
+  aiSummary       String?         @db.Text
+  aiSuggestions   Json?
+  // Items.
+  items           OhsRiskItem[]
+  // Optional published PDF.
+  publishedPdfUrl String?
+
+  @@index([status])
+  @@index([projectId])
+  @@index([orderId])
+  @@index([contractorId])
+}
+
+model OhsRiskItem {
+  id                 Int               @id @default(autoincrement())
+  createdAt          DateTime          @default(now())
+  riskAssessmentId   Int
+  riskAssessment     OhsRiskAssessment @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+  hazard             String            // The hazard
+  potentialHarm      String            // Who/what may be harmed and how
+  inherentLikelihood Int               // 1-5
+  inherentSeverity   Int               // 1-5
+  inherentRisk       OhsRiskLevel
+  controls           String            @db.Text   // Existing + new controls
+  responsiblePerson  String?
+  residualLikelihood Int               // 1-5 after controls
+  residualSeverity   Int               // 1-5 after controls
+  residualRisk       OhsRiskLevel
+  ppeRequired        String[]          @default([])
+  trainingRequired   String[]          @default([])
+  legalReferences    String[]          @default([])
+  notes              String?           @db.Text
+  aiSuggested        Boolean           @default(false)
+
+  @@index([riskAssessmentId])
+}
+
+// --- Incident / Near-miss reporting (Sec 24 of OHS Act) ---
+model OhsIncident {
+  id                  Int                 @id @default(autoincrement())
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  reference           String              @unique // e.g. OHS-INC-00001
+  type                OhsIncidentType
+  severity            OhsIncidentSeverity
+  status              OhsIncidentStatus   @default(REPORTED)
+  occurredAt          DateTime
+  reportedAt          DateTime            @default(now())
+  location            String
+  description         String              @db.Text
+  immediateActions    String?             @db.Text
+  // Persons involved (free text + optional linked user).
+  injuredPersonName   String?
+  injuredPersonRole   String?
+  injuredPersonContact String?
+  injuredUserId       Int?
+  injuredUser         User?               @relation("OhsIncidentInjured", fields: [injuredUserId], references: [id], onDelete: SetNull)
+  witnesses           String?             @db.Text
+  // Reporter.
+  reportedById        Int
+  reportedBy          User                @relation("OhsIncidentReporter", fields: [reportedById], references: [id])
+  // Scope / context.
+  projectId           Int?
+  project             Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId             Int?
+  order               Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  clientBuildingId    Int?
+  clientBuilding      ClientBuilding?     @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  contractorId        Int?
+  contractor          User?               @relation("OhsIncidentContractor", fields: [contractorId], references: [id])
+  // Investigation.
+  rootCause           String?             @db.Text
+  investigationNotes  String?             @db.Text
+  reportedToDol       Boolean             @default(false)
+  reportedToDolAt     DateTime?
+  // AI insights.
+  aiInsights          String?             @db.Text
+  aiClassification    Json?
+  // Photo / document attachments (MinIO keys/urls).
+  attachments         String[]            @default([])
+  // Generated PDF.
+  publishedPdfUrl     String?
+  // Corrective actions.
+  correctiveActions   OhsCorrectiveAction[]
+
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+  @@index([projectId])
+  @@index([orderId])
+  @@index([occurredAt])
+}
+
+model OhsCorrectiveAction {
+  id            Int                       @id @default(autoincrement())
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  incidentId    Int?
+  incident      OhsIncident?              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  description   String                    @db.Text
+  responsibleId Int
+  responsible   User                      @relation("OhsCorrectiveResponsible", fields: [responsibleId], references: [id])
+  dueDate       DateTime
+  status        OhsCorrectiveActionStatus @default(OPEN)
+  completedAt   DateTime?
+  verifiedById  Int?
+  verifiedBy    User?                     @relation("OhsCorrectiveVerifier", fields: [verifiedById], references: [id])
+  verifiedAt    DateTime?
+  evidenceUrl   String?
+
+  @@index([incidentId])
+  @@index([status])
+  @@index([responsibleId])
+}
+
+// --- Toolbox Talks ---
+model OhsToolboxTalk {
+  id            Int                  @id @default(autoincrement())
+  createdAt     DateTime             @default(now())
+  publishedAt   DateTime?
+  reference     String?
+  title         String
+  topic         String
+  content       String               @db.Text
+  // Target audience (roles).
+  targetRoles   String[]             @default([])
+  // Optional scope.
+  projectId     Int?
+  project       Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId       Int?
+  order         Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  contractorId  Int?
+  contractor    User?                @relation("OhsToolboxContractor", fields: [contractorId], references: [id])
+  createdById   Int
+  createdBy     User                 @relation("OhsToolboxCreator", fields: [createdById], references: [id])
+  status        OhsRiskStatus        @default(DRAFT)
+  ackDeadline   DateTime?
+  publishedPdfUrl String?
+  acks          OhsAcknowledgement[]
+
+  @@index([status])
+  @@index([projectId])
+}
+
+// --- Generic acknowledgement record (works for documents, toolbox talks, etc.) ---
+model OhsAcknowledgement {
+  id              Int             @id @default(autoincrement())
+  createdAt       DateTime        @default(now())
+  userId          Int
+  user            User            @relation("OhsAck", fields: [userId], references: [id], onDelete: Cascade)
+  documentId      Int?
+  document        OhsDocument?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  toolboxTalkId   Int?
+  toolboxTalk     OhsToolboxTalk? @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
+  ackedAt         DateTime        @default(now())
+  signatureText   String?
+  ipAddress       String?
+  userAgent       String?
+
+  @@unique([userId, documentId])
+  @@unique([userId, toolboxTalkId])
+  @@index([userId])
+  @@index([documentId])
+  @@index([toolboxTalkId])
+}
+
+// --- Training records (legal requirement: induction, working at heights, first aid, fire fighter, etc.) ---
+model OhsTrainingRecord {
+  id            Int               @id @default(autoincrement())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  userId        Int
+  user          User              @relation("OhsTraining", fields: [userId], references: [id], onDelete: Cascade)
+  course        String
+  provider      String?
+  competency    String?
+  status        OhsTrainingStatus @default(REQUIRED)
+  completedAt   DateTime?
+  expiresAt     DateTime?
+  certificateUrl String?
+  notes         String?
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// --- Inspections ---
+model OhsInspection {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  type            OhsInspectionType
+  reference       String?
+  performedAt     DateTime
+  performedById   Int
+  performedBy     User                @relation("OhsInspector", fields: [performedById], references: [id])
+  location        String?
+  projectId       Int?
+  project         Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId         Int?
+  order           Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  clientBuildingId Int?
+  clientBuilding  ClientBuilding?     @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  contractorId    Int?
+  contractor      User?               @relation("OhsInspectionContractor", fields: [contractorId], references: [id])
+  result          OhsInspectionResult @default(PASS)
+  findings        Json?
+  notes           String?             @db.Text
+  publishedPdfUrl String?
+
+  @@index([type])
+  @@index([performedAt])
+  @@index([projectId])
+}
+
+// --- PPE issue register ---
+model OhsPpeIssue {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  userId      Int
+  user        User     @relation("OhsPpeRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  itemName    String
+  size        String?
+  quantity    Int      @default(1)
+  issuedAt    DateTime @default(now())
+  issuedById  Int
+  issuedBy    User     @relation("OhsPpeIssuer", fields: [issuedById], references: [id])
+  replacementDue DateTime?
+  signature   String?  // signed acknowledgement text
+  notes       String?
+
+  @@index([userId])
+  @@index([issuedAt])
+}
+
 

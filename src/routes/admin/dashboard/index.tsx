@@ -38,6 +38,7 @@ import {
   Mail,
   Landmark,
   UserPlus,
+  Shield,
 } from "lucide-react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -470,6 +471,7 @@ function AdminDashboard() {
     { title: "Quotations", description: "Create and manage quotes", icon: FileText, href: "/admin/quotations", color: "from-orange-500 to-orange-600", stats: `${pendingQuotations} pending quotes` },
     { title: "Invoices", description: "Track payments and billing", icon: Receipt, href: "/admin/invoices", color: "from-red-500 to-red-600", stats: `${unpaidInvoices} unpaid invoices` },
     { title: "Statements", description: "Customer billing statements with age analysis", icon: FileText, href: "/admin/statements", color: "from-purple-500 to-purple-600", stats: "Automated statement generation" },
+    { title: "OHS / Health & Safety", description: "AI-driven risk assessments, incidents, toolbox talks & training (OHS Act 85/1993)", icon: Shield, href: "/admin/ohs", color: "from-amber-500 to-orange-600", stats: "Compliance & safety" },
     { title: "Management Accounts", description: "Financial reports and analytics", icon: DollarSign, href: "/admin/accounts", color: "from-teal-500 to-teal-600", stats: `R${(totalRevenue ?? 0).toLocaleString()} revenue`, permission: "VIEW_ACCOUNTS" as Permission },
     { title: "Bank Feed", description: "Automated bank transaction import & reconciliation", icon: Landmark, href: "/admin/bank-feed", color: "from-emerald-500 to-emerald-600", stats: "Real-time banking", permission: "VIEW_ACCOUNTS" as Permission },
     { title: "Assets", description: "Manage company assets", icon: Package, href: "/admin/assets", color: "from-indigo-500 to-indigo-600", stats: `R${(totalAssetValue ?? 0).toLocaleString()} total value`, permission: "VIEW_ASSETS" as Permission },
