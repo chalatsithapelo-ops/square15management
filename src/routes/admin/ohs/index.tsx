@@ -87,7 +87,7 @@ function OhsHomePage() {
   const [tab, setTab] = useState<Tab>("dashboard");
 
   if (!token || !user) {
-    navigate({ to: "/login" });
+    navigate({ to: "/" });
     return null;
   }
 

@@ -517,7 +517,7 @@ export const ohsReportIncident = baseProcedure
       await createNotification({
         recipientId: a.id,
         recipientRole: a.role,
-        message: `${sevPrefix}OHS incident ${reference} reported at ${input.location} — ${input.type.replace(/_/g, " ")}.`,
+        message: `${sevPrefix}OHS incident ${incident.reference} reported at ${input.location} — ${input.type.replace(/_/g, " ")}.`,
         type: "OHS_INCIDENT_REPORTED",
         relatedEntityId: incident.id,
         relatedEntityType: "OHS_INCIDENT",

@@ -24,7 +24,7 @@ export function OhsWorkerView({ backTo }: { backTo: string }) {
   const qc = useQueryClient();
   const [showReport, setShowReport] = useState(false);
 
-  if (!token || !user) { navigate({ to: "/login" }); return null; }
+  if (!token || !user) { navigate({ to: "/" }); return null; }
 
   const dash = useQuery(trpc.ohsDashboard.queryOptions({ token }));
   const myTalks = useQuery(trpc.ohsListToolboxTalks.queryOptions({ token, forMe: true }));
