@@ -55,7 +55,7 @@ function CustomerOnboardingPage() {
     queryKey: ["getBuildingsForOnboarding", propertyManagerId],
     queryFn: async () => {
       if (!token || !propertyManagerId) return [];
-      const result = await trpc.getBuildingsForOnboarding.query({
+      const result = await (trpc.getBuildingsForOnboarding as any).query({
         token,
         propertyManagerId: propertyManagerId,
       });
@@ -85,8 +85,8 @@ function CustomerOnboardingPage() {
   } = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      firstName: user?.name?.split(" ")[0] || "",
-      lastName: user?.name?.split(" ")[1] || "",
+      firstName: (user as any)?.firstName || (user as any)?.name?.split(" ")[0] || "",
+      lastName: (user as any)?.lastName || (user as any)?.name?.split(" ")[1] || "",
       email: user?.email || "",
     },
   });
@@ -94,7 +94,7 @@ function CustomerOnboardingPage() {
   const submitOnboardingMutation = useMutation({
     mutationFn: async (data: OnboardingFormData) => {
       if (!token) throw new Error("Not authenticated");
-      const result = await trpc.submitTenantOnboarding.mutate({
+      const result = await (trpc.submitTenantOnboarding as any).mutate({
         token,
         propertyManagerId: data.propertyManagerId,
         buildingId: data.buildingId,
@@ -129,7 +129,7 @@ function CustomerOnboardingPage() {
 
   // If already onboarded, show status
   if (onboardingStatusQuery.data) {
-    const status = onboardingStatusQuery.data;
+    const status: any = onboardingStatusQuery.data;
     return (
       <div className="p-6">
         <div className="max-w-2xl mx-auto">

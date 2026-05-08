@@ -105,7 +105,7 @@ function LiabilitiesPage() {
   });
 
   const createLiabilityMutation = useMutation(
-    trpc.createLiability.mutationOptions({
+    trpc.createLiabilities.mutationOptions({
       onSuccess: () => {
         toast.success("Liability created successfully!");
         queryClient.invalidateQueries({ queryKey: trpc.getLiabilities.queryKey() });
@@ -385,8 +385,8 @@ function LiabilitiesPage() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Images (optional)</label>
                 <PhotoUpload
-                  photos={liabilityImages}
-                  onChange={setLiabilityImages}
+                  initialUrls={liabilityImages}
+                  onPhotosUploaded={setLiabilityImages}
                 />
               </div>
 
@@ -758,8 +758,8 @@ function LiabilitiesPage() {
                 <div className="pt-4 border-t border-gray-200">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Add Images</h3>
                   <PhotoUpload
-                    photos={images}
-                    onChange={(newImages) => {
+                    initialUrls={images}
+                    onPhotosUploaded={(newImages: string[]) => {
                       updateLiabilityMutation.mutate({
                         token: token!,
                         liabilityId: selectedLiability.id,

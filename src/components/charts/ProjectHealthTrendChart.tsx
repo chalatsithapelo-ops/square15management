@@ -57,7 +57,7 @@ export function ProjectHealthTrendChart({ data, isLoading }: ProjectHealthTrendC
 
   // Calculate average health score
   const avgHealthScore = sortedData.reduce((sum, d) => sum + d.averageProjectHealthScore, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1];
+  const latestData = sortedData[sortedData.length - 1] ?? { healthScore: 0, criticalCount: 0, warningCount: 0, healthyCount: 0, period: '' } as typeof sortedData[number];
   
   // Determine health status
   const getHealthStatus = (score: number) => {
@@ -118,12 +118,12 @@ export function ProjectHealthTrendChart({ data, isLoading }: ProjectHealthTrendC
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Health Score') {
                   return [formatScore(value), name];
                 }
                 return [value, name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

@@ -73,9 +73,9 @@ export function CustomRoleManager({
   const [formData, setFormData] = useState({
     name: "",
     label: "",
-    color: AVAILABLE_COLORS[0].value,
+    color: AVAILABLE_COLORS[0]!.value,
     description: "",
-    defaultRoute: AVAILABLE_ROUTES[0].value,
+    defaultRoute: AVAILABLE_ROUTES[0]!.value,
   });
 
   // Fetch custom roles
@@ -97,16 +97,16 @@ export function CustomRoleManager({
   // Get user count for a role
   const getUserCount = (roleName: string) => {
     if (!employeesQuery.data) return 0;
-    return employeesQuery.data.employees.filter(e => e.role === roleName).length;
+    return employeesQuery.data.filter((e: { role: string }) => e.role === roleName).length;
   };
 
   const resetForm = () => {
     setFormData({
       name: "",
       label: "",
-      color: AVAILABLE_COLORS[0].value,
+      color: AVAILABLE_COLORS[0]!.value,
       description: "",
-      defaultRoute: AVAILABLE_ROUTES[0].value,
+      defaultRoute: AVAILABLE_ROUTES[0]!.value,
     });
     setIsCreating(false);
     setEditingRole(null);

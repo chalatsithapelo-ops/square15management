@@ -547,7 +547,7 @@ function KPICard({
     red: { bg: "bg-red-50", icon: "text-red-600", ring: "ring-red-200" },
     teal: { bg: "bg-teal-50", icon: "text-teal-600", ring: "ring-teal-200" },
   };
-  const c = colorMap[color] || colorMap.blue;
+  const c = colorMap[color] || colorMap.blue!;
 
   return (
     <div
@@ -608,7 +608,7 @@ function InsightCard({
     opportunity: { bg: "bg-purple-50", border: "border-purple-200", icon: Target, iconColor: "text-purple-600" },
     success: { bg: "bg-green-50", border: "border-green-200", icon: CheckCircle, iconColor: "text-green-600" },
   };
-  const s = typeStyles[type];
+  const s = typeStyles[type]!;
   const Icon = s.icon;
 
   return (

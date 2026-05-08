@@ -136,27 +136,27 @@ function ContractorAccountsPage() {
     switch (selectedPeriod) {
       case "current_month":
         setDateRange({
-          start: startOfMonth(now).toISOString().split('T')[0],
-          end: endOfMonth(now).toISOString().split('T')[0]
+          start: startOfMonth(now).toISOString().split('T')[0]!,
+          end: endOfMonth(now).toISOString().split('T')[0]!
         });
         break;
       case "last_month":
         const lastMonth = subMonths(now, 1);
         setDateRange({
-          start: startOfMonth(lastMonth).toISOString().split('T')[0],
-          end: endOfMonth(lastMonth).toISOString().split('T')[0]
+          start: startOfMonth(lastMonth).toISOString().split('T')[0]!,
+          end: endOfMonth(lastMonth).toISOString().split('T')[0]!
         });
         break;
       case "current_quarter":
         setDateRange({
-          start: startOfQuarter(now).toISOString().split('T')[0],
-          end: endOfQuarter(now).toISOString().split('T')[0]
+          start: startOfQuarter(now).toISOString().split('T')[0]!,
+          end: endOfQuarter(now).toISOString().split('T')[0]!
         });
         break;
       case "ytd":
         setDateRange({
           start: `${now.getFullYear()}-01-01`,
-          end: now.toISOString().split('T')[0]
+          end: now.toISOString().split('T')[0]!
         });
         break;
     }

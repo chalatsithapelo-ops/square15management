@@ -53,15 +53,15 @@ export function SalesPipelineTrendChart({ data, isLoading }: SalesPipelineTrendC
 
   const formatMonthLabel = (month: string) => {
     const [year, monthNum] = month.split('-');
-    return new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('en-US', { 
+    return new Date(parseInt(year ?? '1970'), parseInt(monthNum ?? '1') - 1).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short' 
     });
   };
 
-  const currentPipeline = sortedData[sortedData.length - 1].pipelineValue;
+  const currentPipeline = sortedData[sortedData.length - 1]?.pipelineValue ?? 0;
   const avgPipeline = sortedData.reduce((sum, d) => sum + d.pipelineValue, 0) / sortedData.length;
-  const totalActiveLeads = sortedData[sortedData.length - 1].activeLeads;
+  const totalActiveLeads = sortedData[sortedData.length - 1]?.activeLeads ?? 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -106,10 +106,10 @@ export function SalesPipelineTrendChart({ data, isLoading }: SalesPipelineTrendC
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Pipeline Value') return [formatCurrency(value), name];
                 return [value, name];
-              }}
+              }) as any}
               labelFormatter={formatMonthLabel}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />

@@ -13,7 +13,7 @@ interface FeatureGuardProps {
 
 export function FeatureGuard({ children, feature, fallback, showUpgrade = true }: FeatureGuardProps) {
   const { token } = useAuthStore();
-  const { data: subscription, isLoading } = useTRPC().getUserSubscription.useQuery({ token });
+  const { data: subscription, isLoading } = (useTRPC() as any).getUserSubscription.useQuery({ token });
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
@@ -116,7 +116,7 @@ function UpgradePrompt({ feature, currentPackage }: UpgradePromptProps) {
 
 export function SubscriptionBanner() {
   const { token } = useAuthStore();
-  const { data: subscription } = useTRPC().getUserSubscription.useQuery({ token });
+  const { data: subscription } = (useTRPC() as any).getUserSubscription.useQuery({ token });
 
   if (!subscription) return null;
 
@@ -184,7 +184,7 @@ export function SubscriptionBanner() {
 // Hook for programmatic feature checks
 export function useFeatureAccess(feature?: 'Quotations' | 'Invoices' | 'Operations' | 'CRM' | 'ProjectManagement' | 'Assets' | 'HR' | 'Messages' | 'AIAgent' | 'AIInsights') {
   const { token } = useAuthStore();
-  const { data: subscription } = useTRPC().getUserSubscription.useQuery({ token });
+  const { data: subscription } = (useTRPC() as any).getUserSubscription.useQuery({ token });
 
   if (!subscription) return { hasAccess: false, subscription: null, isLoading: true };
 

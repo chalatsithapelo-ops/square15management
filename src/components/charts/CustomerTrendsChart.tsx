@@ -95,12 +95,12 @@ export function CustomerTrendsChart({
       return `Week of ${new Date(period).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })}`;
     } else {
       const [year, month] = period.split('-');
-      return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short' });
+      return new Date(parseInt(year ?? '1970'), parseInt(month ?? '1') - 1).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short' });
     }
   };
 
   const totalNewCustomers = currentData.reduce((sum, item) => sum + item.newCustomers, 0);
-  const latestTotal = currentData.length > 0 ? currentData[currentData.length - 1].totalCustomers : 0;
+  const latestTotal = currentData.length > 0 ? currentData[currentData.length - 1]!.totalCustomers : 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -161,12 +161,12 @@ export function CustomerTrendsChart({
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'newCustomers') return [value, 'New Customers'];
                 if (name === 'activeCustomers') return [value, 'Active Customers'];
                 if (name === 'totalCustomers') return [value, 'Total Customers'];
                 return [value, name];
-              }}
+              }) as any}
               labelFormatter={formatPeriodLabel}
               labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '8px' }}
             />
@@ -222,7 +222,7 @@ export function CustomerTrendsChart({
               <span className="text-xs font-medium">Active Now</span>
             </div>
             <p className="text-lg font-bold text-gray-900">
-              {currentData.length > 0 ? currentData[currentData.length - 1].activeCustomers : 0}
+              {currentData.length > 0 ? currentData[currentData.length - 1]!.activeCustomers : 0}
             </p>
           </div>
           <div className="bg-blue-50 rounded-lg p-3">

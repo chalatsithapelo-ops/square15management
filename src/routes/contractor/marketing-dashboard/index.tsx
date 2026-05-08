@@ -336,7 +336,7 @@ function KPICard({ title, value, subtitle, icon, color, trend, alert }: {
     red: { bg: "bg-red-50", icon: "text-red-600" },
     teal: { bg: "bg-teal-50", icon: "text-teal-600" },
   };
-  const c = colorMap[color] || colorMap.blue;
+  const c = colorMap[color] || colorMap.blue!;
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow ${alert ? "ring-2 ring-red-300" : ""}`}>
       <div className="flex items-start justify-between">
@@ -368,7 +368,7 @@ function InsightCard({ type, title, description, action, href }: {
     opportunity: { bg: "bg-purple-50", border: "border-purple-200", icon: Target, iconColor: "text-purple-600" },
     success: { bg: "bg-green-50", border: "border-green-200", icon: CheckCircle, iconColor: "text-green-600" },
   };
-  const s = styles[type];
+  const s = styles[type]!;
   const Icon = s.icon;
   return (
     <div className={`${s.bg} border ${s.border} rounded-lg p-4`}>
