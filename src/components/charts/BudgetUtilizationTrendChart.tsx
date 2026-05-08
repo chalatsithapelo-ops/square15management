@@ -61,7 +61,7 @@ export function BudgetUtilizationTrendChart({ data, isLoading }: BudgetUtilizati
 
   // Calculate average utilization
   const avgUtilization = sortedData.reduce((sum, d) => sum + d.budgetUtilizationPercentage, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1];
+  const latestData = sortedData[sortedData.length - 1] ?? { budgetUtilizationPercentage: 0, totalBudget: 0, totalSpent: 0, period: '' } as typeof sortedData[number];
   const isHealthy = avgUtilization <= 90;
 
   return (
@@ -110,12 +110,12 @@ export function BudgetUtilizationTrendChart({ data, isLoading }: BudgetUtilizati
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Budget Utilization') {
                   return [formatPercent(value), name];
                 }
                 return [value, name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

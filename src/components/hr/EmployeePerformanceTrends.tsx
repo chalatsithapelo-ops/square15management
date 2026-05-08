@@ -110,6 +110,10 @@ export function EmployeePerformanceTrends({
 
   const conversionTrend = hasSalesData ? calculateTrend(monthlyMetrics.map(m => m.conversionRate)) : 0;
   const dealValueTrend = hasSalesData ? calculateTrend(monthlyMetrics.map(m => m.avgDealValue)) : 0;
+  const toTrend = (n: number) => ({
+    value: `${Math.abs(n).toFixed(1)}%`,
+    direction: (n > 0 ? 'up' : n < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+  });
 
   return (
     <div className="space-y-6">
@@ -136,7 +140,7 @@ export function EmployeePerformanceTrends({
               icon={Target}
               color="green"
               subtitle={`${summary.wonLeads}/${summary.totalLeads} won`}
-              trend={conversionTrend}
+              trend={toTrend(conversionTrend)}
             />
             <MetricCard
               name="Avg Deal Value"
@@ -144,7 +148,7 @@ export function EmployeePerformanceTrends({
               icon={DollarSign}
               color="purple"
               subtitle={`${formatCurrency(summary.totalWonValue)} total`}
-              trend={dealValueTrend}
+              trend={toTrend(dealValueTrend)}
             />
             {summary.avgResponseTimeHours > 0 && (
               <MetricCard
@@ -276,7 +280,7 @@ export function EmployeePerformanceTrends({
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    formatter={(value: number) => [formatPercent(value), 'Conversion Rate']}
+                    formatter={((value: number) => [formatPercent(value), 'Conversion Rate']) as any}
                   />
                   <Area
                     type="monotone" 
@@ -318,7 +322,7 @@ export function EmployeePerformanceTrends({
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Avg Deal Value']}
+                    formatter={((value: number) => [formatCurrency(value), 'Avg Deal Value']) as any}
                   />
                   <Line 
                     type="monotone" 
@@ -422,7 +426,7 @@ export function EmployeePerformanceTrends({
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Won Value']}
+                    formatter={((value: number) => [formatCurrency(value), 'Won Value']) as any}
                   />
                   <Area
                     type="monotone" 
@@ -468,7 +472,7 @@ export function EmployeePerformanceTrends({
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    formatter={(value: number) => [value, 'Orders']}
+                    formatter={((value: number) => [value, 'Orders']) as any}
                   />
                   <Line 
                     type="monotone" 
@@ -515,7 +519,7 @@ export function EmployeePerformanceTrends({
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                    formatter={((value: number) => [formatCurrency(value), 'Revenue']) as any}
                   />
                   <Area
                     type="monotone" 
@@ -561,12 +565,12 @@ export function EmployeePerformanceTrends({
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                   }}
-                  formatter={(value: number, name: string) => {
+                  formatter={((value: number, name: string) => {
                     if (name === 'Average Rating') {
                       return [`${value.toFixed(1)}/5`, name];
                     }
                     return [value, name];
-                  }}
+                  }) as any}
                 />
                 <Legend />
                 <Line 

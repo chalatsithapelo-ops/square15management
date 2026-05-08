@@ -31,13 +31,14 @@ export function scoreIQ(responses: Record<number, number>): { score: number; res
     const weight = q.difficulty; // 1, 2, or 3
     totalWeight += weight;
 
-    if (!categoryScores[q.category]) categoryScores[q.category] = { correct: 0, total: 0 };
-    categoryScores[q.category].total++;
+    const bucket = categoryScores[q.category] ?? { correct: 0, total: 0 };
+    bucket.total++;
 
     if (responses[q.id] === q.correctIndex) {
       earnedWeight += weight;
-      categoryScores[q.category].correct++;
+      bucket.correct++;
     }
+    categoryScores[q.category] = bucket;
   }
 
   const score = Math.round((earnedWeight / totalWeight) * 100);
@@ -70,9 +71,10 @@ export function scoreEQ(responses: Record<number, number>): { score: number; res
     totalScore += optionScore;
     answered++;
 
-    if (!categoryScores[q.category]) categoryScores[q.category] = { total: 0, count: 0 };
-    categoryScores[q.category].total += optionScore;
-    categoryScores[q.category].count++;
+    const bucket = categoryScores[q.category] ?? { total: 0, count: 0 };
+    bucket.total += optionScore;
+    bucket.count++;
+    categoryScores[q.category] = bucket;
   }
 
   const avgScore = answered > 0 ? totalScore / answered : 0;
@@ -99,13 +101,15 @@ export function scoreEQ(responses: Record<number, number>): { score: number; res
 // ═══════════════════════════════════════════════════════════════════════
 
 export function scoreMBTI(responses: Record<number, "A" | "B">): { score: number; results: Record<string, any> } {
-  const tallies: Record<string, number> = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
+  const tallies = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 } as Record<string, number> & {
+    E: number; I: number; S: number; N: number; T: number; F: number; J: number; P: number;
+  };
 
   for (const q of MBTI_QUESTIONS) {
     const choice = responses[q.id];
     if (!choice) continue;
     const pole = choice === "A" ? q.optionA.pole : q.optionB.pole;
-    tallies[pole]++;
+    tallies[pole] = (tallies[pole] ?? 0) + 1;
   }
 
   const type = [
@@ -117,10 +121,10 @@ export function scoreMBTI(responses: Record<number, "A" | "B">): { score: number
 
   // Strength percentages
   const strengths = {
-    EI: Math.round((tallies[type[0]] / (tallies.E + tallies.I || 1)) * 100),
-    SN: Math.round((tallies[type[1]] / (tallies.S + tallies.N || 1)) * 100),
-    TF: Math.round((tallies[type[2]] / (tallies.T + tallies.F || 1)) * 100),
-    JP: Math.round((tallies[type[3]] / (tallies.J + tallies.P || 1)) * 100),
+    EI: Math.round(((tallies[type[0]!] ?? 0) / (tallies.E + tallies.I || 1)) * 100),
+    SN: Math.round(((tallies[type[1]!] ?? 0) / (tallies.S + tallies.N || 1)) * 100),
+    TF: Math.round(((tallies[type[2]!] ?? 0) / (tallies.T + tallies.F || 1)) * 100),
+    JP: Math.round(((tallies[type[3]!] ?? 0) / (tallies.J + tallies.P || 1)) * 100),
   };
 
   return {
@@ -180,8 +184,10 @@ export function scoreBigFive(responses: Record<number, number>): { score: number
     // Reverse-scored items: 1↔5, 2↔4
     if (q.reversed) val = 6 - val;
 
-    factorTotals[q.factor].sum += val;
-    factorTotals[q.factor].count++;
+    const bucket = factorTotals[q.factor] ?? { sum: 0, count: 0 };
+    bucket.sum += val;
+    bucket.count++;
+    factorTotals[q.factor] = bucket;
   }
 
   const factorScores: Record<string, number> = {};
@@ -189,19 +195,21 @@ export function scoreBigFive(responses: Record<number, number>): { score: number
 
   for (const [f, data] of Object.entries(factorTotals)) {
     const avg = data.count > 0 ? data.sum / data.count : 3;
-    factorScores[factorLabels[f]] = Math.round(avg * 10) / 10;
-    factorPercentages[factorLabels[f]] = Math.round(((avg - 1) / 4) * 100);
+    const label = factorLabels[f];
+    if (!label) continue;
+    factorScores[label] = Math.round(avg * 10) / 10;
+    factorPercentages[label] = Math.round(((avg - 1) / 4) * 100);
   }
 
   // Composite score: weight desirable traits for artisans
   // High C (conscientiousness) and A (agreeableness) are most valued
   // Low N (neuroticism) is desirable → invert it
   const composite = Math.round(
-    (factorPercentages.Conscientiousness * 0.30 +
-     factorPercentages.Agreeableness * 0.25 +
-     (100 - factorPercentages.Neuroticism) * 0.20 +
-     factorPercentages.Openness * 0.15 +
-     factorPercentages.Extraversion * 0.10)
+    ((factorPercentages.Conscientiousness ?? 0) * 0.30 +
+     (factorPercentages.Agreeableness ?? 0) * 0.25 +
+     (100 - (factorPercentages.Neuroticism ?? 0)) * 0.20 +
+     (factorPercentages.Openness ?? 0) * 0.15 +
+     (factorPercentages.Extraversion ?? 0) * 0.10)
   );
 
   return {

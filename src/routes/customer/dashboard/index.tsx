@@ -159,7 +159,7 @@ function CustomerDashboard() {
     })
   );
 
-  const customerProfile = customerProfileQuery.data?.customerProfile;
+  const customerProfile = (customerProfileQuery.data as any)?.customerProfile;
   const expectedRentAmount = customerProfile?.monthlyRent;
 
   const statementsQuery = useQuery(
@@ -780,7 +780,7 @@ function OrdersTab({
       },
     };
 
-    const badge = badges[status] || badges.PENDING;
+    const badge = badges[status] || badges.PENDING!;
     const Icon = badge.icon;
 
     return (
@@ -959,7 +959,7 @@ function QuotationsTab({
       SUBMITTED: { label: "Submitted", className: "bg-blue-100 text-blue-800" }, // Deprecated
     };
 
-    const badge = badges[status] || badges.DRAFT;
+    const badge = badges[status] || badges.DRAFT!;
 
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
@@ -1115,7 +1115,7 @@ function InvoicesTab({
       REJECTED: { label: "Rejected", className: "bg-red-100 text-red-800", icon: XCircle },
     };
 
-    const badge = badges[status] || badges.DRAFT;
+    const badge = badges[status] || badges.DRAFT!;
     const Icon = badge.icon;
 
     return (
@@ -1301,7 +1301,7 @@ function StatementsTab({
       overdue: { label: "Overdue", className: "bg-red-100 text-red-800", icon: AlertCircle },
     };
 
-    const badge = badges[status] || badges.generated;
+    const badge = badges[status] || badges.generated!;
     const Icon = badge.icon;
 
     return (
@@ -1531,7 +1531,7 @@ function ProjectsTab({
       CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-800" },
     };
 
-    const badge = badges[status] || badges.PLANNING;
+    const badge = badges[status] || badges.PLANNING!;
 
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>

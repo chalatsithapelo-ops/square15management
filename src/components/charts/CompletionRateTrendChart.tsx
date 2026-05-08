@@ -58,7 +58,7 @@ export function CompletionRateTrendChart({ data, isLoading }: CompletionRateTren
 
   // Calculate average completion rate
   const avgCompletionRate = sortedData.reduce((sum, d) => sum + d.milestoneCompletionRate, 0) / sortedData.length;
-  const latestData = sortedData[sortedData.length - 1];
+  const latestData = sortedData[sortedData.length - 1] ?? { milestoneCompletionRate: 0, projectsCompletedCount: 0, period: '' } as typeof sortedData[number];
   const isOnTrack = avgCompletionRate >= 70;
 
   return (
@@ -108,12 +108,12 @@ export function CompletionRateTrendChart({ data, isLoading }: CompletionRateTren
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 padding: '12px',
               }}
-              formatter={(value: number, name: string) => {
+              formatter={((value: number, name: string) => {
                 if (name === 'Completion Rate') {
                   return [formatPercent(value), name];
                 }
                 return [value, name];
-              }}
+              }) as any}
               labelStyle={{ color: '#111827', fontWeight: 600 }}
             />
             <Legend 

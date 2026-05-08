@@ -261,7 +261,7 @@ export const generateJobCardPdf = baseProcedure
             const measureBlock = (lines: Line[], width: number): number => {
               let total = 0;
               for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
+                const line = lines[i]!;
                 doc.font(line.bold ? "Helvetica-Bold" : "Helvetica").fontSize(line.size);
                 total += doc.heightOfString(line.text || " ", { width });
                 if (i < lines.length - 1) total += LINE_GAP;
@@ -279,7 +279,7 @@ export const generateJobCardPdf = baseProcedure
             ) => {
               let cursor = y;
               for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
+                const line = lines[i]!;
                 doc
                   .font(line.bold ? "Helvetica-Bold" : "Helvetica")
                   .fontSize(line.size)

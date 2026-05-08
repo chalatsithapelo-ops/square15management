@@ -100,7 +100,7 @@ export function parseFNBCSV(text: string): CSVParseResult {
         amount: Math.abs(amount),
         transactionType: amount < 0 ? "DEBIT" : "CREDIT",
         description: row[descIdx] || "",
-        balance: balanceIdx >= 0 ? parseFloat(row[balanceIdx].replace(/[,\s]/g, "")) || undefined : undefined,
+        balance: balanceIdx >= 0 ? parseFloat((row[balanceIdx] ?? "").replace(/[,\s]/g, "")) || undefined : undefined,
         date: parseFlexibleDate(dateStr),
       });
     } catch (e: any) {
@@ -179,7 +179,7 @@ function parseGenericCSV(text: string, bank: string): CSVParseResult {
           continue;
         }
       } else if (amountIdx >= 0) {
-        const raw = parseFloat(row[amountIdx].replace(/[,\s]/g, ""));
+        const raw = parseFloat((row[amountIdx] ?? "").replace(/[,\s]/g, ""));
         if (isNaN(raw) || raw === 0) continue;
         amount = Math.abs(raw);
         txType = raw < 0 ? "DEBIT" : "CREDIT";
@@ -242,11 +242,11 @@ function parseFlexibleDate(str: string): Date {
 
   // 31/03/2026 (DD/MM/YYYY)
   const ddmm = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (ddmm) return new Date(+ddmm[3], +ddmm[2] - 1, +ddmm[1]);
+  if (ddmm) return new Date(+ddmm[3]!, +ddmm[2]! - 1, +ddmm[1]!);
 
   // 03/31/2026 (MM/DD/YYYY) — less common in SA but handle it
   const mmdd = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (mmdd && +mmdd[1] > 12) return new Date(+mmdd[3], +mmdd[2] - 1, +mmdd[1]);
+  if (mmdd && +mmdd[1]! > 12) return new Date(+mmdd[3]!, +mmdd[2]! - 1, +mmdd[1]!);
 
   // 31 Mar 2026
   const longDate = s.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/);
@@ -255,8 +255,8 @@ function parseFlexibleDate(str: string): Date {
       jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
       jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
     };
-    const m = months[longDate[2].toLowerCase().substring(0, 3)];
-    if (m !== undefined) return new Date(+longDate[3], m, +longDate[1]);
+    const m = months[longDate[2]!.toLowerCase().substring(0, 3)];
+    if (m !== undefined) return new Date(+longDate[3]!, m, +longDate[1]!);
   }
 
   // Fallback

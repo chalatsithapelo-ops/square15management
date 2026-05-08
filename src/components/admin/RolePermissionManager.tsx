@@ -28,29 +28,29 @@ const groupPermissionsByCategory = (permissions: string[]): Record<string, strin
 
   permissions.forEach(permission => {
     if (permission.includes("SYSTEM") || permission.includes("COMPANY")) {
-      categories["System Administration"].push(permission);
+      categories["System Administration"]!.push(permission);
     } else if (permission.includes("EMPLOYEE") || permission.includes("PERFORMANCE") || permission.includes("LEAVE") || permission.includes("HR") || permission.includes("KPI")) {
-      categories["User & HR Management"].push(permission);
+      categories["User & HR Management"]!.push(permission);
     } else if (permission.includes("ACCOUNT") || permission.includes("FINANCIAL") || permission.includes("INVOICE") || permission.includes("PAYMENT") || permission.includes("LIABILITY") || permission.includes("ASSET")) {
-      categories["Financial Management"].push(permission);
+      categories["Financial Management"]!.push(permission);
     } else if (permission.includes("PROJECT") || permission.includes("MILESTONE") || permission.includes("CHANGE_ORDER")) {
-      categories["Project Management"].push(permission);
+      categories["Project Management"]!.push(permission);
     } else if (permission.includes("ORDER") || permission.includes("QUOTATION") || permission.includes("ASSIGN")) {
-      categories["Operations"].push(permission);
+      categories["Operations"]!.push(permission);
     } else if (permission.includes("LEAD") || permission.includes("CAMPAIGN") || permission.includes("SALES")) {
-      categories["CRM & Sales"].push(permission);
+      categories["CRM & Sales"]!.push(permission);
     } else if (permission.includes("ANALYTICS") || permission.includes("DASHBOARD")) {
-      categories["Analytics & Reports"].push(permission);
+      categories["Analytics & Reports"]!.push(permission);
     } else if (permission.includes("OWN") || permission.includes("REVIEW")) {
-      categories["Customer Features"].push(permission);
+      categories["Customer Features"]!.push(permission);
     } else {
-      categories["Operations"].push(permission);
+      categories["Operations"]!.push(permission);
     }
   });
 
   // Remove empty categories
   Object.keys(categories).forEach(key => {
-    if (categories[key].length === 0) {
+    if (categories[key]!.length === 0) {
       delete categories[key];
     }
   });

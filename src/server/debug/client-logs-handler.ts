@@ -15,8 +15,8 @@ interface ClientLogRequest {
 }
 
 const handler = eventHandler(async (event) => {
-  const req = event.node.req;
-  const res = event.node.res;
+  const req = event.node!.req!;
+  const res = event.node!.res!;
 
   if (getMethod(event) !== "POST") {
     res.setHeader("Content-Type", "application/json");

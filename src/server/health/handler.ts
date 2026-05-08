@@ -32,9 +32,9 @@ const handler = eventHandler(async (event) => {
     console.log(`[Health Check] OK - Response time: ${responseTime}ms`);
     
     // Set response headers
-    event.node.res.setHeader("Content-Type", "application/json");
-    event.node.res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    event.node.res.statusCode = 200;
+    event.node!.res!.setHeader("Content-Type", "application/json");
+    event.node!.res!.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    event.node!.res!.statusCode = 200;
     
     return {
       status: "ok",
@@ -82,9 +82,9 @@ const handler = eventHandler(async (event) => {
     }
     
     // Set error response headers
-    event.node.res.setHeader("Content-Type", "application/json");
-    event.node.res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    event.node.res.statusCode = 503;
+    event.node!.res!.setHeader("Content-Type", "application/json");
+    event.node!.res!.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    event.node!.res!.statusCode = 503;
     
     return {
       status: "error",
