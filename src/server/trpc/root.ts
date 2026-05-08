@@ -118,6 +118,12 @@ import {
   ohsListTraining,
   ohsUpsertTraining,
   ohsDashboard,
+  ohsUpdateRiskAssessment,
+  ohsUpdateCorrectiveAction,
+  ohsListCorrectiveActions,
+  ohsListToolboxAcks,
+  ohsListDocumentAcks,
+  ohsListAssignableUsers,
 } from "~/server/trpc/procedures/ohs";
 import { getCustomerDetailsByEmail } from "~/server/trpc/procedures/getCustomerDetailsByEmail";
 import { searchCustomersForStatement } from "~/server/trpc/procedures/searchCustomersForStatement";
@@ -712,6 +718,12 @@ export const appRouter = createTRPCRouter({
   ohsExportDocumentPdf,
   ohsListTraining,
   ohsUpsertTraining,
+  ohsUpdateRiskAssessment,
+  ohsUpdateCorrectiveAction,
+  ohsListCorrectiveActions,
+  ohsListToolboxAcks,
+  ohsListDocumentAcks,
+  ohsListAssignableUsers,
   getCustomerDetailsByEmail,
   searchCustomersForStatement,
   

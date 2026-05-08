@@ -4942,8 +4942,13 @@ model OhsIncident {
   // Investigation.
   rootCause           String?             @db.Text
   investigationNotes  String?             @db.Text
+  // AI suggestion: should this be reported to DoL (Sec 24 OHS Act)?
+  dolReportable       Boolean             @default(false)
+  // Manual fact: has the DoL notification actually been filed?
   reportedToDol       Boolean             @default(false)
   reportedToDolAt     DateTime?
+  reportedToDolBy     String?
+  reportedToDolRef    String?
   // AI insights.
   aiInsights          String?             @db.Text
   aiClassification    Json?

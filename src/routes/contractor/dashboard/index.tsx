@@ -31,6 +31,7 @@ import {
   Wallet,
   Building2,
   Percent,
+  Shield,
 } from "lucide-react";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
@@ -471,6 +472,7 @@ function ContractorDashboard() {
     { id: "payment-requests", label: "Payments", icon: CreditCard, href: "/contractor/payment-requests", enabled: canUsePayments },
     { id: "assets", label: "Assets", icon: Package, href: "/contractor/assets", enabled: canUseAssetsBundle },
     { id: "liabilities", label: "Liabilities", icon: AlertCircle, href: "/contractor/liabilities", enabled: canUseAssetsBundle },
+    { id: "ohs", label: "OHS", icon: Shield, href: "/contractor/ohs", enabled: true },
     { id: "ai-agent", label: "AI Agent", icon: Bot, isTab: true, enabled: canUseAIAgent },
     { id: "settings", label: "Settings", icon: Settings, href: "/contractor/settings", enabled: true },
   ].filter((t: any) => t.enabled !== false);

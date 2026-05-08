@@ -31,6 +31,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  Shield,
 } from "lucide-react";
 import { useState, useMemo, Fragment } from "react";
 import { MetricCard } from "~/components/MetricCard";
@@ -229,6 +230,14 @@ function PropertyManagerDashboard() {
                 >
                   <Users className="h-4 w-4" />
                   <span>Tenant Management</span>
+                </Link>
+                <Link
+                  to="/property-manager/ohs"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-lg transition-colors shadow-sm"
+                  title="Health & Safety"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span>OHS</span>
                 </Link>
                 {canUseAIAgent && (
                   <Link

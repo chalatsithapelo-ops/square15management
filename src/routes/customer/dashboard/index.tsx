@@ -25,6 +25,7 @@ import {
   BarChart3,
   Menu,
   X,
+  Shield,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -479,6 +480,14 @@ function CustomerDashboard() {
               >
                 <Wrench className="h-4 w-4" />
                 <span>Maintenance</span>
+              </Link>
+              <Link
+                to="/customer/ohs"
+                className="px-4 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 flex items-center gap-2 transition-all duration-200"
+                title="Health & Safety"
+              >
+                <Shield className="h-4 w-4" />
+                <span>Safety</span>
               </Link>
               <Link
                 to="/customer/feedback"

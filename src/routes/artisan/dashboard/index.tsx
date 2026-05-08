@@ -32,6 +32,7 @@ import {
   Images,
   Trash2,
   Wrench,
+  Shield,
 } from "lucide-react";
 import { PhotoUpload } from "~/components/PhotoUpload";
 import { FileAttachment } from "~/components/FileAttachment";
@@ -1676,6 +1677,14 @@ function ArtisanDashboard() {
                 >
                   <Images className="h-4 w-4 mr-2" />
                   Gallery
+                </Link>
+                <Link
+                  to="/artisan/ohs"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center col-span-1 sm:col-span-2"
+                  title="Occupational Health & Safety"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Health & Safety
                 </Link>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

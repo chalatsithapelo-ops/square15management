@@ -649,13 +649,42 @@ function ReportIncidentModal({ token, onClose, onSaved }: { token: string; onClo
 
 function UpdateIncidentModal({ token, incident, onClose, onSaved }: { token: string; incident: any; onClose: () => void; onSaved: () => void }) {
   const trpc = useTRPC();
+  const qc = useQueryClient();
   const [status, setStatus] = useState(incident.status);
   const [rootCause, setRootCause] = useState(incident.rootCause || "");
   const [investigationNotes, setInvestigationNotes] = useState(incident.investigationNotes || "");
   const [reportedToDol, setReportedToDol] = useState(!!incident.reportedToDol);
+  const [reportedToDolBy, setReportedToDolBy] = useState(incident.reportedToDolBy || "");
+  const [reportedToDolRef, setReportedToDolRef] = useState(incident.reportedToDolRef || "");
+
+  // Corrective action form state
+  const [caDescription, setCaDescription] = useState("");
+  const [caResponsibleId, setCaResponsibleId] = useState<number | "">("");
+  const [caDueDate, setCaDueDate] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
   const update = useMutation(trpc.ohsUpdateIncident.mutationOptions({
     onSuccess: () => { toast.success("Updated"); onSaved(); },
+    onError: (e: any) => toast.error(e.message),
+  }));
+
+  const capas = useQuery(trpc.ohsListCorrectiveActions.queryOptions({ token, incidentId: incident.id }));
+  const users = useQuery(trpc.ohsListAssignableUsers.queryOptions({ token, search: userSearch || undefined }));
+
+  const addCa = useMutation(trpc.ohsAddCorrectiveAction.mutationOptions({
+    onSuccess: () => {
+      toast.success("Corrective action added");
+      setCaDescription(""); setCaResponsibleId(""); setCaDueDate("");
+      qc.invalidateQueries({ queryKey: trpc.ohsListCorrectiveActions.queryKey({ token, incidentId: incident.id }) });
+    },
+    onError: (e: any) => toast.error(e.message),
+  }));
+
+  const updateCa = useMutation(trpc.ohsUpdateCorrectiveAction.mutationOptions({
+    onSuccess: () => {
+      toast.success("Updated");
+      qc.invalidateQueries({ queryKey: trpc.ohsListCorrectiveActions.queryKey({ token, incidentId: incident.id }) });
+    },
     onError: (e: any) => toast.error(e.message),
   }));
 
@@ -664,16 +693,21 @@ function UpdateIncidentModal({ token, incident, onClose, onSaved }: { token: str
       <Dialog onClose={onClose} className="relative z-50">
         <div className="fixed inset-0 bg-black/40" />
         <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
-          <Dialog.Panel className="bg-white rounded-lg max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between">
+          <Dialog.Panel className="bg-white rounded-lg max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between sticky top-0 bg-white z-10">
               <h2 className="text-xl font-semibold">{incident.reference} — Investigation</h2>
               <button onClick={onClose}><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-6 space-y-3">
+            <div className="p-6 space-y-4">
               {incident.aiInsights && (
                 <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm whitespace-pre-wrap">
                   <div className="font-semibold mb-1 flex items-center gap-1"><Sparkles className="w-4 h-4" /> AI Insights</div>
                   {incident.aiInsights}
+                </div>
+              )}
+              {incident.dolReportable && (
+                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm">
+                  <strong>⚠ AI suggests this is reportable to DoL under Sec 24 of OHS Act.</strong> Verify and file W.Cl.2 / Annexure 1 within 7 days.
                 </div>
               )}
               <div>
@@ -690,14 +724,99 @@ function UpdateIncidentModal({ token, incident, onClose, onSaved }: { token: str
                 <label className="block text-sm font-medium mb-1">Investigation notes</label>
                 <textarea value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} rows={4} className="w-full border rounded-lg px-3 py-2" />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={reportedToDol} onChange={(e) => setReportedToDol(e.target.checked)} />
-                Reported to Department of Employment & Labour (Sec 24)
-              </label>
+              <div className="border rounded-lg p-3 bg-gray-50">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={reportedToDol} onChange={(e) => setReportedToDol(e.target.checked)} />
+                  Reported to Department of Employment & Labour (Sec 24 OHS Act)
+                </label>
+                {reportedToDol && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1">Reported by (name)</label>
+                      <input value={reportedToDolBy} onChange={(e) => setReportedToDolBy(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1">DoL reference / case no.</label>
+                      <input value={reportedToDolRef} onChange={(e) => setReportedToDolRef(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                )}
+                {incident.reportedToDolAt && (
+                  <p className="text-xs text-gray-500 mt-1">First filed: {new Date(incident.reportedToDolAt).toLocaleString()}</p>
+                )}
+              </div>
+
+              {/* Corrective actions */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2 flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Corrective Actions (CAPA)</h3>
+                {capas.isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : !capas.data || capas.data.length === 0 ? (
+                  <p className="text-sm text-gray-500 mb-3">No corrective actions yet.</p>
+                ) : (
+                  <div className="space-y-2 mb-3">
+                    {capas.data.map((ca: any) => (
+                      <div key={ca.id} className="border rounded p-3 text-sm bg-white">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className="font-medium">{ca.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Responsible: {ca.responsible?.firstName} {ca.responsible?.lastName} • Due {new Date(ca.dueDate).toLocaleDateString()}
+                              {ca.completedAt && ` • Completed ${new Date(ca.completedAt).toLocaleDateString()}`}
+                              {ca.verifiedBy && ` • Verified by ${ca.verifiedBy.firstName} ${ca.verifiedBy.lastName}`}
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs ${statusBadge(ca.status)}`}>{ca.status}</span>
+                        </div>
+                        <div className="flex gap-1 mt-2">
+                          {ca.status === "OPEN" && (
+                            <button onClick={() => updateCa.mutate({ token, correctiveActionId: ca.id, status: "IN_PROGRESS" })} className="text-xs px-2 py-1 border rounded hover:bg-gray-50">Start</button>
+                          )}
+                          {(ca.status === "OPEN" || ca.status === "IN_PROGRESS") && (
+                            <button onClick={() => updateCa.mutate({ token, correctiveActionId: ca.id, status: "COMPLETED" })} className="text-xs px-2 py-1 border rounded bg-green-50 hover:bg-green-100">Complete</button>
+                          )}
+                          {ca.status === "COMPLETED" && (
+                            <button onClick={() => updateCa.mutate({ token, correctiveActionId: ca.id, status: "VERIFIED" })} className="text-xs px-2 py-1 border rounded bg-blue-50 hover:bg-blue-100">Verify</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="bg-gray-50 border rounded p-3">
+                  <p className="text-xs font-medium mb-2">Add corrective action</p>
+                  <textarea value={caDescription} onChange={(e) => setCaDescription(e.target.value)} placeholder="Description..." rows={2} className="w-full border rounded-lg px-3 py-2 text-sm mb-2" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search user..." className="w-full border rounded-lg px-3 py-2 text-sm mb-1" />
+                      <select value={caResponsibleId} onChange={(e) => setCaResponsibleId(e.target.value ? Number(e.target.value) : "")} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="">Select responsible person...</option>
+                        {(users.data || []).map((u: any) => (
+                          <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <input type="date" value={caDueDate} onChange={(e) => setCaDueDate(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!caDescription || !caResponsibleId || !caDueDate) {
+                        toast.error("Fill description, responsible person and due date");
+                        return;
+                      }
+                      addCa.mutate({ token, incidentId: incident.id, description: caDescription, responsibleId: Number(caResponsibleId), dueDate: caDueDate });
+                    }}
+                    disabled={addCa.isPending}
+                    className="mt-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700"
+                  >
+                    {addCa.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add CAPA"}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="p-4 border-t flex justify-end gap-2">
+            <div className="p-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
               <button onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button>
-              <button onClick={() => update.mutate({ token, incidentId: incident.id, status, rootCause, investigationNotes, reportedToDol })} disabled={update.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={() => update.mutate({ token, incidentId: incident.id, status, rootCause, investigationNotes, reportedToDol, reportedToDolBy: reportedToDolBy || null, reportedToDolRef: reportedToDolRef || null })} disabled={update.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 {update.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
               </button>
             </div>
@@ -717,6 +836,7 @@ function ToolboxTab({ token }: { token: string }) {
   const list = useQuery(trpc.ohsListToolboxTalks.queryOptions({ token }));
   const [showCreate, setShowCreate] = useState(false);
   const [exportingId, setExportingId] = useState<number | null>(null);
+  const [ackViewId, setAckViewId] = useState<number | null>(null);
   const exportPdf = useMutation(trpc.ohsExportToolboxTalkPdf.mutationOptions({
     onSuccess: (res: any) => { downloadBase64Pdf(res.pdf, res.filename); setExportingId(null); },
     onError: (e: any) => { toast.error(e.message); setExportingId(null); },
@@ -747,7 +867,9 @@ function ToolboxTab({ token }: { token: string }) {
               </div>
               <p className="text-sm text-gray-600 line-clamp-3 mb-3">{t.content}</p>
               <div className="flex justify-between items-center text-xs text-gray-500">
-                <span>{t.ackCount} acknowledgements</span>
+                <button onClick={() => setAckViewId(t.id)} className="text-blue-600 hover:underline">
+                  {t.ackCount} acknowledgements
+                </button>
                 <button onClick={() => { setExportingId(t.id); exportPdf.mutate({ token, toolboxTalkId: t.id }); }} disabled={exportingId === t.id} className="text-blue-600 hover:underline flex items-center gap-1">
                   {exportingId === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} PDF
                 </button>
@@ -757,7 +879,50 @@ function ToolboxTab({ token }: { token: string }) {
         </div>
       )}
       {showCreate && <CreateToolboxModal token={token} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); qc.invalidateQueries({ queryKey: trpc.ohsListToolboxTalks.queryKey({ token }) }); }} />}
+      {ackViewId !== null && <ToolboxAckModal token={token} toolboxTalkId={ackViewId} onClose={() => setAckViewId(null)} />}
     </div>
+  );
+}
+
+function ToolboxAckModal({ token, toolboxTalkId, onClose }: { token: string; toolboxTalkId: number; onClose: () => void }) {
+  const trpc = useTRPC();
+  const data = useQuery(trpc.ohsListToolboxAcks.queryOptions({ token, toolboxTalkId }));
+  return (
+    <Transition show={true} as={Fragment}>
+      <Dialog onClose={onClose} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-4 border-b flex justify-between">
+              <h2 className="font-semibold">Acknowledgements</h2>
+              <button onClick={onClose}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <h3 className="font-semibold mb-2 text-green-700">Acknowledged ({data.data?.acks?.length || 0})</h3>
+                {(data.data?.acks || []).map((a: any) => (
+                  <div key={a.id} className="border-b py-1">
+                    <p>{a.user?.firstName} {a.user?.lastName}</p>
+                    <p className="text-xs text-gray-500">{new Date(a.acknowledgedAt).toLocaleString()}</p>
+                  </div>
+                ))}
+                {!data.data?.acks?.length && <p className="text-gray-500 text-xs">None yet</p>}
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2 text-amber-700">Pending ({data.data?.pending?.length || 0})</h3>
+                {(data.data?.pending || []).map((u: any) => (
+                  <div key={u.id} className="border-b py-1">
+                    <p>{u.firstName} {u.lastName}</p>
+                    <p className="text-xs text-gray-500">{u.role} • {u.email}</p>
+                  </div>
+                ))}
+                {!data.data?.pending?.length && <p className="text-gray-500 text-xs">All done</p>}
+              </div>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }
 
@@ -983,17 +1148,25 @@ function CreateDocumentModal({ token, onClose, onSaved }: { token: string; onClo
 // ============================================================================
 function TrainingTab({ token }: { token: string }) {
   const trpc = useTRPC();
+  const qc = useQueryClient();
   const list = useQuery(trpc.ohsListTraining.queryOptions({ token }));
+  const [editing, setEditing] = useState<any | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-4">Training & Competency Records</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Training & Competency Records</h2>
+        <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Add Training
+        </button>
+      </div>
       {list.isLoading ? (
         <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin" /></div>
       ) : !list.data || list.data.length === 0 ? (
-        <div className="bg-white border rounded-lg p-8 text-center text-gray-500">No training records yet. Use the API to upsert from training providers, or create entries from the contractor portal.</div>
+        <div className="bg-white border rounded-lg p-8 text-center text-gray-500">No training records yet. Click "Add Training" to register a course.</div>
       ) : (
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-white border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
@@ -1003,23 +1176,151 @@ function TrainingTab({ token }: { token: string }) {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Completed</th>
                 <th className="px-4 py-3">Expires</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {list.data.map((r: any) => (
-                <tr key={r.id}>
-                  <td className="px-4 py-3">{r.user ? `${r.user.firstName} ${r.user.lastName}` : ""}</td>
-                  <td className="px-4 py-3">{r.course}</td>
-                  <td className="px-4 py-3">{r.provider || "—"}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs ${statusBadge(r.status)}`}>{r.status}</span></td>
-                  <td className="px-4 py-3">{r.completedAt ? new Date(r.completedAt).toLocaleDateString() : "—"}</td>
-                  <td className="px-4 py-3">{r.expiresAt ? new Date(r.expiresAt).toLocaleDateString() : "—"}</td>
-                </tr>
-              ))}
+              {list.data.map((r: any) => {
+                const isExpiring = r.expiresAt && new Date(r.expiresAt).getTime() < Date.now() + 30 * 86400_000;
+                return (
+                  <tr key={r.id} className={isExpiring ? "bg-amber-50" : ""}>
+                    <td className="px-4 py-3">{r.user ? `${r.user.firstName} ${r.user.lastName}` : ""}</td>
+                    <td className="px-4 py-3">{r.course}</td>
+                    <td className="px-4 py-3">{r.provider || "—"}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs ${statusBadge(r.status)}`}>{r.status}</span></td>
+                    <td className="px-4 py-3">{r.completedAt ? new Date(r.completedAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-4 py-3">{r.expiresAt ? new Date(r.expiresAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs">Edit</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+      {(showCreate || editing) && (
+        <TrainingFormModal
+          token={token}
+          record={editing}
+          onClose={() => { setShowCreate(false); setEditing(null); }}
+          onSaved={() => { setShowCreate(false); setEditing(null); qc.invalidateQueries({ queryKey: trpc.ohsListTraining.queryKey({ token }) }); }}
+        />
+      )}
     </div>
+  );
+}
+
+function TrainingFormModal({ token, record, onClose, onSaved }: { token: string; record: any | null; onClose: () => void; onSaved: () => void }) {
+  const trpc = useTRPC();
+  const [userId, setUserId] = useState<number | "">(record?.userId || "");
+  const [course, setCourse] = useState(record?.course || "");
+  const [provider, setProvider] = useState(record?.provider || "");
+  const [competency, setCompetency] = useState(record?.competency || "");
+  const [status, setStatus] = useState(record?.status || "REQUIRED");
+  const [completedAt, setCompletedAt] = useState(record?.completedAt ? new Date(record.completedAt).toISOString().slice(0, 10) : "");
+  const [expiresAt, setExpiresAt] = useState(record?.expiresAt ? new Date(record.expiresAt).toISOString().slice(0, 10) : "");
+  const [certificateUrl, setCertificateUrl] = useState(record?.certificateUrl || "");
+  const [notes, setNotes] = useState(record?.notes || "");
+  const [userSearch, setUserSearch] = useState("");
+
+  const users = useQuery(trpc.ohsListAssignableUsers.queryOptions({ token, search: userSearch || undefined }));
+
+  const save = useMutation(trpc.ohsUpsertTraining.mutationOptions({
+    onSuccess: () => { toast.success("Saved"); onSaved(); },
+    onError: (e: any) => toast.error(e.message),
+  }));
+
+  return (
+    <Transition show={true} as={Fragment}>
+      <Dialog onClose={onClose} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" />
+        <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+          <Dialog.Panel className="bg-white rounded-lg max-w-2xl w-full my-8">
+            <div className="p-6 border-b flex justify-between">
+              <h2 className="text-xl font-semibold">{record ? "Edit" : "Add"} Training Record</h2>
+              <button onClick={onClose}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-3">
+              {!record && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Worker</label>
+                  <input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name/email..." className="w-full border rounded-lg px-3 py-2 mb-1" />
+                  <select value={userId} onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : "")} className="w-full border rounded-lg px-3 py-2">
+                    <option value="">Select...</option>
+                    {(users.data || []).map((u: any) => (
+                      <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.role}) — {u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Course *</label>
+                  <input value={course} onChange={(e) => setCourse(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. Working at Heights" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Provider</label>
+                  <input value={provider} onChange={(e) => setProvider(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Competency</label>
+                  <input value={competency} onChange={(e) => setCompetency(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border rounded-lg px-3 py-2">
+                    {["REQUIRED", "SCHEDULED", "COMPLETED", "EXPIRED"].map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Completed at</label>
+                  <input type="date" value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Expires at</label>
+                  <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Certificate URL</label>
+                <input value={certificateUrl} onChange={(e) => setCertificateUrl(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="https://..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button
+                onClick={() => {
+                  if (!record && !userId) { toast.error("Select a worker"); return; }
+                  if (!course) { toast.error("Course is required"); return; }
+                  save.mutate({
+                    token,
+                    id: record?.id,
+                    userId: record ? record.userId : Number(userId),
+                    course,
+                    provider: provider || null,
+                    competency: competency || null,
+                    status: status as any,
+                    completedAt: completedAt || null,
+                    expiresAt: expiresAt || null,
+                    certificateUrl: certificateUrl || null,
+                    notes: notes || null,
+                  });
+                }}
+                disabled={save.isPending}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+              >
+                {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }
