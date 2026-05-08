@@ -26,39 +26,39 @@ export function parseFNB(body: string, subject: string): ParsedTransaction | nul
   let match = text.match(FNB_DEBIT);
   if (match) {
     return {
-      amount: parseAmount(match[1]),
+      amount: parseAmount(match[1]!),
       transactionType: "DEBIT",
-      description: match[3].trim(),
-      accountLastFour: match[2],
-      date: parseShortDate(match[4]),
+      description: match[3]!.trim(),
+      accountLastFour: match[2]!,
+      date: parseShortDate(match[4]!),
       reference: match[5]?.trim(),
-      balance: parseAmount(match[6]),
+      balance: parseAmount(match[6]!),
     };
   }
 
   match = text.match(FNB_CREDIT);
   if (match) {
     return {
-      amount: parseAmount(match[1]),
+      amount: parseAmount(match[1]!),
       transactionType: "CREDIT",
-      description: (match[3] || "Deposit").trim(),
-      accountLastFour: match[2],
-      date: parseShortDate(match[4]),
+      description: (match[3]! || "Deposit").trim(),
+      accountLastFour: match[2]!,
+      date: parseShortDate(match[4]!),
       reference: match[5]?.trim(),
-      balance: parseAmount(match[6]),
+      balance: parseAmount(match[6]!),
     };
   }
 
   match = text.match(FNB_TRANSFER);
   if (match) {
     return {
-      amount: parseAmount(match[1]),
+      amount: parseAmount(match[1]!),
       transactionType: "DEBIT",
-      description: match[3].trim(),
-      accountLastFour: match[2],
-      date: parseShortDate(match[4]),
+      description: match[3]!.trim(),
+      accountLastFour: match[2]!,
+      date: parseShortDate(match[4]!),
       reference: match[5]?.trim(),
-      balance: parseAmount(match[6]),
+      balance: parseAmount(match[6]!),
     };
   }
 
@@ -76,12 +76,12 @@ export function parseABSA(body: string, subject: string): ParsedTransaction | nu
   if (!match) return null;
 
   return {
-    amount: parseAmount(match[2]),
-    transactionType: match[1].toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
-    description: match[5].trim(),
-    accountLastFour: match[3],
-    date: parseDDMMYYYY(match[4]),
-    balance: parseAmount(match[6]),
+    amount: parseAmount(match[2]!),
+    transactionType: match[1]!.toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
+    description: match[5]!.trim(),
+    accountLastFour: match[3]!,
+    date: parseDDMMYYYY(match[4]!),
+    balance: parseAmount(match[6]!),
   };
 }
 
@@ -96,12 +96,12 @@ export function parseStandardBank(body: string, subject: string): ParsedTransact
   if (!match) return null;
 
   return {
-    amount: parseAmount(match[1]),
-    transactionType: match[2].toLowerCase() === "debited" ? "DEBIT" : "CREDIT",
-    description: (match[4] || "Transaction").trim(),
-    date: parseDDMMYYYY(match[3]),
+    amount: parseAmount(match[1]!),
+    transactionType: match[2]!.toLowerCase() === "debited" ? "DEBIT" : "CREDIT",
+    description: (match[4]! || "Transaction").trim(),
+    date: parseDDMMYYYY(match[3]!),
     reference: match[5]?.trim(),
-    balance: parseAmount(match[6]),
+    balance: parseAmount(match[6]!),
   };
 }
 
@@ -116,12 +116,12 @@ export function parseNedbank(body: string, subject: string): ParsedTransaction |
   if (!match) return null;
 
   return {
-    amount: parseAmount(match[3]),
-    transactionType: match[2].toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
-    description: match[5].trim(),
-    accountLastFour: match[1],
-    date: parseDDMMYYYY(match[4]),
-    balance: parseAmount(match[6]),
+    amount: parseAmount(match[3]!),
+    transactionType: match[2]!.toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
+    description: match[5]!.trim(),
+    accountLastFour: match[1]!,
+    date: parseDDMMYYYY(match[4]!),
+    balance: parseAmount(match[6]!),
   };
 }
 
@@ -137,22 +137,22 @@ export function parseCapitec(body: string, subject: string): ParsedTransaction |
   let match = text.match(CAPITEC_DEBIT);
   if (match) {
     return {
-      amount: parseAmount(match[1]),
+      amount: parseAmount(match[1]!),
       transactionType: "DEBIT",
-      description: match[2].trim(),
-      date: parseLongDate(match[3]),
-      balance: match[4] ? parseAmount(match[4]) : undefined,
+      description: match[2]!.trim(),
+      date: parseLongDate(match[3]!),
+      balance: match[4]! ? parseAmount(match[4]!) : undefined,
     };
   }
 
   match = text.match(CAPITEC_CREDIT);
   if (match) {
     return {
-      amount: parseAmount(match[1]),
+      amount: parseAmount(match[1]!),
       transactionType: "CREDIT",
-      description: match[2].trim(),
-      date: parseLongDate(match[3]),
-      balance: match[4] ? parseAmount(match[4]) : undefined,
+      description: match[2]!.trim(),
+      date: parseLongDate(match[3]!),
+      balance: match[4]! ? parseAmount(match[4]!) : undefined,
     };
   }
 
@@ -169,12 +169,12 @@ export function parseInvestec(body: string, subject: string): ParsedTransaction 
   if (!match) return null;
 
   return {
-    amount: parseAmount(match[3]),
-    transactionType: match[2].toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
-    description: match[5].trim(),
-    accountLastFour: match[1],
-    date: new Date(match[4]),
-    balance: parseAmount(match[6]),
+    amount: parseAmount(match[3]!),
+    transactionType: match[2]!.toLowerCase() === "debit" ? "DEBIT" : "CREDIT",
+    description: match[5]!.trim(),
+    accountLastFour: match[1]!,
+    date: new Date(match[4]!),
+    balance: parseAmount(match[6]!),
   };
 }
 
@@ -254,8 +254,8 @@ const MONTH_MAP: Record<string, number> = {
 /** Parse "31 Mar" or "1 Apr" — assumes current year */
 function parseShortDate(str: string): Date {
   const parts = str.trim().split(/\s+/);
-  const day = parseInt(parts[0], 10);
-  const monthStr = parts[1].toLowerCase();
+  const day = parseInt(parts[0]!, 10);
+  const monthStr = parts[1]!.toLowerCase();
   const month = MONTH_MAP[monthStr] ?? 0;
   const year = new Date().getFullYear();
   return new Date(year, month, day);
@@ -264,15 +264,15 @@ function parseShortDate(str: string): Date {
 /** Parse "31 Mar 2026" */
 function parseLongDate(str: string): Date {
   const parts = str.trim().split(/\s+/);
-  const day = parseInt(parts[0], 10);
-  const monthStr = parts[1].toLowerCase();
+  const day = parseInt(parts[0]!, 10);
+  const monthStr = parts[1]!.toLowerCase();
   const month = MONTH_MAP[monthStr] ?? 0;
-  const year = parseInt(parts[2], 10);
+  const year = parseInt(parts[2]!, 10);
   return new Date(year, month, day);
 }
 
 /** Parse "31/03/2026" */
 function parseDDMMYYYY(str: string): Date {
-  const [d, m, y] = str.split("/").map(Number);
+  const [d, m, y] = str.split("/").map(Number) as [number, number, number];
   return new Date(y, m - 1, d);
 }

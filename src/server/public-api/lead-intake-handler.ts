@@ -36,7 +36,7 @@ const handler = eventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event);
+    const body = (await readBody(event)) as Record<string, any>;
 
     // Validate required fields
     const errors: string[] = [];

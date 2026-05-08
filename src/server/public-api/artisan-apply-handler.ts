@@ -59,7 +59,7 @@ const handler = eventHandler(async (event) => {
       where: { accessToken: token },
       include: {
         assessments: { select: { type: true, completedAt: true, score: true, results: true } },
-        interviewResponses: { select: { questionIndex: true, completedAt: true } },
+        interviewResponses: { select: { questionIndex: true, createdAt: true } },
       },
     });
 

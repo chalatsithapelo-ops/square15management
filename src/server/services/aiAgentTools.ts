@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
 import { sendEmail, sendLeadNurtureEmail, sendReviewRequestEmail } from '~/server/utils/email';
@@ -106,16 +107,19 @@ export function createAIAgentTools(userId: number) {
     }),
     execute: async (params: any) => {
       try {
+        const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
         const employee = await db.user.create({
           data: {
             firstName: params.firstName,
             lastName: params.lastName,
             email: params.email,
             phone: params.phone || null,
+            password: hashedPassword,
             role: 'EMPLOYEE',
           },
         });
-        return `Employee "${params.firstName} ${params.lastName}" created successfully with ID ${employee.id}`;
+        return `Employee "${params.firstName} ${params.lastName}" created successfully with ID ${employee.id}. Temporary password: ${tempPassword} (must be changed on first login)`;
       } catch (error) {
         return `Error creating employee: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -174,24 +178,30 @@ export function createAIAgentTools(userId: number) {
     description: 'Create a new order or job in the system',
     parameters: z.object({
       customerName: z.string().describe('Customer name'),
+      customerEmail: z.string().email().describe('Customer email'),
+      customerPhone: z.string().describe('Customer phone'),
+      address: z.string().describe('Job site address'),
+      serviceType: z.string().describe('Service type (e.g., Plumbing, Electrical)'),
       description: z.string().describe('Order/job description'),
-      priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional().describe('Priority level'),
-      dueDate: z.string().optional().describe('Expected completion date in ISO format'),
       estimatedCost: z.number().optional().describe('Estimated cost'),
     }),
     execute: async (params: any) => {
       try {
+        const orderNumber = `ORD-${Date.now()}`;
         const order = await db.order.create({
           data: {
+            orderNumber,
+            customerName: params.customerName,
+            customerEmail: params.customerEmail,
+            customerPhone: params.customerPhone,
+            address: params.address,
+            serviceType: params.serviceType,
             description: params.description,
             status: 'PENDING',
-            priority: params.priority || 'MEDIUM',
-            dueDate: params.dueDate ? new Date(params.dueDate) : null,
-            estimatedCost: params.estimatedCost || null,
-            createdById: userId,
+            totalCost: params.estimatedCost ?? 0,
           },
         });
-        return `Order created successfully with ID ${order.id}`;
+        return `Order created successfully with ID ${order.id} (${order.orderNumber})`;
       } catch (error) {
         return `Error creating order: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -398,11 +408,16 @@ export function createAIAgentTools(userId: number) {
     }),
     execute: async (params: any) => {
       try {
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const report = await db.financialReport.create({
           data: {
-            type: params.reportType,
+            reportType: params.reportType,
             status: 'GENERATING',
-            period: params.period || new Date().toISOString().split('T')[0],
+            reportPeriod: params.period || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+            startDate,
+            endDate,
           },
         });
         return `Financial report "${params.reportType}" queued for generation with ID ${report.id}. It will be available shortly.`;
@@ -479,25 +494,22 @@ export function createAIAgentTools(userId: number) {
   });
 
   const generateStatementTool = tool({
-    description: 'Generate a statement (invoice statement, account statement, etc.)',
+    description: 'Look up the latest statement for a client by email. Statements must be generated through the Admin → Financial → Statements module which assembles invoice details and age analysis automatically.',
     parameters: z.object({
-      customerId: z.number().optional().describe('Customer ID'),
-      statementType: z.enum(['INVOICE', 'ACCOUNT', 'PAYMENT']).describe('Type of statement'),
-      period: z.string().optional().describe('Statement period'),
+      clientEmail: z.string().email().describe('Client email to look up'),
     }),
     execute: async (params: any) => {
       try {
-        const statement = await db.statement.create({
-          data: {
-            customerId: params.customerId || 1,
-            type: params.statementType,
-            period: params.period || new Date().toISOString().split('T')[0],
-            status: 'DRAFT',
-          },
+        const statement = await db.statement.findFirst({
+          where: { client_email: params.clientEmail },
+          orderBy: { createdAt: 'desc' },
         });
-        return `Statement created successfully with ID ${statement.id}`;
+        if (!statement) {
+          return `No statements found for ${params.clientEmail}. To generate one, use Admin → Financial → Statements.`;
+        }
+        return `Latest statement: ${statement.statement_number} (${statement.status}) - Total due R${statement.total_amount_due.toFixed(2)} as of ${statement.statement_date.toISOString().split('T')[0]}`;
       } catch (error) {
-        return `Error creating statement: ${error instanceof Error ? error.message : String(error)}`;
+        return `Error looking up statement: ${error instanceof Error ? error.message : String(error)}`;
       }
     },
   });
@@ -631,7 +643,7 @@ ${JSON.stringify(lead, null, 2)}`;
           where: params.projectId ? { id: params.projectId } : {},
           include: {
             milestones: true,
-            orders: true,
+            invoices: true,
           },
           take: 5,
         });
@@ -640,9 +652,10 @@ ${JSON.stringify(lead, null, 2)}`;
           id: p.id,
           name: p.name,
           status: p.status,
-          progress: p.progressPercentage || 0,
           totalMilestones: p.milestones.length,
-          totalOrders: p.orders.length,
+          totalInvoices: p.invoices.length,
+          estimatedBudget: p.estimatedBudget ?? 0,
+          actualCost: p.actualCost ?? 0,
         }));
 
         return `Project Performance: ${JSON.stringify(performance, null, 2)}`;
@@ -958,28 +971,30 @@ ${JSON.stringify(lead, null, 2)}`;
 
   // HR & PAYROLL TOOLS
   const createPaymentRequestTool = tool({
-    description: 'Create a payment request for employee or contractor',
+    description: 'Create a payment request for employee or contractor (artisan)',
     parameters: z.object({
-      employeeId: z.number().describe('Employee/contractor user ID'),
+      artisanId: z.number().describe('Artisan/employee user ID'),
       amount: z.number().describe('Payment amount'),
-      description: z.string().describe('Description of payment (salary, bonus, expense reimbursement, etc.)'),
-      paymentType: z.enum(['SALARY', 'BONUS', 'COMMISSION', 'EXPENSE', 'OTHER']).describe('Type of payment'),
-      dueDate: z.string().optional().describe('Payment due date in ISO format'),
+      notes: z.string().optional().describe('Notes about the payment'),
+      hoursWorked: z.number().optional().describe('Hours worked (optional)'),
+      hourlyRate: z.number().optional().describe('Hourly rate (optional)'),
     }),
     execute: async (params: any) => {
       try {
+        const requestNumber = `PR-${Date.now()}`;
         const paymentRequest = await db.paymentRequest.create({
           data: {
-            employeeId: params.employeeId,
-            amount: params.amount,
-            description: params.description,
-            paymentType: params.paymentType,
+            requestNumber,
+            artisanId: params.artisanId,
+            calculatedAmount: params.amount,
+            hoursWorked: params.hoursWorked ?? null,
+            hourlyRate: params.hourlyRate ?? null,
+            notes: params.notes ?? null,
             status: 'PENDING',
-            dueDate: params.dueDate ? new Date(params.dueDate) : null,
           },
         });
-        
-        return `✓ Payment request created: R${params.amount} for employee ID ${params.employeeId} (${params.paymentType})`;
+
+        return `✓ Payment request ${paymentRequest.requestNumber} created: R${params.amount} for artisan ID ${params.artisanId}`;
       } catch (error) {
         return `Error creating payment request: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -999,7 +1014,7 @@ ${JSON.stringify(lead, null, 2)}`;
         const requests = await db.paymentRequest.findMany({
           where,
           include: {
-            employee: {
+            artisan: {
               select: {
                 firstName: true,
                 lastName: true,
@@ -1010,7 +1025,7 @@ ${JSON.stringify(lead, null, 2)}`;
           take: 20,
         });
 
-        const totalAmount = requests.reduce((sum: number, r: any) => sum + r.amount, 0);
+        const totalAmount = requests.reduce((sum: number, r: any) => sum + (r.calculatedAmount ?? 0), 0);
 
         if (requests.length === 0) {
           return `No payment requests found.`;
@@ -1018,7 +1033,7 @@ ${JSON.stringify(lead, null, 2)}`;
 
         let response = `Payment Requests (Total: R${totalAmount}):\n\n`;
         requests.forEach((r: any) => {
-          response += `- ${r.employee.firstName} ${r.employee.lastName} | R${r.amount} | ${r.paymentType} | ${r.status} | ${r.description}\n`;
+          response += `- ${r.artisan?.firstName ?? ''} ${r.artisan?.lastName ?? ''} | R${r.calculatedAmount} | ${r.status} | ${r.requestNumber}${r.notes ? ` | ${r.notes}` : ''}\n`;
         });
 
         return response;
@@ -1258,7 +1273,6 @@ ${targetServiceTypes ? `• Targeting services: ${targetServiceTypes.join(', ')}
               to: lead.customerEmail,
               subject: personalizedSubject,
               html: personalizedBody,
-              companyName: company?.name,
             });
             sent++;
           } catch (e) {
@@ -1567,10 +1581,11 @@ ${newLeads30d === 0 ? '• ⚠️ No new leads this month - consider running a m
         if (!order.lead) return `❌ Order ID ${orderId} has no associated lead/customer`;
 
         await sendReviewRequestEmail({
-          to: order.lead.customerEmail,
+          customerEmail: order.lead.customerEmail,
           customerName: order.lead.customerName,
-          orderDescription: order.description,
-          orderId: order.id,
+          orderNumber: order.orderNumber,
+          serviceType: order.serviceType,
+          completionDate: order.endTime ?? order.updatedAt,
         });
 
         return `✅ REVIEW REQUEST SENT
@@ -2485,9 +2500,10 @@ ${JSON.stringify(quotation, null, 2)}`;
         // Group by customer
         const byCustomer: Record<string, { count: number; total: number }> = {};
         unpaidInvoices.forEach((inv: any) => {
-          if (!byCustomer[inv.customerName]) byCustomer[inv.customerName] = { count: 0, total: 0 };
-          byCustomer[inv.customerName].count++;
-          byCustomer[inv.customerName].total += inv.total;
+          const bucket = byCustomer[inv.customerName] ?? { count: 0, total: 0 };
+          bucket.count++;
+          bucket.total += inv.total;
+          byCustomer[inv.customerName] = bucket;
         });
 
         const disputedCount = unpaidInvoices.filter((inv: any) => inv.isDisputed).length;
@@ -2559,8 +2575,9 @@ ${JSON.stringify(quotation, null, 2)}`;
         const invoicesByStatus: Record<string, { count: number; total: number }> = {};
         const invoiceStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED', 'REJECTED'];
         for (const s of invoiceStatuses) {
-          const agg = await db.invoice.aggregate({ where: { status: s }, _sum: { total: true }, _count: true });
-          if (agg._count > 0) invoicesByStatus[s] = { count: agg._count, total: agg._sum.total || 0 };
+          const agg = await db.invoice.aggregate({ where: { status: s as any }, _sum: { total: true }, _count: { _all: true } });
+          const cnt = agg._count?._all ?? 0;
+          if (cnt > 0) invoicesByStatus[s] = { count: cnt, total: agg._sum?.total || 0 };
         }
         const totalRevenue = invoicesByStatus['PAID']?.total || 0;
         const unpaidStatuses = ['DRAFT', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'OVERDUE'];
@@ -2571,7 +2588,7 @@ ${JSON.stringify(quotation, null, 2)}`;
         const ordersByStatus: Record<string, number> = {};
         const orderStatuses = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
         for (const s of orderStatuses) {
-          const c = await db.order.count({ where: { status: s } });
+          const c = await db.order.count({ where: { status: s as any } });
           if (c > 0) ordersByStatus[s] = c;
         }
         const totalOrders = Object.values(ordersByStatus).reduce((sum, v) => sum + v, 0);
@@ -2581,8 +2598,9 @@ ${JSON.stringify(quotation, null, 2)}`;
         const quotationsByStatus: Record<string, { count: number; total: number }> = {};
         const quotationStatuses = ['DRAFT', 'PENDING_ARTISAN_REVIEW', 'IN_PROGRESS', 'PENDING_JUNIOR_MANAGER_REVIEW', 'PENDING_SENIOR_MANAGER_REVIEW', 'APPROVED', 'SENT_TO_CUSTOMER', 'REJECTED'];
         for (const s of quotationStatuses) {
-          const agg = await db.quotation.aggregate({ where: { status: s }, _sum: { total: true }, _count: true });
-          if (agg._count > 0) quotationsByStatus[s] = { count: agg._count, total: agg._sum.total || 0 };
+          const agg = await db.quotation.aggregate({ where: { status: s as any }, _sum: { total: true }, _count: { _all: true } });
+          const cnt = agg._count?._all ?? 0;
+          if (cnt > 0) quotationsByStatus[s] = { count: cnt, total: agg._sum?.total || 0 };
         }
         const totalQuotations = Object.values(quotationsByStatus).reduce((sum, v) => sum + v.count, 0);
         const totalQuotedValue = Object.values(quotationsByStatus).reduce((sum, v) => sum + v.total, 0);
@@ -2591,7 +2609,7 @@ ${JSON.stringify(quotation, null, 2)}`;
         const leadsByStatus: Record<string, number> = {};
         const leadStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'];
         for (const s of leadStatuses) {
-          const c = await db.lead.count({ where: { status: s } });
+          const c = await db.lead.count({ where: { status: s as any } });
           if (c > 0) leadsByStatus[s] = c;
         }
         const totalLeads = Object.values(leadsByStatus).reduce((sum, v) => sum + v, 0);
@@ -2600,7 +2618,7 @@ ${JSON.stringify(quotation, null, 2)}`;
         const projectsByStatus: Record<string, number> = {};
         const projectStatuses = ['PLANNING', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
         for (const s of projectStatuses) {
-          const c = await db.project.count({ where: { status: s } });
+          const c = await db.project.count({ where: { status: s as any } });
           if (c > 0) projectsByStatus[s] = c;
         }
 
