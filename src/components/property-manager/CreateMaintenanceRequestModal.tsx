@@ -78,7 +78,7 @@ export function CreateMaintenanceRequestModal({
     formState: { errors },
     reset,
   } = useForm<MaintenanceRequestFormInput>({
-    resolver: zodResolver(maintenanceRequestSchema),
+    resolver: zodResolver(maintenanceRequestSchema) as any,
     defaultValues: {
       urgency: "NORMAL",
       category: "GENERAL",

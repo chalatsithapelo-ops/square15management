@@ -89,7 +89,7 @@ function PropertyManagerSettings() {
 
   // Fetch user profile
   const profileQuery = useQuery({
-    ...trpc.getUserProfile.queryOptions({ token: token! }),
+    ...trpc.getCurrentUser.queryOptions({ token: token! }),
     enabled: !!token,
   });
 
@@ -136,7 +136,7 @@ function PropertyManagerSettings() {
   // Fetch logo URL
   const logoQuery = useQuery({
     queryKey: ["getPMLogoUrl"],
-    queryFn: async () => {
+    queryFn: async (): Promise<{ logoUrl: string | null } | null> => {
       // Would call PM-specific endpoint
       return null;
     },

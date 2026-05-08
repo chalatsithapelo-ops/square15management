@@ -81,7 +81,7 @@ export function AlternativeRevenueForm({ onClose }: AlternativeRevenueFormProps)
     watch,
     setValue,
   } = useForm<RevenueForm>({
-    resolver: zodResolver(revenueSchema),
+    resolver: zodResolver(revenueSchema) as any,
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       isRecurring: false,

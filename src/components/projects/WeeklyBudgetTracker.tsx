@@ -77,7 +77,7 @@ export default function WeeklyBudgetTracker({
     reset,
     watch,
   } = useForm<WeeklyUpdateForm>({
-    resolver: zodResolver(weeklyUpdateSchema),
+    resolver: zodResolver(weeklyUpdateSchema) as any,
   });
 
   const resetAllFormState = () => {

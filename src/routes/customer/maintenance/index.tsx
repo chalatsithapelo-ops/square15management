@@ -126,7 +126,7 @@ function CustomerMaintenancePage() {
   );
 
   const form = useForm<MaintenanceFormData>({
-    resolver: zodResolver(maintenanceRequestSchema),
+    resolver: zodResolver(maintenanceRequestSchema) as any,
     defaultValues: {
       urgency: "NORMAL",
       category: "GENERAL",

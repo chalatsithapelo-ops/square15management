@@ -63,7 +63,7 @@ export function CreateBuildingModal({ isOpen, onClose }: CreateBuildingModalProp
     formState: { errors },
     reset,
   } = useForm<BuildingFormInput>({
-    resolver: zodResolver(buildingSchema),
+    resolver: zodResolver(buildingSchema) as any,
     defaultValues: {
       buildingType: "RESIDENTIAL",
     },

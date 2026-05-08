@@ -170,7 +170,7 @@ function CRMPage() {
     getValues,
     watch,
   } = useForm<LeadForm>({
-    resolver: zodResolver(leadSchema),
+    resolver: zodResolver(leadSchema) as any,
   });
 
   // Watch description field for auto-classification

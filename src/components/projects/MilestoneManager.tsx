@@ -132,7 +132,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
     setValue,
     watch,
   } = useForm<MilestoneForm>({
-    resolver: zodResolver(milestoneSchema),
+    resolver: zodResolver(milestoneSchema) as any,
   });
 
   const {
@@ -142,7 +142,7 @@ export default function MilestoneManager({ projectId, projectBudget }: Milestone
     reset: resetRisk,
     setValue: setRiskValue,
   } = useForm<RiskForm>({
-    resolver: zodResolver(riskSchema),
+    resolver: zodResolver(riskSchema) as any,
   });
 
   // Auto-calculate material cost when materials change

@@ -43,8 +43,8 @@ export function ContractorDetailsModal({ contractor, isOpen, onClose }: Contract
 
   if (!isOpen) return null;
 
-  const performance = performanceQuery.data;
-  const spending = spendingQuery.data;
+  const performance = performanceQuery.data as any;
+  const spending = spendingQuery.data as any;
   const documents = documentsQuery.data?.documents || [];
 
   return (

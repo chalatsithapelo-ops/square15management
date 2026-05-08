@@ -120,7 +120,7 @@ export function EmployeesTab() {
     formState: { errors },
     reset,
   } = useForm<EmployeeUpdateForm>({
-    resolver: zodResolver(employeeUpdateSchema),
+    resolver: zodResolver(employeeUpdateSchema) as any,
   });
 
   const {
@@ -129,7 +129,7 @@ export function EmployeesTab() {
     formState: { errors: errorsCreate },
     reset: resetCreate,
   } = useForm<EmployeeCreateForm>({
-    resolver: zodResolver(employeeCreateSchema),
+    resolver: zodResolver(employeeCreateSchema) as any,
   });
 
   const updateEmployeeMutation = useMutation(

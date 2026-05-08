@@ -71,7 +71,7 @@ export function CreateRFQModal({ isOpen, onClose }: CreateRFQModalProps) {
     reset,
     setValue,
   } = useForm<RFQFormInput>({
-    resolver: zodResolver(rfqSchema),
+    resolver: zodResolver(rfqSchema) as any,
     defaultValues: {
       urgency: "NORMAL",
     },

@@ -207,7 +207,7 @@ function InvoicesPage() {
     reset,
     setValue,
   } = useForm<InvoiceForm>({
-    resolver: zodResolver(invoiceSchema),
+    resolver: zodResolver(invoiceSchema) as any,
   });
 
   const createInvoiceMutation = useMutation(

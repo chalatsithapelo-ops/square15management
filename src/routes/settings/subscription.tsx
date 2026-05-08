@@ -9,8 +9,9 @@ export const Route = createFileRoute('/settings/subscription')({
 
 function SubscriptionSettingsPage() {
   const { token } = useAuthStore();
-  const { data: subscription, isLoading } = useTRPC().getUserSubscription.useQuery({ token });
-  const { data: packages } = useTRPC().getPackages.useQuery({ token });
+  const trpc = useTRPC() as any;
+  const { data: subscription, isLoading } = trpc.getUserSubscription.useQuery({ token });
+  const { data: packages } = trpc.getPackages.useQuery({ token });
 
   if (isLoading) {
     return (
@@ -43,7 +44,7 @@ function SubscriptionSettingsPage() {
   };
 
   const suggestedPackages = packages?.filter(
-    (pkg) =>
+    (pkg: any) =>
       pkg.type === subscription.package.type &&
       pkg.basePrice > subscription.package.basePrice
   );
@@ -60,7 +61,7 @@ function SubscriptionSettingsPage() {
               {subscription.package.displayName}
             </h2>
             <span
-              className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[subscription.status]}`}
+              className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[subscription.status as keyof typeof statusColors]}`}
             >
               {subscription.status}
             </span>
@@ -180,7 +181,7 @@ function SubscriptionSettingsPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {suggestedPackages.map((pkg) => (
+            {suggestedPackages.map((pkg: any) => (
               <div
                 key={pkg.id}
                 className="bg-white rounded-xl shadow-lg p-6 border-2 border-cyan-200 hover:border-cyan-400 transition-colors"
@@ -252,7 +253,7 @@ function SubscriptionSettingsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {subscription.payments.map((payment) => (
+                {subscription.payments.map((payment: any) => (
                   <tr key={payment.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(payment.createdAt).toLocaleDateString()}

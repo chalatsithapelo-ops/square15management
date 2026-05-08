@@ -185,7 +185,7 @@ function UserEmailSetupPage() {
     );
   }
 
-  const isConfigured = emailStatusQuery.data?.isConfigured;
+  const isConfigured = emailStatusQuery.data!.isConfigured;
   const isLoading = emailStatusQuery.isLoading;
 
   return (
@@ -236,35 +236,35 @@ function UserEmailSetupPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Email Address</p>
-                      <p className="font-medium text-gray-900">{emailStatusQuery.data.smtpUser}</p>
+                      <p className="font-medium text-gray-900">{emailStatusQuery.data!.smtpUser}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">SMTP Host</p>
-                      <p className="font-medium text-gray-900">{emailStatusQuery.data.smtpHost}</p>
+                      <p className="font-medium text-gray-900">{emailStatusQuery.data!.smtpHost}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Port</p>
-                      <p className="font-medium text-gray-900">{emailStatusQuery.data.smtpPort}</p>
+                      <p className="font-medium text-gray-900">{emailStatusQuery.data!.smtpPort}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Security</p>
                       <p className="font-medium text-gray-900">
-                        {emailStatusQuery.data.smtpSecure ? "TLS/SSL" : "STARTTLS"}
+                        {emailStatusQuery.data!.smtpSecure ? "TLS/SSL" : "STARTTLS"}
                       </p>
                     </div>
-                    {emailStatusQuery.data.configuredAt && (
+                    {emailStatusQuery.data!.configuredAt && (
                       <div>
                         <p className="text-sm text-gray-600">Configured</p>
                         <p className="font-medium text-gray-900">
-                          {new Date(emailStatusQuery.data.configuredAt).toLocaleDateString()}
+                          {new Date(emailStatusQuery.data!.configuredAt).toLocaleDateString()}
                         </p>
                       </div>
                     )}
-                    {emailStatusQuery.data.lastTestedAt && (
+                    {emailStatusQuery.data!.lastTestedAt && (
                       <div>
                         <p className="text-sm text-gray-600">Last Tested</p>
                         <p className="font-medium text-gray-900">
-                          {new Date(emailStatusQuery.data.lastTestedAt).toLocaleDateString()}
+                          {new Date(emailStatusQuery.data!.lastTestedAt).toLocaleDateString()}
                         </p>
                       </div>
                     )}

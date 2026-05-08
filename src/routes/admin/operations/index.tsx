@@ -166,7 +166,7 @@ function OperationsPage() {
     setValue,
     watch,
   } = useForm<OrderForm>({
-    resolver: zodResolver(orderSchema),
+    resolver: zodResolver(orderSchema) as any,
   });
 
   const createOrderMutation = useMutation(
