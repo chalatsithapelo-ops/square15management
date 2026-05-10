@@ -24,7 +24,10 @@ import {
   ClipboardList,
   X,
   Edit,
+  BookOpen,
 } from "lucide-react";
+import { OhsTemplatePicker, OhsDocumentEditor } from "~/components/ohs/OhsDocumentEditor";
+import type { OhsTemplate } from "~/data/ohsTemplates";
 
 export const Route = createFileRoute("/admin/ohs/")({
   component: OhsHomePage,
@@ -1011,8 +1014,12 @@ function DocumentsTab({ token }: { token: string }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const list = useQuery(trpc.ohsListDocuments.queryOptions({ token }));
+  const [showPicker, setShowPicker] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [pickedTemplate, setPickedTemplate] = useState<OhsTemplate | null>(null);
+  const [editing, setEditing] = useState<any | null>(null);
   const [exportingId, setExportingId] = useState<number | null>(null);
+
   const exportPdf = useMutation(trpc.ohsExportDocumentPdf.mutationOptions({
     onSuccess: (res: any) => { downloadBase64Pdf(res.pdf, res.filename); setExportingId(null); },
     onError: (e: any) => { toast.error(e.message); setExportingId(null); },
@@ -1022,18 +1029,35 @@ function DocumentsTab({ token }: { token: string }) {
     onError: (e: any) => toast.error(e.message),
   }));
 
+  const handleSaved = () => {
+    setShowCreate(false);
+    setPickedTemplate(null);
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: trpc.ohsListDocuments.queryKey({ token }) });
+  };
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">OHS Document Library</h2>
-        <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2">
-          <Plus className="w-4 h-4" /> New Document
-        </button>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">OHS Document Library</h2>
+          <p className="text-sm text-gray-500">Policies, procedures, checklists &amp; legal appointment letters. Edit in web form, export to PDF.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setShowPicker(true)} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2">
+            <BookOpen className="w-4 h-4" /> Use Template
+          </button>
+          <button onClick={() => setShowCreate(true)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Blank Document
+          </button>
+        </div>
       </div>
       {list.isLoading ? (
         <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin" /></div>
       ) : !list.data || list.data.length === 0 ? (
-        <div className="bg-white border rounded-lg p-8 text-center text-gray-500">No OHS documents yet.</div>
+        <div className="bg-white border rounded-lg p-8 text-center text-gray-500">
+          No OHS documents yet. Click <span className="font-medium text-amber-700">Use Template</span> to start from a SA OHS Act compliant template.
+        </div>
       ) : (
         <div className="bg-white border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
@@ -1057,6 +1081,9 @@ function DocumentsTab({ token }: { token: string }) {
                   <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs ${statusBadge(d.status)}`}>{d.status}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      <button onClick={() => setEditing(d)} className="text-gray-600 hover:text-gray-900" title="Edit">
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button onClick={() => { setExportingId(d.id); exportPdf.mutate({ token, documentId: d.id }); }} disabled={exportingId === d.id} className="text-blue-600 hover:text-blue-800" title="Export PDF">
                         {exportingId === d.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                       </button>
@@ -1071,75 +1098,51 @@ function DocumentsTab({ token }: { token: string }) {
           </table>
         </div>
       )}
-      {showCreate && <CreateDocumentModal token={token} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); qc.invalidateQueries({ queryKey: trpc.ohsListDocuments.queryKey({ token }) }); }} />}
+
+      <OhsTemplatePicker
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        onPick={(t) => { setPickedTemplate(t); setShowPicker(false); }}
+      />
+
+      {pickedTemplate && (
+        <OhsDocumentEditor
+          token={token}
+          open={true}
+          template={pickedTemplate}
+          onClose={() => setPickedTemplate(null)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {showCreate && (
+        <OhsDocumentEditor
+          token={token}
+          open={true}
+          onClose={() => setShowCreate(false)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {editing && (
+        <OhsDocumentEditor
+          token={token}
+          open={true}
+          existing={{
+            id: editing.id,
+            type: editing.type,
+            title: editing.title,
+            version: editing.version,
+            content: editing.content,
+            requiresAck: editing.requiresAck,
+            reviewDate: editing.reviewDate,
+            status: editing.status,
+          }}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
-  );
-}
-
-function CreateDocumentModal({ token, onClose, onSaved }: { token: string; onClose: () => void; onSaved: () => void }) {
-  const trpc = useTRPC();
-  const [type, setType] = useState("POLICY");
-  const [title, setTitle] = useState("");
-  const [version, setVersion] = useState("1.0");
-  const [content, setContent] = useState("");
-  const [requiresAck, setRequiresAck] = useState(false);
-  const [reviewDate, setReviewDate] = useState("");
-
-  const save = useMutation(trpc.ohsCreateDocument.mutationOptions({
-    onSuccess: () => { toast.success("Document saved"); onSaved(); },
-    onError: (e: any) => toast.error(e.message),
-  }));
-
-  const TYPES = ["POLICY", "PROCEDURE", "SAFE_WORK_METHOD", "RISK_ASSESSMENT", "EMERGENCY_PLAN", "TOOLBOX_TALK", "CHECKLIST", "MSDS", "PERMIT", "TRAINING_MATERIAL", "LEGAL_APPOINTMENT", "OTHER"];
-
-  return (
-    <Transition show={true} as={Fragment}>
-      <Dialog onClose={onClose} className="relative z-50">
-        <div className="fixed inset-0 bg-black/40" />
-        <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
-          <Dialog.Panel className="bg-white rounded-lg max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between"><h2 className="text-xl font-semibold">New OHS Document</h2><button onClick={onClose}><X className="w-5 h-5" /></button></div>
-            <div className="p-6 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Type</label>
-                  <select value={type} onChange={(e) => setType(e.target.value)} className="w-full border rounded-lg px-3 py-2">
-                    {TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Version</label>
-                  <input value={version} onChange={(e) => setVersion(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Title</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Content / body</label>
-                <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={10} className="w-full border rounded-lg px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Review date</label>
-                <input type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} className="border rounded-lg px-3 py-2" />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} />
-                Requires acknowledgement by workers
-              </label>
-            </div>
-            <div className="p-4 border-t flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button>
-              <button onClick={() => save.mutate({ token, type: type as any, title, version, content, requiresAck, reviewDate: reviewDate || undefined, publish: false })} className="px-4 py-2 border rounded-lg">Save draft</button>
-              <button onClick={() => save.mutate({ token, type: type as any, title, version, content, requiresAck, reviewDate: reviewDate || undefined, publish: true })} disabled={save.isPending} className="px-4 py-2 bg-amber-600 text-white rounded-lg flex items-center gap-2">
-                {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Publish
-              </button>
-            </div>
-          </Dialog.Panel>
-        </div>
-      </Dialog>
-    </Transition>
   );
 }
 

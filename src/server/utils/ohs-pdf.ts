@@ -64,6 +64,96 @@ function legalFooter(doc: PDFKit.PDFDocument) {
   );
 }
 
+/**
+ * Render markdown-style content into the PDF.
+ * Supports:
+ *  - "# "  H1, "## " H2, "### " H3
+ *  - "- " / "* " bullet list
+ *  - "[ ]" / "[x]" checklist item (renders empty/ticked square)
+ *  - "|..." table row (rendered as monospace)
+ *  - blank line = paragraph break
+ *  - "**bold**" inline (rendered as bold run)
+ *  - underscore lines / signature lines preserved
+ */
+function renderMarkdownBody(doc: PDFKit.PDFDocument, body: string) {
+  const lines = body.split(/\r?\n/);
+  const pageWidth = doc.page.width - 80;
+
+  const ensureSpace = (h: number) => {
+    if (doc.y + h > doc.page.height - 60) doc.addPage();
+  };
+
+  const writeBoldRuns = (text: string, opts: any = {}) => {
+    // split by **bold**
+    const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    parts.forEach((p, i) => {
+      const isLast = i === parts.length - 1;
+      if (p.startsWith("**") && p.endsWith("**")) {
+        doc.font("Helvetica-Bold").text(p.slice(2, -2), { continued: !isLast, ...opts });
+      } else {
+        doc.font("Helvetica").text(p, { continued: !isLast, ...opts });
+      }
+    });
+    if (parts.length === 0) doc.font("Helvetica").text("", opts);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i] ?? "";
+    const line = raw.replace(/\s+$/g, "");
+
+    if (line.startsWith("# ")) {
+      ensureSpace(28);
+      doc.moveDown(0.5);
+      doc.font("Helvetica-Bold").fontSize(16).fillColor(PRIMARY).text(line.slice(2));
+      doc.fillColor("black").fontSize(10);
+    } else if (line.startsWith("## ")) {
+      ensureSpace(22);
+      doc.moveDown(0.4);
+      doc.font("Helvetica-Bold").fontSize(12).fillColor(PRIMARY).text(line.slice(3));
+      doc.moveTo(40, doc.y).lineTo(doc.page.width - 40, doc.y).strokeColor(ACCENT).lineWidth(0.5).stroke();
+      doc.moveDown(0.2);
+      doc.fillColor("black").font("Helvetica").fontSize(10);
+    } else if (line.startsWith("### ")) {
+      ensureSpace(18);
+      doc.moveDown(0.3);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor("black").text(line.slice(4));
+      doc.font("Helvetica").fontSize(10);
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      ensureSpace(14);
+      const text = line.slice(2);
+      doc.font("Helvetica").fontSize(10).fillColor("black");
+      const startX = doc.x;
+      doc.text("•  ", { continued: true });
+      writeBoldRuns(text, { width: pageWidth - 12 });
+      doc.x = startX;
+    } else if (/^\[[ xX]\]/.test(line)) {
+      ensureSpace(16);
+      const checked = /^\[[xX]\]/.test(line);
+      const text = line.replace(/^\[[ xX]\]\s*/, "");
+      const boxY = doc.y + 2;
+      const boxX = doc.x;
+      doc.rect(boxX, boxY, 9, 9).strokeColor("#333333").lineWidth(0.7).stroke();
+      if (checked) {
+        doc.font("Helvetica-Bold").fontSize(9).fillColor(PRIMARY).text("X", boxX + 1.5, boxY - 1);
+        doc.fillColor("black");
+      }
+      doc.font("Helvetica").fontSize(10).text("  " + text, boxX + 12, boxY - 2, { width: pageWidth - 14 });
+      doc.x = 40;
+    } else if (line.startsWith("|")) {
+      // Treat as monospace row
+      ensureSpace(12);
+      doc.font("Courier").fontSize(8).fillColor("black").text(line);
+      doc.font("Helvetica").fontSize(10);
+    } else if (line.trim() === "") {
+      doc.moveDown(0.3);
+    } else {
+      ensureSpace(14);
+      writeBoldRuns(line, { width: pageWidth, align: "left" });
+    }
+  }
+}
+
+
 // ============================================================
 // Risk Assessment PDF
 // ============================================================
@@ -311,7 +401,7 @@ export async function buildOhsDocumentPdf(input: DocumentPdfInput): Promise<Buff
   kv(doc, "Author", input.createdByName || "—");
 
   sectionHeading(doc, "Content");
-  doc.font("Helvetica").fontSize(10).text(input.content, { align: "justify" });
+  renderMarkdownBody(doc, input.content);
 
   legalFooter(doc);
   doc.end();
