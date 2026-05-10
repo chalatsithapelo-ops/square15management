@@ -265,7 +265,7 @@ function ConversationPage() {
                 const isOwnMessage = message.sender.id === user?.id;
                 const showSender =
                   index === 0 ||
-                  messages[index - 1].sender.id !== message.sender.id;
+                  messages[index - 1]?.sender.id !== message.sender.id;
 
                 return (
                   <div

@@ -288,7 +288,7 @@ function PaymentRequestsPage() {
   const avgPerRequest = periodFilteredRequests.length > 0 ? totalAll / periodFilteredRequests.length : 0;
 
   const highestRequest = periodFilteredRequests.length > 0
-    ? periodFilteredRequests.reduce((max, pr) => pr.calculatedAmount > max.calculatedAmount ? pr : max, periodFilteredRequests[0])
+    ? periodFilteredRequests.reduce((max, pr) => pr.calculatedAmount > (max?.calculatedAmount ?? 0) ? pr : max, periodFilteredRequests[0])
     : null;
 
   // Per-artisan breakdown

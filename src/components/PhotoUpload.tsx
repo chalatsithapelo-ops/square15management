@@ -71,7 +71,8 @@ export function PhotoUpload({
   const removeFile = (index: number) => {
     setPendingPhotos((prev) => {
       // Revoke the object URL to free memory
-      URL.revokeObjectURL(prev[index].previewUrl);
+      const item = prev[index];
+      if (item) URL.revokeObjectURL(item.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
   };

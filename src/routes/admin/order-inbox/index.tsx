@@ -350,10 +350,10 @@ function InboxCard({
           )}
 
           {/* Reviewer info for already-reviewed */}
-          {item.reviewedBy && (
+          {item.reviewedById && (
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <UserCheck className="w-4 h-4" />
-              Reviewed by <span className="font-semibold">{item.reviewedBy.name}</span>
+              Reviewed
               {item.reviewedAt && <span>on {new Date(item.reviewedAt).toLocaleDateString("en-ZA")}</span>}
               {item.reviewNotes && <span className="ml-2 italic">— {item.reviewNotes}</span>}
             </div>

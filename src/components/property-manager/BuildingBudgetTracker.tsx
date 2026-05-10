@@ -810,7 +810,7 @@ function AddExpenseModal({
     description: "",
     category: "",
     amount: 0,
-    expenseDate: new Date().toISOString().split("T")[0],
+    expenseDate: (new Date().toISOString().split("T")[0] ?? ""),
     notes: "",
   });
 
@@ -835,7 +835,7 @@ function AddExpenseModal({
       description: "",
       category: "",
       amount: 0,
-      expenseDate: new Date().toISOString().split("T")[0],
+      expenseDate: (new Date().toISOString().split("T")[0] ?? ""),
       notes: "",
     });
   };

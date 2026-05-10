@@ -379,7 +379,7 @@ async function createFromTransaction(tx: {
   return null;
 }
 
-function mapToRevenueCategory(category: string): string {
+function mapToRevenueCategory(category: string): any {
   const map: Record<string, string> = {
     RENTAL_INCOME: "RENTAL_INCOME",
     CONSULTING: "CONSULTING",

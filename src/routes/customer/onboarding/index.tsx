@@ -128,7 +128,7 @@ function CustomerOnboardingPage() {
   const selectedBuilding = buildingsQuery.data?.find((b: any) => b.id === buildingId);
 
   // If already onboarded, show status
-  if (onboardingStatusQuery.data) {
+  if ((onboardingStatusQuery.data as any)) {
     const status: any = onboardingStatusQuery.data;
     return (
       <div className="p-6">

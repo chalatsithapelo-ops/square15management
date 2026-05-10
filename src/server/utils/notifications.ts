@@ -10,8 +10,8 @@ import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/serve
 function shortLocation(address?: string): string | undefined {
   if (!address) return undefined;
   // Take text before common address delimiters
-  const short = address
-    .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+  const short = (address
+    .split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
     .replace(/\s*\(Pty\)\s*Ltd\.?/i, "")
     .trim();
   // Cap at 40 chars

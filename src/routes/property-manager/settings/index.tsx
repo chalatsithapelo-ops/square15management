@@ -783,7 +783,7 @@ function PropertyManagerSettings() {
                     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                       <p className="text-sm font-medium text-gray-700 mb-2">Preview</p>
                       <img
-                        src={previewUrl || logoQuery.data?.logoUrl}
+                        src={previewUrl || logoQuery.data?.logoUrl || undefined}
                         alt="Company Logo"
                         className="max-w-48 max-h-48 object-contain"
                       />

@@ -186,7 +186,7 @@ export const createPayslip = baseProcedure
         status: "GENERATED",
         // SARS compliance fields
         taxBracket: taxBracket,
-        employerUIF: employerUIF,
+        employerUif: employerUIF,
         sarsSourceCode3601: basicSalary, // Salary
         sarsSourceCode3701: bonus, // Bonus
         sarsSourceCode3702: overtime, // Overtime

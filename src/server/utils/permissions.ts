@@ -411,6 +411,14 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.VIEW_ASSIGNED_LEADS,
     PERMISSIONS.VIEW_PAYSLIPS,
   ],
+
+  [ROLES.STAFF]: [
+    // Property management staff with access to assigned tasks
+    PERMISSIONS.VIEW_ASSIGNED_PROJECTS,
+    PERMISSIONS.VIEW_ASSIGNED_ORDERS,
+    PERMISSIONS.VIEW_MILESTONES,
+    PERMISSIONS.VIEW_PAYSLIPS,
+  ],
   
   [ROLES.CUSTOMER]: [
     // Customer portal access

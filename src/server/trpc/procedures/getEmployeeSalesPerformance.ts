@@ -55,7 +55,7 @@ export const getEmployeeSalesPerformance = baseProcedure
 
     // Calculate metrics for each employee
     const employeePerformance = Array.from(employeeLeadsMap.entries()).map(([employeeId, employeeLeads]) => {
-      const employee = employeeLeads[0].createdBy;
+      const employee = employeeLeads[0]!.createdBy;
       
       // Basic counts
       const totalLeads = employeeLeads.length;

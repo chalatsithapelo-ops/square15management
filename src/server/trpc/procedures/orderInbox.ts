@@ -53,12 +53,9 @@ export const getOrderInbox = baseProcedure
             status: true,
             notes: true,
             assignedTo: {
-              select: { id: true, name: true },
+              select: { id: true, firstName: true, lastName: true },
             },
           },
-        },
-        reviewedBy: {
-          select: { id: true, name: true },
         },
       },
       orderBy: { createdAt: "desc" },

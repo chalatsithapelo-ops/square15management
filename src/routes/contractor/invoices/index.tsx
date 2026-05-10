@@ -599,12 +599,12 @@ function InvoicesPage() {
           const lengthOfStream = (stream: any): number => {
             if (!stream) return 0;
             try {
-              if (stream instanceof PDFRawStream) return decodePDFRawStream(stream).length;
+              if (stream instanceof PDFRawStream) return (decodePDFRawStream(stream) as any).length;
             } catch {
               // ignore
             }
             const raw = (stream as any).contents;
-            return raw && typeof raw.length === "number" ? raw.length : 0;
+            return raw && typeof (raw as any).length === "number" ? (raw as any).length : 0;
           };
 
           if (contents instanceof PDFArray) {

@@ -302,7 +302,7 @@ export const updateQuotationStatus = baseProcedure
           const svcType = quotation.lead?.serviceType;
           const addr = quotation.address;
           const loc = addr
-            ? addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+            ? (addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
                 .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
             : undefined;
           const shortLoc = loc && loc.length > 40 ? loc.slice(0, 37) + '...' : loc;

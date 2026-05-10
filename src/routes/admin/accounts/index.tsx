@@ -181,7 +181,7 @@ function AccountsPage() {
         break;
       case "specific_month": {
         const [y, m] = selectedMonth.split("-").map(Number);
-        const monthDate = new Date(y, (m || 1) - 1, 1);
+        const monthDate = new Date(y ?? new Date().getFullYear(), (m || 1) - 1, 1);
         setDateRange({
           start: format(startOfMonth(monthDate), 'yyyy-MM-dd'),
           end: format(endOfMonth(monthDate), 'yyyy-MM-dd')

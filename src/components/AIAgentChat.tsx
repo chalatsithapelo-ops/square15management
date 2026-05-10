@@ -138,7 +138,7 @@ export function AIAgentChat({ isWidget = false }: AIAgentChatProps) {
 
   // Initialize speech recognition
   useEffect(() => {
-    const SpeechRecognition = window.webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;

@@ -180,7 +180,8 @@ export function CampaignEditor({ value, onChange, placeholder }: CampaignEditorP
       // Process each base64 image
       for (const match of matches) {
         const [fullMatch, imageType, base64Data] = match;
-        
+        if (!fullMatch || !imageType || !base64Data) continue;
+
         try {
           // Convert base64 to blob
           const byteCharacters = atob(base64Data);

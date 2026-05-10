@@ -65,7 +65,7 @@ export const updateCustomRole = baseProcedure
       ...(validPermissions && { permissions: validPermissions }),
     };
 
-    existingCustomRoles[roleIndex] = updatedRole;
+    existingCustomRoles[roleIndex] = updatedRole as any;
 
     // Save to database
     await db.systemSettings.update({

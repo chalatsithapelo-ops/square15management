@@ -179,6 +179,10 @@ export function SupportChatWidget() {
 
     // Pick the first admin (or could implement logic to pick based on availability)
     const adminUser = admins[0];
+    if (!adminUser) {
+      toast.error("No support staff available. Please try again later.");
+      return;
+    }
 
     createConversationMutation.mutate({
       token: token!,

@@ -50,7 +50,7 @@ export function CashbookPanel({ startDate, endDate }: Props) {
 
   // Auto-select the first account when the list loads
   const effectiveAccountId =
-    selectedAccountId ?? (accounts.length > 0 ? accounts[0].id : null);
+    selectedAccountId ?? (accounts.length > 0 ? accounts[0]!.id : null);
 
   const summaryQuery = useQuery({
     ...trpc.getCashbookSummary.queryOptions({

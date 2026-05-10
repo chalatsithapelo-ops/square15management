@@ -618,9 +618,15 @@ export const updateOrderStatus = baseProcedure
 
       if (linkedMaintenanceRequest) {
         let maintenanceStatus = linkedMaintenanceRequest.status;
-        
+
         if (input.status === "IN_PROGRESS") {
           maintenanceStatus = "IN_PROGRESS";
+          await db.maintenanceRequest.update({
+            where: { id: linkedMaintenanceRequest.id },
+            data: {
+              status: maintenanceStatus,
+            },
+          });
         } else if (input.status === "COMPLETED") {
           maintenanceStatus = "COMPLETED";
           await db.maintenanceRequest.update({
@@ -628,13 +634,6 @@ export const updateOrderStatus = baseProcedure
             data: {
               status: maintenanceStatus,
               completedDate: new Date(),
-            },
-          });
-        } else if (input.status === "IN_PROGRESS") {
-          await db.maintenanceRequest.update({
-            where: { id: linkedMaintenanceRequest.id },
-            data: {
-              status: maintenanceStatus,
             },
           });
         }
@@ -727,21 +726,14 @@ export const updateOrderStatus = baseProcedure
               await db.propertyManagerInvoice.create({
                 data: {
                   invoiceNumber,
-                  customerName,
-                  customerEmail,
-                  customerPhone,
-                  address,
                   items: items,
                   subtotal: subtotal,
                   tax: tax,
                   total: total,
                   status: "SENT_TO_PM",
-                  pmOrderId: updatedOrder.id,
+                  orderId: updatedOrder.id,
                   propertyManagerId: updatedOrder.propertyManagerId,
-                  notes: `Auto-generated invoice for completed PM order ${updatedOrder.orderNumber}`,
-                  companyMaterialCost: updatedOrder.materialCost || 0,
-                  companyLabourCost: updatedOrder.labourCost || 0,
-                  estimatedProfit: subtotal - (updatedOrder.materialCost || 0) - (updatedOrder.labourCost || 0),
+                  notes: `Auto-generated invoice for completed PM order ${updatedOrder.orderNumber}. Customer: ${customerName} (${customerEmail}, ${customerPhone}). Address: ${address}.`,
                 },
               });
               break;

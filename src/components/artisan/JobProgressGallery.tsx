@@ -267,7 +267,7 @@ export function JobProgressGallery({ orders }: JobProgressGalleryProps) {
             {/* Image Container */}
             <div className="flex-1 flex items-center justify-center p-4">
               <SignedMinioImage
-                url={currentImages[currentImageIndex]}
+                url={currentImages[currentImageIndex] ?? ""}
                 alt={`Image ${currentImageIndex + 1}`}
                 className="max-w-full max-h-full object-contain"
               />

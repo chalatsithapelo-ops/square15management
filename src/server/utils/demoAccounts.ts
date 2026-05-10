@@ -55,7 +55,7 @@ export async function getDemoUserIds(prismaClient: any): Promise<number[]> {
     select: { id: true },
   });
   _demoUserIds = demoUsers.map((u: any) => u.id);
-  return _demoUserIds;
+  return _demoUserIds!;
 }
 
 /**

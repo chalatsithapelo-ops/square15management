@@ -121,7 +121,7 @@ function ApplicationDetailPage() {
         } token={token} />}
         {tab === "scorecards" && <ScorecardsTab app={app} token={token} applicationId={applicationId} />}
         {tab === "interviews" && <InterviewsTab app={app} token={token} applicationId={applicationId} />}
-        {tab === "offers" && <OffersTab app={app} token={token} applicationId={applicationId} />}
+        {tab === "offers" && <OffersTab app={app} token={token} applicationId={applicationId} currentUserId={user.id} />}
         {tab === "checks" && <ChecksTab app={app} token={token} applicationId={applicationId} />}
         {tab === "notes" && <NotesTab app={app} token={token} applicationId={applicationId}
           onAdd={(body, isPrivate) => addNoteMut.mutate({ token, applicationId, body, isPrivate })} />}
@@ -432,7 +432,7 @@ function InterviewsTab({ app, token, applicationId }: { app: any; token: string;
   );
 }
 
-function OffersTab({ app, token, applicationId }: { app: any; token: string; applicationId: number }) {
+function OffersTab({ app, token, applicationId, currentUserId }: { app: any; token: string; applicationId: number; currentUserId: number }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const [show, setShow] = useState(false);
@@ -488,7 +488,7 @@ function OffersTab({ app, token, applicationId }: { app: any; token: string; app
                 <div className="text-xs text-gray-500">Start: {o.startDate ? new Date(o.startDate).toLocaleDateString() : "—"}{o.expiresAt ? ` · expires ${new Date(o.expiresAt).toLocaleDateString()}` : ""}</div>
                 <div className="flex gap-2 mt-2">
                   {o.status === "PENDING_APPROVAL" && (() => {
-                    const myApproval = (o.approvals ?? []).find((a: any) => a.approverId === user.id && !a.decidedAt);
+                    const myApproval = (o.approvals ?? []).find((a: any) => a.approverId === currentUserId && !a.decidedAt);
                     return myApproval ? (
                       <button onClick={() => approveMut.mutate({ token, approvalId: myApproval.id, decision: "APPROVED" })} className="text-xs bg-emerald-600 text-white rounded px-2 py-1">Approve</button>
                     ) : null;

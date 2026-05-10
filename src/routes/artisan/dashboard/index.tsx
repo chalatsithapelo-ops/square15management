@@ -638,7 +638,9 @@ function ArtisanDashboard() {
     value: string
   ) => {
     const newItems = [...quotationLineItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    const current = newItems[index];
+    if (!current) return;
+    newItems[index] = { ...current, [field]: value };
     setQuotationLineItems(newItems);
   };
 

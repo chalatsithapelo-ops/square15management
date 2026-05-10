@@ -352,12 +352,12 @@ function ProjectsPage() {
                         projectsData: {
                           projects: projects.slice(0, 20).map(p => ({
                             name: p.name,
-                            status: p.status,
+                            status: String(p.status),
                             projectType: p.projectType,
-                            estimatedBudget: p.estimatedBudget,
+                            estimatedBudget: p.estimatedBudget ?? undefined,
                             actualCost: p.actualCost,
-                            startDate: p.startDate,
-                            endDate: p.endDate,
+                            startDate: p.startDate ? new Date(p.startDate).toISOString() : undefined,
+                            endDate: p.endDate ? new Date(p.endDate).toISOString() : undefined,
                             customerName: p.customerName,
                             milestones: [],
                           })),

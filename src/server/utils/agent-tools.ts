@@ -801,7 +801,7 @@ export const updateQuotationStatusTool = tool({
     const _svc = quotation.lead?.serviceType;
     const _addr = quotation.address;
     const _loc = _addr
-      ? _addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0]
+      ? (_addr.split(/\s*[,\n\r]|\s+C\/O\s|\s+Cor\.?\s|\s+Corner\s|\s+Street|\s+Str\b|\s+Road|\s+Rd\b|\s+Ave\b/i)[0] ?? "")
           .replace(/\s*\(Pty\)\s*Ltd\.?/i, '').trim()
       : undefined;
     const _shortLoc = _loc && _loc.length > 40 ? _loc.slice(0, 37) + '...' : _loc;

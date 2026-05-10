@@ -131,6 +131,7 @@ function BankFeedPage() {
           <div className="flex items-center gap-2">
             <Link
               to="/admin/bank-feed/link"
+              search={{ status: undefined, reason: undefined, account: undefined }}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
             >
               <Landmark className="w-4 h-4" /> Link Direct Feed

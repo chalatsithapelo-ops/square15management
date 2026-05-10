@@ -584,7 +584,7 @@ Your purpose: Help users accomplish business goals through intelligent system op
         const result = await generateText({
           model,
           system: systemPrompt,
-          messages: conversationMessages,
+          messages: conversationMessages as any,
           temperature: 0.7,
           maxTokens: 2048,
           tools: aiAgentTools,
@@ -619,7 +619,7 @@ Your purpose: Help users accomplish business goals through intelligent system op
                 continue;
               }
 
-              const toolResult = await tool.execute(toolCall.args);
+              const toolResult = await (tool.execute as any)(toolCall.args, {} as any);
               console.log('[AI Agent Service] ✓ Tool succeeded:', toolCall.toolName);
               console.log('[AI Agent Service] Tool result (first 500 chars):', String(toolResult).substring(0, 500));
 
