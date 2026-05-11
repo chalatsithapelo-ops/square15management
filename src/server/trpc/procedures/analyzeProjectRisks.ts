@@ -90,7 +90,7 @@ export const analyzeProjectRisks = baseProcedure
       );
 
       // Set up AI model
-      const model = google("gemini-1.5-pro");
+      const model = google("gemini-2.0-flash");
 
       // Analyze risks
       const { object } = await generateObject({

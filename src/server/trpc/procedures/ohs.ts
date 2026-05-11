@@ -115,7 +115,8 @@ export const ohsAnalyzeRisks = baseProcedure
     } catch (e: any) {
       if (e instanceof TRPCError) throw e;
       console.error("ohsAnalyzeRisks AI error:", e);
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI risk analysis failed. Please try again or fill in manually." });
+      const reason = e?.message || "unknown error";
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `AI risk analysis failed (${reason}). Please try again or fill in manually.` });
     }
   });
 
@@ -136,7 +137,8 @@ export const ohsAnalyzeIncident = baseProcedure
     } catch (e: any) {
       if (e instanceof TRPCError) throw e;
       console.error("ohsAnalyzeIncident AI error:", e);
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI incident analysis failed." });
+      const reason = e?.message || "unknown error";
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `AI incident analysis failed (${reason}).` });
     }
   });
 
@@ -155,7 +157,8 @@ export const ohsGenerateToolboxTalk = baseProcedure
     } catch (e: any) {
       if (e instanceof TRPCError) throw e;
       console.error("ohsGenerateToolboxTalk AI error:", e);
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI toolbox talk generation failed." });
+      const reason = e?.message || "unknown error";
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `AI toolbox talk generation failed (${reason}).` });
     }
   });
 

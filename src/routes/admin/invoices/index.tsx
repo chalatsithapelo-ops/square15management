@@ -2070,7 +2070,7 @@ function InvoicesPage() {
       {/* Delete Invoice Confirmation Modal */}
       {showCreditNoteModal && selectedCreditInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Credit Note</h3>
             <p className="text-sm text-gray-600 mb-4">
               Linked invoice: <span className="font-medium">{selectedCreditInvoice.invoiceNumber}</span>

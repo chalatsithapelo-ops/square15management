@@ -2,7 +2,7 @@ import { db } from "~/server/db";
 import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import * as z from "zod";
-import { createNotification } from "~/server/utils/notifications";
+import { createNotification, shortLocation } from "~/server/utils/notifications";
 
 const convertMaintenanceToRFQSchema = z.object({
   token: z.string(),
@@ -83,10 +83,11 @@ export const convertMaintenanceToRFQ = baseProcedure
 
       // Notify customer
       if (maintenanceRequest.customer.userId) {
+        const loc = shortLocation(maintenanceRequest.buildingName ?? maintenanceRequest.address);
         await createNotification({
           recipientId: maintenanceRequest.customer.userId,
           recipientRole: "CUSTOMER",
-          message: `Your maintenance request has been converted to RFQ ${rfqNumber}.`,
+          message: `Your request "${maintenanceRequest.title}"${loc ? ` at ${loc}` : ""} has been sent out for quotes.`,
           type: "RFQ_SUBMITTED",
           relatedEntityId: rfq.id,
           relatedEntityType: "RFQ",
@@ -195,10 +196,11 @@ export const convertMaintenanceToOrder = baseProcedure
 
       // Notify customer
       if (maintenanceRequest.customer.userId) {
+        const loc = shortLocation(maintenanceRequest.buildingName ?? maintenanceRequest.address);
         await createNotification({
           recipientId: maintenanceRequest.customer.userId,
           recipientRole: "CUSTOMER",
-          message: `Your maintenance request has been converted to Order ${orderNumber} assigned to ${contractor.companyName}.`,
+          message: `Your request "${maintenanceRequest.title}"${loc ? ` at ${loc}` : ""} has been assigned to ${contractor.companyName}.`,
           type: "ORDER_STATUS_UPDATED",
           relatedEntityId: order.id,
           relatedEntityType: "ORDER",

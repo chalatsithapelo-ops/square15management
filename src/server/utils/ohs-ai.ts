@@ -38,7 +38,7 @@ export async function analyzeActivityRisks(input: {
   industryContext?: string;
   knownHazards?: string[];
 }): Promise<AiRiskAnalysis> {
-  const model = google("gemini-1.5-pro");
+  const model = google("gemini-2.0-flash");
 
   const prompt = `You are a senior Occupational Health & Safety practitioner certified under SACPCMP and registered with the South African Department of Employment and Labour. You write risk assessments that comply with the OHS Act 85 of 1993, the Construction Regulations 2014, the General Safety Regulations, the Environmental Regulations for Workplaces, the Driven Machinery Regulations and the Hazardous Chemical Substances Regulations.
 
@@ -87,7 +87,7 @@ export async function analyzeIncident(input: {
   injuredPersonRole?: string;
   immediateActions?: string;
 }): Promise<AiIncidentInsights> {
-  const model = google("gemini-1.5-pro");
+  const model = google("gemini-2.0-flash");
 
   const prompt = `You are a senior OHS investigator in South Africa. Analyse the following incident report and produce structured insights compliant with the OHS Act 85 of 1993 (especially Sec 24 reportability) and good investigation practice (TapRoot / 5-Why / Bowtie style).
 
@@ -127,7 +127,7 @@ export async function generateToolboxTalk(input: {
   topic: string;
   context?: string;
 }): Promise<AiToolboxTalk> {
-  const model = google("gemini-1.5-pro");
+  const model = google("gemini-2.0-flash");
 
   const prompt = `You are a South African OHS practitioner producing a toolbox talk. Tone: practical, plain English, suitable for reading aloud to a multilingual workforce. Length: 3-5 minutes when read aloud.
 

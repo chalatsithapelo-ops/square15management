@@ -7,7 +7,7 @@ import { sendPushNotificationToUser, sendPushNotificationToUsers } from "~/serve
  * Extract a short building/location name from a full address.
  * e.g. "Savyon Building (Pty) Ltd  C/O Johannesburg ..." → "Savyon Building"
  */
-function shortLocation(address?: string): string | undefined {
+export function shortLocation(address?: string): string | undefined {
   if (!address) return undefined;
   // Take text before common address delimiters
   const short = (address
@@ -210,9 +210,12 @@ export async function notifyCustomerOrderStatus(params: {
   address?: string;
 }) {
   const loc = shortLocation(params.address);
+  // Customer-facing message: lead with the job description and location instead of the long order number.
   const jobLabel = params.serviceType
-    ? `${params.serviceType}${loc ? ` at ${loc}` : ""} (${params.orderNumber})`
-    : `order ${params.orderNumber}`;
+    ? `${params.serviceType}${loc ? ` at ${loc}` : ""}`
+    : loc
+      ? `job at ${loc}`
+      : `order ${params.orderNumber}`;
 
   const statusMessages: Record<string, string> = {
     ASSIGNED: `Your ${jobLabel} has been assigned to an artisan`,
@@ -340,9 +343,12 @@ export async function notifyCustomerQuotationStatus(params: {
   address?: string;
 }) {
   const loc = shortLocation(params.address);
+  // Customer-facing message: lead with the job description and location instead of the quote number.
   const jobLabel = params.serviceType
-    ? `${params.serviceType}${loc ? ` at ${loc}` : ""} (${params.quoteNumber})`
-    : `quotation ${params.quoteNumber}`;
+    ? `${params.serviceType}${loc ? ` at ${loc}` : ""}`
+    : loc
+      ? `quotation for ${loc}`
+      : `quotation ${params.quoteNumber}`;
   const messages: Record<"APPROVED" | "REJECTED", string> = {
     APPROVED: `Your ${jobLabel} has been approved`,
     REJECTED: `Your ${jobLabel} has been rejected${params.rejectionReason ? `: ${params.rejectionReason}` : ""}`,
