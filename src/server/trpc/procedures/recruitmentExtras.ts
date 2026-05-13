@@ -24,6 +24,8 @@ import {
   getEEAReport,
   getRecruiterDashboard,
 } from "~/server/services/recruitment/analytics";
+import { INTERVIEW_QUESTIONS_TEMPLATE } from "~/server/services/recruitment/assessmentQuestions";
+import { scoreInterviewAnswer } from "~/server/services/recruitment/scoringEngine";
 
 // ═══════════════════════════════════════════════════════════════════════
 // CANDIDATE PORTAL (public — token)
@@ -407,4 +409,112 @@ export const analyticsRecruiterDashboard = baseProcedure
     const user = await authenticateUser(input.token);
     assertRecruiter(user);
     return getRecruiterDashboard(user.id);
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
+// CANDIDATE AI BEHAVIOUR INTERVIEW (public — token-based, ATS 2.0)
+// ═══════════════════════════════════════════════════════════════════════
+
+export const candidateGetInterviewQuestions = baseProcedure
+  .input(z.object({ accessToken: z.string() }))
+  .query(async ({ input }) => {
+    const app = await db.application.findUnique({
+      where: { accessToken: input.accessToken },
+      select: {
+        id: true,
+        firstName: true,
+        primaryTrade: true,
+        deletedAt: true,
+        stageBucket: true,
+        accessTokenExpiresAt: true,
+        job: { select: { requireInterview: true, title: true } },
+        interviewResponses: {
+          select: { questionIndex: true, aiScore: true, createdAt: true },
+        },
+      },
+    });
+    if (!app || app.deletedAt) throw new TRPCError({ code: "NOT_FOUND" });
+    if (app.accessTokenExpiresAt && app.accessTokenExpiresAt < new Date())
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Portal link has expired" });
+
+    const required = app.job?.requireInterview ?? true;
+    const answeredIndices = new Set(app.interviewResponses.map((r) => r.questionIndex));
+    return {
+      required,
+      jobTitle: app.job?.title ?? null,
+      total: INTERVIEW_QUESTIONS_TEMPLATE.length,
+      answeredCount: answeredIndices.size,
+      complete: answeredIndices.size >= INTERVIEW_QUESTIONS_TEMPLATE.length,
+      questions: INTERVIEW_QUESTIONS_TEMPLATE.map((q, i) => ({
+        index: i,
+        dimension: q.dimension,
+        question: q.question,
+        answered: answeredIndices.has(i),
+      })),
+    };
+  });
+
+export const candidateSubmitInterviewAnswer = baseProcedure
+  .input(
+    z.object({
+      accessToken: z.string(),
+      questionIndex: z.number().int().min(0).max(INTERVIEW_QUESTIONS_TEMPLATE.length - 1),
+      answer: z
+        .string()
+        .min(20, "Please provide a more detailed answer (at least 20 characters)")
+        .max(4000),
+    }),
+  )
+  .mutation(async ({ input }) => {
+    const app = await db.application.findUnique({
+      where: { accessToken: input.accessToken },
+      select: {
+        id: true,
+        primaryTrade: true,
+        deletedAt: true,
+        stageBucket: true,
+        accessTokenExpiresAt: true,
+        interviewResponses: { select: { questionIndex: true } },
+      },
+    });
+    if (!app || app.deletedAt) throw new TRPCError({ code: "NOT_FOUND" });
+    if (app.accessTokenExpiresAt && app.accessTokenExpiresAt < new Date())
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Portal link has expired" });
+    if (app.stageBucket === "WITHDRAWN" || app.stageBucket === "REJECTED")
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Application is closed" });
+    if (app.interviewResponses.some((r) => r.questionIndex === input.questionIndex))
+      throw new TRPCError({ code: "BAD_REQUEST", message: "This question has already been answered" });
+
+    const template = INTERVIEW_QUESTIONS_TEMPLATE[input.questionIndex];
+    if (!template) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid question index" });
+
+    const ai = await scoreInterviewAnswer(
+      template.question,
+      input.answer,
+      template.dimension,
+      app.primaryTrade ?? "general",
+    );
+
+    await db.applicationInterviewResponse.create({
+      data: {
+        applicationId: app.id,
+        questionIndex: input.questionIndex,
+        question: template.question,
+        answer: input.answer,
+        aiScore: ai.score,
+        aiAnalysis: ai.analysis,
+        dimensions: ai.dimensions,
+      },
+    });
+
+    const answeredCount = app.interviewResponses.length + 1;
+    return {
+      success: true,
+      questionIndex: input.questionIndex,
+      score: ai.score,
+      analysis: ai.analysis,
+      dimensions: ai.dimensions,
+      remaining: INTERVIEW_QUESTIONS_TEMPLATE.length - answeredCount,
+      complete: answeredCount >= INTERVIEW_QUESTIONS_TEMPLATE.length,
+    };
   });

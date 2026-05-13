@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useState } from "react";
-import { CheckCircle2, Clock, Calendar, MessageSquare, Briefcase, XCircle, Loader2, Award } from "lucide-react";
+import { CheckCircle2, Clock, Calendar, MessageSquare, Briefcase, XCircle, Loader2, Award, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 
 export const Route = createFileRoute("/candidate/$token")({
@@ -87,6 +87,9 @@ function CandidatePortalPage() {
           </div>
         </div>
 
+        {/* AI behaviour interview */}
+        <CandidateInterviewSection accessToken={token} />
+
         {/* Upcoming interviews */}
         {d.upcomingInterviews?.length > 0 && (
           <div className="bg-white rounded-xl border p-5">
@@ -158,6 +161,128 @@ function CandidatePortalPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function CandidateInterviewSection({ accessToken }: { accessToken: string }) {
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const q = useQuery(
+    trpc.candidateGetInterviewQuestions.queryOptions({ accessToken }, { retry: false }),
+  );
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [feedback, setFeedback] = useState<Record<number, { score: number; analysis: string }>>({});
+  const submitMut = useMutation(
+    trpc.candidateSubmitInterviewAnswer.mutationOptions({
+      onSuccess: (res) => {
+        toast.success(`Answer submitted — AI score ${res.score.toFixed(1)}/10`);
+        setFeedback((prev) => ({
+          ...prev,
+          [res.questionIndex]: { score: res.score, analysis: res.analysis },
+        }));
+        qc.invalidateQueries({
+          queryKey: trpc.candidateGetInterviewQuestions.queryKey({ accessToken }),
+        });
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+
+  if (q.isLoading || !q.data) return null;
+  const d = q.data;
+  if (!d.required) return null;
+
+  return (
+    <div className="bg-white rounded-xl border p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold flex items-center gap-1.5">
+          <Sparkles className="w-4 h-4 text-teal-600" /> AI behaviour interview
+        </h2>
+        <span className="text-xs text-gray-500">
+          {d.answeredCount}/{d.total} answered
+        </span>
+      </div>
+
+      {d.complete ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" />
+          You've completed all behaviour questions. Thank you — our team is reviewing your responses.
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-gray-600 mb-3">
+            Answer each question in your own words (at least 20 characters). Your answers are scored
+            by AI to help our hiring team understand your approach. You can only answer each
+            question once.
+          </p>
+          <div className="space-y-4">
+            {d.questions.map((qn) => {
+              const fb = feedback[qn.index];
+              return (
+                <div key={qn.index} className="border rounded-lg p-3">
+                  <div className="text-sm font-medium text-gray-800 mb-1">
+                    Q{qn.index + 1}. {qn.question}
+                  </div>
+                  <div className="text-[11px] text-gray-400 mb-2 uppercase tracking-wide">
+                    Dimension: {qn.dimension}
+                  </div>
+                  {qn.answered ? (
+                    <div className="text-sm text-emerald-700 bg-emerald-50 rounded p-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Answer submitted
+                      {fb && (
+                        <span className="ml-auto text-xs">AI {fb.score.toFixed(1)}/10</span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={answers[qn.index] ?? ""}
+                        onChange={(e) =>
+                          setAnswers((p) => ({ ...p, [qn.index]: e.target.value }))
+                        }
+                        rows={4}
+                        placeholder="Type your answer here..."
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                        disabled={submitMut.isPending}
+                      />
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[11px] text-gray-400">
+                          {(answers[qn.index] ?? "").trim().length} chars (min 20)
+                        </span>
+                        <button
+                          disabled={
+                            submitMut.isPending ||
+                            (answers[qn.index] ?? "").trim().length < 20
+                          }
+                          onClick={() =>
+                            submitMut.mutate({
+                              accessToken,
+                              questionIndex: qn.index,
+                              answer: answers[qn.index] ?? "",
+                            })
+                          }
+                          className="px-3 py-1.5 bg-teal-600 text-white rounded text-xs font-medium disabled:opacity-50"
+                        >
+                          {submitMut.isPending ? "Submitting..." : "Submit answer"}
+                        </button>
+                      </div>
+                      {fb && (
+                        <div className="mt-2 text-xs text-gray-600 italic">
+                          <span className="font-semibold not-italic text-gray-700">
+                            AI feedback:
+                          </span>{" "}
+                          {fb.analysis}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

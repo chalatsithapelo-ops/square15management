@@ -632,6 +632,7 @@ export const getApplicationDetail = baseProcedure
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
     assertRecruiter(user);
+    const canSeeDemographics = ["ADMIN", "SENIOR_ADMIN", "HR"].includes(user.role);
     const app = await db.application.findUnique({
       where: { id: input.applicationId },
       include: {
@@ -672,7 +673,7 @@ export const getApplicationDetail = baseProcedure
         assignedRecruiter: { select: { firstName: true, lastName: true, email: true } },
         reviewedBy: { select: { firstName: true, lastName: true } },
         referrer: { select: { firstName: true, lastName: true, email: true } },
-        demographicProfile: true, // note: UI should gate who can see this
+        demographicProfile: canSeeDemographics,
         messages: { orderBy: { createdAt: "desc" }, take: 20 },
       },
     });

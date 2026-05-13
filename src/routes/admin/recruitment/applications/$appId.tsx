@@ -63,13 +63,19 @@ function ApplicationDetailPage() {
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              to="/admin/recruitment/jobs/$jobId"
-              params={{ jobId: String(app.jobId) }}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
+            {app.jobId ? (
+              <Link
+                to="/admin/recruitment/jobs/$jobId"
+                params={{ jobId: String(app.jobId) }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+            ) : (
+              <Link to="/admin/recruitment" className="text-gray-500 hover:text-gray-700">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+            )}
             <div>
               <h1 className="text-lg font-semibold">{app.firstName} {app.lastName}</h1>
               <div className="text-xs text-gray-500">
@@ -428,6 +434,61 @@ function InterviewsTab({ app, token, applicationId }: { app: any; token: string;
           </div>
         ) : <div className="text-sm text-gray-400">No available slots — create an interview panel first</div>}
       </Box>
+
+      {/* AI behaviour interview responses — spans both columns */}
+      <div className="lg:col-span-2">
+        <Box title="AI behaviour interview responses">
+          {app.interviewResponses?.length ? (
+            <div className="space-y-3">
+              {[...app.interviewResponses]
+                .sort((a: any, b: any) => a.questionIndex - b.questionIndex)
+                .map((r: any) => (
+                  <div key={r.id} className="border rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div className="text-sm font-medium text-gray-800">
+                        Q{r.questionIndex + 1}. {r.question}
+                      </div>
+                      {typeof r.aiScore === "number" && (
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
+                          r.aiScore >= 7 ? "bg-emerald-100 text-emerald-700"
+                          : r.aiScore >= 5 ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                        }`}>
+                          AI {r.aiScore.toFixed(1)}/10
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded p-2 mb-2">
+                      {r.answer}
+                    </div>
+                    {r.aiAnalysis && (
+                      <div className="text-xs text-gray-600 italic mb-2">
+                        <span className="font-semibold not-italic text-gray-700">AI analysis: </span>
+                        {r.aiAnalysis}
+                      </div>
+                    )}
+                    {r.dimensions && typeof r.dimensions === "object" && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(r.dimensions as Record<string, any>).map(([k, v]) => (
+                          <span key={k} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                            {k}: {typeof v === "number" ? v.toFixed(1) : String(v)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-[11px] text-gray-400 mt-1">
+                      Submitted {new Date(r.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400">
+              Candidate has not yet submitted AI behaviour interview answers.
+            </div>
+          )}
+        </Box>
+      </div>
     </div>
   );
 }
