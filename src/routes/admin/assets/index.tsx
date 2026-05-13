@@ -545,7 +545,7 @@ function AssetsPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedAsset(null)} />
           <div className="relative min-h-screen flex items-start justify-center p-4 pt-10">
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3">

@@ -1502,7 +1502,7 @@ function QuotationsPage() {
 
       {showRejectionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 m-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 m-auto max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Quotation</h3>
             <p className="text-sm text-gray-600 mb-4">
               Please provide a reason for rejecting this quotation. This will be visible to the artisan.
@@ -1539,7 +1539,7 @@ function QuotationsPage() {
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 m-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 m-auto max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Quotation</h3>
             <p className="text-sm text-gray-600 mb-6">
               Are you sure you want to delete this quotation? This action cannot be undone. All associated data including expense slips and line items will be permanently deleted.
@@ -1640,7 +1640,7 @@ function QuotationsPage() {
       {/* Convert Quotation to Invoice Modal */}
       {showConvertModal && convertingQuotation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 m-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 m-auto max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-emerald-100 rounded-lg">
                 <Receipt className="h-5 w-5 text-emerald-600" />

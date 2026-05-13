@@ -213,7 +213,7 @@ export function ContractorDocumentsTab({ contractorId }: ContractorDocumentsTabP
       <Dialog open={showUploadForm} onClose={() => setShowUploadForm(false)} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="mx-auto max-w-md w-full bg-white rounded-lg shadow-xl p-6">
+          <Dialog.Panel className="mx-auto max-w-md w-full bg-white rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-gray-900 mb-4">
               Upload Document
             </Dialog.Title>

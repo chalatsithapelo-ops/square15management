@@ -905,7 +905,7 @@ function PropertyManagerSettings() {
                         leaveTo="opacity-0 scale-95"
                       >
                         <div className="fixed inset-0 flex items-center justify-center p-4">
-                          <Dialog.Panel className="w-full max-w-sm bg-white rounded-lg shadow-xl p-6">
+                          <Dialog.Panel className="w-full max-w-sm bg-white rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto">
                             <Dialog.Title className="text-lg font-semibold text-gray-900 flex items-center">
                               <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
                               Delete Logo

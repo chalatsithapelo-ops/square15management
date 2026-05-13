@@ -796,7 +796,7 @@ function StaffList({ staff, isLoading, onAddStaff }: { staff: any[]; isLoading: 
       {/* Staff Account Activation Modal */}
       {activatingStaffId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setActivatingStaffId(null)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Enable Staff Portal</h3>
             <p className="text-sm text-gray-500 mb-4">
               Create a login account so this staff member can access their task portal, update statuses, upload photos, and communicate with you.

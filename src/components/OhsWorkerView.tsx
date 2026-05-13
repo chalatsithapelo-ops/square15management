@@ -196,7 +196,7 @@ function ReportIncidentModal({ token, onClose, onSaved }: { token: string; onClo
       <Dialog onClose={onClose} className="relative z-50">
         <div className="fixed inset-0 bg-black/40" />
         <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
-          <Dialog.Panel className="bg-white rounded-lg max-w-xl w-full my-8">
+          <Dialog.Panel className="bg-white rounded-lg max-w-xl w-full my-8 max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between"><h2 className="text-xl font-semibold">Report Incident</h2><button onClick={onClose}><X className="w-5 h-5" /></button></div>
             <div className="p-6 space-y-3">
               <div className="grid grid-cols-2 gap-3">

@@ -161,7 +161,7 @@ export function InstallPrompt() {
         {/* iOS Instructions Modal */}
         {showIOSInstructions && (
           <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
-            <div className="w-full max-w-lg bg-white rounded-t-2xl p-6 animate-slide-up">
+            <div className="w-full max-w-lg bg-white rounded-t-2xl p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Install on iPhone/iPad

@@ -2073,7 +2073,7 @@ function OperationsPage() {
       {/* Delete Order Confirmation Modal */}
       {deleteConfirmOrderId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Order</h3>
             <p className="text-sm text-gray-600 mb-6">
               Are you sure you want to delete this order? This will also delete any associated invoice, materials, and job activities. This action cannot be undone.
@@ -2105,7 +2105,7 @@ function OperationsPage() {
       {/* Request Signature Modal */}
       {signatureRequestOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Request Signature</h3>
               <button onClick={() => setSignatureRequestOrder(null)} className="text-gray-400 hover:text-gray-600">

@@ -107,7 +107,7 @@ export function RFQReportModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white text-left align-middle shadow-xl transition-all max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-brand-primary-600 to-brand-primary-700 px-6 py-4">
                   <div className="flex items-center space-x-3">
