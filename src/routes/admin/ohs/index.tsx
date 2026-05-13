@@ -904,9 +904,17 @@ function ToolboxAckModal({ token, toolboxTalkId, onClose }: { token: string; too
               <div>
                 <h3 className="font-semibold mb-2 text-green-700">Acknowledged ({data.data?.acks?.length || 0})</h3>
                 {(data.data?.acks || []).map((a: any) => (
-                  <div key={a.id} className="border-b py-1">
-                    <p>{a.user?.firstName} {a.user?.lastName}</p>
-                    <p className="text-xs text-gray-500">{new Date(a.acknowledgedAt).toLocaleString()}</p>
+                  <div key={a.id} className="border-b py-2">
+                    <p className="font-medium">{a.user?.firstName} {a.user?.lastName}</p>
+                    <p className="text-xs text-gray-500">{a.user?.role} · {a.user?.email}</p>
+                    <p className="text-xs text-gray-500">{new Date(a.ackedAt).toLocaleString()}</p>
+                    {a.signatureImage ? (
+                      <img src={a.signatureImage} alt="signature" className="mt-1 h-12 border rounded bg-white" />
+                    ) : a.signatureText ? (
+                      <p className="mt-1 italic text-sm">/s/ {a.signatureText}</p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-400 italic">No signature captured</p>
+                    )}
                   </div>
                 ))}
                 {!data.data?.acks?.length && <p className="text-gray-500 text-xs">None yet</p>}
@@ -935,7 +943,11 @@ function CreateToolboxModal({ token, onClose, onSaved }: { token: string; onClos
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [targetRoles, setTargetRoles] = useState<string[]>(["ARTISAN", "CONTRACTOR"]);
+  const [targetUserIds, setTargetUserIds] = useState<number[]>([]);
+  const [userSearch, setUserSearch] = useState("");
   const [ackDeadline, setAckDeadline] = useState("");
+
+  const assignable = useQuery(trpc.ohsListAssignableUsers.queryOptions({ token, search: userSearch || undefined }));
 
   const generate = useMutation(trpc.ohsGenerateToolboxTalk.mutationOptions({
     onSuccess: (res: any) => {
@@ -998,14 +1010,48 @@ function CreateToolboxModal({ token, onClose, onSaved }: { token: string; onClos
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Send to specific people (optional)</label>
+                <p className="text-xs text-gray-500 mb-2">Pick individual artisans / staff who must sign this talk. They are notified in addition to the target-role groups above.</p>
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Search by name or email…"
+                  className="w-full border rounded-lg px-3 py-2 mb-2 text-sm"
+                />
+                <div className="border rounded-lg max-h-48 overflow-y-auto divide-y">
+                  {(assignable.data || []).map((u: any) => {
+                    const checked = targetUserIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setTargetUserIds((p) => e.target.checked ? [...p, u.id] : p.filter((x) => x !== u.id))}
+                        />
+                        <div className="flex-1">
+                          <div>{u.firstName} {u.lastName}</div>
+                          <div className="text-xs text-gray-500">{u.role} · {u.email}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                  {(!assignable.data || assignable.data.length === 0) && (
+                    <p className="text-xs text-gray-500 px-3 py-2">No users found.</p>
+                  )}
+                </div>
+                {targetUserIds.length > 0 && (
+                  <p className="text-xs text-amber-700 mt-1">{targetUserIds.length} specific recipient(s) selected.</p>
+                )}
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Ack deadline (optional)</label>
                 <input type="date" value={ackDeadline} onChange={(e) => setAckDeadline(e.target.value)} className="border rounded-lg px-3 py-2" />
               </div>
             </div>
             <div className="p-4 border-t flex justify-end gap-2">
               <button onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button>
-              <button onClick={() => save.mutate({ token, topic, title, content, targetRoles, ackDeadline: ackDeadline || undefined, publish: false })} className="px-4 py-2 border rounded-lg">Save draft</button>
-              <button onClick={() => save.mutate({ token, topic, title, content, targetRoles, ackDeadline: ackDeadline || undefined, publish: true })} disabled={save.isPending} className="px-4 py-2 bg-amber-600 text-white rounded-lg flex items-center gap-2">
+              <button onClick={() => save.mutate({ token, topic, title, content, targetRoles, targetUserIds, ackDeadline: ackDeadline || undefined, publish: false })} className="px-4 py-2 border rounded-lg">Save draft</button>
+              <button onClick={() => save.mutate({ token, topic, title, content, targetRoles, targetUserIds, ackDeadline: ackDeadline || undefined, publish: true })} disabled={save.isPending} className="px-4 py-2 bg-amber-600 text-white rounded-lg flex items-center gap-2">
                 {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />} Publish
               </button>
             </div>

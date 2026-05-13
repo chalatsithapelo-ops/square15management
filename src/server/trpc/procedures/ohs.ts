@@ -749,6 +749,7 @@ export const ohsCreateToolboxTalk = baseProcedure
     topic: z.string().min(2),
     content: z.string().min(10),
     targetRoles: z.array(z.string()).default([]),
+    targetUserIds: z.array(z.number()).default([]),
     projectId: z.number().optional().nullable(),
     orderId: z.number().optional().nullable(),
     ackDeadline: z.string().optional().nullable(),
@@ -764,6 +765,7 @@ export const ohsCreateToolboxTalk = baseProcedure
         topic: input.topic,
         content: input.content,
         targetRoles: input.targetRoles,
+        targetUserIds: input.targetUserIds,
         projectId: input.projectId ?? null,
         orderId: input.orderId ?? null,
         contractorId: isContractorRoleStr(user.role) ? user.id : null,
@@ -774,16 +776,32 @@ export const ohsCreateToolboxTalk = baseProcedure
       },
     }));
 
-    if (input.publish && input.targetRoles.length > 0) {
-      const targets = await db.user.findMany({
-        where: { role: { in: input.targetRoles } },
-        select: { id: true, role: true },
-      });
-      for (const u of targets) {
+    if (input.publish) {
+      const recipientIds = new Set<number>();
+      const recipients: Array<{ id: number; role: string }> = [];
+      if (input.targetRoles.length > 0) {
+        const byRole = await db.user.findMany({
+          where: { role: { in: input.targetRoles } },
+          select: { id: true, role: true },
+        });
+        for (const u of byRole) {
+          if (!recipientIds.has(u.id)) { recipientIds.add(u.id); recipients.push(u); }
+        }
+      }
+      if (input.targetUserIds.length > 0) {
+        const byId = await db.user.findMany({
+          where: { id: { in: input.targetUserIds } },
+          select: { id: true, role: true },
+        });
+        for (const u of byId) {
+          if (!recipientIds.has(u.id)) { recipientIds.add(u.id); recipients.push(u); }
+        }
+      }
+      for (const u of recipients) {
         await createNotification({
           recipientId: u.id,
           recipientRole: u.role,
-          message: `New toolbox talk: ${tb.title}. Please read and acknowledge${input.ackDeadline ? ` by ${input.ackDeadline.slice(0, 10)}` : ""}.`,
+          message: `New toolbox talk: ${tb.title}. Please read and sign${input.ackDeadline ? ` by ${input.ackDeadline.slice(0, 10)}` : ""}.`,
           type: "OHS_TOOLBOX_TALK_PUBLISHED",
           relatedEntityId: tb.id,
           relatedEntityType: "OHS_TOOLBOX_TALK",
@@ -800,7 +818,11 @@ export const ohsListToolboxTalks = baseProcedure
     const where: any = {};
     if (input.forMe) {
       where.status = "PUBLISHED";
-      where.OR = [{ targetRoles: { has: user.role } }, { targetRoles: { isEmpty: true } }];
+      where.OR = [
+        { targetRoles: { has: user.role } },
+        { targetRoles: { isEmpty: true }, targetUserIds: { isEmpty: true } },
+        { targetUserIds: { has: user.id } },
+      ];
     } else if (!isAdmin(user)) {
       // Non-admin (and not forMe filter): contractors see their own + admin-published.
       if (isContractorRoleStr(user.role)) {
@@ -808,7 +830,10 @@ export const ohsListToolboxTalks = baseProcedure
       } else {
         // Other roles only see what targets them.
         where.status = "PUBLISHED";
-        where.OR = [{ targetRoles: { has: user.role } }, { targetRoles: { isEmpty: true } }];
+        where.OR = [
+          { targetRoles: { has: user.role } },
+          { targetUserIds: { has: user.id } },
+        ];
       }
     }
     const talks = await db.ohsToolboxTalk.findMany({
@@ -829,13 +854,16 @@ export const ohsListToolboxTalks = baseProcedure
   });
 
 export const ohsAcknowledgeToolboxTalk = baseProcedure
-  .input(z.object({ token: z.string(), toolboxTalkId: z.number(), signatureText: z.string().optional() }))
+  .input(z.object({ token: z.string(), toolboxTalkId: z.number(), signatureText: z.string().optional(), signatureImage: z.string().optional() }))
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
+    if (!input.signatureImage && !input.signatureText) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "A signature (drawn or typed) is required to acknowledge." });
+    }
     return db.ohsAcknowledgement.upsert({
       where: { userId_toolboxTalkId: { userId: user.id, toolboxTalkId: input.toolboxTalkId } },
-      update: { ackedAt: new Date(), signatureText: input.signatureText ?? null },
-      create: { userId: user.id, toolboxTalkId: input.toolboxTalkId, signatureText: input.signatureText ?? null },
+      update: { ackedAt: new Date(), signatureText: input.signatureText ?? null, signatureImage: input.signatureImage ?? null },
+      create: { userId: user.id, toolboxTalkId: input.toolboxTalkId, signatureText: input.signatureText ?? null, signatureImage: input.signatureImage ?? null },
     });
   });
 
@@ -845,7 +873,13 @@ export const ohsExportToolboxTalkPdf = baseProcedure
     await authenticateUser(input.token);
     const tb = await db.ohsToolboxTalk.findUnique({
       where: { id: input.toolboxTalkId },
-      include: { createdBy: { select: { firstName: true, lastName: true } } },
+      include: {
+        createdBy: { select: { firstName: true, lastName: true } },
+        acks: {
+          include: { user: { select: { firstName: true, lastName: true, email: true, role: true } } },
+          orderBy: { ackedAt: "asc" },
+        },
+      },
     });
     if (!tb) throw new TRPCError({ code: "NOT_FOUND", message: "Toolbox talk not found" });
     const company = await companyHeader();
@@ -858,6 +892,14 @@ export const ohsExportToolboxTalkPdf = baseProcedure
       ackDeadline: tb.ackDeadline,
       createdByName: tb.createdBy ? `${tb.createdBy.firstName} ${tb.createdBy.lastName}` : undefined,
       company,
+      attendance: tb.acks.map((a) => ({
+        name: `${a.user.firstName} ${a.user.lastName}`,
+        role: a.user.role,
+        email: a.user.email,
+        ackedAt: a.ackedAt,
+        signatureImage: a.signatureImage,
+        signatureText: a.signatureText,
+      })),
     });
     return { pdf: buffer.toString("base64"), filename: `${tb.reference || "toolbox-talk"}.pdf` };
   });
@@ -975,13 +1017,16 @@ export const ohsDeleteDocument = baseProcedure
   });
 
 export const ohsAcknowledgeDocument = baseProcedure
-  .input(z.object({ token: z.string(), documentId: z.number(), signatureText: z.string().optional() }))
+  .input(z.object({ token: z.string(), documentId: z.number(), signatureText: z.string().optional(), signatureImage: z.string().optional() }))
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
+    if (!input.signatureImage && !input.signatureText) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "A signature (drawn or typed) is required to acknowledge." });
+    }
     return db.ohsAcknowledgement.upsert({
       where: { userId_documentId: { userId: user.id, documentId: input.documentId } },
-      update: { ackedAt: new Date(), signatureText: input.signatureText ?? null },
-      create: { userId: user.id, documentId: input.documentId, signatureText: input.signatureText ?? null },
+      update: { ackedAt: new Date(), signatureText: input.signatureText ?? null, signatureImage: input.signatureImage ?? null },
+      create: { userId: user.id, documentId: input.documentId, signatureText: input.signatureText ?? null, signatureImage: input.signatureImage ?? null },
     });
   });
 
@@ -1109,21 +1154,24 @@ export const ohsListToolboxAcks = baseProcedure
     assertOhsManager(user);
     const tb = await db.ohsToolboxTalk.findUnique({
       where: { id: input.toolboxTalkId },
-      select: { id: true, contractorId: true, targetRoles: true },
+      select: { id: true, contractorId: true, targetRoles: true, targetUserIds: true },
     });
     if (!tb) throw new TRPCError({ code: "NOT_FOUND", message: "Toolbox talk not found" });
     if (!isAdmin(user) && tb.contractorId && tb.contractorId !== user.id) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Not authorised." });
     }
+    const candidateWhere: any = [];
+    if (tb.targetRoles.length > 0) candidateWhere.push({ role: { in: tb.targetRoles } });
+    if (tb.targetUserIds.length > 0) candidateWhere.push({ id: { in: tb.targetUserIds } });
     const [acks, candidates] = await Promise.all([
       db.ohsAcknowledgement.findMany({
         where: { toolboxTalkId: input.toolboxTalkId },
         include: { user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } } },
         orderBy: { ackedAt: "desc" },
       }),
-      tb.targetRoles.length > 0
+      candidateWhere.length > 0
         ? db.user.findMany({
-            where: { role: { in: tb.targetRoles } },
+            where: { OR: candidateWhere },
             select: { id: true, firstName: true, lastName: true, email: true, role: true },
           })
         : Promise.resolve([] as Array<{ id: number; firstName: string; lastName: string; email: string; role: string }>),

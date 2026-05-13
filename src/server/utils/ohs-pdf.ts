@@ -341,6 +341,25 @@ export interface ToolboxTalkPdfInput {
   ackDeadline?: Date | null;
   createdByName?: string;
   company: CompanyHeader;
+  attendance?: Array<{
+    name: string;
+    role: string;
+    email: string;
+    ackedAt: Date;
+    signatureImage?: string | null;
+    signatureText?: string | null;
+  }>;
+}
+
+function decodeSignatureImage(dataUrl: string | null | undefined): Buffer | null {
+  if (!dataUrl) return null;
+  try {
+    const m = /^data:image\/(png|jpe?g);base64,(.*)$/i.exec(dataUrl.trim());
+    if (!m) return null;
+    return Buffer.from(m[2]!, "base64");
+  } catch {
+    return null;
+  }
 }
 
 export async function buildToolboxTalkPdf(input: ToolboxTalkPdfInput): Promise<Buffer> {
@@ -358,15 +377,49 @@ export async function buildToolboxTalkPdf(input: ToolboxTalkPdfInput): Promise<B
   doc.font("Helvetica").fontSize(10).text(input.content, { align: "justify" });
 
   doc.addPage();
-  sectionHeading(doc, "Attendance Register");
+  sectionHeading(doc, "Attendance & Signatures");
   doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(
-    "Each attendee must sign below to confirm they attended this talk and understood the content.",
+    "Each attendee signed electronically on the system to confirm they read and understood this talk.",
     { align: "left" }
   );
   doc.moveDown(0.4).fillColor("black");
-  for (let i = 1; i <= 18; i++) {
-    doc.text(`${String(i).padStart(2, "0")}.  Name: __________________________   ID: ____________   Signature: __________________`);
-    doc.moveDown(0.3);
+
+  const attendees = input.attendance || [];
+  if (attendees.length === 0) {
+    doc.font("Helvetica-Oblique").fontSize(10).fillColor(MUTED).text("No acknowledgements captured yet.").fillColor("black");
+  } else {
+    let i = 0;
+    for (const a of attendees) {
+      i++;
+      // Page-break if near bottom
+      if (doc.y > 720) {
+        doc.addPage();
+        sectionHeading(doc, "Attendance & Signatures (cont.)");
+      }
+      const rowTop = doc.y;
+      doc.font("Helvetica-Bold").fontSize(10).text(`${String(i).padStart(2, "0")}.  ${a.name}`, 40, rowTop, { continued: false });
+      doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(`${a.role} · ${a.email}`);
+      doc.text(`Signed: ${a.ackedAt.toISOString().replace("T", " ").slice(0, 16)} UTC`);
+      doc.fillColor("black");
+
+      const sigBuf = decodeSignatureImage(a.signatureImage);
+      const sigY = doc.y + 2;
+      if (sigBuf) {
+        try {
+          doc.image(sigBuf, 320, rowTop, { fit: [200, 60] });
+        } catch {
+          doc.font("Helvetica-Oblique").fontSize(9).text("(signature image unreadable)", 320, rowTop);
+        }
+      } else if (a.signatureText) {
+        doc.font("Helvetica-Oblique").fontSize(11).text(`/s/ ${a.signatureText}`, 320, rowTop + 8);
+      } else {
+        doc.font("Helvetica-Oblique").fontSize(9).fillColor(MUTED).text("(no signature captured)", 320, rowTop + 8).fillColor("black");
+      }
+      // Ensure cursor below the row
+      doc.y = Math.max(doc.y, sigY + 60);
+      doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor("#cccccc").stroke().strokeColor("black");
+      doc.moveDown(0.4);
+    }
   }
 
   legalFooter(doc);

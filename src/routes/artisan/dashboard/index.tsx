@@ -48,6 +48,7 @@ import { SignatureCapture } from "~/components/SignatureCapture";
 import { MetricCard } from "~/components/MetricCard";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
 import ItemizedExpenseTracker from "~/components/projects/ItemizedExpenseTracker";
+import { ArtisanDocumentationTab } from "~/components/artisan/ArtisanDocumentationTab";
 
 export const Route = createFileRoute("/artisan/dashboard/")({
   beforeLoad: ({ location }) => {
@@ -1835,6 +1836,20 @@ function ArtisanDashboard() {
                 Reviews
               </div>
             </Tab>
+            <Tab
+              className={({ selected }) =>
+                `w-full sm:w-auto flex-1 sm:flex-none rounded-xl py-3 px-5 text-sm font-medium leading-5 transition-all transform whitespace-nowrap ${
+                  selected
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-md scale-105"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+                }`
+              }
+            >
+              <div className="flex items-center justify-center gap-2">
+                <FileText className="h-4 w-4" />
+                Documentation
+              </div>
+            </Tab>
           </Tab.List>
 
           <Tab.Panels>
@@ -3022,6 +3037,17 @@ function ArtisanDashboard() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <Loader2 className="mx-auto h-12 w-12 text-gray-400 mb-4 animate-spin" />
                   <p className="text-sm text-gray-600">Loading reviews...</p>
+                </div>
+              )}
+            </Tab.Panel>
+
+            {/* Documentation Tab */}
+            <Tab.Panel>
+              {token ? (
+                <ArtisanDocumentationTab token={token} />
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <p className="text-sm text-gray-600">Sign in to view your documentation.</p>
                 </div>
               )}
             </Tab.Panel>

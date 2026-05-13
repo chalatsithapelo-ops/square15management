@@ -4830,6 +4830,8 @@ model OhsDocument {
   contractor      User?           @relation("OhsDocumentContractor", fields: [contractorId], references: [id])
   // Required acknowledgements?
   requiresAck     Boolean         @default(false)
+  // Optional explicit recipients (in addition to role-based targets).
+  targetUserIds   Int[]           @default([])
   // Acknowledgement records.
   acks            OhsAcknowledgement[]
 
@@ -5012,6 +5014,8 @@ model OhsToolboxTalk {
   status        OhsRiskStatus        @default(DRAFT)
   ackDeadline   DateTime?
   publishedPdfUrl String?
+  // Optional explicit recipients (in addition to role-based targets). Used to send a talk to specific artisans.
+  targetUserIds Int[]                @default([])
   acks          OhsAcknowledgement[]
 
   @@index([status])
@@ -5030,6 +5034,8 @@ model OhsAcknowledgement {
   toolboxTalk     OhsToolboxTalk? @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
   ackedAt         DateTime        @default(now())
   signatureText   String?
+  // Drawn signature captured on the device (data URL, base64-encoded PNG).
+  signatureImage  String?         @db.Text
   ipAddress       String?
   userAgent       String?
 
