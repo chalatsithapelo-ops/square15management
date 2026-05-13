@@ -940,7 +940,16 @@ function CreateToolboxModal({ token, onClose, onSaved }: { token: string; onClos
   const generate = useMutation(trpc.ohsGenerateToolboxTalk.mutationOptions({
     onSuccess: (res: any) => {
       setTitle(res.title || title);
-      setContent(`${res.summary || ""}\n\nKey points:\n${(res.keyPoints || []).map((p: string) => "• " + p).join("\n")}\n\nQuestions:\n${(res.questions || []).map((q: string) => "• " + q).join("\n")}`);
+      const bullets = (arr: any) => Array.isArray(arr) && arr.length > 0 ? arr.map((p: string) => "• " + p).join("\n") : "—";
+      const sections: string[] = [];
+      if (res.fullScript) sections.push(String(res.fullScript).trim());
+      if (Array.isArray(res.keyMessages) && res.keyMessages.length) sections.push(`Key messages:\n${bullets(res.keyMessages)}`);
+      if (Array.isArray(res.doList) && res.doList.length) sections.push(`Workers MUST:\n${bullets(res.doList)}`);
+      if (Array.isArray(res.dontList) && res.dontList.length) sections.push(`Workers MUST NOT:\n${bullets(res.dontList)}`);
+      if (Array.isArray(res.ppeRequired) && res.ppeRequired.length) sections.push(`PPE required:\n${bullets(res.ppeRequired)}`);
+      if (res.emergencyResponse) sections.push(`Emergency response:\n${res.emergencyResponse}`);
+      if (Array.isArray(res.legalReferences) && res.legalReferences.length) sections.push(`Legal references:\n${bullets(res.legalReferences)}`);
+      setContent(sections.join("\n\n"));
       toast.success("AI draft created — review and edit");
     },
     onError: (e: any) => toast.error(e.message),
