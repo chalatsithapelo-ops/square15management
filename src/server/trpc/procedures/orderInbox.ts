@@ -136,10 +136,10 @@ export const reviewOrderEmail = baseProcedure
       return { success: true, action: "REJECTED" as const };
     }
 
-    // Approve: update order with any edits, move to PENDING
+    // Approve: update order with any edits, move to PENDING (or ASSIGNED if artisan assigned)
     const edits = input.edits || {};
     const orderUpdate: any = {
-      status: "PENDING",
+      status: edits.assignedToId ? "ASSIGNED" : "PENDING",
     };
 
     if (edits.customerName) orderUpdate.customerName = edits.customerName;

@@ -67,7 +67,8 @@ export const convertQuotationToOrder = baseProcedure
 
     const serviceType = quotation.lead?.serviceType || quotation.projectDescription || "Service from Quotation";
 
-    const willAssign = !!(input.assignedToId || quotation.assignedToId);
+    const resolvedAssignedToId = input.assignedToId ?? quotation.assignedToId ?? null;
+    const willAssign = !!resolvedAssignedToId;
     const slaStartedAt = willAssign && input.slaHours ? new Date() : null;
     const slaDueAt = slaStartedAt && input.slaHours ? new Date(slaStartedAt.getTime() + input.slaHours * 60 * 60 * 1000) : null;
 
@@ -80,8 +81,8 @@ export const convertQuotationToOrder = baseProcedure
         address: quotation.address,
         serviceType,
         description: quotation.projectDescription || `Job from quotation ${quotation.quoteNumber}`,
-        status: input.assignedToId ? "ASSIGNED" : "PENDING",
-        assignedToId: input.assignedToId || quotation.assignedToId,
+        status: willAssign ? "ASSIGNED" : "PENDING",
+        assignedToId: resolvedAssignedToId,
         leadId: quotation.leadId,
         quotationId: quotation.id,
         clientId: quotation.clientId,

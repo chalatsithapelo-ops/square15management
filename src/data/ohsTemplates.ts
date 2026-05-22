@@ -254,64 +254,153 @@ const POLICIES: OhsTemplate[] = [
     requiresAck: true,
     content: HEADER_BLOCK.replace("{{TITLE}}", "Occupational Health & Safety Policy") + `## 1. Policy Statement
 
-{{COMPANY_NAME}} is committed to providing and maintaining a safe and healthy working environment for all employees, contractors, visitors and members of the public who may be affected by our undertaking. We regard the management of health and safety as an integral part of our business and equal in priority to production, quality and cost.
+{{COMPANY_NAME}} regards the protection of the health and safety of its employees, sub-contractors, visitors and the public as an inseparable corporate value, ranked equal in priority to quality, production, schedule and cost. The Chief Executive accepts the duty imposed by section 16(1) of the Occupational Health and Safety Act, 85 of 1993 ("the Act") and provides this policy as the framework within which all operations of the company shall be planned, supervised and reviewed.
+
+We do not regard injuries, occupational disease, or significant environmental damage as inevitable consequences of doing business. Our stated objective is **zero harm** to people, the public and the natural environment, achieved through systematic hazard elimination, engineered controls and a competent, accountable workforce.
 
 ## 2. Scope
 
-This policy applies to all employees, sub-contractors, suppliers, visitors and any other person on premises or sites under the control of {{COMPANY_NAME}}.
+This policy is binding on every person who performs work for or on behalf of {{COMPANY_NAME}}, including:
 
-## 3. Objectives
+- Permanent, temporary, seasonal and part-time employees.
+- All sub-contractors and their workers (engaged as mandataries under section 37(2) of the Act).
+- Labour-broker employees.
+- Suppliers, hauliers and service providers entering company premises or sites.
+- Visitors, clients, consultants and members of the public lawfully on site.
 
-- Comply with the Occupational Health and Safety Act 85 of 1993 and all applicable regulations.
-- Eliminate or minimise risks to health and safety through hazard identification and risk assessment.
-- Provide and maintain a working environment that is safe and without risk to health.
-- Provide such information, instruction, training and supervision as is necessary to ensure the health and safety of employees.
-- Continually improve our OHS management system.
+It covers all undertakings of {{COMPANY_NAME}}, including offices, workshops, stores, project sites, vehicles and any temporary workplace established for the execution of contracted work.
 
-## 4. Responsibilities
+## 3. Guiding Principles
 
-### 4.1 Chief Executive Officer / Managing Director (16(1))
-The CEO accepts ultimate responsibility for the safety of {{COMPANY_NAME}} and has appointed competent persons in writing under Section 16(2) to assist in discharging these duties.
+1. **No work is so urgent that it may not be done safely.** Production and programme are subordinate to safety.
+2. **The hierarchy of control** (elimination, substitution, engineering, administration, PPE) is applied at every level of planning and at every revision of method.
+3. **Line management owns safety.** OHS practitioners advise and audit; they do not relieve managers and supervisors of their statutory duties.
+4. **Workers are the most important source of risk intelligence.** Their reports, concerns and refusals to do unsafe work are protected and acted upon.
+5. **Sub-contractors are held to the same standard as direct employees.**
+6. **Compliance is the floor, not the ceiling.** Where industry good practice or our internal standards exceed the law, our internal standards apply.
 
-### 4.2 Section 16(2) Appointee
-- Implement and maintain this policy across all sites and operations.
-- Ensure resources are available for health and safety.
-- Report to the CEO on OHS performance quarterly.
+## 4. Strategic Objectives & Performance Targets
 
-### 4.3 Site / Project Managers
-- Ensure all work is planned and executed safely.
-- Hold daily safety briefings (toolbox talks).
-- Investigate incidents and implement corrective actions.
+{{COMPANY_NAME}} commits to the following annual targets, reviewed quarterly by the executive:
 
-### 4.4 Employees (Section 14)
-- Take reasonable care for own health and safety and that of others.
-- Co-operate with the employer in fulfilling its duties.
-- Use PPE provided and report unsafe conditions.
-- Stop work and report any imminent danger.
+| KPI | Target |
+|-----|--------|
+| Fatalities | Zero |
+| Lost-Time Injury Frequency Rate (LTIFR per 1 000 000 hours) | <1.0 |
+| Total Recordable Injury Frequency Rate (TRIFR) | <3.0 |
+| All Section 24 incidents reported to DoEL on time | 100% |
+| Risk assessments current (within 24 months) for active activities | 100% |
+| Workforce training in date for the task performed | 100% |
+| Internal audit corrective actions closed by due date | >95% |
+| Toolbox talks delivered per worker per month | >=4 |
+| Hazard / near-miss reports per 100 workers per month | >=10 |
+| Sub-contractor section 37(2) agreements in place before mobilisation | 100% |
 
-## 5. Right to Refuse Unsafe Work
+## 5. Responsibilities & Accountabilities
 
-Every employee has the right to refuse to carry out work that they reasonably believe poses a serious or imminent danger to their health or safety, without fear of victimisation. Concerns must be raised with the supervisor or the appointed Safety Officer immediately.
+### 5.1 Chief Executive / Managing Director — Section 16(1)
 
-## 6. Consultation
+Accountable to the board and to the regulator for the discharge of all duties imposed on the employer by the Act. Signs, issues and reviews this policy; ensures that suitable Section 16(2) appointments are made; ensures that adequate financial, human and technical resources are made available; chairs the annual OHS management review.
 
-{{COMPANY_NAME}} consults with employees on OHS matters through:
-- The Health & Safety Committee (where 20+ employees on site, per Section 19).
-- Trained Health & Safety Representatives elected per Section 17.
-- Toolbox talks and team meetings.
+### 5.2 Section 16(2) Appointee(s)
 
-## 7. Review
+Appointed in writing in terms of section 16(2) to act on behalf of the CEO in respect of named operations or geographical areas. Responsible for implementing this policy, the OHS management system and the audit programme; for ensuring that all subordinate appointments under the Act and its regulations are made and accepted; and for reporting OHS performance quarterly to the CEO. The appointment letter, signed acceptance and current role description form part of the company OHS file.
 
-This policy is reviewed at least annually or whenever there is a significant change in operations, legislation or following a serious incident.
+### 5.3 Construction / Project Manager
 
-## 8. Approval
+Responsible for executing each project in accordance with the project-specific Health & Safety Plan, the Baseline HIRA and all applicable SWPs and permits. Ensures site induction, daily site inspection and weekly H&S meetings are held and recorded.
 
-Signed for and on behalf of {{COMPANY_NAME}}:
+### 5.4 OHS Manager / Safety Officer
+
+A technical advisor to line management. Co-ordinates the OHS management system, the audit programme, incident investigation, training records and the regulatory interface. Has the standing authority to stop unsafe work without prior reference to line management.
+
+### 5.5 Supervisors
+
+Accountable for safety in their work area for every shift they supervise. Before work commences they verify the JSA, permits, PPE, tools and competence of their crew; during work they remain present, observe and correct unsafe acts; after work they account for personnel and equipment and close out the permit.
+
+### 5.6 Health & Safety Representatives — Section 17
+
+Elected by the workforce; trained at company cost; perform monthly inspections; participate in incident investigations; sit on the Health & Safety Committee.
+
+### 5.7 Health & Safety Committee — Section 19
+
+Constituted where there are two or more H&S Representatives. Meets at least quarterly under written constitution; minutes filed in the H&S file and posted on the notice board.
+
+### 5.8 Employees — Section 14
+
+Take reasonable care for their own health and safety and that of others affected by their acts or omissions; co-operate with the employer; use the PPE and safety equipment provided; report unsafe conditions, unsafe acts and incidents; obey lawful safety instructions; comply with the alcohol & drug policy; and exercise their right and duty to stop unsafe work.
+
+### 5.9 Sub-contractors — Section 37(2)
+
+Deemed an employee of the mandator for purposes of the Act unless the contractor has signed a Mandatary Agreement assuming the duties of an employer. {{COMPANY_NAME}} requires every sub-contractor to sign such an agreement, to demonstrate competence and resources, and to comply with this policy.
+
+## 6. Risk Management
+
+A structured Hazard Identification and Risk Assessment (HIRA) process is the foundation of the system. Baseline HIRAs are compiled by competent risk assessors appointed under Construction Regulation 9 and are reviewed:
+
+- before any new activity commences;
+- when there is a material change in plant, method, environment or workforce;
+- after every recordable incident; and
+- at least every 24 months.
+
+Task-level Job Safety Analyses (JSAs) are completed and signed by the work team before each high-risk task. Permit-to-Work systems control hot work, confined-space entry, work at heights >6 m, excavation deeper than 1.5 m, electrical isolation, and lifting operations.
+
+## 7. Right to Refuse Unsafe Work
+
+No employee may be dismissed, disciplined, prejudiced or victimised in any way for refusing in good faith to perform work they reasonably believe to be unsafe, for raising an OHS concern, or for participating as a H&S Representative. Any such conduct against an employee is itself a disciplinary offence.
+
+## 8. Consultation, Communication & Worker Involvement
+
+OHS information flows in both directions. Methods include:
+
+- Site induction for every new arrival.
+- Daily pre-task briefings and toolbox talks (recorded with signatures).
+- Monthly H&S Representative inspections.
+- Quarterly H&S Committee meetings.
+- Hazard report cards and an anonymous SHEQ suggestion mailbox.
+- Visible felt leadership: senior managers conduct a minimum of one documented safety walk per quarter.
+
+## 9. Competence & Training
+
+No person performs a task for which they are not trained, certified and authorised. Training requirements per role are captured in the Training Matrix, which is reviewed monthly. Records of training, refreshers and certificates of fitness are retained for the period required by law and for a minimum of five years after termination of employment.
+
+## 10. Sub-contractor & Supplier Management
+
+Prospective sub-contractors are screened on OHS performance, competence and resources before contract award. Mobilisation is permitted only after the H&S file is verified complete (Letter of Good Standing, mandatary agreement, appointments, training matrix, risk assessments and method statements). Performance is monitored during execution and feeds into the approved supplier rating.
+
+## 11. Health, Wellness & Medical Surveillance
+
+Medical fitness certificates are obtained at induction and at the intervals required by the regulations applicable to the worker's role (construction, heights, drivers, noise, dust, chemicals). The company provides access to an Employee Assistance Programme for confidential support.
+
+## 12. Incident Management & Learning
+
+All incidents — including near-misses — are reported, investigated and learned from in terms of the Incident & Injury Reporting Procedure. Section 24 incidents are reported to the Provincial Director of the Department of Employment & Labour as required. Lessons learned are communicated in toolbox talks, in safety alerts and at the H&S Committee.
+
+## 13. Emergency Preparedness
+
+A site-specific Emergency Response Plan is in force from day one of every site set-up. Drills are conducted at least every six months and after any material change in occupancy, layout or hazards.
+
+## 14. Document Control & Records
+
+The master OHS file is maintained at the registered office and, for each project, at the site office. Records required to be retained by law are kept for the legally prescribed period; in any event, audit, training and exposure records are retained for not less than forty years where the law so requires.
+
+## 15. Management Review & Continuous Improvement
+
+This policy and the OHS management system are reviewed by the executive at least annually, using the structure of ISO 45001:2018 (Plan-Do-Check-Act). The review considers performance against the KPIs in section 4, audit findings, incident trends, legal updates, and stakeholder concerns. The outputs of the review are documented and drive the next annual OHS objectives.
+
+## 16. Communication of this Policy
+
+This policy is displayed prominently at every workplace, included in the induction pack for every new arrival, and acknowledged in writing by every employee, sub-contractor and visitor receiving an induction.
+
+## 17. Approval
+
+Issued under the authority of the Chief Executive Officer of {{COMPANY_NAME}}:
 
 _______________________________
 {{CEO_NAME}}
 {{CEO_TITLE}}
-Date: {{EFFECTIVE_DATE}}
+Date of issue: {{EFFECTIVE_DATE}}
+Next scheduled review: {{REVIEW_DATE}}
 ` + STANDARD_FOOTER,
   },
   {
@@ -325,9 +414,13 @@ Date: {{EFFECTIVE_DATE}}
     requiresAck: true,
     content: HEADER_BLOCK.replace("{{TITLE}}", "Personal Protective Equipment (PPE) Policy") + `## 1. Purpose
 
-To ensure that suitable PPE is provided, used, maintained and replaced as a last line of defence after engineering and administrative controls.
+To set out the requirements for the selection, provision, fitting, use, inspection, maintenance, replacement and disposal of personal protective equipment (PPE) at {{COMPANY_NAME}}, so as to discharge the employer's duty under section 8(1) of the OHS Act, General Safety Regulation 2 and Construction Regulation 5(1)(j), and to ensure that PPE is in fact the **last** line of defence after upstream controls have been applied.
 
-## 2. Hierarchy of Control
+## 2. Scope
+
+Applies to every person on premises or sites under the control of {{COMPANY_NAME}}, whether employee, sub-contractor, visitor, supplier or member of the public who may be exposed to a hazard.
+
+## 3. Hierarchy of Control
 
 PPE is the last layer of protection. Before issuing PPE, {{COMPANY_NAME}} will attempt to:
 - Eliminate the hazard.
@@ -336,38 +429,71 @@ PPE is the last layer of protection. Before issuing PPE, {{COMPANY_NAME}} will a
 - Apply administrative controls (procedures, rotation).
 - Issue appropriate PPE.
 
-## 3. Mandatory Site PPE
+The rationale for relying on PPE for any residual risk is recorded in the relevant risk assessment, together with the PPE specification and the inspection regime.
 
-The following PPE is mandatory on every site at all times:
-- Hard hat (SANS 1397) â€” replaced every 3 years or on impact.
-- Safety boots with steel toe and midsole (SANS 20345 S3).
-- High-visibility vest (Class 2 minimum, SANS 1387).
+## 4. Mandatory Site PPE
 
-## 4. Task-Specific PPE
+The following items are mandatory on every site at all times for every person within the work area:
 
-Issued based on risk assessment:
-- **Working at heights (>2m):** Full body harness with double lanyard and shock absorber (SANS 50361), inspected before each use.
-- **Electrical work:** Insulated gloves rated to circuit voltage, arc-rated clothing, dielectric boots.
-- **Welding / hot work:** Welding helmet (shade per process), leather apron, fire-resistant gloves and sleeves, respirator if galvanised material.
-- **Chemicals:** Splash goggles, chemical-resistant gloves matched to substance per MSDS, apron or coverall.
-- **Dust / silica / spray:** P2 / P3 respirator with fit-test; powered air respirator for prolonged exposure.
-- **Noise (>85 dB):** Hearing protection (ear plugs SNR â‰¥25 dB or muffs).
-- **Grinding / cutting:** Face shield over safety glasses, leather gloves, hearing protection.
+- Hard hat (SANS 1397, Class A/B, full peak preferred). Replaced every 36 months from the date of manufacture stamped on the shell, or immediately following any impact or visible damage.
+- Safety boots with steel toe and steel or composite midsole, ankle support, oil-and-slip-resistant sole (SANS 20345 S3 minimum; S5 for wet work).
+- High-visibility upper garment, Class 2 minimum (SANS 1387). Class 3 (long sleeves + bands) required where mobile plant operates at >40 km/h or where visibility is reduced.
+- Safety glasses with side-shields (SANS 1404), worn at all times outside the air-conditioned site office.
+- Long-sleeve overalls or work-shirt with long trousers; no shorts and no synthetic clothing where hot work is performed.
 
-## 5. Issue & Record Keeping
+## 5. Task-Specific PPE
 
-- All PPE is issued free of charge.
-- Every issue is recorded on the PPE Issue Register including item, size, date and worker signature (legal record under Section 8).
-- Workers are responsible for daily inspection and proper care.
-- Damaged or worn PPE is replaced immediately on request.
+Issued in accordance with the risk assessment for the task:
 
-## 6. Refusal to Wear PPE
+- **Working at heights (>2 m or where a fall of any height could cause injury):** Full body harness with double lanyard and shock absorber, SANS 50361 / EN 361, inspected before each use and formally inspected by a competent person at intervals not exceeding 6 months. Harness retired after a fall arrest event, after 6 years of service, or earlier on the manufacturer's recommendation.
+- **Electrical work:** Insulated gloves rated to system voltage (Class 00 to Class 4 per SANS 60903 / IEC 60903), with leather over-protectors; arc-rated clothing matched to the calculated incident energy (Cat 1 to 4 per NFPA 70E / SANS 10198-12); dielectric safety boots; insulated tools (SANS 60900); and a face shield rated for arc flash where indicated.
+- **Welding & hot work:** Auto-darkening welding helmet with shade matched to the process (DIN 9 to 14), full-length leather apron, leather gauntlets and sleeves, flame-resistant overalls (SANS 1423), safety boots, hearing protection. A P2 or P3 respirator (with appropriate gas / fume cartridge) is mandatory on galvanised, painted, plated or coated metal; powered air-purifying respirator (PAPR) for prolonged duty.
+- **Chemicals:** Indirect-vent splash goggles or full face shield (SANS 1404); chemical-resistant gloves of the correct polymer for the substance, breakthrough time exceeding the foreseeable exposure (consult the SDS section 8); chemical-resistant apron, suit or coverall; chemical-resistant boots; respirator selected on the basis of the SDS and an exposure assessment.
+- **Dust, silica, paint, spray & abrasive blasting:** Quantitatively fit-tested half- or full-face P2 or P3 respirator (SANS 50149); air-fed hood or PAPR for blasting and confined-space spray; eye protection rated for the spray substance.
+- **Noise:** Hearing protection issued for any exposure at or above 85 dB(A) TWA. Class of HPD selected such that the protected exposure under the HPD lies between 70 and 80 dB(A). Double protection (plugs + muffs) is required at or above 105 dB(A).
+- **Grinding, cutting & impact tools:** Full face shield over safety glasses; leather gauntlets; hearing protection; appropriate respirator for the substrate.
+- **Public road work & traffic exposure:** Class 3 high-visibility coverall; reflective trousers; hard hat with reflective banding.
+- **Cold work & exposure to refrigerants:** Insulated gloves; thermal coveralls; face shield where venting.
+- **Hot environments:** Cooling vest, hydration plan, cotton-only base layer, scheduled rest.
+- **Biological hazards (sewerage, medical waste, vermin):** Nitrile gloves, splash goggles, P3 respirator if aerosolisation possible, disposable coverall, washable boots, hand hygiene station.
 
-Wearing required PPE is a condition of work. Refusal is a disciplinary offence and the worker may be removed from the workplace until they comply.
+## 6. Selection & Procurement
 
-## 7. Responsibility
+PPE is selected against a risk-assessment-derived specification, not on price alone. All PPE bears the manufacturer's name, the relevant SANS / EN / ISO mark and the date of manufacture. Counterfeit or unmarked PPE is rejected on inspection.
 
-{{SAFETY_OFFICER_NAME}} is responsible for maintaining PPE stock, the issue register and audits.
+## 7. Fit Testing
+
+- Tight-fitting respirators (half-face, full-face) are quantitatively fit-tested on the wearer before first issue and at intervals not exceeding 12 months thereafter. A fit-test record (method, pass/fail, technician) is filed.
+- Workers shall be clean-shaven where the seal contacts the face. Beards, stubble or moustaches that cross the seal are incompatible with tight-fitting respirators; alternatives (PAPR with hood) are used.
+- Harnesses are sized to the wearer; one size does not fit all.
+
+## 8. Issue, Inspection & Replacement
+
+- All PPE is issued free of charge against the worker's signature on the PPE Issue Register.
+- The register records item, size, manufacturer, batch / serial number, issue date, expected replacement date and signature.
+- The worker performs a pre-use visual inspection before every shift; any damage or doubt removes the item from service.
+- Formal periodic inspections by a competent person follow the schedule: harnesses 6-monthly; respirators monthly; hearing protection annual; hard hats 6-monthly.
+- Damaged, worn, expired or contaminated PPE is withdrawn and destroyed to prevent re-issue.
+
+## 9. Training
+
+Workers receive practical training on the correct donning, doffing, adjustment, inspection, limitations and cleaning of every category of PPE issued to them. Training is repeated whenever the equipment changes and at intervals not exceeding 24 months.
+
+## 10. Refusal to Wear PPE
+
+Wearing the prescribed PPE is a condition of work. A worker who refuses to wear required PPE is immediately removed from the workplace and the matter is dealt with as a disciplinary offence in accordance with the company disciplinary code. Repeat offences may result in dismissal.
+
+## 11. Visitors & Sub-contractors
+
+Visitors are issued site PPE at the gate. Sub-contractors are required to provide compliant PPE to their workers and to maintain their own PPE issue register, which is open to audit by {{COMPANY_NAME}}.
+
+## 12. Records & Audit
+
+The PPE Issue Register, fit-test records and inspection records are retained for a minimum of five years. The PPE programme is audited internally at least annually and findings are tabled at the H&S Committee.
+
+## 13. Responsibility
+
+{{SAFETY_OFFICER_NAME}} owns the PPE programme: specifications, stockholding, the issue register, inspections and audit. Line supervisors enforce daily compliance.
 ` + STANDARD_FOOTER,
   },
   {
@@ -381,7 +507,7 @@ Wearing required PPE is a condition of work. Refusal is a disciplinary offence a
     requiresAck: true,
     content: HEADER_BLOCK.replace("{{TITLE}}", "Alcohol & Drug Policy") + `## 1. Statement
 
-In accordance with General Safety Regulation 2A, {{COMPANY_NAME}} prohibits any person who is or appears to be under the influence of intoxicating liquor or drugs from entering or remaining on premises or sites under its control.
+In accordance with General Safety Regulation 2A read with section 8 of the OHS Act, {{COMPANY_NAME}} prohibits any person who is, or who appears to be, under the influence of intoxicating liquor, narcotic drugs or any other intoxicating substance from entering or remaining on premises or sites under its control. The use, possession, distribution, sale or manufacture of any such substance on company property is strictly forbidden and may lead to summary dismissal and reporting to the South African Police Service.
 
 ## 2. Application
 
@@ -398,20 +524,59 @@ This policy applies to all employees, sub-contractors, visitors and delivery per
 
 Employees taking prescription medication that may impair judgement, reaction time or balance must inform their supervisor before commencing work.
 
-## 5. Testing
+## 5. Testing Programme
 
-{{COMPANY_NAME}} reserves the right to conduct random and for-cause breathalyser and substance testing. Refusal to submit to a test is treated the same as a positive result.
+{{COMPANY_NAME}} operates a testing programme conducted by suitably trained personnel in accordance with documented protocols:
+
+### 5.1 Categories of test
+
+- **Pre-employment / pre-placement** — for safety-critical positions (operators of mobile plant, drivers, working-at-heights, electricians, riggers, banksmen, confined-space entrants, supervisors).
+- **Periodic** — annual for safety-critical positions, as part of the medical surveillance programme.
+- **Random** — by computer-generated selection, no warning, both day and night shift, at a sampling rate of not less than 10% of safety-critical roles per quarter.
+- **For-cause / reasonable suspicion** — based on observed indicators (slurred speech, unsteady gait, smell of alcohol, abnormal behaviour) documented on the Reasonable Suspicion Report by two trained observers (usually the supervisor and the Safety Officer).
+- **Post-incident** — mandatory after any incident resulting in injury requiring more than first aid, significant property damage, or where reasonable suspicion of substance use exists.
+- **Return-to-duty** — after any period of leave related to substance use treatment.
+
+### 5.2 Methodology
+
+- Alcohol — calibrated evidential breathalyser. Threshold for impairment: any reading above 0.00 mg/l breath alcohol concentration on site (zero tolerance) and 0.24 mg/l for the purpose of declaring an offence. A confirmatory test is taken 15 minutes after a positive screen.
+- Drugs — oral fluid / urine immunoassay screen for at least the following panel: amphetamines, cannabis (THC), cocaine, opiates, methamphetamine, benzodiazepines. Positive screens are confirmed by laboratory GC-MS / LC-MS using chain-of-custody procedures.
+- A Medical Review Officer reviews all non-negative laboratory results and engages the donor before a final result is recorded.
+- Records of testing are confidential and held by occupational health under the rules applicable to medical records.
+
+### 5.3 Refusal
+
+Refusal to submit to a test, tampering with a sample, or attempting to substitute a sample, is treated as a positive result for disciplinary purposes.
 
 ## 6. Consequences
 
-A positive test, refusal, or visible impairment results in:
-- Immediate removal from the workplace.
-- Disciplinary action up to and including dismissal.
-- Reporting to the relevant authority where required.
+A positive test, refusal or visible impairment results in:
 
-## 7. Support
+- Immediate removal from the workplace and prohibition of self-driving home.
+- Suspension pending a formal disciplinary enquiry.
+- Sanction up to and including summary dismissal for a first offence in respect of safety-critical work.
+- Where appropriate, reporting to the South African Police Service and to the relevant statutory body.
 
-Employees who voluntarily seek help for substance dependence before a violation occurs may access the Employee Assistance Programme without disciplinary consequence.
+## 7. Voluntary Disclosure & Employee Assistance
+
+An employee who, before being selected for any test or any incident, voluntarily discloses a dependence and requests assistance:
+
+- Is referred without disciplinary consequence to the Employee Assistance Programme.
+- May be temporarily moved to a non-safety-critical role for the duration of treatment.
+- Returns to safety-critical duty only after a negative return-to-duty test and a treatment-provider's letter of fitness.
+- Is subject to an enhanced random testing regime (monthly) for a period of 24 months from the date of return.
+
+## 8. Prescription Medication
+
+Employees lawfully using prescription or over-the-counter medication that may impair judgement, reaction time, balance or sleep must inform their supervisor before commencing work. The Occupational Health Practitioner determines fitness for the assigned task; alternative duty is provided where necessary.
+
+## 9. Records & Confidentiality
+
+Testing records are medical records, retained by occupational health for the period required by law, accessible only to the worker, the Medical Review Officer and (in anonymised form) to management for the purpose of programme oversight.
+
+## 10. Responsibility
+
+The Section 16(2) Appointee owns this policy. {{SAFETY_OFFICER_NAME}} arranges testing logistics and disciplinary follow-up; Human Resources arranges enquiries; Occupational Health holds the medical records.
 ` + STANDARD_FOOTER,
   },
   {
@@ -460,7 +625,7 @@ Violations are treated as disciplinary offences. Repeat violations may result in
     requiresAck: true,
     content: HEADER_BLOCK.replace("{{TITLE}}", "Stop Work Authority Policy") + `## 1. Principle
 
-Every employee, sub-contractor and visitor at {{COMPANY_NAME}} has the unconditional right and the duty to stop any work activity they reasonably believe poses imminent serious harm to people, property or the environment.
+Every employee, sub-contractor and visitor at {{COMPANY_NAME}} has the unconditional right — and the express duty — to stop any work activity they reasonably believe poses an imminent risk of serious harm to people, property or the environment. Stop Work Authority (SWA) is a cornerstone of our safety culture and is exercised without fear of victimisation or reprisal, in line with section 14 of the OHS Act.
 
 ## 2. When to Use Stop Work Authority
 
@@ -479,13 +644,36 @@ Stop work immediately if you observe:
 4. Document the reason on a Stop Work Card or incident form.
 5. Do not resume work until the supervisor, in consultation with the Safety Officer if needed, has confirmed the hazard is controlled.
 
-## 4. No Reprisal
+## 4. Stop Work Card & Register
 
-{{COMPANY_NAME}} prohibits any retaliation, victimisation, intimidation or penalty against any person who exercises Stop Work Authority in good faith, even if it later proves unnecessary. Any such retaliation is a serious disciplinary offence.
+A pre-numbered Stop Work Card is completed for every SWA event. The card records: the date and time, the location and activity stopped, the reason, the person stopping the work, the supervisor notified, the immediate corrective action, the formal corrective action with a due date and responsible person, and the verification before resuming work. Cards are entered into the Stop Work Register and reviewed at the next H&S Committee meeting; trends are analysed quarterly.
 
-## 5. Recognition
+## 5. Resuming Work
 
-Workers who exercise Stop Work Authority in good faith are formally recognised. This is a desired behaviour, not a complaint.
+Work may resume only when the supervisor (in consultation with the Safety Officer if the hazard category warrants it) has verified that:
+
+- The hazard is eliminated or reduced to an acceptable residual level.
+- A revised JSA or method statement has been agreed and signed.
+- Any required permit, training or equipment is in place.
+- The work team has been re-briefed.
+
+## 6. No Reprisal
+
+{{COMPANY_NAME}} prohibits any retaliation, victimisation, intimidation, financial penalty, withdrawal of overtime, or any other adverse treatment of any person who exercises Stop Work Authority in good faith — even if subsequent investigation finds the perceived risk was lower than first appraised. Any such retaliation is itself a serious disciplinary offence and is investigated as such.
+
+## 7. Abuse of SWA
+
+Malicious, vexatious or repetitive false invocation of SWA is dealt with under the disciplinary code. The threshold for proving abuse is high: an honest mistake is **not** abuse.
+
+## 8. Recognition & Monitoring
+
+- Every SWA invocation is acknowledged in writing by management within 7 days, irrespective of finding.
+- A recognition programme rewards individuals and crews whose interventions prevent serious incidents.
+- The number of Stop Work Cards raised is tracked as a leading indicator; an unusually low rate is treated as a warning sign of under-reporting rather than as good performance.
+
+## 9. Training
+
+SWA is covered in every site induction and reinforced quarterly in toolbox talks. All supervisors receive specific training on how to respond to an SWA event without being defensive.
 ` + STANDARD_FOOTER,
   },
   {
@@ -497,35 +685,84 @@ Workers who exercise Stop Work Authority in good faith are formally recognised. 
     legalBasis: ["National Road Traffic Act 93 of 1996", "Driven Machinery Regulations"],
     placeholders: ["{{COMPANY_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Driving & Vehicle Safety Policy") + `## 1. Purpose
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Driving & Vehicle Safety Policy") + `## 1. Purpose & Scope
 
-To ensure the safety of all employees and the public during operation of company and personal vehicles on company business.
+This policy governs the use of every motor vehicle operated for or on behalf of {{COMPANY_NAME}} — company-owned, hired, leased, sub-contractor-owned and employee-owned vehicles used on company business — and gives effect to the National Road Traffic Act 93 of 1996, the Driven Machinery Regulations and Construction Regulation 23 (Construction Vehicles & Mobile Plant). Driving company business is treated as a workplace activity subject to the OHS Act.
 
-## 2. Driver Requirements
+## 2. Authorisation to Drive
 
-- Valid South African driver's licence appropriate to the vehicle class.
-- Professional Driving Permit (PrDP) where required (goods vehicles >3 500 kg, passenger vehicles, dangerous goods).
-- Annual eye test for drivers of heavy vehicles.
-- Drivers' licences inspected and photocopies kept on file.
+No person may operate a vehicle on company business unless they hold a Letter of Authorisation issued by the Fleet Manager and signed by the line manager. The authorisation is conditional on:
 
-## 3. Pre-Use Vehicle Inspection
+- A valid South African driver's licence of the correct class, in physical possession during driving.
+- A valid Professional Driving Permit (PrDP) where required — G (goods >3 500 kg GVM), P (passengers for reward), or D (dangerous goods).
+- A current operator's certificate (Driven Machinery Regulations) for forklift, telehandler, MEWP, excavator, dozer, TLB, roller, mobile crane or any other driven machinery, issued by a registered training provider, refreshed at intervals not exceeding 24 months.
+- A clean traffic record check at appointment and annually thereafter; significant infringements (over-speeding >40 km/h above limit, reckless / negligent driving, driving under the influence) trigger re-assessment.
+- An annual eye test (Snellen 6/12 with both eyes; field of view 120Â°; no uncorrected colour-blindness for traffic-signal-critical roles).
+- A defensive-driving certificate for drivers of heavy / passenger / dangerous-goods vehicles, refreshed every 24 months.
+- An annual medical certificate of fitness in terms of Construction Regulation 7(1) for drivers operating on construction sites.
 
-Drivers must complete the Vehicle Pre-Use Checklist before each shift: tyres, lights, indicators, brakes, fluid levels, mirrors, seatbelts, fire extinguisher, first aid kit, reflective triangles.
+Licence and certificate copies are kept on file by HR and verified against the original at issue, on renewal and at annual audit. Suspended, withdrawn, expired or fraudulent licences result in immediate withdrawal of authorisation.
 
-## 4. Behaviour
+## 3. Vehicle Specification & Maintenance
 
-- Wear seatbelts at all times.
-- No use of cellphones (handheld or hands-free) while driving.
-- No driving under the influence of alcohol, drugs or fatigue-inducing medication.
-- Comply with all speed limits and road traffic legislation.
+- All vehicles are roadworthy in terms of the National Road Traffic Act and carry a valid licence disc, COR / COF where applicable, and insurance.
+- A planned preventive-maintenance programme by an authorised dealer or accredited workshop services every vehicle at the manufacturer's recommended intervals or 10 000 km, whichever comes first. Service records are filed.
+- Tyres are replaced at 1.6 mm tread (sooner for heavy vehicles or wet-climate routes). Re-treaded tyres are prohibited on the steering axle.
+- Every vehicle carries: spare wheel, jack and wheel-spanner; reflective warning triangles (two); a 1 kg DCP fire extinguisher (with service tag in date); a first-aid kit (Regulation 7 contents); reflective vest for the driver; the up-to-date logbook.
+- Long-haul and heavy vehicles additionally carry: high-visibility chocks; reflective rear marker board; load-securing straps inspected pre-trip.
+- Reversing alarms and amber rotating beacons are fitted to all light vehicles entering construction sites and to all yellow-fleet items.
+- Seatbelts in all seating positions, including rear, are serviceable and used.
 
-## 5. Fatigue
+## 4. Pre-Use Inspection
 
-Drivers must not exceed continuous driving for more than 4 hours without a 30-minute break. Trip planning must allow for adequate rest.
+Drivers complete the Vehicle Pre-Use Checklist before each shift, on paper or on the digital app, and sign it. Defects are categorised as: (A) safety-critical — vehicle parked and reported immediately; (B) major — reported and repaired within 24 hours; (C) minor — reported at next service. A vehicle with a category A defect may not be driven until the defect is corrected and signed off.
 
-## 6. Incident Reporting
+The checklist includes: tyres (including spare) for pressure, tread, sidewall damage and lug-nut torque; lights, indicators, hazards, brake lights and reverse lights; brakes (parking and service); steering free play; fluid levels (oil, coolant, brake, power steering, screen-wash); battery and electrical; mirrors, screens and wipers; horn; seatbelts; first aid kit; fire extinguisher; warning triangles; load-securing equipment; vehicle documents (licence disc, logbook, driver's licence, PrDP).
 
-All vehicle incidents, however minor, must be reported within 24 hours.
+## 5. Journey Management
+
+- Trips of more than 200 km or more than 3 hours' driving are pre-planned: route, expected duration, scheduled rest stops, fuel stops, overnight accommodation, emergency contact.
+- Departure and arrival are reported to a duty controller.
+- Hours of driving comply with section 70 of the National Road Traffic Act and the National Road Traffic Regulations — maximum 15 hours' driving in any 24 hours including breaks; maximum 5 hours' continuous driving; minimum 30-minute rest after 5 hours; minimum 8 hours' continuous rest in any 24 hours.
+- High-risk routes (night driving in mountainous terrain, dangerous goods through dense urban areas, single-driver long haul) require approval from the line manager.
+
+## 6. Behaviour at the Wheel
+
+- Seatbelts in all positions, all the time.
+- Speed: within the legal speed limit and within the conditions of road, weather and visibility, whichever is lower. Company maximum speeds: 100 km/h for light vehicles on freeways; 80 km/h for goods >3 500 kg; 40 km/h on construction sites; 15 km/h within material laydown areas and adjacent to pedestrians; 5 km/h reversing.
+- Cellphone use — prohibited whether held or hands-free, both for voice calls and for any message handling. Devices are silenced and stowed before the engine is started.
+- Eating, drinking, smoking and any in-vehicle entertainment that distracts from the driving task are prohibited.
+- Following distance: minimum 3 seconds dry, 4 seconds wet, 5 seconds at night or under poor visibility.
+- Reverse parking on arrival is standard.
+- Spotter / banksman required for all reversing of heavy vehicles in occupied areas.
+
+## 7. Fatigue Management
+
+Fatigue is treated with the same seriousness as alcohol. Indicators are wandering across lanes, missed exits, micro-sleeps, repetitive yawning. A driver who is fatigued is required to stop immediately at a safe location and rest until fit, irrespective of schedule pressure. Disciplinary action does **not** follow a fatigue-related delay reported in advance.
+
+## 8. Alcohol & Drugs
+
+The Alcohol & Drug Policy applies in full. The legal limit (0.24 mg/l breath, 0.05 g/100 ml blood; 0.10 mg/l breath, 0.02 g/100 ml blood for PrDP holders) is the State threshold for prosecution — the company threshold for driving on company business is zero.
+
+## 9. Vehicle Incidents
+
+- All incidents — including "minor" parking bumps, single-vehicle off-road events and near-misses — are reported within 24 hours on the Vehicle Incident Report Form.
+- The driver remains at the scene (where safe), ensures injured persons receive first aid, calls emergency services where required, secures the scene, photographs damage and exchanges details.
+- Post-incident substance testing is mandatory for any injury or significant damage.
+- An IVMS / telematics download is preserved.
+- A formal investigation is conducted using ICAM; corrective actions are tracked to closure.
+
+## 10. In-Vehicle Monitoring
+
+Company vehicles are fitted with GPS / IVMS telematics that record location, speed, harsh acceleration / braking / cornering and seatbelt use. Reports are reviewed monthly by the Fleet Manager and discussed with drivers. The data is used both as a coaching tool and as evidence in disciplinary matters.
+
+## 11. Sub-contractor Drivers
+
+Sub-contractor drivers undergo the same authorisation process before being allowed to drive on company business or on any site under company control.
+
+## 12. Records
+
+Licences, PrDPs, medicals, defensive-driving certificates, vehicle inspection sheets and incident reports are retained for the period required by law and, in any event, for not less than three years.
 ` + STANDARD_FOOTER,
   },
   {
@@ -537,37 +774,105 @@ All vehicle incidents, however minor, must be reported within 24 hours.
     legalBasis: ["Construction Regulations 2014, Reg 10", "SANS 50361"],
     placeholders: ["{{COMPANY_NAME}}", "{{SAFETY_OFFICER_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Working at Heights Policy") + `## 1. Definition
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Working at Heights Policy") + `## 1. Definitions
 
-"Working at heights" means any work performed where a person could fall a distance of 2 metres or more, or where a fall of any height could cause injury (e.g. into machinery, water, traffic).
+- **Working at heights** — any work performed where a person could fall a distance of 2 metres or more, or where a fall of any height could result in injury (e.g. into machinery, water, traffic, hot or chemical processes, on rebar). Construction Regulation 10 applies.
+- **Competent person (Construction Reg 10)** — a person who has the knowledge, training and experience specific to the work or task being performed, is registered with a relevant statutory body and has been issued a competency certificate accepted by the Department of Employment & Labour.
+- **Fall arrest** — a system designed to arrest a fall already in progress, limiting deceleration force on the worker to 6 kN and free-fall distance to 2 m.
+- **Travel restraint** — a system that prevents the worker from reaching a fall hazard; preferred over fall arrest where layout permits.
+- **Total fall distance** — lanyard length + deceleration distance + harness stretch + worker height below D-ring + safety margin (minimum 1 m).
+- **Anchor** — a structural attachment certified at minimum 12 kN for single-user arrest, or 22 kN for two users, or designed by a professional engineer.
 
 ## 2. Hierarchy of Fall Protection
 
 In order of preference:
-1. **Eliminate** â€” design work to be done at ground level.
-2. **Passive** â€” guard rails (top rail 1mâ€“1.1m, mid-rail, toe-board), covered openings.
-3. **Travel restraint** â€” harness and lanyard set short to prevent reaching the edge.
-4. **Fall arrest** â€” full body harness, double lanyard with shock absorber, certified anchor (rated â‰¥12 kN), rescue plan.
 
-## 3. Mandatory Requirements
+1. **Eliminate** — design the work to be done at ground level (e.g. pre-assemble components on the ground and lift complete).
+2. **Passive collective protection** — guard-rails (top rail 1.0 to 1.1 m, mid-rail at 500 mm, toe-board 150 mm), covered openings, scaffolding with deck and edge-protection, mobile elevating work platforms.
+3. **Travel restraint** — harness and lanyard set to length such that the worker cannot reach the fall edge.
+4. **Fall arrest** — full body harness (SANS 50361 / EN 361), double lanyard with energy absorber (SANS 50355 / EN 355), self-retracting lanyard, certified anchor and a documented rescue plan.
+5. **Work positioning** — used only in conjunction with a back-up fall arrest system.
 
-- Fall Protection Plan compiled and signed by a competent person before work starts.
-- Annual medical fitness certificate for workers (Construction Regs Reg 10(1)(c)).
-- Annual height-work training certificate.
-- Pre-use harness inspection (logged on the Harness Inspection Register).
-- Rescue plan and rescue equipment on site whenever harnesses are used.
-- No working at heights in adverse weather (wind >32 km/h, storms, ice).
+The selection rationale is recorded in the Fall Protection Plan for every task.
 
-## 4. Prohibited
+## 3. Fall Protection Plan (Construction Reg 10(1)(a))
 
-- Lone working at heights.
-- Use of damaged, modified or out-of-date equipment.
-- Anchoring to inadequate points (gutters, light fittings, unsecured scaffolding).
-- Climbing on ladders to do anything other than access/egress for work above 6m.
+A written Fall Protection Plan, compiled and signed by a Construction-Reg-10-competent person, is in place before any work at heights begins. It contains:
 
-## 5. Permit System
+- The risk assessment for the specific work at heights.
+- The procedures, controls, equipment and PPE selected.
+- The names of all competent persons and authorised workers.
+- A rescue procedure, with the names of trained rescuers, the rescue equipment and the maximum tolerable suspension time.
+- The emergency procedure including notification, summoning and management of a suspended casualty.
+- The procedure for inspection of all equipment.
+- The training and medical fitness records.
 
-A Working at Heights Permit is required for all work above 6 metres, on roofs, or near unprotected edges. {{SAFETY_OFFICER_NAME}} or delegate issues permits after inspecting the work area.
+## 4. Worker Requirements
+
+No person performs work at heights unless they have:
+
+- A valid certificate of fitness from an Occupational Medical Practitioner (Construction Reg 7 and Reg 10(1)(c)) addressing fitness for working at heights specifically — vertigo, epilepsy, cardiac, diabetic, blood-pressure and musculoskeletal screen.
+- A current Working at Heights certificate (theory + practical assessment) from an accredited training provider, refreshed every 24 months.
+- A current Harness User certificate covering inspection, donning, anchoring and self-rescue.
+- Where the worker is to perform rescues, an additional Suspended-Casualty Rescue certificate.
+- A documented psychological assessment (where the risk assessment identifies indications for one).
+
+## 5. Equipment
+
+- All fall protection PPE is procured from a reputable manufacturer with the SANS / EN mark and the date of manufacture.
+- A unique serial number is engraved or labelled on every harness, lanyard, anchor, connector and SRL.
+- The Equipment Register records: item, serial, manufacturer, date of issue, expiry, inspection history, condition.
+- **Pre-use inspection** by the user before every use — webbing, stitching, hardware, energy absorber, lanyard ends.
+- **6-monthly inspection** by a Construction-Reg-10 competent person, logged in the register; sticker affixed to the harness with date and inspector identifier.
+- **Service life**: 6 years from date of manufacture for textile components, unless the manufacturer specifies otherwise; lifetime for hardware if not deformed. Any component subjected to a fall arrest event is permanently withdrawn from service.
+
+## 6. Anchors
+
+- Permanent anchors are installed and certified by a competent engineer; tested to 22 kN.
+- Temporary anchors (cross-arm straps, beam anchors, deadweight) are inspected before each use.
+- The Anchor Register identifies every certified anchor on site with a photograph, location and certification number.
+- Improvisation — anchoring to gutters, light fittings, conduits, ductwork, unsecured scaffolding or unrated structural members — is strictly prohibited.
+
+## 7. Rescue
+
+Rescue is **planned** before work commences. The plan addresses suspension trauma, which can become critical in 5 to 30 minutes of immobile suspension. Rescue equipment matched to the system (mechanical advantage haul, descent device, rescue tripod, MEWP rescue) is on-site, not back at the office. A minimum of two trained rescuers are present whenever fall-arrest is in use. Rescue drills are conducted quarterly with timed results recorded.
+
+## 8. Permit System
+
+A Working-at-Heights Permit is issued by {{SAFETY_OFFICER_NAME}} or a delegated competent person before any work commences:
+
+- above 6 metres;
+- on a roof of any pitch;
+- within 2 metres of an unprotected edge or opening;
+- on a fragile surface (translucent sheeting, weathered fibre-cement, glass);
+- in adverse weather windows;
+- at night.
+
+The permit is valid for a single shift, a single defined location and a single defined activity.
+
+## 9. Adverse Conditions
+
+Work at heights is suspended when wind speed exceeds 32 km/h (40 km/h for ground-supported scaffolding only); during lightning storms; in heavy rain affecting visibility or footing; or where any surface is icy or wet beyond a safe friction threshold. A handheld anemometer is used to verify wind on exposed steel.
+
+## 10. Prohibitions
+
+- Lone working at heights with fall-arrest systems.
+- Working at heights from a ladder (ladders are for access / egress only; brief light work above 6 m may be performed from a ladder only with a separate task-specific risk assessment and a stand-by buddy).
+- Working at heights without a current permit where one is required.
+- Use of damaged, expired, modified or unmarked equipment.
+- Stacking pallets, scaffolding components or any improvised platform to gain working height.
+- Sub-contractor crews working at heights without a Section 37(2) Mandatary Agreement and verified competence.
+
+## 11. Roles
+
+- {{SAFETY_OFFICER_NAME}} owns the policy, the Fall Protection Plans, the Equipment Register and the Rescue Programme.
+- Construction Reg 10 competent person signs every plan and every 6-monthly inspection.
+- Site supervisor verifies daily that workers, equipment and conditions are compliant before authorising work to commence.
+- Workers inspect their own equipment pre-use and report defects.
+
+## 12. Records
+
+The Fall Protection Plan, Equipment Register, training certificates, medical fitness certificates, inspection records, permits and rescue drill reports are retained for not less than five years.
 ` + STANDARD_FOOTER,
   },
   {
@@ -579,37 +884,76 @@ A Working at Heights Permit is required for all work above 6 metres, on roofs, o
     legalBasis: ["General Safety Regulations Reg 9", "SANS 10238"],
     placeholders: ["{{COMPANY_NAME}}", "{{FIRE_MARSHAL_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Hot Work Policy") + `## 1. Definition
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Hot Work Policy") + `## 1. Definition & Scope
 
-"Hot work" means welding, cutting, brazing, soldering, grinding, the use of disc cutters, or any other operation that produces an open flame, heat or sparks.
+"Hot work" means welding (arc, MIG, TIG, stick, spot), oxy-fuel cutting and heating, plasma cutting, grinding, disc-cutting, brazing, soldering, thermal spraying, the use of blow-torches, induction heating, and any other operation that generates an open flame, electric arc, sparks, slag, hot surfaces or significant heat capable of igniting combustible material. The policy applies on every premises and site under the control of {{COMPANY_NAME}}, in accordance with General Safety Regulation 9, Environmental Regulations for Workplaces Reg 9 and SANS 10238 (Oxy-fuel) and SANS 10142-1 (electrical welding).
 
-## 2. Permit Required
+## 2. Permit-to-Work
 
-A Hot Work Permit must be issued by {{FIRE_MARSHAL_NAME}} or a competent appointee before any hot work commences. The permit is valid only for one shift and one specific location.
+No hot work commences without a current Hot Work Permit issued by {{FIRE_MARSHAL_NAME}} or a competent delegated issuer. Permits are pre-numbered, valid for a single shift, a single defined location and a single defined activity, and are returned, signed-off and filed at the end of work. The permit is posted at the work location.
 
-## 3. Pre-Work Checks
+## 3. Pre-Work Survey
 
-- Combustible materials within 11 metres removed or protected with fire blankets.
-- Floor openings, drains and wall openings covered.
-- A trained fire watcher with a serviced fire extinguisher (DCP or CO2 minimum 9 kg) present throughout and for at least 30 minutes after work stops.
-- Atmosphere tested for flammable gas if any risk of vapour.
+Before issuing the permit the issuer inspects the site and confirms:
 
-## 4. Equipment
+- Combustible material within an 11-metre radius (horizontal and vertical) is either removed or shielded with non-combustible barriers, fire-retardant blankets (SANS 10238) and dampened sheeting as appropriate.
+- Floor and wall openings, ductwork penetrations, drains, cable trays and pipe penetrations within the radius are covered, sealed or shielded against falling sparks and slag.
+- Where work is on partitions, walls or ceilings, the opposite side is inspected, posted with a stand-by, and any combustibles removed.
+- The work area atmosphere has been tested with a calibrated 4-gas monitor for flammable vapours where any risk of vapour exists. LEL is below 5%.
+- Sprinklers and smoke detectors are operational; smoke detectors in the immediate area may be isolated only with written approval, restored within 30 minutes of work completion, and logged.
+- A trained Fire Watcher is briefed, equipped and in position.
+- Suitable extinguishers (DCP 9 kg minimum, or COâ‚‚ 5 kg minimum, plus a charged fire hose where available) are within 9 m of the work and accessible.
+- Hot work on closed containers, vessels, tanks, drums or pipework that has previously held a flammable, combustible or unknown substance is **not authorised** until the vessel has been emptied, cleaned, gas-freed (verified by 4-gas monitor with LEL <1%), and continuously ventilated.
+- Hot work in a confined space requires a separate Confined Space Entry Permit running concurrently with the Hot Work Permit.
 
-- Gas cylinders secured upright, with flashback arrestors on both sides.
-- All hoses inspected for damage.
-- Welding screens to protect adjacent workers from arc flash.
-- Local exhaust ventilation where galvanised, painted or coated materials are cut.
+## 4. Fire Watch
 
-## 5. PPE
+- A trained Fire Watcher is present **throughout** the hot work and for not less than 60 minutes after work stops (and after the lunch break or any other extended pause). During the fire watch period the Fire Watcher does no other task, including no cellphone use.
+- The Fire Watcher is competent in operating an extinguisher (theoretical and practical training within 12 months), knows the alarm activation procedure, and has the contact details of the emergency services.
+- For high-risk work (vapour areas, near insulation, multi-level structures) two Fire Watchers may be required — one at the work and one on the opposite side or the level below.
 
-Welder's helmet (correct shade), leather gloves, leather apron, long sleeves, safety boots, respirator if fumes.
+## 5. Equipment
 
-## 6. Prohibited
+- Gas cylinders are stored upright, chained to a stable structure, with their valve protection caps in place when not in use, and with full and empty cylinders segregated and labelled.
+- Cylinder valves are opened slowly; oxygen valves are never opened in the presence of oil, grease or any hydrocarbon.
+- Flashback arrestors are fitted at both the regulator and the torch end of every oxy-fuel set; non-return valves on every line.
+- Hoses are inspected pre-use for cracks, cuts and contamination, and replaced on any defect; whip-checks or cable ties secure couplings.
+- Welding leads are inspected for nicks, cracks and burns; earth returns are clamped directly to the workpiece, not to scaffolding, conduits, pipes, structural steel or rebar.
+- Power-source enclosures and earthing are intact.
+- Welding screens of opaque flame-retardant material isolate adjacent work areas from arc flash.
+- Local exhaust ventilation extracts fume at source; respirator backup (P3) for galvanised, coated, painted or stainless work.
 
-- Hot work without a permit.
-- Hot work in confined spaces without a separate confined space permit.
-- Hot work on closed containers that have held flammables until thoroughly cleaned and gas-tested.
+## 6. PPE
+
+Auto-darkening welding helmet (shade 9 to 14 matched to process), full-length leather apron, leather gauntlets and sleeves, flame-resistant overalls (SANS 1423), safety boots, hearing protection. P2 or P3 respirator (with the appropriate gas cartridge if vapours are present) on coated, plated, painted or galvanised metal. Powered air-purifying respirator for prolonged work or stainless steel where hexavalent chromium fume is generated.
+
+## 7. Cylinder Storage & Transport
+
+- Outdoor, shaded, fenced cylinder store with separation between oxidisers (oxygen, nitrous oxide) and fuel gases (acetylene, LPG): minimum 6 m, or a 1.6 m non-combustible barrier extending 500 mm above the taller cylinder.
+- LPG and acetylene cylinders are not stored in basements or below-ground areas.
+- Transport upright in a vented cradle; never in the cab of a vehicle.
+- A signed Cylinder Register tracks every cylinder on and off site.
+
+## 8. Prohibitions
+
+- Hot work without a current permit posted at the work.
+- Hot work in atmospheres above 5% LEL.
+- Hot work on closed containers without gas-freeing and continuous monitoring.
+- Hot work within 11 m of explosive, flammable or oxidising material that has not been removed or fully shielded.
+- Hot work in confined spaces without the additional confined-space permit.
+- Hot work performed by an untrained person; welders are trade-tested or competency-assessed and identified by name on the permit.
+- Hot work where smoke detection has been isolated and not reinstated.
+
+## 9. Roles
+
+- {{FIRE_MARSHAL_NAME}} issues and audits permits, maintains the register, and conducts random spot inspections.
+- Welders / cutters are responsible for the safe operation of their equipment and for stopping work immediately on any abnormality (gas smell, hose damage, unsafe environment).
+- Fire Watchers maintain a constant watch, sound the alarm, and operate the first-response extinguisher.
+- Supervisors verify the permit is in place before allowing the activity to start on their shift.
+
+## 10. Records
+
+The Hot Work Permit Register is retained for not less than three years. Permits, gas-test calibration certificates, welder competencies and Fire Watcher training records are filed in the H&S file.
 ` + STANDARD_FOOTER,
   },
   {
@@ -623,26 +967,69 @@ Welder's helmet (correct shade), leather gloves, leather apron, long sleeves, sa
     requiresAck: false,
     content: HEADER_BLOCK.replace("{{TITLE}}", "Communicable Disease & Hygiene Policy") + `## 1. Purpose
 
-To protect employees, contractors and visitors from communicable diseases and maintain a hygienic workplace.
+To protect employees, contractors, visitors and the public from communicable disease transmitted in or arising from the workplace, in accordance with section 8 of the OHS Act, the Hazardous Biological Agents Regulations, 2022 (HBA Regs) and the requirements of the National Health Act.
 
-## 2. Daily Practices
+## 2. Risk Categorisation
 
-- Employees feeling ill must stay home and notify their supervisor.
-- Hand washing facilities provided with soap and disposable towels.
-- Hand sanitiser at site entrances, ablutions and welfare areas.
-- Tools and shared equipment cleaned at shift change.
+Hazardous biological agents are classified per HBA Reg 5 by risk group (RG1 to RG4). Workplaces and activities are assessed for exposure pathways: airborne droplet, airborne aerosol, contact (skin, mucous membrane), vector-borne, and contaminated-surface (fomite). The Baseline HIRA covers biological agents alongside other hazards, and is updated whenever a new agent (e.g. an epidemic-stage pathogen) emerges.
 
-## 3. Outbreak Response
+## 3. General Hygiene Standards
 
-In the event of a notifiable disease outbreak {{COMPANY_NAME}} will:
-- Notify the Department of Health where required.
-- Trace and isolate exposed workers.
-- Suspend high-risk operations and reassess.
-- Comply with directions of the Chief Public Health Officer.
+- Hand-washing stations with running water, liquid soap and disposable towels at every welfare unit, ablution, canteen and worksite entry.
+- 70% alcohol hand sanitiser at additional points (turnstiles, vehicle cabs, shared tool stores, meeting rooms).
+- Drinking water from a Department-of-Water-and-Sanitation approved source; potable water signage; no shared cups.
+- Ablutions cleaned at least twice per shift, with cleaning records signed and posted.
+- Eating, drinking and smoking are confined to designated areas separated from production / construction zones.
+- Shared tools, control surfaces, vehicle cabs, MEWP controls and PPE that cannot be assigned to a single user are wiped down at shift hand-over with an appropriate disinfectant.
+- Personal-use PPE is not shared; where shared PPE is unavoidable (welding helmets, PAPR hoods) the inner surface is cleaned and a disposable hood liner is used.
 
-## 4. Vaccinations
+## 4. Reporting of Illness & Symptoms
 
-Vaccinations recommended by the Department of Health for site work (tetanus, hepatitis A/B where applicable) are made available at company cost.
+Employees presenting any of the following symptoms before or during a shift report to the supervisor and do not enter or remain in the workplace until reviewed by the Occupational Health Practitioner:
+
+- Fever ≥ 37.8 Â°C.
+- Persistent cough, shortness of breath.
+- Diarrhoea, vomiting or jaundice.
+- Unexplained rash, sores or open wounds.
+- A positive notifiable-disease test within the prior 14 days.
+
+Sick leave to seek medical assessment is unconditional; presenteeism is discouraged. Workers placed on isolation by a medical practitioner remain on certificated leave until cleared. Confidentiality of medical information is maintained.
+
+## 5. Notifiable Diseases
+
+Diseases listed under the National Health Act Notifiable Medical Conditions Regulations (e.g. tuberculosis, measles, viral haemorrhagic fevers, cholera, plague, meningococcal disease, Hepatitis A, food-borne intoxications above a defined incidence) are reported to the relevant District Health authority by the Occupational Health Practitioner. Workplace cases that meet the COIDA threshold are reported as occupational diseases.
+
+## 6. Outbreak Response
+
+On confirmation of a cluster or notifiable case, {{COMPANY_NAME}} will:
+
+- Notify the Provincial Department of Health and the Department of Employment & Labour where required by law.
+- Convene the Incident Management Team within 4 hours.
+- Conduct contact tracing covering the infectious period back from symptom onset; communicate with affected workers individually.
+- Isolate confirmed cases per public-health guidance; quarantine close contacts where instructed.
+- Implement enhanced environmental cleaning of affected areas using the disinfectant matched to the pathogen.
+- Reassess the Baseline HIRA and implement additional engineering, administrative and PPE controls (e.g. respiratory protection upgrade to N95 / P2, increased ventilation, partitioning, shift de-densification, remote-work arrangements).
+- Maintain communication with the workforce through daily briefings and the H&S Committee.
+
+## 7. Vaccination
+
+Vaccinations recommended by the Department of Health for the worker's exposure profile are made available at company cost (tetanus for all construction workers; hepatitis A / B for workers exposed to sewerage or human blood; rabies pre-exposure for select roles; seasonal influenza voluntary; the current routine adult schedule). Vaccination records are kept by Occupational Health.
+
+## 8. Pregnancy & Vulnerable Workers
+
+Pregnant workers and workers with medical conditions affecting immunity disclose voluntarily to Occupational Health, which assesses fitness for the specific exposure profile and recommends alternative duty or additional controls where required.
+
+## 9. Sub-contractor & Visitor Controls
+
+Sub-contractors are required to apply equivalent hygiene standards. Visitors are screened at access, declare relevant symptoms, and are issued PPE matched to the area they enter.
+
+## 10. Records
+
+Medical and surveillance records are retained for the period required by HBA Reg 10 (forty years where the agent so requires) and are accessible only on a need-to-know basis to comply with the rules governing medical records.
+
+## 11. Responsibility
+
+The Occupational Health Practitioner owns the medical and surveillance programme. {{SAFETY_OFFICER_NAME}} owns the hygiene programme and the outbreak-response plan. Line management enforces daily compliance.
 ` + STANDARD_FOOTER,
   },
 ];
@@ -660,49 +1047,110 @@ const PROCEDURES: OhsTemplate[] = [
     legalBasis: ["OHS Act Section 24", "General Administrative Regulation 8"],
     placeholders: ["{{COMPANY_NAME}}", "{{SAFETY_OFFICER_NAME}}", "{{SAFETY_OFFICER_CONTACT}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Incident & Injury Reporting Procedure") + `## 1. Purpose
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Incident & Injury Reporting Procedure") + `## 1. Purpose & Scope
 
-To ensure every incident, injury, occupational disease and near-miss is reported, investigated and that corrective actions are implemented to prevent recurrence.
+This procedure ensures that every incident, injury, dangerous occurrence, occupational disease and near-miss occurring on premises or sites under the control of {{COMPANY_NAME}} is reported, recorded, investigated and that effective corrective actions are implemented to prevent recurrence. It gives effect to section 24 and section 25 of the OHS Act, General Administrative Regulation 8 (GAR 8), and the requirements of the Compensation for Occupational Injuries and Diseases Act, 130 of 1993 (COIDA).
+
+The procedure applies to all employees, sub-contractors (as deemed employees per section 37(2)), labour-broker workers, visitors and members of the public affected by company operations.
 
 ## 2. Definitions
 
-- **Incident** â€” any unplanned event resulting in or having the potential to result in injury, ill-health, damage or other loss.
-- **Near-miss** â€” incident without injury or damage, but with the potential for either.
-- **Section 24 incident** â€” fatality, permanent disablement, lost time injury exceeding 14 days, dangerous occurrence or unconsciousness from substance exposure.
+- **Incident** — any unplanned, undesired event arising out of and in the course of work that results in, or has the potential to result in, injury, ill-health, damage to property, environmental harm, security breach or other loss.
+- **Injury** — personal injury, occupational disease or ill-health.
+- **First aid case (FAC)** — injury requiring single-treatment first aid with no further medical follow-up, no time off and no work restriction.
+- **Medical treatment case (MTC)** — injury treated by a medical practitioner (beyond first aid) but with no time lost beyond the day of the incident.
+- **Restricted work case (RWC)** — injury preventing the worker from performing all their normal duties on the next shift, but no shift fully lost.
+- **Lost-time injury (LTI)** — injury resulting in absence from work for one or more full shifts after the day of injury.
+- **Section 24 incident** — any incident which (a) results in a fatality, (b) results in injuries likely to result in permanent disablement, (c) results in unconsciousness, loss of substantial limb or hospital admission, (d) results in loss of >14 days' work, (e) is a dangerous occurrence, or (f) is the release of a substance with potential off-site impact.
+- **Dangerous occurrence** — unplanned event with serious potential (collapse, scaffold failure, crane failure, uncontrolled release, fire, explosion, electrical flashover, runaway plant) regardless of whether injury occurred.
+- **Occupational disease** — any disease listed in Schedule 3 of COIDA or any other disease arising out of and in the course of employment.
+- **Near-miss / High Potential Incident (HPI)** — incident without injury or loss but with the credible potential for either.
 
-## 3. Immediate Actions
+## 3. Immediate Actions at the Scene
 
-When an incident occurs:
-1. Make the area safe â€” do not move injured persons unless they are in further danger.
-2. Render first aid; call EMS (10177 / 112) if injuries are serious.
-3. Notify the supervisor and {{SAFETY_OFFICER_NAME}} ({{SAFETY_OFFICER_CONTACT}}) immediately.
-4. Preserve the scene â€” do not disturb equipment or evidence until released by the Safety Officer or DoEL inspector.
-5. Identify witnesses.
+When an incident occurs the discovering worker or supervisor shall, in this order:
 
-## 4. Reporting Timeline
+1. **Secure the scene** — stop the activity, isolate energy sources, prevent further harm, evacuate non-essential personnel.
+2. **Render aid** — commence first aid (DRSABCD); call the appointed First Aider; for serious injury call EMS on 10177 (cellphone 112). Do not move a casualty unless they are in further immediate danger.
+3. **Notify** — inform the line supervisor and {{SAFETY_OFFICER_NAME}} on {{SAFETY_OFFICER_CONTACT}} immediately. The Safety Officer notifies executive management for any Section 24 event without delay.
+4. **Preserve evidence** — do not disturb the scene, plant, tools, materials, PPE, position of casualty, switchgear or any item until released by the Safety Officer or, in Section 24 cases, by the Department of Employment & Labour inspector (s 24(3) prohibits disturbance without prior approval, except to save life, prevent further injury, or maintain essential services).
+5. **Photograph** — take photographs of the scene before any cleanup, from multiple angles, with reference for scale.
+6. **Identify witnesses** — list everyone in the area; collect contact details and request that they remain available for an interview.
 
-- **All incidents:** Report verbally to supervisor within 1 hour.
-- **All incidents:** Written report (Incident Report Form) within 24 hours.
-- **Section 24 incidents:** {{COMPANY_NAME}} notifies the Provincial Director of the Department of Employment & Labour by the quickest means and submits the WCL.2 / Annexure 1 form within 7 days.
-- **Occupational injuries (COIDA):** Employer's Report of Accident (W.Cl.2) submitted within 7 days.
-- **Occupational disease:** First Medical Report (W.Cl.22) within 14 days.
+## 4. Reporting Timeline & Channels
 
-## 5. Investigation
+| Event | Recipient | Method | Timing |
+|-------|-----------|--------|--------|
+| All incidents (verbal) | Supervisor and Safety Officer | Phone / in-person | Within 1 hour |
+| All incidents (written) | Safety Officer | Incident Report Form | Within 24 hours |
+| Section 24 incident (initial) | Provincial Director, Department of Employment & Labour | Telephone / email | As soon as possible, in any event within 24 hours |
+| Section 24 incident (formal) | Provincial Director, DoEL | Annexure 1 (W.Cl.1) form | Within 7 days |
+| Occupational injury (COIDA) | Commissioner for COIDA | W.Cl.2 / online claim | Within 7 days |
+| Occupational disease | Commissioner for COIDA | First Medical Report W.Cl.22 + Notice of Occupational Disease | Within 14 days of diagnosis |
+| Notifiable medical condition | Provincial Department of Health | NMC form | As prescribed (typically within 24 hours) |
+| Incident affecting client / project | Client representative | As required by contract | As per contract, typically 24 hours |
+| Insurance claim | Risk department / broker | Per policy | As per policy |
 
-All incidents are investigated. Investigation depth scales with severity:
-- Near-miss / minor first aid: line supervisor investigates.
-- Lost time injury: {{SAFETY_OFFICER_NAME}} leads investigation with line supervisor.
-- Major / Section 24: investigation team appointed in writing; DoEL inspector co-operated with fully.
+For sites under the Mine Health and Safety Act or other specific legislation, the corresponding statutory reporting routes apply in parallel.
 
-Root cause analysis uses the 5-Why or Bowtie method. Corrective actions are SMART and tracked to completion.
+## 5. Internal Documentation
 
-## 6. Recording
+- **Incident Report Form** — completed for every event, including near-miss. Captures who, what, when, where, why and the immediate response.
+- **Witness Statement Form** — written, signed and dated in the witness's own words. The form opens with the disclaimer that the statement is voluntary and may be used in subsequent proceedings.
+- **Section 24 Annexure 1 (W.Cl.1)** — used for all reportable incidents to DoEL; copies retained for 3 years.
+- **COIDA W.Cl.2** — used for compensation claims for occupational injury.
+- **Incident Register** — the master list of all incidents on site, maintained continuously, available for inspection by H&S Representatives, the H&S Committee, the client and the DoEL inspector.
 
-The OHS Incident Register is updated for every incident. Original records are retained for at least 4 years (COIDA) or 40 years for occupational disease.
+## 6. Investigation
 
-## 7. No-Blame Principle
+6.1 **Trigger and Depth.** All incidents are investigated. The depth of investigation scales with the actual and potential severity:
 
-Workers reporting incidents and near-misses in good faith will not be victimised. Honest reporting is essential to prevent serious accidents.
+| Category | Lead | Method | Team |
+|----------|------|--------|------|
+| Near-miss / first aid | Line supervisor | 5-Why | Supervisor + H&S Rep |
+| Medical treatment / restricted work | {{SAFETY_OFFICER_NAME}} | 5-Why or Tap-Root | Supervisor, H&S Rep, Safety Officer |
+| Lost-time injury / property damage > R50 000 | Safety Officer | ICAM | Safety Officer, Operations Manager, H&S Rep, Subject Matter Expert |
+| Section 24 / dangerous occurrence | Section 16(2) Appointee | ICAM with external facilitator if required | Section 16(2), Safety Officer, Operations Manager, Legal, H&S Rep, SME |
+| Fatality | Chief Executive | ICAM with external investigator; DoEL leads the statutory enquiry | As Section 24 plus Legal and Communications |
+
+6.2 **Method.** The Incident Cause Analysis Method (ICAM) is the standard method for serious investigations, examining: absent / failed defences, individual / team actions, task / environmental conditions, organisational factors, and external influences. For shallow investigations the 5-Why technique with verifiable evidence at every step is used. The investigation produces a chronology, an evidence inventory, an absent defences analysis, a root cause statement and SMART corrective actions.
+
+6.3 **Timing.** Investigations commence within 24 hours of the incident. Section 24 investigation reports are issued within 14 working days; lesser investigations within 7 working days.
+
+6.4 **Co-operation with the regulator.** Where a DoEL inspector attends, the Section 16(2) Appointee or designated representative makes the site, documents, witnesses and personnel fully available. Internal investigation continues in parallel.
+
+## 7. Corrective & Preventive Actions
+
+Corrective actions are categorised against the hierarchy of control. Administrative actions (training, signage, briefings) are accepted only when higher-order controls are not reasonably practicable, and the rationale is recorded. Each action has a single named owner, a target date, evidence of completion and a verification step. Actions are tracked in the Action Tracker; outstanding items are escalated at the weekly site meeting and the monthly H&S Committee. Closed actions are audited at random by the Safety Officer for effectiveness.
+
+## 8. Lessons Learned & Communication
+
+Within 5 working days of every recordable incident, a one-page Safety Alert is issued in the worker's first language. The alert covers what happened, how it happened, immediate actions, and three things the workforce can do differently. The alert is read in the next toolbox talk, signed by attendees and filed. For high-potential incidents the alert is also shared with sub-contractors and, where appropriate, the client and the industry forum.
+
+## 9. Records & Retention
+
+- Incident Register, Incident Reports and Investigation Reports: 5 years minimum (10 for Section 24).
+- COIDA documents: as required by the Commissioner (claims file retained for life of file + 4 years).
+- Medical records of occupational disease: 40 years from the date of last exposure (HBA / Asbestos / Lead / Silica regs as applicable).
+- DoEL correspondence: 5 years.
+- Witness statements: stored in confidential file, retained 5 years.
+
+## 10. No-Blame Reporting
+
+{{COMPANY_NAME}} operates a no-blame reporting culture for honest reports of incidents and near-misses. Workers who report in good faith are protected from disciplinary action, even where their own conduct contributed to the event, provided the conduct was not reckless, malicious or under the influence of substances. Concealment, falsification or non-reporting is itself a serious disciplinary offence. The distinction between honest error and reckless or wilful misconduct follows the principles of a just culture.
+
+## 11. Recovery & Return-to-Work
+
+For injured workers an occupational rehabilitation plan is established in conjunction with the treating medical practitioner and the occupational health practitioner. Modified or alternative duty is offered where the worker is medically fit but not yet able to perform full duties. Return-to-work is gated on a medical fitness certificate.
+
+## 12. Roles & Responsibilities
+
+- **Worker / Witness** — secure the scene, render aid, notify, preserve evidence, provide a truthful statement.
+- **Supervisor** — attend the scene, take command of immediate response, complete the Incident Report Form, lead shallow investigations.
+- **{{SAFETY_OFFICER_NAME}}** — lead serious investigations, ensure statutory reporting, maintain the register, drive corrective actions, communicate lessons.
+- **Section 16(2) Appointee** — accountable for the statutory notification of Section 24 incidents, the adequacy of investigations, and the implementation of corrective actions.
+- **HR / COID Administrator** — lodge COIDA claims, manage medical-aid and compensation, support the rehabilitation plan.
+- **Executive** — review incident statistics monthly, chair the Section 24 review, sponsor corrective action funding.
 ` + STANDARD_FOOTER,
   },
   {
@@ -714,50 +1162,107 @@ Workers reporting incidents and near-misses in good faith will not be victimised
     legalBasis: ["Environmental Regulations for Workplaces Reg 9", "SANS 10400-T", "National Building Regulations"],
     placeholders: ["{{COMPANY_NAME}}", "{{SITE_NAME}}", "{{FIRE_MARSHAL_NAME}}", "{{EMERGENCY_NUMBER}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Emergency Evacuation Procedure") + `## 1. Purpose
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Emergency Evacuation Procedure") + `## 1. Purpose & Scope
 
-To safely evacuate all persons from {{SITE_NAME}} in the event of fire, explosion, gas release, bomb threat, structural collapse or other emergency.
+This procedure establishes the action to be taken at {{SITE_NAME}} on detection of any emergency requiring evacuation, including fire, explosion, gas release, hazardous-chemical spill, structural collapse, bomb threat, armed-intruder event, severe weather, or any other event in which continued occupation of the premises poses a credible threat to life. It gives effect to Environmental Regulations for Workplaces Regulations 9 and 10, SANS 10400-T (Fire Protection), the National Building Regulations and the local-authority Fire Brigade by-laws.
 
-## 2. Activation
+## 2. Emergency Organisation
 
-Any person discovering an emergency must:
-1. Raise the alarm â€” break the nearest manual call point or sound the air-horn / siren.
-2. Call the Fire Marshal {{FIRE_MARSHAL_NAME}} or dial {{EMERGENCY_NUMBER}}.
-3. Only attempt to fight a fire if trained, the fire is small (waste-bin size) and safe egress is behind you.
+The site emergency organisation comprises:
 
-## 3. On Hearing the Alarm
+- **Incident Controller** — the senior person on site, who assumes command on activation.
+- **Fire Marshals** (one per 50 workers per floor / zone, identified by red vests with FIRE MARSHAL printed front and rear) — sweep the zone, account for evacuees, command first response.
+- **First Aiders** (per General Safety Regulation 3) — establish casualty point at the assembly area, triage and treat.
+- **Floor / Zone Wardens** — assist Fire Marshals and verify their assigned zones are cleared.
+- **Buddy assistants** — named persons assigned to assist workers with mobility, hearing or visual disabilities, and to assist visitors.
+- **Communications Officer** — manages communications with emergency services, families, media and the client.
+- **Salvage Team** (selected high-risk sites) — attempts to remove critical records and dangerous goods if and only if safe to do so under Fire Marshal direction.
 
-- STOP work immediately. Make machinery safe (de-energise where practicable).
-- LEAVE personal belongings; take only your phone and keys.
-- WALK to the nearest emergency exit. Do not run, do not push.
-- DO NOT use lifts.
-- ASSIST visitors and persons with mobility limitations.
-- CLOSE doors behind you to slow fire spread.
+Appointments are in writing, posted on the H&S notice board, and re-issued whenever there is a change.
 
-## 4. Assembly Point
+## 3. Detection & Alarm Activation
 
-The primary assembly point for {{SITE_NAME}} is marked on the site plan. Move clear of vehicle routes and the building.
+Any person discovering or suspecting an emergency shall:
 
-## 5. Roll Call
+1. Activate the alarm by breaking the nearest manual call point or sounding the air-horn / siren.
+2. Call {{FIRE_MARSHAL_NAME}} or dial {{EMERGENCY_NUMBER}} from a safe location; in addition call the public emergency line 10177 (cellphone 112).
+3. Provide the following information clearly: the type of emergency, the exact location, the number of casualties (known or estimated), the dangerous goods involved, and the safest approach for emergency services.
+4. Attempt to fight an incipient fire (no larger than a waste-bin) only if trained on the extinguisher, the egress route remains behind the responder, and at least one other person is aware and standing by.
 
-The Fire Marshal performs a roll call against the site sign-in register. Any missing persons are reported to the emergency services â€” workers do not re-enter the building.
+## 4. Action on Hearing the Alarm
 
-## 6. All-Clear
+- **STOP** all work immediately. Make machinery safe — use the local emergency stop, isolate energy where this can be done in seconds, and leave it.
+- **LEAVE** personal belongings (lunchbox, bag, jacket). Take only the means of personal identification and your phone if immediately at hand.
+- **WALK** — do not run, push, or stop in doorways. Use the nearest marked emergency escape route, not the route you came in by if a closer route is available.
+- **DO NOT use lifts.** Use stairs.
+- **ASSIST** visitors, contractors, mobility-impaired persons and learners; follow the buddy assignment.
+- **CLOSE** doors and fire-doors behind you to slow smoke and fire propagation; do not lock.
+- **REPORT** to your assigned assembly point. Remain there until the Fire Marshal authorises departure.
 
-Only the Fire Marshal or attending emergency services may issue the all-clear to re-enter the building.
+## 5. Assembly Points
 
-## 7. Drills
+The primary assembly point for {{SITE_NAME}} is marked on the Site Emergency Plan posted at each entry, each notice board and each muster point. An alternative assembly point is identified for use when wind, smoke direction, gas release direction or hazard area makes the primary point unsuitable. Assembly points are:
 
-Evacuation drills are conducted at least every 6 months. Performance is reviewed and improvements implemented.
+- A minimum of 30 m from any building under threat (60 m for high-rise or gas-handling installations).
+- Clear of vehicle access routes used by emergency services.
+- Equipped with signage, a high-visibility flag and an emergency kit (sign-in registers copy, first aid bag, megaphone, torch, high-visibility vests).
 
-## 8. Equipment Inspection
+## 6. Roll Call & Accountability
 
-- Manual call points & sirens: monthly.
-- Smoke detectors: 6-monthly.
-- Fire extinguishers: monthly visual, annual service tag.
-- Emergency lighting: monthly battery test.
-- Hose reels: 6-monthly.
-- Sprinklers (if fitted): annual contractor inspection.
+The Fire Marshal performs a roll call against the daily sign-in register (updated continuously at the access-control turnstile or gate). The Fire Marshal reports to the Incident Controller:
+
+- Total present at the assembly point.
+- Names of any persons unaccounted for, their last known location, role and any disability or medical condition.
+- Confirmation that the assigned zone is swept clear.
+
+Unaccounted persons are reported to the attending emergency services immediately. **No employee, contractor or visitor re-enters the building under any circumstances until cleared by the senior fire officer or the Incident Controller.**
+
+## 7. Special Circumstances
+
+- **Persons with disabilities** — a Personal Emergency Evacuation Plan (PEEP) is prepared on induction; refuge areas are identified.
+- **Lone workers and after-hours work** — lone-worker monitoring is mandatory; the controller calls emergency services on missed check-in.
+- **Confined-space, work-at-heights or hot-work in progress** — separate emergency provisions in the permit override the general procedure for the affected persons; rescue is by the trained team in the permit, not by spontaneous responders.
+- **Bomb threat** — the bomb-threat checklist is completed by the person receiving the threat; the building is evacuated by route furthest from the suspected device; no radios are used near the device; the South African Police Service Bomb Squad assumes scene command.
+- **Armed intruder** — "run, hide, tell" applies; do not assemble at the standard assembly point if it is within line-of-sight or shooting range of the building; SAPS assumes scene command.
+- **Hazardous-chemical release / gas plume** — evacuate upwind and uphill of the release; secondary assembly point applies; do not pass through visible vapour clouds.
+- **Severe-weather lightning** — outdoor workers move to enclosed structures; assembly point may be inside a vehicle or substantial building during a lightning storm.
+
+## 8. Communication with Emergency Services
+
+The Communications Officer meets the responding fire / EMS / police crew at the gate, hands over the site plan, the dangerous-goods inventory, the roll call status, the unaccounted-persons list and the keys / access cards. The Incident Controller transfers command to the senior responding officer on their arrival, and remains the company's single point of contact for the duration of the response.
+
+## 9. All-Clear & Re-Entry
+
+Only the senior attending fire officer (and, in their absence, the Incident Controller after a full assessment) may authorise re-entry. On re-entry, the Fire Marshal performs a second roll call, the Safety Officer inspects the building for residual hazards, and operations resume in a controlled sequence. The Section 24 reporting test is applied to any incident that injured a person, was a dangerous occurrence, or that involved the fire brigade or a chemical release.
+
+## 10. Drills & Training
+
+- A full evacuation drill is conducted at least every 6 months and within 30 days of any material change in occupancy, layout or hazards.
+- Drills are observed by the Safety Officer and an external observer where possible; timed; debriefed; and the resulting actions tracked to completion.
+- Fire Marshals and Floor Wardens receive theoretical and practical training every 24 months; First Aiders every 36 months as required by GSR 3.
+- All workers and contractors receive evacuation training on induction.
+- Tabletop exercises covering bomb threat, armed intruder, hazardous-chemical release and major fire scenario are conducted annually.
+
+## 11. Inspection & Maintenance of Emergency Equipment
+
+| Equipment | Inspection | Frequency | Service |
+|-----------|------------|-----------|---------|
+| Manual call points & sirens | Functional test | Monthly | Annual by competent contractor |
+| Smoke / heat detectors | Visual / functional | 6-monthly | Annual by SAQCC-FGS contractor |
+| Fire extinguishers | Visual | Monthly | Annual service per SANS 1475 |
+| Fire hose reels | Visual | Monthly | Annual hydrostatic test per SANS 1475 |
+| Hydrants & risers | Pressure & flow | Monthly | Annual contractor test |
+| Sprinkler system | Visual | Weekly | Quarterly + annual by ASIB contractor |
+| Emergency lighting | Functional, 30 min battery | Monthly | Annual full-duration test |
+| Fire doors & escape routes | Obstructions, signage | Daily | Annual integrity inspection |
+| AEDs | Battery / pads | Monthly | Per manufacturer |
+| Spill kits & PPE caches | Inventory | Monthly | Replace consumables on use |
+
+Inspections are signed and logged; deficiencies are corrected within 24 hours or the affected area is taken out of use.
+
+## 12. Records
+
+The Emergency Plan, drill records, inspection logs and any actual emergency reports are retained for 5 years and made available on inspection by the local-authority fire brigade and the DoEL.
 ` + STANDARD_FOOTER,
   },
   {
@@ -769,39 +1274,101 @@ Evacuation drills are conducted at least every 6 months. Performance is reviewed
     legalBasis: ["General Machinery Regulations Reg 3", "Electrical Installation Regulations"],
     placeholders: ["{{COMPANY_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Lockout / Tagout (Isolation of Energy) Procedure") + `## 1. Purpose
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Lockout / Tagout (Isolation of Energy) Procedure") + `## 1. Purpose & Scope
 
-To prevent injury from the unexpected start-up or release of stored energy during maintenance, cleaning, adjustment or repair.
+This procedure prevents injury arising from the unexpected energisation, start-up or release of stored energy in plant, machinery, equipment or installations during cleaning, inspection, set-up, fault-finding, adjustment, maintenance, modification or repair. It gives effect to General Machinery Regulation 3, Electrical Installation Regulations 2009 Regulation 9, Driven Machinery Regulations and SANS 10380.
 
-## 2. When LOTO Is Required
+The procedure applies on all premises and sites under the control of {{COMPANY_NAME}} and is binding on employees, sub-contractors, OEMs, service providers and equipment hirers.
 
-LOTO is mandatory whenever a worker could be exposed to a hazardous energy source. This includes maintenance, lubrication, clearing blockages, and repair.
+## 2. Definitions
 
-## 3. Procedure (Six Steps)
+- **Energy source** — electrical, mechanical, hydraulic, pneumatic, thermal, chemical, gravitational, radiological, or stored (capacitors, springs, raised loads, pressurised systems).
+- **Authorised Person** — an employee who has been trained and appointed in writing to apply or remove a lockout, and to perform live testing within their competence.
+- **Affected Person** — any worker who operates or works in the area of the locked-out equipment.
+- **Energy Isolation Device (EID)** — a mechanical device that physically prevents energy transmission, e.g. a manually operated electrical disconnect, line valve, slip blind, blank flange.
+- **Try-out / Zero-energy verification** — the action of attempting to operate the equipment using its normal controls after isolation, plus the use of test instruments to confirm absence of stored or residual energy.
 
-1. **Prepare** â€” identify all energy sources (electrical, mechanical, hydraulic, pneumatic, thermal, chemical, gravity, stored).
-2. **Notify** â€” inform all affected workers.
-3. **Shut down** â€” switch off equipment using normal stop controls.
-4. **Isolate** â€” disconnect the energy source at the isolator. For multiple sources isolate all.
-5. **Lock and Tag** â€” each affected worker applies their own padlock and tag to the isolator. The tag identifies the worker, date and reason.
-6. **Verify zero energy** â€” attempt to start the equipment with the normal start button. Test for residual energy with the appropriate meter. Bleed residual hydraulic, pneumatic or stored gravitational energy.
+## 3. When LOTO Is Required
 
-## 4. Multiple Workers
+LOTO is mandatory whenever:
 
-When multiple workers are involved each applies their personal lock. A group lockout box or multi-lock hasp is used. The equipment cannot be re-energised until every worker has removed their lock.
+- A worker is required to remove or bypass a guard or other safety device.
+- A worker must place a part of their body in an area on a machine or piece of equipment where work is performed on material being processed (the point of operation), or where an associated danger zone exists.
+- The equipment includes hazardous energy that could be unexpectedly released.
+- Any of: maintenance, lubrication, cleaning, adjustment, fault-finding, jamming-clearance, modification or repair is performed.
+- Workers enter a confined space served by piping, ducting or moving plant.
 
-## 5. Restoring Energy
+Minor servicing performed during normal production (e.g. fault clearance designed-in to the operation) is permitted only under an alternative control specifically engineered for the task, documented in the equipment manual, and assessed as equivalent in protection — it is **not** the default option.
 
-1. Tools and parts removed from machine.
-2. Guards refitted.
-3. All workers clear of danger zone.
-4. Each worker removes their own lock and tag â€” no one else may remove a worker's lock except after written authorisation by the responsible manager and only after confirming the worker is safe.
-5. Notify affected workers.
-6. Operate equipment cautiously and verify safe operation.
+## 4. Energy Isolation Procedure (the Eight Steps)
 
-## 6. Records
+1. **Identify and prepare.** The Authorised Person identifies all energy sources for the equipment from the LOTO Energy Source Register — main electrical supply, control supply, UPS, capacitor banks, motor and brake circuits, gas, steam, compressed air, hydraulic, process feed, drains, gravity loads, springs, accumulators. Reviews the equipment-specific Isolation Plan (one per machine on first installation, updated on any modification).
+2. **Notify.** Notify all Affected Persons in the area of the planned isolation, the equipment affected, the expected duration and the responsible Authorised Person.
+3. **Shut down.** Operate the normal stop controls of the equipment to bring it to a controlled stop, in accordance with the OEM manual.
+4. **Isolate.** Operate each Energy Isolation Device to the off / closed / blanked position. Where remote isolation is used, physically inspect the local indication to confirm.
+5. **Lock and tag.** Each affected Authorised Person applies their own personal padlock and personal danger tag to each EID. The lock is keyed to the worker (single key, no master). The tag bears the worker's name, employee number, contact, date, time, equipment and reason. Multiple workers — use a multi-lock hasp; for many isolation points — use a group lockout box into which the keys are placed and the box itself locked by every affected worker.
+6. **Dissipate stored energy.** Bleed compressed gases, vent hydraulic pressure, drain process fluid, block or chock raised loads, release spring-loaded mechanisms by approved means, ground capacitor banks, allow thermal cool-down, confirm zero atmospheric pressure differential.
+7. **Try out.** Attempt to start the equipment using all start controls (push-buttons, remote, automation triggers). Return controls to off. Verify zero energy with the appropriate test instrument applied to a known live conductor immediately before and immediately after the equipment under test (test-prove-test method). Document the verification.
+8. **Authorise work.** The Authorised Person signs the Permit to Work or Isolation Certificate. Work proceeds.
 
-Every LOTO event is logged in the LOTO register including equipment, date, time, energy sources isolated, workers and verification.
+## 5. Multiple-Worker, Multiple-Shift, Contractor and OEM Lockouts
+
+- Every individual worker who relies on the isolation — employee or contractor, mechanical or electrical, OEM commissioning engineer — applies their own personal lock. No exceptions.
+- A multi-lock hasp accepts up to six personal locks per EID; chained hasps extend this.
+- A group lockout box is used when there are many EIDs: each EID is locked with a single operational lock, the key placed inside the box, and the box itself locked with each worker's personal lock.
+- On shift change, the outgoing worker hands over the equipment status to the incoming worker, who applies their own lock before the outgoing worker removes theirs. The lock is never "left behind" with the next shift.
+- Contractor crews apply their own locks alongside the company's. The Permit Issuer (company) retains overall control.
+
+## 6. Removal of a Lock by Someone Other Than the Owner
+
+A personal lock may be removed only by the worker who applied it. Removal by another person is permitted only under a Lock Removal Authorisation, signed by the Section 16(2) Appointee or Engineering Manager, and only after:
+
+- All reasonable efforts have been made to contact the worker (phone, manager, HR).
+- A documented site search has been completed.
+- The equipment has been inspected and verified safe to re-energise (no person in danger zone, guards in place, tools removed).
+- A written record of the removal, justification and verification is filed.
+- The worker is informed before they next attempt to access the equipment.
+
+Unauthorised removal of a lock or tag is a summary-dismissal offence.
+
+## 7. Restoring Energy
+
+1. Verify tools, parts, rags, instruments and personnel are clear of the equipment.
+2. Refit all guards, covers and safety devices; verify their function.
+3. Notify Affected Persons that energy is about to be restored.
+4. Each Authorised Person removes their own lock and tag in reverse order; the last worker logs the time of de-isolation.
+5. Operate the EID to restore energy in the sequence specified by the Isolation Plan.
+6. Start the equipment under controlled conditions; observe a verification run.
+7. Sign off the Isolation Certificate as closed.
+
+## 8. Locks, Tags & Devices
+
+- Personal padlocks are uniquely keyed, identified by colour or number to the worker, and used only for LOTO (not for general security).
+- Tags are durable, UV-resistant, weatherproof and bear a standard format approved by the Safety Officer.
+- Lockout devices appropriate to each EID type (breaker lockouts, plug lockouts, valve lockouts in sizes for ball, gate, butterfly, globe; cable lockouts; pneumatic line lockouts; blank flanges and slip blinds for piping) are kept at every LOTO station.
+- Re-issued locks and tags are inspected for serviceability; damaged items are destroyed.
+
+## 9. Training & Competency
+
+- All Authorised Persons complete formal LOTO training (theory + practical) on appointment and every 24 months thereafter.
+- All Affected Persons receive awareness training at induction.
+- Equipment-specific Isolation Plans are reviewed with the workforce on first issue and after any modification.
+
+## 10. Audit
+
+The Safety Officer audits LOTO compliance at least quarterly using a standard checklist (random selection of active isolations and a sample review of the register). Findings are reported to the H&S Committee.
+
+## 11. Records
+
+The LOTO Register records every isolation event: date, equipment, energy sources, Authorised Person, Affected Persons, verification, restoration time and signatures. Records are retained for 5 years.
+
+## 12. Roles
+
+- **Engineering Manager** — owns the LOTO procedure, Energy Source Register and equipment-specific Isolation Plans.
+- **Safety Officer** — owns the audit programme, training register and lock issue.
+- **Supervisor** — verifies LOTO is in place before signing the permit and authorising work.
+- **Authorised Person** — performs the isolation, applies the lock, performs verification, removes the lock on completion.
+- **Affected Person** — observes the prohibition, does not attempt to start equipment, reports any abnormality.
 ` + STANDARD_FOOTER,
   },
   {
@@ -813,40 +1380,84 @@ Every LOTO event is logged in the LOTO register including equipment, date, time,
     legalBasis: ["General Safety Regulations Reg 3"],
     placeholders: ["{{COMPANY_NAME}}", "{{FIRST_AIDER_NAME}}", "{{EMERGENCY_NUMBER}}"],
     requiresAck: false,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "First Aid Procedure") + `## 1. Appointed First Aiders
+    content: HEADER_BLOCK.replace("{{TITLE}}", "First Aid Procedure") + `## 1. Purpose & Scope
 
-{{FIRST_AIDER_NAME}} is the appointed First Aider under General Safety Regulation 3 (one per 50 employees, plus 1 per shift). A current certificate from an accredited provider (Department of Labour-approved, minimum Level 1) is maintained.
+This procedure ensures the prompt and competent provision of first aid to any injured or acutely ill person on premises and sites under the control of {{COMPANY_NAME}}, in accordance with General Safety Regulation 3 of the OHS Act and Construction Regulation 5(1)(j)(i). It applies to employees, sub-contractors, visitors and members of the public who may sustain injury or take ill while on site.
 
-## 2. First Aid Box
+## 2. First-Aid Capacity
 
-Located at clearly marked stations. Contents per General Safety Regulations Annexure including:
-- Wound cleaner / antiseptic
-- Cotton wool, gauze pads, bandages (assorted)
-- Triangular bandages
-- Adhesive plasters (assorted)
-- Surgical tape
-- Sterile gloves (disposable)
-- Scissors and tweezers
-- Resuscitation device (mouthpiece)
-- Sterile saline
-- Pain killers â€” NOT to be in the kit; only administered if the worker self-administers their own.
+- One trained First Aider per 50 employees (or any part thereof) on every shift, calculated separately for each workplace, building or excavation more than 50 m from other working areas.
+- One additional First Aider per 10 employees where the work involves a substantial risk of injury (construction, work at heights, work with chemicals, work with electricity).
+- A registered Occupational Health Practitioner or Occupational Health Nursing Practitioner is contracted for sites of >100 workers, providing on-site or telephonic clinical guidance.
+- First Aiders are appointed in writing by the employer and the appointment letter is filed.
 
-## 3. On Discovering an Injured Person
+{{FIRST_AIDER_NAME}} is the appointed Lead First Aider for this site.
 
-1. DRSABCD: Danger / Response / Send for help / Airway / Breathing / CPR / Defibrillator.
-2. Call {{FIRST_AIDER_NAME}}. For serious injury also call EMS on {{EMERGENCY_NUMBER}} or 10177.
-3. Do not move the casualty unless in further danger.
-4. Stop bleeding with direct pressure.
-5. Treat for shock â€” keep warm.
-6. Reassure and stay with the casualty until help arrives.
+## 3. Competency & Training
 
-## 4. Treatment Records
+- First Aiders hold a current certificate at SAQA-aligned Level 1 (minimum) or Level 2 / 3 where the risk profile warrants. Where defibrillation is provided, AED training is required in addition.
+- Refresher training every 36 months as required by GSR 3, with practical reassessment.
+- A Training Register lists every First Aider with name, certificate, expiry and assigned area.
+- First Aiders are identified by a green cross on their high-visibility vest or hard hat.
 
-Every treatment, however minor, is recorded in the First Aid Register (legal requirement). The record includes date, time, name of casualty, nature of injury, treatment given and First Aider's signature.
+## 4. First-Aid Box & Equipment
 
-## 5. Stock Control
+- One First-Aid Box per 50 employees, located at a clearly marked station, indicated on the site plan, and accessible within 4 minutes of any working location.
+- Contents per General Safety Regulations Annexure (minimum) and supplemented by site-specific risk: wound cleaner / antiseptic, cotton wool, gauze swabs, sterile gauze pads (assorted), bandages (crepe, conforming, triangular), adhesive plasters (assorted), large wound dressings, burn dressings (gel or hydrogel), adhesive tape, scissors (blunt-tipped), tweezers, splinter forceps, safety pins, disposable nitrile gloves (multiple sizes), CPR pocket mask with one-way valve, sterile saline eye-wash 500 ml, instant cold packs, foil rescue blanket, sterile water for irrigation, a first-aid manual.
+- Site-specific additions where the risk warrants: AED, occlusive chest seals, haemostatic dressings, tourniquet, eye-cup, splint, oxygen with mask (only where personnel are trained in its use), spineboard / scoop stretcher, evacuation chair, biohazard bag, hydrofluoric-acid antidote (Calcium Gluconate gel for HF-exposure sites).
+- **Medication is not stocked** in the First-Aid Box. Aspirin, paracetamol or any other oral or topical medication is not provided; workers self-administer their own.
+- An emergency contact card listing site emergency numbers, the nearest hospital, the nearest 24-hour pharmacy, EMS (10177 / 112) and the on-call OHP is fixed to the box.
 
-The First Aid Box is checked monthly. Used items are replaced immediately. Expired items are removed and replaced.
+## 5. Initial Approach to a Casualty
+
+The First Aider applies the **DRSABCD** primary survey:
+
+1. **Danger** — assess and remove the danger to the casualty, the responder and bystanders; do not enter the danger zone until safe.
+2. **Response** — talk to the casualty, tap the shoulder; categorise as alert / verbal / pain / unresponsive (AVPU).
+3. **Send for help** — call EMS (10177 / 112), summon a second First Aider, retrieve the AED and the kit.
+4. **Airway** — open the airway with head-tilt-chin-lift (jaw thrust if neck injury suspected); clear visible obstruction; recovery position if breathing and unconscious.
+5. **Breathing** — look, listen, feel for not more than 10 seconds; if not breathing or breathing abnormally, commence CPR.
+6. **CPR** — 30 chest compressions at depth 5–6 cm, rate 100–120 / min, followed by 2 rescue breaths; continue until handover to EMS, AED prompt, casualty recovers, or rescuer cannot continue.
+7. **Defibrillator** — attach the AED as soon as it arrives; follow voice prompts; resume CPR immediately after each shock or no-shock advisory.
+
+## 6. Specific Conditions
+
+The First Aider treats according to current South African Resuscitation Council and Heart and Stroke Foundation SA guidelines, including but not limited to: severe haemorrhage (direct pressure, elevation, packing, tourniquet for catastrophic limb bleed); shock (legs elevated, warmed, oxygen if trained); fractures (immobilise in position found); spinal injury (do not move unless airway compromised); burns (cool with running water 20 minutes, do not break blisters, do not apply ointments); chemical splash (irrigate 15 minutes minimum, refer to SDS); chemical eye splash (irrigate from inner to outer for 15 minutes, retain run-off direction away from unaffected eye); electric shock (only after isolation verified; treat as cardiac casualty); heat exhaustion / heat stroke (cool, hydrate, evacuate); hypothermia (warm gradually, no rubbing); seizure (protect from injury, do not restrain, do not insert anything in the mouth); diabetic emergency (sugar by mouth if conscious); asthma (own inhaler, sit upright); anaphylaxis (own adrenaline auto-injector, EMS); poisoning (do not induce vomiting unless on Poison Information line advice).
+
+## 7. Calling Emergency Services
+
+The caller provides: location (street address, GPS, gate number, landmarks, mustering point for EMS), nature of the emergency, number and condition of casualties, hazards in the area, the caller's name and call-back number. The caller remains on the line until the dispatcher releases them. A runner is dispatched to the gate to direct the responding ambulance into the site.
+
+## 8. Bloodborne-Pathogen Precautions
+
+Universal precautions apply to every casualty. Disposable nitrile gloves are donned before contact. Resuscitation is performed using a CPR pocket mask with a one-way valve; never mouth-to-mouth without a barrier. Sharps are not recapped; placed directly in the puncture-resistant sharps bin. Soiled dressings, gloves and other clinical waste are bagged as Group A medical waste and removed by the contracted medical-waste handler. Blood and body-fluid spills are contained, absorbed and disinfected with 1:10 hypochlorite solution. Workers with non-intact skin exposure or a needle-stick injury report immediately to occupational health for risk assessment and post-exposure prophylaxis.
+
+## 9. Recording & Confidentiality
+
+Every treatment, however minor, is recorded in the First Aid Register: date, time, casualty's name, employer, nature of injury / illness, treatment given, advised follow-up, First Aider's name and signature. The register is a legal record under the OHS Act and is retained for not less than 4 years (longer where COIDA or HBA applies). The information is medical-grade confidential; access is restricted to the casualty, the occupational health practitioner and management on a need-to-know basis.
+
+## 10. COIDA & Section 24
+
+Where the injury constitutes a COIDA claim the W.Cl.2 is initiated within 24 hours; where Section 24 reporting applies (see the Incident & Injury Reporting Procedure) the Safety Officer is notified for statutory action.
+
+## 11. Stock Control & Audit
+
+- The First-Aid Box is inspected monthly by the First Aider; the inventory check is signed and dated on the box.
+- Used items are replaced within 24 hours.
+- Expired items are removed and replaced.
+- An annual external audit verifies content compliance and First Aider currency.
+
+## 12. AED Programme
+
+Where an AED is provided: monthly visual / self-test indicator check; pad and battery expiry tracked; deployment debrief after every use; data download to the medical advisor.
+
+## 13. Mental Health & Psychological First Aid
+
+First Aiders are briefed in psychological first aid for workers affected by traumatic events (witnessing a fatal injury, threats of violence, suicide). Acute referrals are made to the Employee Assistance Programme. Confidentiality is maintained.
+
+## 14. Drills & Review
+
+Medical-emergency drills are conducted at least annually, including a simulated cardiac arrest with AED deployment, and a casualty extraction. The First Aid Procedure is reviewed annually and after every incident requiring its activation.
 ` + STANDARD_FOOTER,
   },
   {
@@ -858,46 +1469,122 @@ The First Aid Box is checked monthly. Used items are replaced immediately. Expir
     legalBasis: ["General Safety Regulations Reg 5"],
     placeholders: ["{{COMPANY_NAME}}", "{{SAFETY_OFFICER_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Confined Space Entry Procedure") + `## 1. Definition
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Confined Space Entry Procedure") + `## 1. Purpose & Scope
 
-A confined space is any space substantially enclosed, with limited means of access or egress, in which dangerous concentrations of gas, vapour or dust may accumulate, or oxygen may be depleted, or there is a risk of engulfment.
+This procedure governs the entry of any person into a confined space on premises or sites under the control of {{COMPANY_NAME}} in accordance with General Safety Regulation 5 of the OHS Act, the Hazardous Chemical Substances Regulations and SANS 10395-1 (Safe work in confined spaces). It is a high-hazard procedure: most confined-space fatalities occur to would-be rescuers, and the rule "plan the rescue before the entry" is enforced without exception.
 
-Examples: tanks, sewers, manholes, ducts, pits, silos, ship holds, large pipework.
+## 2. Definition & Classification
 
-## 2. Permit Required
+2.1 **Confined space** means any chamber, tank, vat, silo, pit, pipe, flue, sewer, manhole, ship hold or other space that:
 
-No person may enter a confined space without a valid Confined Space Entry Permit issued by {{SAFETY_OFFICER_NAME}}. The permit is valid only for one shift.
+- Is enclosed or substantially enclosed;
+- Has restricted or limited means of entry or exit;
+- Is not designed for continuous human occupancy;
+- Has a reasonably foreseeable specified risk — fire / explosion arising from flammable atmosphere, loss of consciousness / asphyxiation from oxygen deficiency or biological agents, drowning from increased liquid level, asphyxiation / loss of consciousness from free-flowing solids, entrapment, or loss of consciousness from raised temperature.
 
-## 3. Pre-Entry Requirements
+2.2 **Classification.** Each space is classified at the Pre-Entry Survey:
 
-- Risk assessment specific to the space and task.
-- Atmospheric testing in this order: oxygen (19.5%â€“23%), flammables (<10% LEL), toxics (CO, H2S, others as relevant).
-- Continuous monitoring with personal gas detectors during entry.
-- Isolation of inflows (lockout valves, blank flanges, electrical isolation).
-- Ventilation (mechanical) where atmosphere is not naturally safe.
-- Two-way communication established and tested.
-- Rescue plan and rescue equipment (tripod, winch, harness, SCBA if needed) at the entry point.
-- Standby person ("hole watch") stationed at the entry, with no other duties, who never enters the space.
+- **Permit-Required** — has, or has potential for, a hazardous atmosphere, engulfment hazard, internal configuration that could trap, or any other recognised serious hazard. Most company confined spaces fall here.
+- **Non-Permit (Reclassified)** — hazards eliminated or reduced to non-hazardous (e.g. fully cleaned, ventilated, isolated and verified for the duration of the work); re-classification documented and reviewed continuously; reverts to Permit-Required on any change.
 
-## 4. Entry & Work
+## 3. Permit-to-Work
 
-- Entrant wears full body harness with retrieval line.
-- Each entrant signs in/out on the entry log.
-- Atmosphere monitored continuously; immediate evacuation if any alarm.
-- Tools and lighting suitable for the atmosphere (intrinsically safe if flammables present).
+No entry occurs without a current Confined Space Entry Permit issued and signed by {{SAFETY_OFFICER_NAME}} or a delegated Confined Space Entry Issuer who is appointed in writing. The permit identifies the space, the task, the personnel, the controls, the atmospheric limits, the duration (maximum one shift), the rescue arrangements and the signatures of issuer, Authorised Entrant, Authorised Attendant and Authorised Supervisor. The permit is posted at the entry; copies are filed.
 
-## 5. Emergency
+## 4. Pre-Entry Risk Assessment
 
-- On any gas alarm, communications failure, casualty or unplanned event â€” evacuate immediately.
-- Standby person calls for emergency rescue; rescue is performed using the retrieval system from outside the space wherever possible.
-- Entry-rescue by other workers without breathing apparatus is strictly prohibited.
+A task-specific risk assessment is completed before the permit is issued, addressing:
 
-## 6. Close Out
+- The history of the space (previous contents, residues, prior cleaning, hot-work history).
+- Connected piping, ducting, conveyors and drains (sources of inflow, energy and contaminant).
+- The work to be performed (hot work, abrasive blasting, painting, mechanical work — each of which introduces additional hazards).
+- Ergonomic and access factors (top entry, side entry, vertical drop, internal obstructions).
+- Environmental factors (heat stress, lighting, communications).
+- Adjacent operations that could affect the space (welding, fuelling, batch reactions).
 
-After completion:
-- All workers and equipment accounted for.
-- Space closed and signage updated.
-- Permit signed off and filed.
+## 5. Atmospheric Testing & Limits
+
+5.1 **Pre-entry test** in the sequence:
+
+1. Oxygen — acceptable 19.5% to 23.0%.
+2. Flammable gases / vapours — acceptable <10% LEL (zero for hot work).
+3. Toxic gases / vapours (CO, H2S, SO2, NO2, NH3, HCN, organic vapours as relevant) — below the occupational exposure limit; below half the IDLH where IDLH applies.
+
+5.2 **Continuous monitoring** with a calibrated 4-gas (or 5-gas) personal monitor on every entrant, plus a fixed monitor at the entry, throughout the entry. Calibration certificate and bump-test before each shift.
+
+5.3 **Stratification & remote sampling.** Top, middle and bottom of the space are sampled because gases stratify (H2S and propane sink; methane and CO rise). Long-probe remote sampling is used before any person is inserted.
+
+5.4 **Alarm response.** On any alarm the entry is suspended and the space evacuated immediately; re-entry only after the cause is identified and controlled.
+
+## 6. Isolation
+
+Before entry every connected energy source and material inflow is isolated:
+
+- Mechanical and electrical: Lockout-Tagout per the LOTO procedure.
+- Process piping: positive isolation by single block-and-bleed for low-risk fluids; double block-and-bleed or slip blinds / spectacle blinds for high-risk fluids (toxic, flammable, hot, pressurised). Closed valves alone are not acceptable for hazardous fluids.
+- Gravity / chemical: feeders and conveyors physically interrupted, hoppers emptied and demonstrated empty, suspect dust or solids fluidised then removed.
+- Stored energy: springs blocked, hydraulic/pneumatic pressure bled.
+
+Isolation evidence is photographed and attached to the permit.
+
+## 7. Ventilation & Cleaning
+
+- The space is cleaned of residues using procedures and PPE matched to the contaminant.
+- Mechanical ventilation is established — supply at the bottom for gases lighter than air; supply at the top with extraction at the bottom for heavier-than-air contaminants — sized for at least 20 air changes per hour, and demonstrated by smoke / tracer testing.
+- Where inert atmosphere is required (specific chemistry tasks), the work is re-engineered to avoid entry, or supplied-air breathing equipment is mandatory.
+
+## 8. Entry Personnel & Roles
+
+8.1 **Authorised Supervisor** — a competent person appointed in writing; verifies all controls before authorising entry; signs the permit on issue, on any change and on closure.
+
+8.2 **Authorised Entrant** — trained and competent; medically fit (no claustrophobia, no uncontrolled cardiac, respiratory or seizure conditions); equipped with PPE and continuous gas monitor; signs in and out; evacuates immediately on alarm, on direction of the Attendant, or on any sense of compromise.
+
+8.3 **Authorised Attendant ("Hole Watch")** — trained and competent; positioned at the entry for the duration; performs no other duty; maintains continuous communication with entrants (voice, line-pull, radio); operates the entry register; activates rescue. The Attendant **never enters the space**.
+
+8.4 **Rescue Team** — trained in non-entry retrieval, breathing apparatus, casualty handling and the specific space; equipped and positioned to commence rescue within 4 minutes of alarm. Where the local fire brigade is the designated rescue team, written confirmation of capability and response time is on file.
+
+## 9. Equipment
+
+- Full-body harness with dorsal attachment for retrieval; rescue tripod / davit with mechanical-advantage winch where vertical entry > 1.5 m.
+- Retrieval line attached to every entrant; entrants > 1.5 m apart use separate lines and a non-tangling configuration.
+- Lighting and tools rated for the atmosphere: intrinsically safe (Ex ia, Ex e) where flammable atmosphere possible.
+- Communications system tested before entry.
+- Self-contained breathing apparatus (SCBA) and supplied-air sets with escape bottles, for rescue and for tasks where IDLH conditions might develop.
+- A first-aid responder and AED at the entry.
+- An emergency power supply / UPS for fixed lighting and ventilation.
+
+## 10. PPE
+
+PPE matched to the residual hazards: fire-retardant coveralls, intrinsically-safe lamp, head protection (low-profile helmet with chinstrap), hearing protection, gloves, knee/elbow pads, supplied-air respirator where atmosphere not demonstrably safe, fall arrest where vertical fall hazard.
+
+## 11. Entry & Work
+
+- Each Authorised Entrant signs the entry log on entry and exit, and at hourly intervals during work.
+- The Attendant logs gas readings every 15 minutes.
+- Hot work, painting, abrasive blasting and any other activity that affects the atmosphere triggers a re-assessment and a separate, concurrent permit (Hot Work Permit).
+- Communication is maintained continuously; loss of communication is treated as an emergency.
+
+## 12. Emergency & Rescue
+
+- Rescue is by **non-entry retrieval** from outside the space wherever the configuration allows. Lines are pre-rigged.
+- Where non-entry rescue is not feasible, entry rescue is performed only by the trained Rescue Team wearing SCBA, with a separate Attendant.
+- **Untrained spontaneous rescue is strictly prohibited.** The single greatest cause of multiple confined-space fatalities is the spontaneous responder. Workers are trained on this prohibition and reminded at every entry briefing.
+- Rescue drills are conducted at least every 12 months, timed, and the corrective actions tracked.
+
+## 13. Close-Out
+
+- All entrants and equipment are accounted for; tools are removed; the entry log is closed.
+- The space is sealed, isolations verified, signage updated.
+- The permit is signed off, filed and entered in the Permit Register.
+- The retrieval equipment is cleaned, inspected and returned to the equipment store.
+
+## 14. Training & Competency
+
+All roles (Supervisor, Entrant, Attendant, Rescuer, Issuer) complete formal training (theory + practical, including SCBA donning and live drill) on appointment and every 24 months thereafter. Records on file.
+
+## 15. Records
+
+Permits, gas-test calibration certificates, training certificates, rescue-drill reports, equipment inspections, medical fitness certificates and incident reports are retained for 5 years.
 ` + STANDARD_FOOTER,
   },
   {
@@ -909,39 +1596,126 @@ After completion:
     legalBasis: ["Electrical Installation Regulations 2009", "Electrical Machinery Regulations", "SANS 10142"],
     placeholders: ["{{COMPANY_NAME}}"],
     requiresAck: true,
-    content: HEADER_BLOCK.replace("{{TITLE}}", "Electrical Safety Procedure") + `## 1. Authorised Persons
+    content: HEADER_BLOCK.replace("{{TITLE}}", "Electrical Safety Procedure") + `## 1. Purpose & Scope
 
-Only persons appointed in writing as "competent" under the Electrical Machinery Regulations may perform work on electrical installations. Registered Electrical Contractors (with DoEL registration) sign off Certificates of Compliance.
+This procedure governs all work on or near electrical installations, equipment and conductors under the control of {{COMPANY_NAME}}, in accordance with the Electrical Installation Regulations 2009, the Electrical Machinery Regulations, SANS 10142-1 (LV wiring code), SANS 10142-2 (MV wiring code), SANS 10198 (Selection, handling and installation of electric cables), SANS 10142-3 (Hazardous locations) and the Occupational Health and Safety Act.
 
-## 2. General Rules
+It applies to permanent installations, temporary site supplies, generators, portable equipment, hand tools, instrumentation and any work in proximity to overhead or underground electricity.
 
-- Treat every conductor as live until proven dead.
-- Lock out and tag out before work.
-- Test before touch â€” use a known-good voltage tester before and after testing the circuit.
-- Apply earth bonds where required (HV).
-- Maintain safe approach distances (per SANS 10142).
+## 2. Competence & Appointments
 
-## 3. Portable Electrical Equipment
+- Only persons holding the relevant Wireman's Licence (Single Phase, Three Phase, Installation Electrician, Master Installation Electrician) issued by the Department of Employment & Labour may carry out, oversee or certify electrical installation work, within the scope of their licence.
+- A Registered Electrical Contractor (RE Co.) registered with the Department issues every Certificate of Compliance (CoC).
+- A competent Senior Engineer is appointed in writing in terms of Electrical Machinery Regulation 9 for premises where machinery > 100 kVA is operated.
+- A Person Designated as Responsible for the safe operation of electrical machinery is appointed in writing where required.
+- Live work, switching at MV, isolation and earthing, and high-voltage testing are performed only by persons authorised in writing for the specific competence and equipment.
+- A current Register of Electrical Competence lists every authorised person with their licence number, scope and expiry.
 
-- All portable equipment inspected before each use.
-- Earth leakage protection (30 mA RCD) on all socket outlets feeding portable equipment on site.
-- Cables routed off the ground or protected from damage.
-- Damaged plugs, sockets or cables removed from service immediately ("Out of Service" tag).
-- Quarterly insulation resistance and earth continuity test logged on Portable Appliance Register.
+## 3. Cardinal Rules
 
-## 4. Working Near Overhead Lines
+1. Treat every conductor as **live** until proven dead by an authorised person using a tested instrument.
+2. **De-energise before working** on any electrical equipment except where it is impossible to do so and a written Live Work Permit is in force.
+3. Lock out and tag out per the LOTO procedure on every isolation.
+4. **Test before touch** — voltage tester proved on a known live source immediately before and after testing (test-prove-test).
+5. Maintain minimum safe approach distances.
+6. Apply earthing where required (MV and HV).
+7. Use insulated tools rated for the system voltage (SANS 60900).
+8. Wear arc-rated PPE matched to the calculated incident energy (NFPA 70E / SANS 10198-12 categories).
 
-- Identify all overhead lines before mobilising plant.
-- Maintain minimum approach distances (low voltage 3m; up to 33 kV 4m; up to 132 kV 5m; up to 275 kV 6m; up to 400 kV 7m).
-- Use a flagman / spotter where mobile plant operates near lines.
-- Permit to work from the line owner if work within zone is unavoidable.
+## 4. De-Energised Work — The Seven Safe Steps
 
-## 5. Excavation Near Buried Cables
+1. **Identify** the equipment and the limits of the work.
+2. **Disconnect** — operate the upstream isolator; verify the visible break.
+3. **Secure against re-connection** — apply lock and tag at every disconnect point.
+4. **Test for absence of voltage** — on every conductor, phase-to-phase, phase-to-earth, neutral-to-earth, using a tested instrument.
+5. **Earth and short-circuit** — mandatory for MV / HV; recommended for LV bus-work and capacitive circuits. Earths are visible from the work position.
+6. **Cordon and signpost** — barriers and "Danger: Authorised Person Only" signage delineate the safe work zone from adjacent live equipment.
+7. **Authorise work** — Permit-to-Work signed by issuer and accepted by recipient.
 
-- Obtain cable plans from the utility.
-- Cable Avoidance Tool (CAT) scan before excavation.
-- Hand-dig within 1 metre of any indicated cable.
-- Treat all unidentified cables as live.
+## 5. Live Work
+
+Live work is permitted only when:
+
+- De-energisation is shown in writing to be impracticable (testing a fault, life-support systems, certain measurements).
+- A Live Work Permit signed by the Senior Engineer is in force.
+- The work is performed by an authorised person with current Live Work competence.
+- Insulated tools, gloves (SANS 60903 / IEC 60903 Class matched to voltage, with leather over-protectors), arc-rated clothing (Cat 1 to 4 matched to incident energy), face shield with arc rating, dielectric boots are worn.
+- A second authorised person is in attendance, in line-of-sight, capable of de-energising and trained in electrical rescue.
+- A clear rescue plan with a rescue hook / shepherd's crook is at the work.
+
+Live work above 1000 V AC / 1500 V DC is restricted to authorised HV personnel and supplementary procedures apply.
+
+## 6. Approach Distances
+
+Minimum approach distances for unqualified personnel (and for plant operating near lines):
+
+| Nominal voltage | Distance |
+|-----------------|----------|
+| LV up to 1 kV | 1.0 m |
+| > 1 kV up to 11 kV | 3.0 m |
+| > 11 kV up to 33 kV | 4.0 m |
+| > 33 kV up to 132 kV | 5.0 m |
+| > 132 kV up to 275 kV | 6.0 m |
+| > 275 kV up to 400 kV | 7.0 m |
+| 765 kV | 9.0 m |
+
+Work inside these zones requires a written permit from the line owner (Eskom / municipality) and on-site supervision.
+
+## 7. Portable Electrical Equipment & Hand Tools
+
+- All portable electrical equipment is inspected by the user before each use — plug, cable, earth pin, casing, switch, accessories.
+- Earth-leakage protection (30 mA RCD) is in line with every socket outlet feeding portable equipment on a construction site.
+- Cables are routed off the ground (cable stands, hooks) or protected from mechanical damage by trunking, ramps or matting where they cross trafficked routes.
+- Cables are protected from water; equipment used outdoors or in wet areas is at least IP44 rated.
+- Damaged plugs, cables, sockets or equipment are removed from service immediately by attaching a red "Out of Service / Do Not Use" tag and surrendering to the workshop for repair.
+- The Portable Appliance Register records every item and the date of its quarterly insulation-resistance and earth-continuity test (per SANS 10198).
+- Class II (double-insulated) tools are preferred for handheld equipment in conductive environments.
+
+## 8. Temporary Construction Supply
+
+- Designed, installed and commissioned by a competent person; CoC issued.
+- Distribution boards are IP44 outdoor / IP54 wet area, locked, with up-to-date single-line diagrams.
+- Every circuit is RCD-protected (30 mA, 30 ms operating time).
+- Cables are armoured or routed protected; flexible cables of HO7RN-F or equivalent.
+- Generators are bonded and earthed; an earth-electrode resistance test on installation.
+- The supply is reinspected weekly and after every incident or modification.
+
+## 9. Working Near Overhead Lines
+
+- The presence of overhead lines is identified at the planning stage; the line owner is consulted.
+- Goalposts at the line height are installed at the approach to the line; signage warns of the maximum equipment height permitted.
+- Tipping vehicles, cranes, MEWPs, excavators and concrete pumps comply with the approach distances of section 6.
+- A flagman / spotter is positioned for every plant movement within 10 m of any conductor.
+- Permit-to-work from the line owner, including switch-off or sleeving, is obtained when work inside the zone is unavoidable.
+
+## 10. Excavation Near Buried Cables
+
+- Cable plans are obtained from the utility, the municipality and any private owners before excavation.
+- A Cable Avoidance Tool (CAT) scan and a Genny signal scan are performed by a competent operator before any digging; results plotted on the work plan.
+- Trial holes are hand-dug at 5 m intervals along the trench line to confirm absence or location of services.
+- Within 1.0 m of any indicated cable, only hand-digging with insulated tools is permitted (no mechanical excavation).
+- Treat all unidentified cables as live until verified by the asset owner.
+- Exposed cables are protected from damage by covers or armour during the works and reinstated to the SANS standard on completion.
+
+## 11. Hazardous-Location Equipment
+
+Equipment for use in flammable atmospheres is selected and installed in accordance with SANS 10108 and SANS 10142-3, certified to the relevant Ex protection method (Ex ia, Ex e, Ex d, Ex p) and zone (0, 1, 2 for gas; 20, 21, 22 for dust), and inspected periodically (SANS 60079-17).
+
+## 12. Electric Shock & Arc Flash Response
+
+- Do not touch the casualty until the supply is verified de-energised; if unable to de-energise, separate the casualty using a non-conductive device (wooden / fibreglass insulated rod, dry rope).
+- Once safe: DRSABCD; commence CPR if no pulse; activate the AED.
+- All electric-shock cases are referred to medical assessment regardless of how minor they appear (delayed cardiac arrhythmia is recognised).
+- Arc-flash casualties: smother any burning clothing, cool burns with running water 20 minutes, cover with sterile non-adherent dressing, evacuate to specialised burns unit.
+- The incident is investigated as a Section 24 dangerous occurrence.
+
+## 13. Certificate of Compliance
+
+A Certificate of Compliance signed by a Registered Electrical Contractor is issued for every new installation, every alteration of an installation, and on change of user. The CoC is retained for the life of the installation and presented on inspection.
+
+## 14. Records
+
+Licences, written appointments, permits to work, live-work permits, portable appliance register, RCD test records, earth electrode resistance tests, CoCs, single-line diagrams and incident reports are retained for not less than 5 years.
 ` + STANDARD_FOOTER,
   },
 ];
