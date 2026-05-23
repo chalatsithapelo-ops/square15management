@@ -1,6 +1,6 @@
 // Service Worker for PWA + Push Notifications
-// Version 2 - TWA push notification fix
-const CACHE_NAME = "square15-v2";
+// Version 3 - bust stale HTML/asset cache after rebuilds
+const CACHE_NAME = "square15-v3";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -52,22 +52,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For navigation requests (HTML pages) — network first, fallback to cache
+  // For navigation requests (HTML pages) — always network, fall back to offline page only.
+  // We intentionally do NOT cache HTML because it references hashed asset filenames
+  // that change every deploy; serving stale HTML after a deploy causes white-screen
+  // errors when the referenced /assets/*.js no longer exists.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match("/offline.html");
-          });
-        })
+      fetch(request).catch(() => caches.match("/offline.html"))
     );
     return;
   }
