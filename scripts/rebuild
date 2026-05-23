@@ -28,6 +28,27 @@ docker compose -f docker/compose.yaml build --no-cache
 echo "Starting containers..."
 docker compose -f docker/compose.yaml up -d
 
+# Build the application bundle (vinxi build -> .output)
+# `pnpm start` (vinxi start) serves the prebuilt .output directory, so we must
+# regenerate it after pulling new code, otherwise the app keeps serving the
+# stale bundle even though the container restarted.
+echo ""
+echo "Waiting for app container to install dependencies..."
+# Wait for /app/node_modules to exist in the container (pnpm install completes)
+for i in $(seq 1 60); do
+  if docker exec docker-app-1 test -d /app/node_modules/vinxi 2>/dev/null; then
+    echo "Dependencies ready."
+    break
+  fi
+  sleep 5
+done
+
+echo "Building application bundle (vinxi build)..."
+docker exec docker-app-1 pnpm build
+
+echo "Restarting app container to load new .output bundle..."
+docker restart docker-app-1
+
 echo ""
 echo "=========================================="
 echo "Rebuild complete!"
