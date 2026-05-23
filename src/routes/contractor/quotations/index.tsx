@@ -1510,10 +1510,21 @@ function QuotationsPage() {
           { header: "Quote #", key: "quoteNumber" },
           { header: "Client Ref #", key: "clientReferenceQuoteNumber" },
           { header: "Customer Name", key: "customerName" },
+          { header: "Company", key: "client", format: (v: any) => v?.companyName || v?.name || "\u2014" },
+          { header: "Building", key: "clientBuilding", format: (v: any) => v?.name || "\u2014" },
           { header: "Email", key: "customerEmail" },
           { header: "Phone", key: "customerPhone" },
           { header: "Address", key: "address" },
           { header: "Status", key: "status" },
+          { header: "Job Status", key: "generatedOrder", format: (v: any) => {
+            if (!v) return "No Order Yet";
+            const map: Record<string, string> = { PENDING: "Order Pending", ASSIGNED: "Assigned to Artisan", IN_PROGRESS: "Job In Progress", COMPLETED: "Job Done", CANCELLED: "Cancelled" };
+            return map[v.status] || v.status;
+          } },
+          { header: "Order #", key: "generatedOrder", format: (v: any) => v?.orderNumber || "\u2014" },
+          { header: "Invoice #", key: "generatedInvoice", format: (v: any) => v?.invoiceNumber || "\u2014" },
+          { header: "Invoice Status", key: "generatedInvoice", format: (v: any) => v ? (v.status === "PAID" ? "Paid" : v.status === "OVERDUE" ? "Overdue" : v.status === "SENT" ? "Sent / Awaiting Payment" : v.status) : "Not Invoiced" },
+          { header: "Paid?", key: "generatedInvoice", format: (v: any) => v ? (v.status === "PAID" ? `Yes (${v.paidDate ? new Date(v.paidDate).toLocaleDateString() : ""})` : "No") : "\u2014" },
           { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
           { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
@@ -1526,9 +1537,33 @@ function QuotationsPage() {
           { header: "Notes", key: "notes" },
         ]}
         data={quotations}
+        searchAccessors={[
+          (r: any) => r.customerName,
+          (r: any) => r.customerEmail,
+          (r: any) => r.customerPhone,
+          (r: any) => r.address,
+          (r: any) => r.quoteNumber,
+          (r: any) => r.clientReferenceQuoteNumber,
+          (r: any) => r.client?.companyName,
+          (r: any) => r.client?.name,
+          (r: any) => r.clientBuilding?.name,
+          (r: any) => r.clientBuilding?.address,
+          (r: any) => r.generatedOrder?.orderNumber,
+          (r: any) => r.generatedInvoice?.invoiceNumber,
+          (r: any) => r.assignedTo ? `${r.assignedTo.firstName} ${r.assignedTo.lastName}` : "",
+          (r: any) => r.notes,
+        ]}
+        presets={[
+          { label: "Approved \u2014 No Order Yet", predicate: (r: any) => (r.status === "APPROVED_BY_CUSTOMER" || r.status === "APPROVED") && !r.generatedOrder },
+          { label: "Job Done \u2014 Not Invoiced", predicate: (r: any) => r.generatedOrder?.status === "COMPLETED" && !r.generatedInvoice },
+          { label: "Invoiced \u2014 Unpaid", predicate: (r: any) => !!r.generatedInvoice && r.generatedInvoice.status !== "PAID" && r.generatedInvoice.status !== "CANCELLED" },
+          { label: "Paid", predicate: (r: any) => r.generatedInvoice?.status === "PAID" },
+          { label: "Rejected / Lost", predicate: (r: any) => r.status === "REJECTED_BY_CUSTOMER" || r.status === "REJECTED" },
+          { label: "Pending Customer Decision", predicate: (r: any) => r.status === "SENT_TO_CUSTOMER" },
+        ]}
         filters={[
           {
-            label: "Status",
+            label: "Quote Status",
             key: "status",
             options: [
               { value: "DRAFT", label: "Draft" },
@@ -1541,6 +1576,9 @@ function QuotationsPage() {
               { value: "REJECTED", label: "Rejected" },
             ],
           },
+          { label: "Customer / Contact Name", key: "customerName", type: "text", accessor: (r: any) => r.customerName },
+          { label: "Company", key: "companyName", type: "text", accessor: (r: any) => r.client?.companyName || r.client?.name || "" },
+          { label: "Building", key: "buildingName", type: "text", accessor: (r: any) => r.clientBuilding?.name || "" },
         ]}
       />
     </div>

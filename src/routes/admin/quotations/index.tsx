@@ -1601,10 +1601,36 @@ function QuotationsPage() {
           { header: "Quote #", key: "quoteNumber" },
           { header: "Client Ref #", key: "clientReferenceQuoteNumber" },
           { header: "Customer Name", key: "customerName" },
+          { header: "Company", key: "client", format: (v: any) => v?.companyName || v?.name || "\u2014" },
+          { header: "Building", key: "clientBuilding", format: (v: any) => v?.name || "\u2014" },
           { header: "Email", key: "customerEmail" },
           { header: "Phone", key: "customerPhone" },
           { header: "Address", key: "address" },
           { header: "Status", key: "status" },
+          { header: "Job Status", key: "generatedOrder", format: (v: any) => {
+            if (!v) return "No Order Yet";
+            const map: Record<string, string> = {
+              PENDING: "Order Pending",
+              ASSIGNED: "Assigned to Artisan",
+              IN_PROGRESS: "Job In Progress",
+              COMPLETED: "Job Done",
+              CANCELLED: "Cancelled",
+            };
+            return map[v.status] || v.status;
+          } },
+          { header: "Order #", key: "generatedOrder", format: (v: any) => v?.orderNumber || "\u2014" },
+          { header: "Invoice #", key: "generatedInvoice", format: (v: any) => v?.invoiceNumber || "\u2014" },
+          { header: "Invoice Status", key: "generatedInvoice", format: (v: any) => {
+            if (!v) return "Not Invoiced";
+            if (v.status === "PAID") return "Paid";
+            if (v.status === "OVERDUE") return "Overdue";
+            if (v.status === "SENT") return "Sent / Awaiting Payment";
+            return v.status;
+          } },
+          { header: "Paid?", key: "generatedInvoice", format: (v: any) => {
+            if (!v) return "\u2014";
+            return v.status === "PAID" ? `Yes (${v.paidDate ? new Date(v.paidDate).toLocaleDateString() : ""})` : "No";
+          } },
           { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
           { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
@@ -1617,9 +1643,33 @@ function QuotationsPage() {
           { header: "Notes", key: "notes" },
         ]}
         data={quotations}
+        searchAccessors={[
+          (r: any) => r.customerName,
+          (r: any) => r.customerEmail,
+          (r: any) => r.customerPhone,
+          (r: any) => r.address,
+          (r: any) => r.quoteNumber,
+          (r: any) => r.clientReferenceQuoteNumber,
+          (r: any) => r.client?.companyName,
+          (r: any) => r.client?.name,
+          (r: any) => r.clientBuilding?.name,
+          (r: any) => r.clientBuilding?.address,
+          (r: any) => r.generatedOrder?.orderNumber,
+          (r: any) => r.generatedInvoice?.invoiceNumber,
+          (r: any) => r.assignedTo ? `${r.assignedTo.firstName} ${r.assignedTo.lastName}` : "",
+          (r: any) => r.notes,
+        ]}
+        presets={[
+          { label: "Approved \u2014 No Order Yet", description: "Customer approved the quote but no order has been created", predicate: (r: any) => (r.status === "APPROVED_BY_CUSTOMER" || r.status === "APPROVED") && !r.generatedOrder },
+          { label: "Job Done \u2014 Not Invoiced", description: "Order completed but no invoice exists", predicate: (r: any) => r.generatedOrder?.status === "COMPLETED" && !r.generatedInvoice },
+          { label: "Invoiced \u2014 Unpaid", description: "Invoice raised but not yet paid", predicate: (r: any) => !!r.generatedInvoice && r.generatedInvoice.status !== "PAID" && r.generatedInvoice.status !== "CANCELLED" },
+          { label: "Paid", description: "Invoice marked paid", predicate: (r: any) => r.generatedInvoice?.status === "PAID" },
+          { label: "Rejected / Lost", description: "Customer rejected the quote", predicate: (r: any) => r.status === "REJECTED_BY_CUSTOMER" || r.status === "REJECTED" },
+          { label: "Pending Customer Decision", description: "Sent to customer, awaiting response", predicate: (r: any) => r.status === "SENT_TO_CUSTOMER" },
+        ]}
         filters={[
           {
-            label: "Status",
+            label: "Quote Status",
             key: "status",
             options: [
               { value: "DRAFT", label: "Draft" },
@@ -1633,6 +1683,24 @@ function QuotationsPage() {
               { value: "APPROVED_BY_CUSTOMER", label: "Approved by Customer" },
               { value: "REJECTED_BY_CUSTOMER", label: "Rejected by Customer" },
             ],
+          },
+          {
+            label: "Customer / Contact Name",
+            key: "customerName",
+            type: "text",
+            accessor: (r: any) => r.customerName,
+          },
+          {
+            label: "Company",
+            key: "companyName",
+            type: "text",
+            accessor: (r: any) => r.client?.companyName || r.client?.name || "",
+          },
+          {
+            label: "Building",
+            key: "buildingName",
+            type: "text",
+            accessor: (r: any) => r.clientBuilding?.name || "",
           },
         ]}
       />

@@ -2214,26 +2214,72 @@ function OperationsPage() {
         filenamePrefix="operations_report"
         columns={[
           { header: "Order #", key: "orderNumber" },
+          { header: "Quote #", key: "quotation", format: (v: any) => v?.quoteNumber || "\u2014" },
           { header: "Customer Name", key: "customerName" },
+          { header: "Company", key: "client", format: (v: any) => v?.companyName || v?.name || "\u2014" },
+          { header: "Building", key: "clientBuilding", format: (v: any) => v?.name || "\u2014" },
           { header: "Email", key: "customerEmail" },
           { header: "Phone", key: "customerPhone" },
           { header: "Address", key: "address" },
           { header: "Service Type", key: "serviceType" },
-          { header: "Status", key: "status" },
+          { header: "Order Status", key: "status" },
+          { header: "Invoice #", key: "invoice", format: (v: any) => v?.invoiceNumber || "\u2014" },
+          { header: "Invoice Status", key: "invoice", format: (v: any) => {
+            if (!v) return "Not Invoiced";
+            if (v.status === "PAID") return "Paid";
+            if (v.status === "OVERDUE") return "Overdue";
+            if (v.status === "SENT") return "Sent / Awaiting Payment";
+            return v.status;
+          } },
+          { header: "Paid?", key: "invoice", format: (v: any) => {
+            if (!v) return "\u2014";
+            return v.status === "PAID" ? `Yes (${v.paidDate ? new Date(v.paidDate).toLocaleDateString() : ""})` : "No";
+          } },
+          { header: "Days Open", key: "createdAt", format: (_v: any, row: any) => {
+            const start = row.createdAt ? new Date(row.createdAt).getTime() : null;
+            const end = row.status === "COMPLETED" && row.endTime ? new Date(row.endTime).getTime() : Date.now();
+            if (!start) return "\u2014";
+            return String(Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24))));
+          } },
           { header: "Total Cost", key: "totalCost", format: (v: any) => `R${(v || 0).toLocaleString()}` },
-          { header: "Call-Out Fee", key: "callOutFee", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "—" },
-          { header: "Labour Rate", key: "labourRate", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "—" },
-          { header: "Material Budget", key: "totalMaterialBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "—" },
-          { header: "Labour Budget", key: "totalLabourCostBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "—" },
+          { header: "Call-Out Fee", key: "callOutFee", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Rate", key: "labourRate", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Material Budget", key: "totalMaterialBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
+          { header: "Labour Budget", key: "totalLabourCostBudget", format: (v: any) => v ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Assigned To", key: "assignedTo", format: (v: any) => v ? `${v.firstName} ${v.lastName}` : "Unassigned" },
-          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "—" },
+          { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
           { header: "Description", key: "description" },
           { header: "Notes", key: "notes" },
         ]}
         data={orders}
+        searchAccessors={[
+          (r: any) => r.customerName,
+          (r: any) => r.customerEmail,
+          (r: any) => r.customerPhone,
+          (r: any) => r.address,
+          (r: any) => r.orderNumber,
+          (r: any) => r.quotation?.quoteNumber,
+          (r: any) => r.invoice?.invoiceNumber,
+          (r: any) => r.client?.companyName,
+          (r: any) => r.client?.name,
+          (r: any) => r.clientBuilding?.name,
+          (r: any) => r.clientBuilding?.address,
+          (r: any) => r.serviceType,
+          (r: any) => r.assignedTo ? `${r.assignedTo.firstName} ${r.assignedTo.lastName}` : "",
+          (r: any) => r.description,
+          (r: any) => r.notes,
+        ]}
+        presets={[
+          { label: "Unassigned", description: "Orders with no artisan assigned", predicate: (r: any) => !r.assignedToId },
+          { label: "Job Done \u2014 Not Invoiced", description: "Completed orders not yet invoiced", predicate: (r: any) => r.status === "COMPLETED" && !r.invoice },
+          { label: "Invoiced \u2014 Unpaid", description: "Invoice raised but unpaid", predicate: (r: any) => !!r.invoice && r.invoice.status !== "PAID" && r.invoice.status !== "CANCELLED" },
+          { label: "Paid", description: "Order's invoice is paid", predicate: (r: any) => r.invoice?.status === "PAID" },
+          { label: "In Progress", description: "Currently being worked on", predicate: (r: any) => r.status === "IN_PROGRESS" },
+          { label: "Overdue SLA", description: "Past SLA due date and not completed", predicate: (r: any) => r.slaDueAt && new Date(r.slaDueAt).getTime() < Date.now() && r.status !== "COMPLETED" && r.status !== "CANCELLED" },
+        ]}
         filters={[
           {
-            label: "Status",
+            label: "Order Status",
             key: "status",
             options: [
               { value: "PENDING", label: "Pending" },
@@ -2242,6 +2288,24 @@ function OperationsPage() {
               { value: "COMPLETED", label: "Completed" },
               { value: "CANCELLED", label: "Cancelled" },
             ],
+          },
+          {
+            label: "Customer / Contact Name",
+            key: "customerName",
+            type: "text",
+            accessor: (r: any) => r.customerName,
+          },
+          {
+            label: "Company",
+            key: "companyName",
+            type: "text",
+            accessor: (r: any) => r.client?.companyName || r.client?.name || "",
+          },
+          {
+            label: "Building",
+            key: "buildingName",
+            type: "text",
+            accessor: (r: any) => r.clientBuilding?.name || "",
           },
         ]}
       />

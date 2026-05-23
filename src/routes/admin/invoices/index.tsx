@@ -2177,24 +2177,78 @@ function InvoicesPage() {
         filenamePrefix="invoices_report"
         columns={[
           { header: "Invoice #", key: "invoiceNumber" },
+          { header: "Quote #", key: "quotation", format: (v: any) => v?.quoteNumber || "\u2014" },
+          { header: "Order #", key: "order", format: (v: any) => v?.orderNumber || "\u2014" },
           { header: "Customer Name", key: "customerName" },
+          { header: "Company", key: "client", format: (v: any) => v?.companyName || v?.name || "\u2014" },
+          { header: "Building", key: "clientBuilding", format: (v: any) => v?.name || "\u2014" },
           { header: "Email", key: "customerEmail" },
           { header: "Phone", key: "customerPhone" },
           { header: "Address", key: "address" },
-          { header: "Status", key: "status" },
+          { header: "Invoice Status", key: "status" },
+          { header: "Order Status", key: "order", format: (v: any) => {
+            if (!v) return "\u2014";
+            const map: Record<string, string> = {
+              PENDING: "Order Pending",
+              ASSIGNED: "Assigned to Artisan",
+              IN_PROGRESS: "Job In Progress",
+              COMPLETED: "Job Done",
+              CANCELLED: "Cancelled",
+            };
+            return map[v.status] || v.status;
+          } },
+          { header: "Paid?", key: "status", format: (v: any, row: any) => {
+            if (v === "PAID") return `Yes (${row.paidDate ? new Date(row.paidDate).toLocaleDateString() : ""})`;
+            if (v === "CANCELLED") return "N/A";
+            return "No";
+          } },
+          { header: "Days Outstanding", key: "createdAt", format: (_v: any, row: any) => {
+            if (row.status === "PAID" || row.status === "CANCELLED") return "\u2014";
+            const start = row.createdAt ? new Date(row.createdAt).getTime() : null;
+            if (!start) return "\u2014";
+            return String(Math.max(0, Math.round((Date.now() - start) / (1000 * 60 * 60 * 24))));
+          } },
+          { header: "Days Overdue", key: "dueDate", format: (v: any, row: any) => {
+            if (!v || row.status === "PAID" || row.status === "CANCELLED") return "\u2014";
+            const due = new Date(v).getTime();
+            const days = Math.round((Date.now() - due) / (1000 * 60 * 60 * 24));
+            return days > 0 ? String(days) : "\u2014";
+          } },
           { header: "Total", key: "total", format: (v: any) => `R${(v || 0).toLocaleString()}` },
           { header: "Est. Profit", key: "estimatedProfit", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Material Cost", key: "companyMaterialCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Labour Cost", key: "companyLabourCost", format: (v: any) => v != null ? `R${Number(v).toLocaleString()}` : "\u2014" },
           { header: "Due Date", key: "dueDate", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
-          { header: "Order #", key: "order", format: (v: any) => v?.orderNumber || "\u2014" },
+          { header: "Paid Date", key: "paidDate", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
           { header: "Date Created", key: "createdAt", format: (v: any) => v ? new Date(v).toLocaleDateString() : "\u2014" },
           { header: "Notes", key: "notes" },
         ]}
         data={invoices}
+        searchAccessors={[
+          (r: any) => r.customerName,
+          (r: any) => r.customerEmail,
+          (r: any) => r.customerPhone,
+          (r: any) => r.address,
+          (r: any) => r.invoiceNumber,
+          (r: any) => r.order?.orderNumber,
+          (r: any) => r.quotation?.quoteNumber,
+          (r: any) => r.client?.companyName,
+          (r: any) => r.client?.name,
+          (r: any) => r.clientBuilding?.name,
+          (r: any) => r.clientBuilding?.address,
+          (r: any) => r.notes,
+        ]}
+        presets={[
+          { label: "Unpaid", description: "All invoices not yet paid", predicate: (r: any) => r.status !== "PAID" && r.status !== "CANCELLED" && r.status !== "DRAFT" },
+          { label: "Overdue", description: "Past due date and not paid", predicate: (r: any) => r.dueDate && new Date(r.dueDate).getTime() < Date.now() && r.status !== "PAID" && r.status !== "CANCELLED" },
+          { label: "Paid", description: "Invoice marked paid", predicate: (r: any) => r.status === "PAID" },
+          { label: "Disputed", description: "Customer disputed the invoice", predicate: (r: any) => r.isDisputed === true },
+          { label: "Job Done \u2014 Invoiced", description: "Order completed and invoice raised", predicate: (r: any) => r.order?.status === "COMPLETED" },
+          { label: "Invoiced \u2014 Job Not Done", description: "Invoice raised but order is not completed yet (potential issue)", predicate: (r: any) => r.order && r.order.status !== "COMPLETED" && r.order.status !== "CANCELLED" },
+        ]}
         filters={[
           {
-            label: "Status",
+            label: "Invoice Status",
             key: "status",
             options: [
               { value: "DRAFT", label: "Draft" },
@@ -2207,6 +2261,24 @@ function InvoicesPage() {
               { value: "CANCELLED", label: "Cancelled" },
               { value: "REJECTED", label: "Rejected" },
             ],
+          },
+          {
+            label: "Customer / Contact Name",
+            key: "customerName",
+            type: "text",
+            accessor: (r: any) => r.customerName,
+          },
+          {
+            label: "Company",
+            key: "companyName",
+            type: "text",
+            accessor: (r: any) => r.client?.companyName || r.client?.name || "",
+          },
+          {
+            label: "Building",
+            key: "buildingName",
+            type: "text",
+            accessor: (r: any) => r.clientBuilding?.name || "",
           },
         ]}
       />

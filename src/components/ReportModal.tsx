@@ -1,11 +1,24 @@
-import { useState } from "react";
-import { FileSpreadsheet, FileText, X, Download, Calendar, Filter } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileSpreadsheet, FileText, X, Download, Calendar, Filter, Search } from "lucide-react";
 import { exportToExcel, exportToPDF, type ReportColumn } from "~/utils/reportExport";
 
 interface ReportFilter {
   label: string;
   key: string;
-  options: { value: string; label: string }[];
+  /** "select" (default) shows a dropdown of options; "text" shows a contains-search input. */
+  type?: "select" | "text";
+  options?: { value: string; label: string }[];
+  /** Optional accessor for nested values (e.g. row => row.client?.companyName) */
+  accessor?: (row: any) => string | number | null | undefined;
+}
+
+interface ReportPreset {
+  /** Short label shown on the chip button */
+  label: string;
+  /** Optional one-line description */
+  description?: string;
+  /** Predicate evaluated against each row */
+  predicate: (row: any) => boolean;
 }
 
 interface ReportModalProps {
@@ -16,6 +29,10 @@ interface ReportModalProps {
   columns: ReportColumn[];
   data: any[];
   filters?: ReportFilter[];
+  /** Quick-filter buttons specific to a report (e.g. "Job done, not invoiced") */
+  presets?: ReportPreset[];
+  /** Keys / accessors that the search box should match against (substring, case-insensitive). */
+  searchAccessors?: ((row: any) => string | null | undefined)[];
   generatedBy?: string;
 }
 
@@ -27,12 +44,33 @@ export function ReportModal({
   columns,
   data,
   filters = [],
+  presets = [],
+  searchAccessors,
   generatedBy,
 }: ReportModalProps) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [activePresetIdx, setActivePresetIdx] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedColumns, setSelectedColumns] = useState<string[]>(columns.map((c) => c.key));
+
+  // Build the default search accessors from string columns if none provided.
+  const effectiveSearchAccessors = useMemo(() => {
+    if (searchAccessors && searchAccessors.length > 0) return searchAccessors;
+    return columns.map((col) => (row: any) => {
+      const v = row?.[col.key];
+      if (v == null) return "";
+      if (typeof v === "string" || typeof v === "number") return String(v);
+      // For objects (e.g. assignedTo, client), stringify a few likely fields
+      if (typeof v === "object") {
+        return [v.name, v.firstName, v.lastName, v.companyName, v.email, v.orderNumber, v.invoiceNumber, v.quoteNumber]
+          .filter(Boolean)
+          .join(" ");
+      }
+      return "";
+    });
+  }, [columns, searchAccessors]);
 
   if (!isOpen) return null;
 
@@ -57,12 +95,37 @@ export function ReportModal({
     });
   }
 
-  // Custom filters
+  // Custom filters (select = exact match, text = substring)
   Object.entries(activeFilters).forEach(([key, value]) => {
-    if (value) {
-      filteredData = filteredData.filter((row) => String(row[key]) === value);
+    if (!value) return;
+    const filterDef = filters.find((f) => f.key === key);
+    const getVal = (row: any): string => {
+      const raw = filterDef?.accessor ? filterDef.accessor(row) : row[key];
+      return raw == null ? "" : String(raw);
+    };
+    if (filterDef?.type === "text") {
+      const needle = value.toLowerCase();
+      filteredData = filteredData.filter((row) => getVal(row).toLowerCase().includes(needle));
+    } else {
+      filteredData = filteredData.filter((row) => getVal(row) === value);
     }
   });
+
+  // Free-text search across configured accessors
+  if (searchQuery.trim()) {
+    const needle = searchQuery.trim().toLowerCase();
+    filteredData = filteredData.filter((row) =>
+      effectiveSearchAccessors.some((acc) => {
+        const v = acc(row);
+        return v ? String(v).toLowerCase().includes(needle) : false;
+      })
+    );
+  }
+
+  // Preset predicate
+  if (activePresetIdx != null && presets[activePresetIdx]) {
+    filteredData = filteredData.filter(presets[activePresetIdx].predicate);
+  }
 
   const activeColumns = columns.filter((c) => selectedColumns.includes(c.key));
 
@@ -72,11 +135,14 @@ export function ReportModal({
   const filterDescription = [
     dateFrom && `From: ${new Date(dateFrom).toLocaleDateString()}`,
     dateTo && `To: ${new Date(dateTo).toLocaleDateString()}`,
+    searchQuery.trim() && `Search: "${searchQuery.trim()}"`,
+    activePresetIdx != null && presets[activePresetIdx] && `Preset: ${presets[activePresetIdx].label}`,
     ...Object.entries(activeFilters)
       .filter(([, v]) => v)
       .map(([k, v]) => {
         const filter = filters.find((f) => f.key === k);
-        const opt = filter?.options.find((o) => o.value === v);
+        if (filter?.type === "text") return `${filter.label}: "${v}"`;
+        const opt = filter?.options?.find((o) => o.value === v);
         return `${filter?.label}: ${opt?.label || v}`;
       }),
   ]
@@ -106,6 +172,14 @@ export function ReportModal({
     );
   };
 
+  const clearAll = () => {
+    setDateFrom("");
+    setDateTo("");
+    setActiveFilters({});
+    setActivePresetIdx(null);
+    setSearchQuery("");
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto">
@@ -127,6 +201,21 @@ export function ReportModal({
         </div>
 
         <div className="p-5 space-y-5">
+          {/* Search */}
+          <div>
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
+              <Search className="h-4 w-4 text-indigo-500" />
+              Search
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by customer name, company, building, quote/order/invoice #, address, email…"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
           {/* Date Range */}
           <div>
             <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
@@ -155,6 +244,34 @@ export function ReportModal({
             </div>
           </div>
 
+          {/* Sales-Meeting Quick Presets */}
+          {presets.length > 0 && (
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Quick Views
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset, idx) => {
+                  const active = activePresetIdx === idx;
+                  return (
+                    <button
+                      key={preset.label}
+                      onClick={() => setActivePresetIdx(active ? null : idx)}
+                      title={preset.description}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                        active
+                          ? "bg-amber-100 border-amber-400 text-amber-800 font-semibold shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Status / Custom Filters */}
           {filters.length > 0 && (
             <div>
@@ -166,23 +283,41 @@ export function ReportModal({
                 {filters.map((filter) => (
                   <div key={filter.key}>
                     <label className="text-xs text-gray-500 mb-1 block">{filter.label}</label>
-                    <select
-                      value={activeFilters[filter.key] || ""}
-                      onChange={(e) =>
-                        setActiveFilters((prev) => ({ ...prev, [filter.key]: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">All</option>
-                      {filter.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    {filter.type === "text" ? (
+                      <input
+                        type="text"
+                        value={activeFilters[filter.key] || ""}
+                        onChange={(e) =>
+                          setActiveFilters((prev) => ({ ...prev, [filter.key]: e.target.value }))
+                        }
+                        placeholder={`Contains…`}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    ) : (
+                      <select
+                        value={activeFilters[filter.key] || ""}
+                        onChange={(e) =>
+                          setActiveFilters((prev) => ({ ...prev, [filter.key]: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">All</option>
+                        {(filter.options || []).map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 ))}
               </div>
+              <button
+                onClick={clearAll}
+                className="mt-3 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+              >
+                Clear all filters
+              </button>
             </div>
           )}
 

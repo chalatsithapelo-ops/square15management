@@ -153,7 +153,30 @@ export const getInvoices = baseProcedure
               id: true,
               orderNumber: true,
               serviceType: true,
+              status: true,
+              endTime: true,
               documents: true,
+            },
+          },
+          quotation: {
+            select: {
+              id: true,
+              quoteNumber: true,
+              status: true,
+            },
+          },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              companyName: true,
+            },
+          },
+          clientBuilding: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
             },
           },
           project: {

@@ -137,6 +137,39 @@ export const getQuotations = baseProcedure
               projectNumber: true,
             },
           },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              companyName: true,
+            },
+          },
+          clientBuilding: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          generatedOrder: {
+            select: {
+              id: true,
+              orderNumber: true,
+              status: true,
+              endTime: true,
+              createdAt: true,
+            },
+          },
+          generatedInvoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              paidDate: true,
+              dueDate: true,
+              total: true,
+            },
+          },
           expenseSlips: true,
         },
         orderBy: {

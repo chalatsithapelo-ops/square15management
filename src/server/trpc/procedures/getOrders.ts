@@ -150,8 +150,33 @@ export const getOrders = baseProcedure
               id: true,
               invoiceNumber: true,
               status: true,
+              paidDate: true,
+              dueDate: true,
+              total: true,
             }
           } : false,
+          quotation: {
+            select: {
+              id: true,
+              quoteNumber: true,
+              status: true,
+              total: true,
+            },
+          },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              companyName: true,
+            },
+          },
+          clientBuilding: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
