@@ -91,13 +91,16 @@ export const generateQuotationPdf = baseProcedure
         quotation.createdBy.contractorCompanyName;
 
       if (isContractor && quotation.createdBy) {
+        const fallback = await getCompanyDetails();
         companyDetails = {
-          companyName: quotation.createdBy.contractorCompanyName!,
-          companyAddressLine1: quotation.createdBy.contractorCompanyAddressLine1 || "",
-          companyAddressLine2: quotation.createdBy.contractorCompanyAddressLine2 || "",
-          companyPhone: quotation.createdBy.contractorCompanyPhone || "",
-          companyEmail: quotation.createdBy.contractorCompanyEmail || "",
-          companyVatNumber: quotation.createdBy.contractorCompanyVatNumber || "",
+          companyName: quotation.createdBy.contractorCompanyName || fallback.companyName,
+          companyAddressLine1: quotation.createdBy.contractorCompanyAddressLine1 || fallback.companyAddressLine1 || "",
+          companyAddressLine2: quotation.createdBy.contractorCompanyAddressLine2 || fallback.companyAddressLine2 || "",
+          companyPostalAddress: fallback.companyPostalAddress || "",
+          companyPhysicalAddress: fallback.companyPhysicalAddress || "",
+          companyPhone: quotation.createdBy.contractorCompanyPhone || fallback.companyPhone || "",
+          companyEmail: quotation.createdBy.contractorCompanyEmail || fallback.companyEmail || "",
+          companyVatNumber: quotation.createdBy.contractorCompanyVatNumber || fallback.companyVatNumber || "",
         };
         logoBuffer = await getContractorLogo();
       } else {

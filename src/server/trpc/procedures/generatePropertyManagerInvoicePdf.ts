@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getContractorLogo } from "~/server/utils/logo";
+import { getCompanyDetails } from "~/server/utils/company-details";
 import { roundCurrency } from "~/utils/money";
 import {
   generatePdfFromData,
@@ -135,21 +136,26 @@ export const generatePropertyManagerInvoicePdf = baseProcedure
       const displayTotal = roundCurrency(Number(invoice.total) || 0);
       const displayVat = roundCurrency(displayTotal - displaySubtotal);
 
+      // Per-field fallback to global company details so the FROM address
+      // block is never empty when contractor-specific fields are blank.
+      const globalCompanyDetails = await getCompanyDetails();
       const data: FullPDFData = {
         template: pdfSettings.template as PDFTemplateLayout,
         colors,
         company: {
           companyName,
           companyTagline: pdfSettings.companyTagline,
-          companyAddressLine1: contractorDetails.contractorCompanyAddressLine1 || "",
-          companyAddressLine2: contractorDetails.contractorCompanyAddressLine2 || "",
-          companyPhone: contractorDetails.contractorCompanyPhone || "",
-          companyEmail: contractorDetails.contractorCompanyEmail || "",
-          companyVatNumber: contractorDetails.contractorCompanyVatNumber || "",
-          companyBankName: contractorDetails.contractorCompanyBankName || "",
-          companyBankAccountName: contractorDetails.contractorCompanyBankAccountName || "",
-          companyBankAccountNumber: contractorDetails.contractorCompanyBankAccountNumber || "",
-          companyBankBranchCode: contractorDetails.contractorCompanyBankBranchCode || "",
+          companyAddressLine1: contractorDetails.contractorCompanyAddressLine1 || globalCompanyDetails.companyAddressLine1 || "",
+          companyAddressLine2: contractorDetails.contractorCompanyAddressLine2 || globalCompanyDetails.companyAddressLine2 || "",
+          postalAddress: globalCompanyDetails.companyPostalAddress || undefined,
+          physicalAddress: globalCompanyDetails.companyPhysicalAddress || undefined,
+          companyPhone: contractorDetails.contractorCompanyPhone || globalCompanyDetails.companyPhone || "",
+          companyEmail: contractorDetails.contractorCompanyEmail || globalCompanyDetails.companyEmail || "",
+          companyVatNumber: contractorDetails.contractorCompanyVatNumber || globalCompanyDetails.companyVatNumber || "",
+          companyBankName: contractorDetails.contractorCompanyBankName || globalCompanyDetails.companyBankName || "",
+          companyBankAccountName: contractorDetails.contractorCompanyBankAccountName || globalCompanyDetails.companyBankAccountName || "",
+          companyBankAccountNumber: contractorDetails.contractorCompanyBankAccountNumber || globalCompanyDetails.companyBankAccountNumber || "",
+          companyBankBranchCode: contractorDetails.contractorCompanyBankBranchCode || globalCompanyDetails.companyBankBranchCode || "",
         },
         customer: {
           customerName: pmName,

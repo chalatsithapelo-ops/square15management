@@ -446,22 +446,25 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   // Address columns: POSTAL ADDRESS | PHYSICAL ADDRESS
   const addrColWidth = (contentWidth / 2 - 10) / 2;
 
-  // Build full company address by combining available address pieces
-  // Fixes issue where address is split between postal and physical fields
-  const addressParts = [
+  // Build a combined company address from the structured address lines.
+  // Used as a fallback whenever the dedicated postal/physical fields are blank.
+  const combinedCompanyAddress = [
     company.companyAddressLine1,
     company.companyAddressLine2,
-  ].filter(Boolean);
-  const fullCompanyAddress = addressParts.length > 0
-    ? addressParts.join(", ")
-    : [company.postalAddress, company.physicalAddress].filter(Boolean).join(", ");
+  ]
+    .filter(Boolean)
+    .join(", ");
 
-  const fromPostal = company.postalAddress && company.postalAddress.includes(",")
-    ? company.postalAddress
-    : fullCompanyAddress || company.postalAddress || "";
-  const fromPhysical = company.physicalAddress && company.physicalAddress.includes(",")
-    ? company.physicalAddress
-    : fullCompanyAddress || company.physicalAddress || "";
+  // Always prefer the dedicated postal/physical fields when populated,
+  // otherwise fall back to the combined address lines so the FROM block
+  // is never blank when ANY address data is available.
+  const fromPostal = (company.postalAddress && company.postalAddress.trim())
+    || combinedCompanyAddress
+    || "";
+  const fromPhysical = (company.physicalAddress && company.physicalAddress.trim())
+    || combinedCompanyAddress
+    || fromPostal
+    || "";
 
   // Subheaders
   doc

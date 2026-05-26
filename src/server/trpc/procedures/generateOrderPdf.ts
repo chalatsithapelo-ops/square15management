@@ -169,22 +169,27 @@ export const generateOrderPdf = baseProcedure
           },
         });
 
-        // Use contractor details if available, otherwise fall back to system details
+        // Use contractor details if available, otherwise fall back to system details.
+        // Always load global details so we can per-field fall back when a specific
+        // contractor field is blank (prevents missing FROM address in PDFs).
+        const globalCompanyDetails = await getCompanyDetails();
         if (contractorUser?.contractorCompanyName) {
           companyDetails = {
-            companyName: contractorUser.contractorCompanyName,
-            companyAddressLine1: contractorUser.contractorCompanyAddressLine1 || "",
-            companyAddressLine2: contractorUser.contractorCompanyAddressLine2 || "",
-            companyPhone: contractorUser.contractorCompanyPhone || "",
-            companyEmail: contractorUser.contractorCompanyEmail || "",
-            companyVatNumber: contractorUser.contractorCompanyVatNumber || "",
-            companyBankName: contractorUser.contractorCompanyBankName || "",
-            companyBankAccountName: contractorUser.contractorCompanyBankAccountName || "",
-            companyBankAccountNumber: contractorUser.contractorCompanyBankAccountNumber || "",
-            companyBankBranchCode: contractorUser.contractorCompanyBankBranchCode || "",
+            companyName: contractorUser.contractorCompanyName || globalCompanyDetails.companyName,
+            companyAddressLine1: contractorUser.contractorCompanyAddressLine1 || globalCompanyDetails.companyAddressLine1 || "",
+            companyAddressLine2: contractorUser.contractorCompanyAddressLine2 || globalCompanyDetails.companyAddressLine2 || "",
+            companyPostalAddress: globalCompanyDetails.companyPostalAddress || "",
+            companyPhysicalAddress: globalCompanyDetails.companyPhysicalAddress || "",
+            companyPhone: contractorUser.contractorCompanyPhone || globalCompanyDetails.companyPhone || "",
+            companyEmail: contractorUser.contractorCompanyEmail || globalCompanyDetails.companyEmail || "",
+            companyVatNumber: contractorUser.contractorCompanyVatNumber || globalCompanyDetails.companyVatNumber || "",
+            companyBankName: contractorUser.contractorCompanyBankName || globalCompanyDetails.companyBankName || "",
+            companyBankAccountName: contractorUser.contractorCompanyBankAccountName || globalCompanyDetails.companyBankAccountName || "",
+            companyBankAccountNumber: contractorUser.contractorCompanyBankAccountNumber || globalCompanyDetails.companyBankAccountNumber || "",
+            companyBankBranchCode: contractorUser.contractorCompanyBankBranchCode || globalCompanyDetails.companyBankBranchCode || "",
           };
         } else {
-          companyDetails = await getCompanyDetails();
+          companyDetails = globalCompanyDetails;
         }
         
         // Use contractor logo (falls back to default if not set)
@@ -193,17 +198,20 @@ export const generateOrderPdf = baseProcedure
         // Property managers or other roles
         // For PM orders, use the PM's company details
         if (input.isPMOrder && order.propertyManager) {
+          const globalCompanyDetails = await getCompanyDetails();
           companyDetails = {
             companyName: order.propertyManager.pmCompanyName || env.COMPANY_NAME || "Square 15 Facility Solutions",
-            companyAddressLine1: order.propertyManager.pmCompanyAddressLine1 || "",
-            companyAddressLine2: order.propertyManager.pmCompanyAddressLine2 || "",
-            companyPhone: order.propertyManager.pmCompanyPhone || "",
-            companyEmail: order.propertyManager.pmCompanyEmail || "",
-            companyVatNumber: order.propertyManager.pmCompanyVatNumber || "",
-            companyBankName: order.propertyManager.pmCompanyBankName || "",
-            companyBankAccountName: order.propertyManager.pmCompanyBankAccountName || "",
-            companyBankAccountNumber: order.propertyManager.pmCompanyBankAccountNumber || "",
-            companyBankBranchCode: order.propertyManager.pmCompanyBankBranchCode || "",
+            companyAddressLine1: order.propertyManager.pmCompanyAddressLine1 || globalCompanyDetails.companyAddressLine1 || "",
+            companyAddressLine2: order.propertyManager.pmCompanyAddressLine2 || globalCompanyDetails.companyAddressLine2 || "",
+            companyPostalAddress: globalCompanyDetails.companyPostalAddress || "",
+            companyPhysicalAddress: globalCompanyDetails.companyPhysicalAddress || "",
+            companyPhone: order.propertyManager.pmCompanyPhone || globalCompanyDetails.companyPhone || "",
+            companyEmail: order.propertyManager.pmCompanyEmail || globalCompanyDetails.companyEmail || "",
+            companyVatNumber: order.propertyManager.pmCompanyVatNumber || globalCompanyDetails.companyVatNumber || "",
+            companyBankName: order.propertyManager.pmCompanyBankName || globalCompanyDetails.companyBankName || "",
+            companyBankAccountName: order.propertyManager.pmCompanyBankAccountName || globalCompanyDetails.companyBankAccountName || "",
+            companyBankAccountNumber: order.propertyManager.pmCompanyBankAccountNumber || globalCompanyDetails.companyBankAccountNumber || "",
+            companyBankBranchCode: order.propertyManager.pmCompanyBankBranchCode || globalCompanyDetails.companyBankBranchCode || "",
           };
         } else {
           // Non-PM orders use system company details

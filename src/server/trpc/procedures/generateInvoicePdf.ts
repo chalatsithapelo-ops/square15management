@@ -99,36 +99,44 @@ export const generateInvoicePdf = baseProcedure
          invoice.createdBy.role === "CONTRACTOR_SENIOR_MANAGER" ||
          invoice.createdBy.role === "CONTRACTOR_JUNIOR_MANAGER");
 
-      // Get company details based on who created the invoice
+      // Get company details based on who created the invoice.
+      // Always load the global company details first so we can per-field
+      // fall back to them when the user's contractor/PM-specific fields are
+      // blank (otherwise the PDF "FROM" block ends up missing the address).
+      const globalCompanyDetails = await getCompanyDetails();
       let companyDetails: any;
       if (isContractorInvoice && invoice.createdBy?.contractorCompanyName) {
         companyDetails = {
-          companyName: invoice.createdBy.contractorCompanyName,
-          companyAddressLine1: invoice.createdBy.contractorCompanyAddressLine1 || "",
-          companyAddressLine2: invoice.createdBy.contractorCompanyAddressLine2 || "",
-          companyPhone: invoice.createdBy.contractorCompanyPhone || "",
-          companyEmail: invoice.createdBy.contractorCompanyEmail || "",
-          companyVatNumber: invoice.createdBy.contractorCompanyVatNumber || "",
-          companyBankName: invoice.createdBy.contractorCompanyBankName || "",
-          companyBankAccountName: invoice.createdBy.contractorCompanyBankAccountName || "",
-          companyBankAccountNumber: invoice.createdBy.contractorCompanyBankAccountNumber || "",
-          companyBankBranchCode: invoice.createdBy.contractorCompanyBankBranchCode || "",
+          companyName: invoice.createdBy.contractorCompanyName || globalCompanyDetails.companyName,
+          companyAddressLine1: invoice.createdBy.contractorCompanyAddressLine1 || globalCompanyDetails.companyAddressLine1 || "",
+          companyAddressLine2: invoice.createdBy.contractorCompanyAddressLine2 || globalCompanyDetails.companyAddressLine2 || "",
+          companyPostalAddress: globalCompanyDetails.companyPostalAddress || "",
+          companyPhysicalAddress: globalCompanyDetails.companyPhysicalAddress || "",
+          companyPhone: invoice.createdBy.contractorCompanyPhone || globalCompanyDetails.companyPhone || "",
+          companyEmail: invoice.createdBy.contractorCompanyEmail || globalCompanyDetails.companyEmail || "",
+          companyVatNumber: invoice.createdBy.contractorCompanyVatNumber || globalCompanyDetails.companyVatNumber || "",
+          companyBankName: invoice.createdBy.contractorCompanyBankName || globalCompanyDetails.companyBankName || "",
+          companyBankAccountName: invoice.createdBy.contractorCompanyBankAccountName || globalCompanyDetails.companyBankAccountName || "",
+          companyBankAccountNumber: invoice.createdBy.contractorCompanyBankAccountNumber || globalCompanyDetails.companyBankAccountNumber || "",
+          companyBankBranchCode: invoice.createdBy.contractorCompanyBankBranchCode || globalCompanyDetails.companyBankBranchCode || "",
         };
       } else if (invoice.createdBy?.pmCompanyName) {
         companyDetails = {
-          companyName: invoice.createdBy.pmCompanyName,
-          companyAddressLine1: invoice.createdBy.pmCompanyAddressLine1 || "",
-          companyAddressLine2: invoice.createdBy.pmCompanyAddressLine2 || "",
-          companyPhone: invoice.createdBy.pmCompanyPhone || "",
-          companyEmail: invoice.createdBy.pmCompanyEmail || "",
-          companyVatNumber: invoice.createdBy.pmCompanyVatNumber || "",
-          companyBankName: invoice.createdBy.pmCompanyBankName || "",
-          companyBankAccountName: invoice.createdBy.pmCompanyBankAccountName || "",
-          companyBankAccountNumber: invoice.createdBy.pmCompanyBankAccountNumber || "",
-          companyBankBranchCode: invoice.createdBy.pmCompanyBankBranchCode || "",
+          companyName: invoice.createdBy.pmCompanyName || globalCompanyDetails.companyName,
+          companyAddressLine1: invoice.createdBy.pmCompanyAddressLine1 || globalCompanyDetails.companyAddressLine1 || "",
+          companyAddressLine2: invoice.createdBy.pmCompanyAddressLine2 || globalCompanyDetails.companyAddressLine2 || "",
+          companyPostalAddress: globalCompanyDetails.companyPostalAddress || "",
+          companyPhysicalAddress: globalCompanyDetails.companyPhysicalAddress || "",
+          companyPhone: invoice.createdBy.pmCompanyPhone || globalCompanyDetails.companyPhone || "",
+          companyEmail: invoice.createdBy.pmCompanyEmail || globalCompanyDetails.companyEmail || "",
+          companyVatNumber: invoice.createdBy.pmCompanyVatNumber || globalCompanyDetails.companyVatNumber || "",
+          companyBankName: invoice.createdBy.pmCompanyBankName || globalCompanyDetails.companyBankName || "",
+          companyBankAccountName: invoice.createdBy.pmCompanyBankAccountName || globalCompanyDetails.companyBankAccountName || "",
+          companyBankAccountNumber: invoice.createdBy.pmCompanyBankAccountNumber || globalCompanyDetails.companyBankAccountNumber || "",
+          companyBankBranchCode: invoice.createdBy.pmCompanyBankBranchCode || globalCompanyDetails.companyBankBranchCode || "",
         };
       } else {
-        companyDetails = await getCompanyDetails();
+        companyDetails = globalCompanyDetails;
       }
 
       const logoBuffer = isContractorInvoice

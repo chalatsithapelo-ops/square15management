@@ -124,12 +124,13 @@ export const generateRFQReportPdf = baseProcedure
           quotation.createdBy.role === "CONTRACTOR_JUNIOR_MANAGER") &&
         quotation.createdBy.contractorCompanyName
       ) {
+        const fallback = await getCompanyDetails();
         companyDetails = {
-          companyName: quotation.createdBy.contractorCompanyName,
-          companyAddressLine1: quotation.createdBy.contractorCompanyAddressLine1 || "",
-          companyAddressLine2: quotation.createdBy.contractorCompanyAddressLine2 || "",
-          companyPhone: quotation.createdBy.contractorCompanyPhone || "",
-          companyEmail: quotation.createdBy.contractorCompanyEmail || "",
+          companyName: quotation.createdBy.contractorCompanyName || fallback.companyName,
+          companyAddressLine1: quotation.createdBy.contractorCompanyAddressLine1 || fallback.companyAddressLine1 || "",
+          companyAddressLine2: quotation.createdBy.contractorCompanyAddressLine2 || fallback.companyAddressLine2 || "",
+          companyPhone: quotation.createdBy.contractorCompanyPhone || fallback.companyPhone || "",
+          companyEmail: quotation.createdBy.contractorCompanyEmail || fallback.companyEmail || "",
         };
         logoBuffer = await getContractorLogo();
       } else {
