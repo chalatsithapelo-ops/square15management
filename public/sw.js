@@ -1,6 +1,6 @@
 // Service Worker for PWA + Push Notifications
-// Version 3 - bust stale HTML/asset cache after rebuilds
-const CACHE_NAME = "square15-v3";
+// Version 4 - bust stale HTML/asset cache + force-reload open tabs on activate
+const CACHE_NAME = "square15-v4";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -36,6 +36,22 @@ self.addEventListener("activate", (event) => {
           })
       );
     }).then(() => self.clients.claim())
+    .then(async () => {
+      // After taking control, force every open tab to reload so it picks up
+      // fresh HTML referencing the new hashed asset bundles. Without this,
+      // existing tabs continue running old JS pointing at deleted assets
+      // and produce 404 / white-screen errors after a deploy.
+      try {
+        const clients = await self.clients.matchAll({ type: "window" });
+        for (const client of clients) {
+          if (client.url && "navigate" in client) {
+            client.navigate(client.url).catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.warn("SW client reload failed:", e);
+      }
+    })
   );
 });
 
