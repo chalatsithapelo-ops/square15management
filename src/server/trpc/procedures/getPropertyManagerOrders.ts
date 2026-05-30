@@ -15,7 +15,13 @@ export const getPropertyManagerOrders = baseProcedure
   .query(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    const userIsAdmin = isAdmin(user);
+    // TECHNICAL_MANAGER and MANAGER participate in the operational workflow and need the
+    // same visibility as JUNIOR_ADMIN here, but the global `isAdmin()` helper currently
+    // returns false for them (role level < JUNIOR_ADMIN). Treat them as admin locally.
+    const userIsAdmin =
+      isAdmin(user) ||
+      user.role === "TECHNICAL_MANAGER" ||
+      user.role === "MANAGER";
 
     const isContractorRole =
       user.role === "CONTRACTOR" ||

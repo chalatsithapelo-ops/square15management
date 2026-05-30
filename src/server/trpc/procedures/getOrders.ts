@@ -40,7 +40,16 @@ export const getOrders = baseProcedure
       const isContractorRole = user.role === "CONTRACTOR" || 
                               user.role === "CONTRACTOR_SENIOR_MANAGER" || 
                               user.role === "CONTRACTOR_JUNIOR_MANAGER";
-      
+
+      // Admin-tier roles that should see the full Order data set incl. invoice linkage and costs.
+      // TECHNICAL_MANAGER is an internal admin-tier role that participates in the operational
+      // workflow (job dispatch & invoicing) — must be treated like JUNIOR_ADMIN here.
+      const isAdminTier = user.role === "SENIOR_ADMIN" ||
+                          user.role === "JUNIOR_ADMIN" ||
+                          user.role === "ADMIN" ||
+                          user.role === "TECHNICAL_MANAGER" ||
+                          user.role === "MANAGER";
+
       if (input.assignedToId) {
         where.assignedToId = input.assignedToId;
       } else if (isContractorRole) {
@@ -78,8 +87,8 @@ export const getOrders = baseProcedure
           // Property manager has no contractors yet
           where.id = -1; // Match nothing
         }
-      } else if (user.role === "ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN") {
-        // Admins can view regular orders.
+      } else if (user.role === "ADMIN" || user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "TECHNICAL_MANAGER" || user.role === "MANAGER") {
+        // Admins (incl. Technical Manager / Manager) can view all regular orders.
         // Note: Property Manager orders live in `PropertyManagerOrder` (separate table),
         // so there is no need to filter the `Order` table by any `propertyManagerId` field.
       }
@@ -106,16 +115,16 @@ export const getOrders = baseProcedure
           slaHours: true,
           slaStartedAt: true,
           slaDueAt: true,
-          notes: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || (user.role === "ARTISAN" && where.assignedToId === user.id),
+          notes: isAdminTier || (user.role === "ARTISAN" && where.assignedToId === user.id),
           assignedToId: true,
           leadId: true,
           startTime: true,
           endTime: true,
-          materialCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ARTISAN",
-          labourCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
-          labourRate: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
-          callOutFee: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
-          totalCost: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
+          materialCost: isAdminTier || user.role === "ARTISAN",
+          labourCost: isAdminTier,
+          labourRate: isAdminTier,
+          callOutFee: isAdminTier,
+          totalCost: isAdminTier,
           totalMaterialBudget: true,
           numLabourersNeeded: true,
           totalLabourCostBudget: true,
@@ -138,14 +147,14 @@ export const getOrders = baseProcedure
               id: true,
               firstName: true,
               lastName: true,
-              email: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
-              phone: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN",
+              email: isAdminTier,
+              phone: isAdminTier,
             },
           },
           materials: true,
           jobActivities: true,
-          expenseSlips: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ARTISAN",
-          invoice: user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN" || user.role === "ADMIN" || isContractorRole ? {
+          expenseSlips: isAdminTier || user.role === "ARTISAN",
+          invoice: isAdminTier || isContractorRole ? {
             select: {
               id: true,
               invoiceNumber: true,

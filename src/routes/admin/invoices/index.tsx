@@ -135,6 +135,9 @@ function InvoicesPage() {
   const [creditNotesText, setCreditNotesText] = useState("");
   const [creditDisputeReason, setCreditDisputeReason] = useState("");
   const [generatingCreditPdfId, setGeneratingCreditPdfId] = useState<number | null>(null);
+  const [completedJobsCollapsed, setCompletedJobsCollapsed] = useState(false);
+  const [completedJobsSearch, setCompletedJobsSearch] = useState("");
+  const [showAllCompletedOrders, setShowAllCompletedOrders] = useState(false);
 
   const isAdmin = user?.role === "JUNIOR_ADMIN" || user?.role === "SENIOR_ADMIN";
 
@@ -198,6 +201,49 @@ function InvoicesPage() {
     }));
     
     return [...ordersWithoutInvoice, ...normalizedPMOrders];
+  }, [completedOrdersQuery.data, completedPMOrdersQuery.data]);
+
+  // Count of completed orders that ALREADY have invoices — useful audit hint for admin.
+  const completedOrdersWithInvoiceCount = useMemo(() => {
+    const orders = completedOrdersQuery.data || [];
+    const pmOrders = completedPMOrdersQuery.data || [];
+    const withOrderInvoice = orders.filter((o: any) => o.invoice || o.invoiceId).length;
+    const withPmInvoice = pmOrders.filter((o: any) => o.invoices && o.invoices.length > 0).length;
+    return withOrderInvoice + withPmInvoice;
+  }, [completedOrdersQuery.data, completedPMOrdersQuery.data]);
+
+  // Apply local search to the Completed Jobs panel.
+  const visibleCompletedJobs = useMemo(() => {
+    const term = completedJobsSearch.trim().toLowerCase();
+    if (!term) return completedOrdersWithoutInvoice;
+    return completedOrdersWithoutInvoice.filter((o: any) => {
+      const haystack = [
+        o.orderNumber,
+        o.customerName,
+        o.customerEmail,
+        o.description,
+        o.title,
+        o.serviceType,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [completedOrdersWithoutInvoice, completedJobsSearch]);
+
+  // Completed orders that already have an invoice — surfaced in the auditor toggle.
+  const completedOrdersWithInvoice = useMemo(() => {
+    const orders = completedOrdersQuery.data || [];
+    const pmOrders = completedPMOrdersQuery.data || [];
+    const ordersInvoiced = orders.filter((o: any) => o.invoice || o.invoiceId);
+    const pmInvoiced = (pmOrders.filter((o: any) => o.invoices && o.invoices.length > 0) as any[]).map((pmOrder: any) => ({
+      ...pmOrder,
+      isPropertyManagerOrder: true,
+      customerName: pmOrder.propertyManager ? `${pmOrder.propertyManager.firstName} ${pmOrder.propertyManager.lastName}` : 'Property Manager',
+      serviceType: 'PM Order',
+    }));
+    return [...ordersInvoiced, ...pmInvoiced];
   }, [completedOrdersQuery.data, completedPMOrdersQuery.data]);
 
   const {
@@ -1160,9 +1206,9 @@ function InvoicesPage() {
         </div>
 
         {/* Completed Jobs Without Invoices */}
-        {completedOrdersWithoutInvoice.length > 0 && !statusFilter && (
+        {(completedOrdersWithoutInvoice.length > 0 || completedOrdersWithInvoiceCount > 0) && !statusFilter && (
           <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-sm border-2 border-purple-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center space-x-3">
                 <div className="bg-purple-600 p-2 rounded-lg">
                   <Receipt className="h-5 w-5 text-white" />
@@ -1170,54 +1216,154 @@ function InvoicesPage() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Completed Jobs - Ready for Invoicing</h3>
                   <p className="text-sm text-gray-600">
-                    {completedOrdersWithoutInvoice.length} completed job{completedOrdersWithoutInvoice.length !== 1 ? 's' : ''} waiting for invoice creation
+                    <span className="font-semibold text-purple-700">{completedOrdersWithoutInvoice.length}</span>
+                    {' '}waiting for invoice creation
+                    {completedOrdersWithInvoiceCount > 0 && (
+                      <>
+                        {' • '}
+                        <span className="text-gray-500">{completedOrdersWithInvoiceCount} already invoiced</span>
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                {completedOrdersWithInvoiceCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCompletedOrders((v) => !v)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-purple-300 bg-white text-purple-700 hover:bg-purple-100 transition-colors"
+                  >
+                    {showAllCompletedOrders ? 'Hide invoiced jobs' : `Audit invoiced jobs (${completedOrdersWithInvoiceCount})`}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCompletedJobsCollapsed((v) => !v)}
+                  className="p-1.5 rounded-lg hover:bg-purple-100 text-purple-700"
+                  title={completedJobsCollapsed ? 'Expand' : 'Collapse'}
+                >
+                  {completedJobsCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
-            <div className="space-y-3">
-              {completedOrdersWithoutInvoice.map((order: any) => (
-                <div key={`${order.isPropertyManagerOrder ? 'pm' : 'order'}-${order.id}`} className="bg-white rounded-lg border border-purple-200 p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h4 className="font-semibold text-gray-900">{order.orderNumber}</h4>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Completed
-                        </span>
-                        {order.isPropertyManagerOrder && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            PM Order
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span>{order.customerName}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Mail className="h-4 w-4 text-gray-400" />
-                          <span>{order.customerEmail}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span>{new Date(order.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-700 mt-2">{order.description || order.title}</p>
-                    </div>
-                    <button
-                      onClick={() => handleCreateInvoiceFromOrder(order)}
-                      className="ml-4 inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Create Invoice
-                    </button>
+            {!completedJobsCollapsed && (
+              <>
+                {completedOrdersWithoutInvoice.length > 3 && (
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={completedJobsSearch}
+                      onChange={(e) => setCompletedJobsSearch(e.target.value)}
+                      placeholder="Filter completed jobs by order #, customer, description..."
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-purple-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
                   </div>
+                )}
+                <div className="space-y-3">
+                  {visibleCompletedJobs.length === 0 && completedOrdersWithoutInvoice.length > 0 && (
+                    <p className="text-sm text-gray-500 italic">No jobs match your filter.</p>
+                  )}
+                  {visibleCompletedJobs.length === 0 && completedOrdersWithoutInvoice.length === 0 && !showAllCompletedOrders && (
+                    <p className="text-sm text-gray-600">All completed jobs have invoices. Toggle "Audit invoiced jobs" to review them.</p>
+                  )}
+                  {visibleCompletedJobs.map((order: any) => (
+                    <div key={`${order.isPropertyManagerOrder ? 'pm' : 'order'}-${order.id}`} className="bg-white rounded-lg border border-purple-200 p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                            <h4 className="font-semibold text-gray-900">{order.orderNumber}</h4>
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Completed
+                            </span>
+                            {order.isPropertyManagerOrder && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                PM Order
+                              </span>
+                            )}
+                            {order.assignedTo && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                Artisan: {order.assignedTo.firstName} {order.assignedTo.lastName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                            <div className="flex items-center space-x-1">
+                              <User className="h-4 w-4 text-gray-400" />
+                              <span>{order.customerName}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Mail className="h-4 w-4 text-gray-400" />
+                              <span>{order.customerEmail}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-2">{order.description || order.title}</p>
+                        </div>
+                        <button
+                          onClick={() => handleCreateInvoiceFromOrder(order)}
+                          className="ml-4 inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Create Invoice
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {showAllCompletedOrders && completedOrdersWithInvoice.length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-purple-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      Completed jobs already invoiced ({completedOrdersWithInvoice.length})
+                    </h4>
+                    <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                      {completedOrdersWithInvoice.map((order: any) => {
+                        const inv = order.invoice || (order.invoices && order.invoices[0]) || null;
+                        return (
+                          <div key={`done-${order.isPropertyManagerOrder ? 'pm' : 'order'}-${order.id}`} className="bg-white/60 rounded-lg border border-purple-100 p-3 text-sm flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-900">{order.orderNumber}</span>
+                                {order.isPropertyManagerOrder && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">PM</span>
+                                )}
+                                {inv?.invoiceNumber && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
+                                    Invoice {inv.invoiceNumber}
+                                  </span>
+                                )}
+                                {inv?.status && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+                                    {inv.status}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-600 truncate">
+                                {order.customerName} • {new Date(order.createdAt).toLocaleDateString()}
+                                {order.assignedTo && ` • ${order.assignedTo.firstName} ${order.assignedTo.lastName}`}
+                              </div>
+                            </div>
+                            {inv?.id && (
+                              <Link
+                                to="/admin/invoices/"
+                                search={{ invoiceId: inv.id }}
+                                className="text-xs font-medium text-purple-700 hover:text-purple-900 whitespace-nowrap"
+                              >
+                                View invoice →
+                              </Link>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
