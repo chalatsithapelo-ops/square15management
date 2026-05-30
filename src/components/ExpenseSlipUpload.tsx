@@ -4,6 +4,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import { Camera, X, Loader2, Upload, FileText } from "lucide-react";
 import toast from "react-hot-toast";
+import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
 
 export type ExpenseSlip = {
   url: string;
@@ -164,18 +165,16 @@ export function ExpenseSlipUpload({
             isPublic,
           });
 
-          // Upload file to MinIO
-          const uploadResponse = await fetch(presignedUrl, {
-            method: "PUT",
-            body: pendingSlip.file,
-            headers: {
-              "Content-Type": pendingSlip.file.type,
+          // Upload file to MinIO with retry for transient mobile network failures.
+          await uploadToPresignedUrl(presignedUrl, pendingSlip.file, {
+            onRetry: (attempt, max) => {
+              toast.loading(`Retrying ${pendingSlip.file.name} (${attempt}/${max - 1})...`, {
+                id: `retry-${pendingSlip.file.name}`,
+                duration: 2000,
+              });
             },
           });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload ${pendingSlip.file.name}`);
-          }
+          toast.dismiss(`retry-${pendingSlip.file.name}`);
 
           // Build expense slip object
           const slip: ExpenseSlip = {

@@ -4,6 +4,7 @@ import { useTRPC } from "~/trpc/react";
 import { useAuthStore } from "~/stores/auth";
 import { Camera, X, Loader2, Upload } from "lucide-react";
 import toast from "react-hot-toast";
+import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
 
 interface PhotoUploadProps {
   onPhotosUploaded: (urls: string[]) => void;
@@ -103,34 +104,27 @@ export function PhotoUpload({
             isPublic,
           });
 
-          // Upload file to MinIO
-          const uploadResponse = await fetch(presignedUrl, {
-            method: "PUT",
-            body: photo.file,
-            headers: {
-              "Content-Type": photo.file.type,
+          // Upload file to MinIO with retry for transient mobile network failures.
+          await uploadToPresignedUrl(presignedUrl, photo.file, {
+            onRetry: (attempt, max) => {
+              toast.loading(`Retrying ${photo.file.name} (${attempt}/${max - 1})...`, {
+                id: `retry-${photo.file.name}`,
+                duration: 2000,
+              });
             },
           });
 
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            console.error(`Upload failed for ${photo.file.name}:`, {
-              status: uploadResponse.status,
-              statusText: uploadResponse.statusText,
-              body: errorText,
-            });
-            throw new Error(`Failed to upload ${photo.file.name}: ${uploadResponse.statusText}`);
-          }
-
+          toast.dismiss(`retry-${photo.file.name}`);
           urls.push(fileUrl);
           successCount++;
         } catch (error) {
+          toast.dismiss(`retry-${photo.file.name}`);
           console.error(`Error uploading ${photo.file.name}:`, error);
           
           // Provide more detailed error message
           if (error instanceof Error) {
-            if (error.message.includes("Network")) {
-              toast.error(`Network error uploading ${photo.file.name}. Check your connection.`);
+            if (error.message.includes("Failed to fetch") || error.message.includes("Network")) {
+              toast.error(`Network error uploading ${photo.file.name}. Check your connection and try again.`);
             } else if (error.message.includes("401") || error.message.includes("403")) {
               toast.error("Authentication error. Please log in again.");
             } else {

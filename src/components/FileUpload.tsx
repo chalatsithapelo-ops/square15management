@@ -5,6 +5,7 @@ import { useAuthStore } from "~/stores/auth";
 import { FileText, X, Loader2, Upload, Image } from "lucide-react";
 import toast from "react-hot-toast";
 import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
+import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
 
 interface FileUploadProps {
   onFilesUploaded: (urls: string[]) => void;
@@ -115,22 +116,16 @@ export function FileUpload({
         console.log("Presigned URL received:", presignedData.presignedUrl);
         console.log("File URL:", presignedData.fileUrl);
 
-        // Upload to MinIO
-        const uploadResponse = await fetch(presignedData.presignedUrl, {
-          method: "PUT",
-          body: file,
-          headers: {
-            "Content-Type": file.type,
+        // Upload to MinIO with retry for transient mobile network failures.
+        await uploadToPresignedUrl(presignedData.presignedUrl, file, {
+          onRetry: (attempt, max) => {
+            toast.loading(`Retrying ${file.name} (${attempt}/${max - 1})...`, {
+              id: `retry-${file.name}`,
+              duration: 2000,
+            });
           },
         });
-
-        console.log("Upload response status:", uploadResponse.status);
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("Upload failed:", errorText);
-          throw new Error(`Failed to upload ${file.name}: ${uploadResponse.statusText}`);
-        }
+        toast.dismiss(`retry-${file.name}`);
 
         newUploadedUrls.push(presignedData.fileUrl);
       }
