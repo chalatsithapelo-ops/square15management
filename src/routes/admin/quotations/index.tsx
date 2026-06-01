@@ -77,6 +77,31 @@ const quotationStatuses = [
 
 function getAvailableStatusTransitions(currentStatus: string, userRole: string) {
   const isAdminRole = userRole === "SENIOR_ADMIN" || userRole === "JUNIOR_ADMIN";
+  // Admin-tier roles (including Technical Manager / Manager / generic ADMIN) should
+  // never be stuck in the quotation workflow — they can move the quote to ANY
+  // status from ANY status. Backend already permits this.
+  const isAdminTier =
+    isAdminRole ||
+    userRole === "ADMIN" ||
+    userRole === "TECHNICAL_MANAGER" ||
+    userRole === "MANAGER";
+
+  if (isAdminTier) {
+    const allStatuses = [
+      "DRAFT",
+      "PENDING_ARTISAN_REVIEW",
+      "IN_PROGRESS",
+      "PENDING_JUNIOR_MANAGER_REVIEW",
+      "PENDING_SENIOR_MANAGER_REVIEW",
+      "APPROVED",
+      "SENT_TO_CUSTOMER",
+      "APPROVED_BY_CUSTOMER",
+      "REJECTED_BY_CUSTOMER",
+      "REJECTED",
+    ];
+    return allStatuses.filter((s) => s !== currentStatus);
+  }
+
   const transitions: Record<string, string[]> = {
     DRAFT: ["PENDING_ARTISAN_REVIEW"],
     PENDING_ARTISAN_REVIEW: ["IN_PROGRESS", "DRAFT"],

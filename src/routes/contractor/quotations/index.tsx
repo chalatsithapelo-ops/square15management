@@ -79,16 +79,31 @@ const quotationStatuses = [
 ];
 
 function getAvailableStatusTransitions(currentStatus: string, userRole: string) {
+  // Senior contractor / contractor-owner has full control — backend already permits
+  // any transition for them. Allow free movement so they're never stuck.
+  const isContractorAdmin = userRole === "CONTRACTOR_SENIOR_MANAGER" || userRole === "CONTRACTOR";
+  if (isContractorAdmin) {
+    const allStatuses = [
+      "DRAFT",
+      "PENDING_ARTISAN_REVIEW",
+      "IN_PROGRESS",
+      "PENDING_JUNIOR_MANAGER_REVIEW",
+      "PENDING_SENIOR_MANAGER_REVIEW",
+      "APPROVED",
+      "SENT_TO_CUSTOMER",
+      "REJECTED",
+    ];
+    return allStatuses.filter((s) => s !== currentStatus);
+  }
+
   const transitions: Record<string, string[]> = {
     DRAFT: ["PENDING_ARTISAN_REVIEW"],
     PENDING_ARTISAN_REVIEW: ["IN_PROGRESS", "DRAFT"],
     IN_PROGRESS: ["PENDING_JUNIOR_MANAGER_REVIEW", "PENDING_ARTISAN_REVIEW"],
-    PENDING_JUNIOR_MANAGER_REVIEW: userRole === "CONTRACTOR_JUNIOR_MANAGER" || userRole === "CONTRACTOR_SENIOR_MANAGER" || userRole === "CONTRACTOR"
+    PENDING_JUNIOR_MANAGER_REVIEW: userRole === "CONTRACTOR_JUNIOR_MANAGER"
       ? ["PENDING_SENIOR_MANAGER_REVIEW", "REJECTED", "IN_PROGRESS"]
       : [],
-    PENDING_SENIOR_MANAGER_REVIEW: userRole === "CONTRACTOR_SENIOR_MANAGER" || userRole === "CONTRACTOR"
-      ? ["APPROVED", "REJECTED", "PENDING_JUNIOR_MANAGER_REVIEW"]
-      : [],
+    PENDING_SENIOR_MANAGER_REVIEW: [],
     APPROVED: ["SENT_TO_CUSTOMER"],
     SENT_TO_CUSTOMER: [],
     REJECTED: ["DRAFT"],
