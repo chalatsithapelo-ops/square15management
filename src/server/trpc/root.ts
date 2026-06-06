@@ -59,6 +59,19 @@ import {
   deleteLineItemTemplate,
 } from "~/server/trpc/procedures/lineItemTemplates";
 import {
+  searchPricingCatalog,
+  getPricingLibrary,
+  upsertPricingCatalogItem,
+  verifyPricingCatalogItem,
+  deletePricingCatalogItem,
+  getClientPricingMemory,
+  getPricingAnomalies,
+  backfillPricingCatalog,
+  computeQuoteDeviationReport,
+  generateScopeFromBrief,
+  listApprovedQuotationsForTemplate,
+} from "~/server/trpc/procedures/pricingCatalog";
+import {
   bulkUpdateQuotationStatus,
   bulkDeleteQuotations,
 } from "~/server/trpc/procedures/bulkQuotationActions";
@@ -665,6 +678,17 @@ export const appRouter = createTRPCRouter({
   createLineItemTemplate,
   updateLineItemTemplate,
   deleteLineItemTemplate,
+  searchPricingCatalog,
+  getPricingLibrary,
+  upsertPricingCatalogItem,
+  verifyPricingCatalogItem,
+  deletePricingCatalogItem,
+  getClientPricingMemory,
+  getPricingAnomalies,
+  backfillPricingCatalog,
+  computeQuoteDeviationReport,
+  generateScopeFromBrief,
+  listApprovedQuotationsForTemplate,
   bulkUpdateQuotationStatus,
   bulkDeleteQuotations,
   getPipeline,

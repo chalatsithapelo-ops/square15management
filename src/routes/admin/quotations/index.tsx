@@ -11,6 +11,8 @@ import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import RFQReportModal from "~/components/RFQReportModal";
 import { ClientSelector } from "~/components/ClientSelector";
 import { LineItemTemplatePicker } from "~/components/LineItemTemplatePicker";
+import { PricingCatalogAutocomplete, DeviationBadge } from "~/components/PricingCatalogAutocomplete";
+import { QuoteScopeBuilder } from "~/components/QuoteScopeBuilder";
 import {
   ArrowLeft,
   Plus,
@@ -935,6 +937,14 @@ function QuotationsPage() {
                       onInsert={(item) => setLineItems((prev) => [...prev, item])}
                       canManage={true}
                     />
+                    <QuoteScopeBuilder
+                      token={token!}
+                      clientId={selectedClientId ?? null}
+                      clientBuildingId={selectedClientBuildingId ?? null}
+                      onReplaceItems={(newItems) =>
+                        setLineItems(newItems.length > 0 ? newItems : [{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }])
+                      }
+                    />
                     <button
                       type="button"
                       onClick={addLineItem}
@@ -948,12 +958,18 @@ function QuotationsPage() {
                   {lineItems.map((item, index) => (
                     <div key={index} className="grid grid-cols-12 gap-3 items-start">
                       <div className="col-span-4">
-                        <input
-                          type="text"
+                        <PricingCatalogAutocomplete
+                          token={token!}
                           value={item.description}
-                          onChange={(e) => updateLineItem(index, "description", e.target.value)}
-                          placeholder="Description"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                          onChange={(v) => updateLineItem(index, "description", v)}
+                          onPick={(p) => {
+                            updateLineItem(index, "description", p.description);
+                            updateLineItem(index, "unitOfMeasure", p.unitOfMeasure);
+                            updateLineItem(index, "unitPrice", p.unitPrice);
+                          }}
+                          clientId={selectedClientId ?? null}
+                          clientBuildingId={selectedClientBuildingId ?? null}
+                          placeholder="Start typing — pricing catalog will suggest…"
                         />
                       </div>
                       <div className="col-span-1">

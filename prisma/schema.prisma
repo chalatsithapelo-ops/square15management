@@ -523,6 +523,7 @@ model User {
 
   // Line item templates
   lineItemTemplates LineItemTemplate[] @relation("LineItemTemplateCreator")
+  lineItemTemplatesApproved LineItemTemplate[] @relation("LineItemTemplateLastApprover")
 
   // Bank Feed Automation
   bankAccounts             BankAccount[]               @relation("BankAccountCreator")
@@ -599,6 +600,8 @@ model Client {
   orders     Order[]          @relation("ClientOrders")
   invoices   Invoice[]        @relation("ClientInvoices")
 
+  pricingMemories ClientPricingMemory[] @relation("ClientPricingMemories")
+
   @@index([createdById])
   @@index([email])
 }
@@ -620,6 +623,8 @@ model ClientBuilding {
   orders     Order[]     @relation("ClientBuildingOrders")
   invoices   Invoice[]   @relation("ClientBuildingInvoices")
 
+  pricingMemories ClientPricingMemory[] @relation("ClientBuildingPricingMemories")
+
   ohsRiskAssessments OhsRiskAssessment[]
   ohsIncidents       OhsIncident[]
   ohsInspections     OhsInspection[]
@@ -638,11 +643,74 @@ model LineItemTemplate {
   category      String?
   isActive      Boolean  @default(true)
 
+  // Pricing Library extensions ─────────────────────────────────────────────
+  // Source of the entry: MANUAL = user-saved template (trusted), LEARNED_FROM_QUOTE
+  // / LEARNED_FROM_INVOICE = automatically absorbed from approved documents.
+  source        String   @default("MANUAL")
+  // TM curation flag. Only items the Technical Manager has reviewed become the
+  // "Verified" catalog used as the gold-standard reference.
+  isVerified    Boolean  @default(false)
+  // Cost to company for this line item (for margin floor checks).
+  defaultCost   Float    @default(0)
+  // Usage statistics so juniors can prefer popular / recently-validated items.
+  usageCount    Int      @default(0)
+  lastUsedAt    DateTime?
+  // Aggregated pricing stats kept in sync by the absorb routine.
+  avgUnitPrice  Float?
+  minUnitPrice  Float?
+  maxUnitPrice  Float?
+  // Recent samples (last 20) — [{ price, qty, quoteNumber, customerName, clientId, clientBuildingId, approvedAt, approvedById }]
+  priceSamples  Json     @default("[]")
+  // Free-form tags for richer search beyond category (e.g. "geyser","plumbing","high-rise")
+  tags          String[] @default([])
+  // Last person to approve a quote containing this item (helpful for credit / audit)
+  lastApprovedById Int?
+  lastApprovedBy   User? @relation("LineItemTemplateLastApprover", fields: [lastApprovedById], references: [id], onDelete: SetNull)
+
   createdById Int?
   createdBy   User? @relation("LineItemTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  clientMemories ClientPricingMemory[] @relation("ClientPricingMemoryCatalog")
+
   @@index([category])
   @@index([isActive])
+  @@index([isVerified])
+  @@index([source])
+  @@index([lastUsedAt])
+}
+
+/// Pricing recall scoped to a specific client / building. Captures "what we
+/// usually charge THIS customer for THIS kind of work" so juniors don't have
+/// to remember per-client deals.
+model ClientPricingMemory {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  clientId         Int?
+  client           Client?         @relation("ClientPricingMemories", fields: [clientId], references: [id], onDelete: Cascade)
+  clientBuildingId Int?
+  clientBuilding   ClientBuilding? @relation("ClientBuildingPricingMemories", fields: [clientBuildingId], references: [id], onDelete: Cascade)
+
+  // Normalised description used as the dedupe key (lowercased, collapsed whitespace)
+  descriptionKey   String
+  description      String
+  unitOfMeasure    String   @default("Sum")
+  lastUnitPrice    Float
+  avgUnitPrice     Float
+  minUnitPrice     Float
+  maxUnitPrice     Float
+  usageCount       Int      @default(1)
+  lastUsedAt       DateTime @default(now())
+
+  // Optional pointer back to the catalog item for cross-reference.
+  catalogItemId    Int?
+  catalogItem      LineItemTemplate? @relation("ClientPricingMemoryCatalog", fields: [catalogItemId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, clientBuildingId, descriptionKey])
+  @@index([clientId])
+  @@index([clientBuildingId])
+  @@index([descriptionKey])
 }
 
 model Lead {

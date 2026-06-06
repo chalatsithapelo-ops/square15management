@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { sendQuotationNotificationEmail } from "~/server/utils/email";
 import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
+import { absorbLineItemsIntoCatalog, type CatalogQuotationLineItem } from "~/server/utils/pricingCatalog";
 
 export const updateQuotationStatus = baseProcedure
   .input(
@@ -108,6 +109,46 @@ export const updateQuotationStatus = baseProcedure
         else if (user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR") {
           // Senior managers and contractors have full approval authority - no restrictions
           // They can change status to anything needed
+        }
+      }
+
+      // ─── Margin floor guardrail (Pricing Library Phase 2) ─────────────
+      // Block non-admins from APPROVING a quote that falls below the 15%
+      // margin floor. They must route it through the Technical Manager.
+      const ADMIN_TIER_ROLES = new Set([
+        "SENIOR_ADMIN",
+        "JUNIOR_ADMIN",
+        "ADMIN",
+        "TECHNICAL_MANAGER",
+        "MANAGER",
+        "CONTRACTOR_SENIOR_MANAGER",
+        "CONTRACTOR",
+      ]);
+      const movingToFinal =
+        input.status === "APPROVED" ||
+        input.status === "APPROVED_BY_CUSTOMER" ||
+        input.status === "SENT_TO_CUSTOMER";
+      if (movingToFinal && !ADMIN_TIER_ROLES.has(user.role)) {
+        const projectedMaterialCost =
+          input.expenseSlips && input.expenseSlips.length > 0
+            ? input.expenseSlips.reduce((sum, s) => sum + (s.amount || 0), 0)
+            : input.materialCost ?? existingQuotation.companyMaterialCost ?? 0;
+        const projectedLabourCost =
+          input.numPeopleNeeded !== undefined &&
+          input.estimatedDuration !== undefined &&
+          input.labourRate !== undefined
+            ? input.numPeopleNeeded * input.estimatedDuration * input.labourRate
+            : existingQuotation.companyLabourCost ?? 0;
+        const subtotal = existingQuotation.subtotal ?? 0;
+        const totalCost = projectedMaterialCost + projectedLabourCost;
+        if (subtotal > 0) {
+          const marginPct = ((subtotal - totalCost) / subtotal) * 100;
+          if (marginPct < 15) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `This quote's margin is ${marginPct.toFixed(1)}% — below the 15% floor. Please send it to the Technical Manager for approval (move it to "Ready for Admin Review" instead).`,
+            });
+          }
         }
       }
 
@@ -226,6 +267,43 @@ export const updateQuotationStatus = baseProcedure
             amount: slip.amount,
           })),
         });
+      }
+
+      // ─── Pricing Library auto-learn ─────────────────────────────────────
+      // When a quote is APPROVED (internally or by the customer), absorb its
+      // line items into the catalog so juniors can reuse the same pricing.
+      const becameApproved =
+        (input.status === "APPROVED" || input.status === "APPROVED_BY_CUSTOMER") &&
+        existingQuotation.status !== input.status &&
+        existingQuotation.status !== "APPROVED" &&
+        existingQuotation.status !== "APPROVED_BY_CUSTOMER";
+      if (becameApproved) {
+        try {
+          const items: CatalogQuotationLineItem[] = Array.isArray(quotation.items)
+            ? (quotation.items as any[]).map((it) => ({
+                description: String(it.description ?? ""),
+                quantity: Number(it.quantity ?? 1),
+                unitPrice: Number(it.unitPrice ?? 0),
+                total: Number(it.total ?? 0),
+                unitOfMeasure: typeof it.unitOfMeasure === "string" ? it.unitOfMeasure : "Sum",
+              }))
+            : [];
+          if (items.length > 0) {
+            await absorbLineItemsIntoCatalog(items, {
+              source: "LEARNED_FROM_QUOTE",
+              quoteNumber: quotation.quoteNumber,
+              customerName: quotation.customerName,
+              customerEmail: quotation.customerEmail,
+              clientId: (quotation as any).clientId ?? null,
+              clientBuildingId: (quotation as any).clientBuildingId ?? null,
+              approvedById: user.id,
+              approvedAt: new Date(),
+            });
+          }
+        } catch (catalogErr) {
+          console.error("[updateQuotationStatus] Pricing catalog absorb failed:", catalogErr);
+          // Never let catalog errors block the user's action.
+        }
       }
 
       // When quotation is sent to customer, update related PropertyManagerRFQ to RECEIVED
