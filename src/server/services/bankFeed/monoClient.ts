@@ -218,8 +218,9 @@ class MonoProvider implements BankFeedProvider {
   }
 
   /**
-   * GET /v2/accounts/{id}/transactions?paginate=true&start=YYYY-MM-DD&page=N
-   * Pagination: response includes meta.{page,pages,total}; we use page numbers
+   * GET /v2/accounts/{id}/transactions?page=N&start=YYYY-MM-DD
+   * Mono v2 paginates by default — the `paginate` flag from v1 is rejected as
+   * "not allowed". Response has meta.{page,pages,total}; we use page numbers
    * as opaque cursors.
    */
   async fetchTransactions(opts: {
@@ -228,13 +229,14 @@ class MonoProvider implements BankFeedProvider {
     cursor?: string | null;
     sinceDate?: Date;
   }): Promise<ProviderTransactionsPage> {
-    const params = new URLSearchParams({ paginate: "true" });
+    const params = new URLSearchParams();
     const pageNum = opts.cursor ? parseInt(opts.cursor, 10) : 1;
     if (Number.isFinite(pageNum) && pageNum > 1) params.set("page", String(pageNum));
     if (opts.sinceDate) {
       params.set("start", opts.sinceDate.toISOString().slice(0, 10));
     }
-    const path = `/v2/accounts/${encodeURIComponent(opts.externalAccountId)}/transactions?${params.toString()}`;
+    const qs = params.toString();
+    const path = `/v2/accounts/${encodeURIComponent(opts.externalAccountId)}/transactions${qs ? `?${qs}` : ""}`;
     const resp = await monoFetch<{
       data?: MonoTxNode[];
       meta?: { page?: number; pages?: number; total?: number };
