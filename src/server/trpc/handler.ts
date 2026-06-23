@@ -141,12 +141,47 @@ function bootstrapStitchPoller() {
   }
 }
 
+// ── Mono Direct Bank Feed Poller Bootstrap ───────────────────────────
+// Note: startBankFeedPoller() iterates ALL linked BankAccounts and routes
+// each one to its provider via getProvider(). We only start a *second*
+// timer if Stitch is NOT enabled — otherwise the existing timer already
+// covers Mono accounts too.
+let monoPollerStarted = false;
+function bootstrapMonoPoller() {
+  if (monoPollerStarted) return;
+  const enabled =
+    process.env.MONO_ENABLED === "1" || process.env.MONO_ENABLED === "true";
+  if (!enabled) return;
+  if (!process.env.BANK_FEED_TOKEN_ENC_KEY) {
+    console.warn(
+      "[Mono] MONO_ENABLED=1 but BANK_FEED_TOKEN_ENC_KEY missing — direct bank-feed poller NOT started"
+    );
+    return;
+  }
+  monoPollerStarted = true;
+  if (stitchPollerStarted) {
+    console.log("[Mono] Direct bank-feed enabled (sharing the Stitch poll timer)");
+    return;
+  }
+  try {
+    const intervalMs = parseInt(process.env.MONO_POLL_MS || `${15 * 60 * 1000}`, 10);
+    startBankFeedPoller(intervalMs);
+    console.log(
+      `[Mono] Direct bank-feed poller started (${intervalMs / 1000}s interval, webhook is primary)`
+    );
+  } catch (err) {
+    console.error("[Mono] Failed to start direct bank-feed poller:", err);
+    monoPollerStarted = false;
+  }
+}
+
 const handler = eventHandler(async (event) => {
   // Start email pollers on first request (lazy init)
   bootstrapEmailPoller();
   bootstrapOrderEmailPoller();
   bootstrapQuoteEmailPoller();
   bootstrapStitchPoller();
+  bootstrapMonoPoller();
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (

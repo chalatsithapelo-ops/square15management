@@ -42,7 +42,14 @@ function LinkBankAccountPage() {
     enabled: !!token,
   });
 
+  const providersQuery = useQuery({
+    ...trpc.getBankFeedProviders.queryOptions({ token: token! }),
+    enabled: !!token,
+  });
+
   const accounts = accountsQuery.data || [];
+  const providers = providersQuery.data?.providers || [];
+  const enabledProviders = providers.filter((p) => p.enabled);
 
   const startLink = useMutation({
     ...trpc.linkBankAccountStart.mutationOptions(),
@@ -98,9 +105,9 @@ function LinkBankAccountPage() {
             <Link2 className="w-8 h-8 text-blue-600" /> Direct Bank Link
           </h1>
           <p className="text-gray-600 mt-2">
-            Connect your bank account through Stitch (a regulated SA aggregator) for live,
+            Connect your bank account through a regulated SA aggregator (Stitch or Mono) for live,
             automatic transaction sync. No credentials are stored on our servers — you log in
-            on Stitch's secure portal and approve consent.
+            on the provider's secure portal and approve consent.
           </p>
         </div>
 
@@ -259,27 +266,40 @@ function LinkBankAccountPage() {
                             <Unlink className="w-4 h-4 inline mr-1" /> Unlink
                           </button>
                         </>
+                      ) : enabledProviders.length === 0 ? (
+                        <span className="text-xs text-gray-500 italic">
+                          No direct-bank provider is configured on this server.
+                        </span>
                       ) : (
-                        <button
-                          disabled={busyId === a.id}
-                          onClick={() => {
-                            setBusyId(a.id);
-                            startLink.mutate({
-                              token: token!,
-                              bankAccountId: a.id,
-                              provider: "STITCH",
-                            });
-                          }}
-                          className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {busyId === a.id && startLink.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Link2 className="w-4 h-4 inline mr-1" /> Link with Stitch
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {enabledProviders.map((p) => (
+                            <button
+                              key={p.id}
+                              disabled={busyId === a.id}
+                              onClick={() => {
+                                setBusyId(a.id);
+                                startLink.mutate({
+                                  token: token!,
+                                  bankAccountId: a.id,
+                                  provider: p.id,
+                                });
+                              }}
+                              className={
+                                p.id === "MONO"
+                                  ? "px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  : "px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                              }
+                            >
+                              {busyId === a.id && startLink.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Link2 className="w-4 h-4 inline mr-1" /> Link with {p.label}
+                                </>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </li>

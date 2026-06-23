@@ -259,6 +259,81 @@ export default createApp({
       ],
     },
     {
+      type: "http",
+      name: "mono-link",
+      base: "/api/bank-feed/mono-link/",
+      handler: "./src/server/bank-feed/mono-link-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
+      type: "http",
+      name: "mono-callback",
+      base: "/api/bank-feed/mono-callback/",
+      handler: "./src/server/bank-feed/mono-callback-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
+      type: "http",
+      name: "mono-webhook",
+      base: "/api/bank-feed/mono-webhook/",
+      handler: "./src/server/bank-feed/mono-webhook-handler.ts",
+      target: "server",
+      plugins: () => [
+        config("allowedHosts", {
+          // @ts-ignore
+          server: {
+            allowedHosts: true,
+          },
+        }),
+        config("external", {
+          build: {
+            rollupOptions: {
+              external: ["h3"],
+            },
+          },
+        }),
+        tsConfigPaths({
+          projects: ["./tsconfig.json"],
+        }),
+      ],
+    },
+    {
       type: "spa",
       name: "client",
       handler: "./index.html",

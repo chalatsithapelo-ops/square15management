@@ -151,6 +151,19 @@ const envSchema = z.object({
   STITCH_API_BASE: z.string().optional().default("https://api.stitch.money/graphql"),
   STITCH_AUTH_BASE: z.string().optional().default("https://secure.stitch.money/connect"),
   STITCH_POLL_MS: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 15 * 60 * 1000)),
+
+  // MONO_ENABLED: feature flag for the Mono direct-bank connector.
+  //   When "1"/"true" the bootstrap will start the Mono poll cron and
+  //   require MONO_SECRET_KEY + BANK_FEED_TOKEN_ENC_KEY.
+  // Mono uses a single API secret (server-side) plus a public key (client widget).
+  MONO_ENABLED: z.string().optional().transform((val) => val === "1" || val === "true"),
+  MONO_SECRET_KEY: optionalTrimmedString,
+  MONO_PUBLIC_KEY: optionalTrimmedString,
+  MONO_WEBHOOK_SECRET: optionalTrimmedString,
+  MONO_API_BASE: z.string().optional().default("https://api.withmono.com"),
+  MONO_REDIRECT_URI: optionalTrimmedString,
+  MONO_POLL_MS: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 15 * 60 * 1000)),
+
   // 64 hex chars = 32 bytes for AES-256-GCM. Required if any STITCH_*/MONO_* used.
   BANK_FEED_TOKEN_ENC_KEY: optionalTrimmedString,
 

@@ -452,6 +452,7 @@ import {
   unlinkBankAccountFeed,
   backfillBankAccountFeed,
   getBankAccountFeedStatus,
+  getBankFeedProviders,
 } from "~/server/trpc/procedures/bankFeedConnector";
 import {
   getBankTransactions,
@@ -1081,6 +1082,7 @@ export const appRouter = createTRPCRouter({
   unlinkBankAccountFeed,
   backfillBankAccountFeed,
   getBankAccountFeedStatus,
+  getBankFeedProviders,
   getBankTransactions,
   importCSVStatement,
   recategorizeBankTransaction,

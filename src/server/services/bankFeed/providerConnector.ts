@@ -14,6 +14,7 @@
 
 import { db } from "~/server/db";
 import { stitchProvider } from "./stitchClient";
+import { monoProvider } from "./monoClient";
 import { bankFeedEvents } from "./eventBus";
 import { createTransactionHash } from "./transactionStore";
 import { encryptToken, decryptToken, encryptTokenOrNull } from "./tokenCrypto";
@@ -31,7 +32,7 @@ export function getProvider(id: BankFeedProviderId): BankFeedProvider {
     case "STITCH":
       return stitchProvider;
     case "MONO":
-      throw new Error("[BankFeed] MONO provider not yet implemented");
+      return monoProvider;
     default:
       throw new Error(`[BankFeed] Unknown provider: ${id}`);
   }
@@ -149,7 +150,13 @@ export async function unlinkBankAccount(bankAccountId: number) {
 export async function ingestProviderTransactions(opts: {
   bankAccountId: number;
   providerId: BankFeedProviderId;
-  source: "STITCH_WEBHOOK" | "STITCH_BACKFILL" | "STITCH_POLL";
+  source:
+    | "STITCH_WEBHOOK"
+    | "STITCH_BACKFILL"
+    | "STITCH_POLL"
+    | "MONO_WEBHOOK"
+    | "MONO_BACKFILL"
+    | "MONO_POLL";
   transactions: NormalisedTransaction[];
   importBatchId?: number;
 }): Promise<{ newCount: number; duplicateCount: number; errors: string[] }> {

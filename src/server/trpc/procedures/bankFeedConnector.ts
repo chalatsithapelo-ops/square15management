@@ -17,6 +17,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
 import { stitchProvider } from "~/server/services/bankFeed/stitchClient";
+import { monoProvider } from "~/server/services/bankFeed/monoClient";
 import {
   persistLink,
   unlinkBankAccount as unlinkAccountSvc,
@@ -43,26 +44,47 @@ export const linkBankAccountStart = baseProcedure
     z.object({
       token: z.string(),
       bankAccountId: z.number().int(),
-      provider: z.enum(["STITCH"]).default("STITCH"),
+      provider: z.enum(["STITCH", "MONO"]).default("STITCH"),
     })
   )
   .mutation(async ({ input }) => {
     const { user } = await requireAdminOwnedAccount(input.token, input.bankAccountId);
 
-    if (process.env.STITCH_ENABLED !== "1" && process.env.STITCH_ENABLED !== "true") {
-      throw new Error("Stitch direct bank feed is not enabled (STITCH_ENABLED=0)");
-    }
-    if (!process.env.STITCH_CLIENT_ID || !process.env.BANK_FEED_TOKEN_ENC_KEY) {
-      throw new Error("Stitch is not fully configured — check server env vars");
+    if (input.provider === "STITCH") {
+      if (process.env.STITCH_ENABLED !== "1" && process.env.STITCH_ENABLED !== "true") {
+        throw new Error("Stitch direct bank feed is not enabled (STITCH_ENABLED=0)");
+      }
+      if (!process.env.STITCH_CLIENT_ID || !process.env.BANK_FEED_TOKEN_ENC_KEY) {
+        throw new Error("Stitch is not fully configured — check server env vars");
+      }
+      const state = createState({ userId: user.id, bankAccountId: input.bankAccountId });
+      const redirectUri =
+        process.env.STITCH_REDIRECT_URI ||
+        `${process.env.BASE_URL || ""}/api/bank-feed/stitch-callback`;
+      const url = stitchProvider.getAuthorizeUrl({ state, redirectUri });
+      return { authorizeUrl: url };
     }
 
-    const state = createState({ userId: user.id, bankAccountId: input.bankAccountId });
-    const redirectUri =
-      process.env.STITCH_REDIRECT_URI ||
-      `${process.env.BASE_URL || ""}/api/bank-feed/stitch-callback`;
-
-    const url = stitchProvider.getAuthorizeUrl({ state, redirectUri });
-    return { authorizeUrl: url };
+    // MONO
+    if (process.env.MONO_ENABLED !== "1" && process.env.MONO_ENABLED !== "true") {
+      throw new Error("Mono direct bank feed is not enabled (MONO_ENABLED=0)");
+    }
+    if (
+      !process.env.MONO_SECRET_KEY ||
+      !process.env.MONO_PUBLIC_KEY ||
+      !process.env.BANK_FEED_TOKEN_ENC_KEY
+    ) {
+      throw new Error("Mono is not fully configured — check server env vars");
+    }
+    const monoState = createState({ userId: user.id, bankAccountId: input.bankAccountId });
+    const monoRedirectUri =
+      process.env.MONO_REDIRECT_URI ||
+      `${process.env.BASE_URL || ""}/api/bank-feed/mono-callback`;
+    const monoUrl = monoProvider.getAuthorizeUrl({
+      state: monoState,
+      redirectUri: monoRedirectUri,
+    });
+    return { authorizeUrl: monoUrl };
   });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -142,5 +164,36 @@ export const getBankAccountFeedStatus = baseProcedure
         account.externalConsentExpiry !== null &&
         account.externalConsentExpiry !== undefined &&
         account.externalConsentExpiry.getTime() < Date.now(),
+    };
+  });
+
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Public-ish query: which direct-bank providers are enabled on this server?
+ * Used by the admin "Link bank" UI to render only the buttons that will work.
+ * Returns booleans only — never leaks secrets.
+ */
+export const getBankFeedProviders = baseProcedure
+  .input(z.object({ token: z.string() }))
+  .query(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    if (!isAdmin(user)) {
+      throw new Error("Admin role required");
+    }
+    const stitchEnabled =
+      (process.env.STITCH_ENABLED === "1" || process.env.STITCH_ENABLED === "true") &&
+      !!process.env.STITCH_CLIENT_ID &&
+      !!process.env.BANK_FEED_TOKEN_ENC_KEY;
+    const monoEnabled =
+      (process.env.MONO_ENABLED === "1" || process.env.MONO_ENABLED === "true") &&
+      !!process.env.MONO_SECRET_KEY &&
+      !!process.env.MONO_PUBLIC_KEY &&
+      !!process.env.BANK_FEED_TOKEN_ENC_KEY;
+    return {
+      providers: [
+        { id: "STITCH" as const, enabled: stitchEnabled, label: "Stitch" },
+        { id: "MONO" as const, enabled: monoEnabled, label: "Mono" },
+      ],
     };
   });
