@@ -91,7 +91,7 @@ const handler = eventHandler(async (event) => {
       <a class="btn" href="/admin/bank-feed/link">Return to Bank Feed</a>
     </div>
   </div>
-  <script src="https://connect.mono.co/connect.js"></script>
+  <script src="https://connect.withmono.com/connect.js"></script>
   <script>
     (function() {
       var STATE       = ${JSON.stringify(state)};
@@ -113,13 +113,18 @@ const handler = eventHandler(async (event) => {
         window.location.href = '/admin/bank-feed/link' + qs;
       }
 
-      if (typeof MonoConnect === 'undefined') {
+      // Mono's browser SDK exposes window.Connect. Newer NPM builds also
+      // expose MonoConnect — accept either so we don't break on upgrades.
+      var MonoCtor = (typeof Connect !== 'undefined') ? Connect
+                   : (typeof MonoConnect !== 'undefined') ? MonoConnect
+                   : null;
+      if (!MonoCtor) {
         showError('Could not load Mono Connect widget. Please try again.');
         return;
       }
 
       try {
-        var connect = new MonoConnect({
+        var connect = new MonoCtor({
           key: PUBLIC_KEY,
           onLoad: function() { statusEl.textContent = 'Choose your bank to continue.'; },
           onClose: function() {
