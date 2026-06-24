@@ -140,10 +140,11 @@ function LinkBankAccountPage() {
           <div className="text-sm text-blue-900">
             <div className="font-semibold">How it works</div>
             <ul className="mt-1 space-y-1 list-disc list-inside">
-              <li>You click <strong>Link with Stitch</strong> below.</li>
-              <li>Stitch redirects you to your bank's official login. We never see your credentials.</li>
+              <li>Add a bank account first (use <strong>Back to Bank Feed</strong> &rarr; <strong>+ Add Account</strong>).</li>
+              <li>Come back here and click <strong>Link with Stitch</strong> or <strong>Link with Mono</strong> next to it.</li>
+              <li>The provider opens a secure widget; you log in with your bank credentials directly with them. We never see them.</li>
               <li>You approve read-only access to transactions.</li>
-              <li>We receive a refresh token, encrypt it (AES-256-GCM), and use it to pull your transactions.</li>
+              <li>We store an encrypted (AES-256-GCM) consent token and use it to pull your transactions automatically.</li>
               <li>You can unlink at any time.</li>
             </ul>
           </div>
@@ -167,11 +168,11 @@ function LinkBankAccountPage() {
             </div>
           ) : accounts.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              No bank accounts yet.{" "}
+              No bank accounts yet. Go to{" "}
               <Link to="/admin/bank-feed" className="text-blue-600 underline">
-                Create one first
-              </Link>
-              .
+                Bank Feed
+              </Link>{" "}
+              and click <strong>+ Add Account</strong> to create one, then come back here to link it.
             </div>
           ) : (
             <ul className="divide-y">
