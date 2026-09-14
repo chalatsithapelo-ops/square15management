@@ -39,6 +39,15 @@ enum OrderStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  SELF_INITIATED
+  AWAITING_ORDER_NUMBER
+  AWAITING_BUILDING_INFO
+}
+
+enum OrderNumberStatus {
+  HAS_NUMBER
+  PENDING_FROM_CLIENT
+  NO_ORDER_REQUIRED
 }
 
 enum QuotationStatus {
@@ -225,6 +234,25 @@ enum NotificationType {
   OHS_DOCUMENT_PUBLISHED
   OHS_INSPECTION_DUE
   OHS_CORRECTIVE_ACTION_ASSIGNED
+
+  // Artisan self-initiated jobs + unbilled work
+  ARTISAN_SELF_INITIATED_JOB
+  UNBILLED_WORK_ALERT
+  AWAITING_ORDER_NUMBER
+
+  // PM contractor compliance
+  DOC_EXPIRING_30D
+  DOC_EXPIRING_7D
+  DOC_EXPIRED
+  COMPLIANCE_DROPPED
+  COMPLIANCE_AUTO_BLOCKED
+  COMPLIANCE_DIGEST
+
+  // Tenant inspections
+  INSPECTION_SCHEDULED
+  INSPECTION_TENANT_REVIEW
+  INSPECTION_COMPLETED
+  INSPECTION_DISPUTED
 }
 
 // ===== Task Management Enums =====
@@ -340,7 +368,50 @@ enum DocumentType {
   CERTIFICATE
   PERFORMANCE_REVIEW
   WARNING
+  SAFETY_FILE
+  COIDA_LETTER
+  BBBEE_CERT
+  TAX_CLEARANCE
+  PUBLIC_LIABILITY
+  LETTER_OF_GOOD_STANDING
+  WORK_AT_HEIGHTS
+  MEDICAL_FITNESS
+  POPIA_CONSENT
+  CIPC_REGISTRATION
+  VAT_REGISTRATION
+  COMPANY_PROFILE
+  METHOD_STATEMENT
   OTHER
+}
+
+enum ComplianceBand {
+  GREEN
+  AMBER
+  RED
+}
+
+enum InspectionType {
+  INGOING
+  OUTGOING
+}
+
+enum InspectionStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  TENANT_REVIEW
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum ConditionRating {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+  NOT_APPLICABLE
 }
 
 enum ReviewStatus {
@@ -428,20 +499,53 @@ model User {
   employer   User?  @relation("EmployerEmployees", fields: [employerId], references: [id], onDelete: SetNull)
   employees  User[] @relation("EmployerEmployees")
 
+  // Default Technical Manager responsible for this user's jobs (drives commission on self-initiated work)
+  defaultTechnicalManagerId Int?
+  defaultTechnicalManager   User?  @relation("UserDefaultTM", fields: [defaultTechnicalManagerId], references: [id], onDelete: SetNull)
+  reportsAsDefaultTMFor     User[] @relation("UserDefaultTM")
+
+  // PR-8 F — Default Site Lead + Ops Manager responsible for this user's jobs
+  // (same resolution pattern as TM: user default → building default → client default → null).
+  defaultSiteLeadId           Int?
+  defaultSiteLead             User?  @relation("UserDefaultSiteLead", fields: [defaultSiteLeadId], references: [id], onDelete: SetNull)
+  reportsAsDefaultSiteLeadFor User[] @relation("UserDefaultSiteLead")
+
+  defaultOpsManagerId           Int?
+  defaultOpsManager             User?  @relation("UserDefaultOpsManager", fields: [defaultOpsManagerId], references: [id], onDelete: SetNull)
+  reportsAsDefaultOpsManagerFor User[] @relation("UserDefaultOpsManager")
+
+  // PR-9 — Portfolio ownership preferences.
+  // "MINE" filters lists to clients they own; "ALL" shows everything.
+  // Junior admins default to MINE; senior admins / managers default to ALL.
+  defaultPortfolioView    String  @default("ALL") // "MINE" | "ALL"
+  // When on leave, the system reroutes portfolio digests + new-client
+  // auto-assignments to portfolioBackupOwner during [onLeaveFrom, onLeaveUntil].
+  onLeaveFrom             DateTime?
+  onLeaveUntil            DateTime?
+  portfolioBackupOwnerId  Int?
+  portfolioBackupOwner    User?   @relation("UserPortfolioBackup", fields: [portfolioBackupOwnerId], references: [id], onDelete: SetNull)
+  backupPortfolioFor      User[]  @relation("UserPortfolioBackup")
+
+  // Reverse relations for portfolio ownership on Client + ClientBuilding.
+  ownedClients          Client[]         @relation("ClientPortfolioOwner")
+  ownedClientBuildings  ClientBuilding[] @relation("ClientBuildingPortfolioOwner")
+  portfolioReassignsMade PortfolioOwnershipLog[] @relation("PortfolioReassignActor")
+
   // Relations
-  leadsCreated             Lead[]                            @relation("LeadCreator")
-  leadsAssignedForFollowUp Lead[]                            @relation("LeadFollowUpAssignee")
-  ordersAssigned           Order[]                           @relation("AssignedArtisan")
-  quotationsAssigned       Quotation[]                       @relation("AssignedArtisan")
-  quotationsCreated        Quotation[]                       @relation("QuotationCreatedBy")
-  projectsAssigned         Project[]                         @relation("AssignedArtisan")
-  milestonesAssigned       Milestone[]                       @relation("MilestoneAssignedTo")
-  paymentRequests          PaymentRequest[]
-  payslips                 Payslip[]                         @relation("EmployeePayslips")
-  jobActivities            JobActivity[]
-  pmOrderJobActivities     PropertyManagerOrderJobActivity[] @relation("PMOrderJobActivities")
-  invoicesCreated          Invoice[]                         @relation("InvoiceCreator")
-  creditNotesCreated       CreditNote[]                      @relation("CreditNoteCreator")
+  leadsCreated               Lead[]                            @relation("LeadCreator")
+  leadsAssignedForFollowUp   Lead[]                            @relation("LeadFollowUpAssignee")
+  ordersAssigned             Order[]                           @relation("AssignedArtisan")
+  quotationsAssigned         Quotation[]                       @relation("AssignedArtisan")
+  quotationsCreated          Quotation[]                       @relation("QuotationCreatedBy")
+  projectsAssigned           Project[]                         @relation("AssignedArtisan")
+  milestonesAssigned         Milestone[]                       @relation("MilestoneAssignedTo")
+  paymentRequests            PaymentRequest[]
+  payslips                   Payslip[]                         @relation("EmployeePayslips")
+  jobActivities              JobActivity[]
+  pmOrderJobActivities       PropertyManagerOrderJobActivity[] @relation("PMOrderJobActivities")
+  invoicesCreated            Invoice[]                         @relation("InvoiceCreator")
+  invoiceRemittancesUploaded Invoice[]                         @relation("InvoiceRemittanceUploader")
+  creditNotesCreated         CreditNote[]                      @relation("CreditNoteCreator")
 
   // Messaging relations
   conversations Conversation[]
@@ -522,8 +626,13 @@ model User {
   clientsCreated Client[] @relation("ClientCreator")
 
   // Line item templates
-  lineItemTemplates LineItemTemplate[] @relation("LineItemTemplateCreator")
+  lineItemTemplates         LineItemTemplate[] @relation("LineItemTemplateCreator")
   lineItemTemplatesApproved LineItemTemplate[] @relation("LineItemTemplateLastApprover")
+
+  // AI Quote Studio (materials / suppliers / tasks)
+  materialsCreated         MaterialCatalog[]       @relation("MaterialCatalogCreator")
+  workTaskTemplatesCreated WorkTaskTemplate[]      @relation("WorkTaskTemplateCreator")
+  materialPricesVerified   MaterialSupplierPrice[] @relation("MaterialPriceVerifier")
 
   // Bank Feed Automation
   bankAccounts             BankAccount[]               @relation("BankAccountCreator")
@@ -555,26 +664,93 @@ model User {
   applicationMessagesSent   ApplicationMessage[]      @relation("MessageSender")
   talentPoolsCreated        TalentPool[]              @relation("TalentPoolCreator")
   talentPoolAdditions       TalentPoolMembership[]    @relation("PoolAdder")
+  workSampleTasksCreated    WorkSampleTask[]          @relation("WorkSampleTaskCreator")
+  workSampleSubmissionsScored WorkSampleSubmission[]  @relation("WorkSampleScorer")
+  interviewQuestionScores   InterviewQuestionScore[]  @relation("QuestionScorer")
+  performanceCheckInsAsHired PerformanceCheckIn[]     @relation("PerformanceCheckInHired")
+  performanceCheckInsAsManager PerformanceCheckIn[]   @relation("PerformanceCheckInManager")
+  hiringOverridesAuthored   HiringOverride[]          @relation("HiringOverrideAuthor")
+  blindRevealsPerformed     BlindRevealAudit[]        @relation("BlindRevealer")
 
   // OHS module back-relations
-  ohsDocumentsCreated       OhsDocument[]         @relation("OhsDocumentCreator")
-  ohsDocumentsForContractor OhsDocument[]         @relation("OhsDocumentContractor")
-  ohsRiskAssessmentsCreated OhsRiskAssessment[]   @relation("OhsRiskCreator")
-  ohsRiskAssessmentsApproved OhsRiskAssessment[]  @relation("OhsRiskApprover")
-  ohsRiskAssessmentsForContractor OhsRiskAssessment[] @relation("OhsRiskContractor")
-  ohsIncidentsReported      OhsIncident[]         @relation("OhsIncidentReporter")
-  ohsIncidentsAsInjured     OhsIncident[]         @relation("OhsIncidentInjured")
-  ohsIncidentsForContractor OhsIncident[]         @relation("OhsIncidentContractor")
-  ohsCorrectiveResponsible  OhsCorrectiveAction[] @relation("OhsCorrectiveResponsible")
-  ohsCorrectiveVerified     OhsCorrectiveAction[] @relation("OhsCorrectiveVerifier")
-  ohsToolboxCreated         OhsToolboxTalk[]      @relation("OhsToolboxCreator")
-  ohsToolboxForContractor   OhsToolboxTalk[]      @relation("OhsToolboxContractor")
-  ohsAcknowledgements       OhsAcknowledgement[]  @relation("OhsAck")
-  ohsTraining               OhsTrainingRecord[]   @relation("OhsTraining")
-  ohsInspectionsPerformed   OhsInspection[]       @relation("OhsInspector")
-  ohsInspectionsForContractor OhsInspection[]     @relation("OhsInspectionContractor")
-  ohsPpeReceived            OhsPpeIssue[]         @relation("OhsPpeRecipient")
-  ohsPpeIssued              OhsPpeIssue[]         @relation("OhsPpeIssuer")
+  ohsDocumentsCreated             OhsDocument[]         @relation("OhsDocumentCreator")
+  ohsDocumentsForContractor       OhsDocument[]         @relation("OhsDocumentContractor")
+  ohsRiskAssessmentsCreated       OhsRiskAssessment[]   @relation("OhsRiskCreator")
+  ohsRiskAssessmentsApproved      OhsRiskAssessment[]   @relation("OhsRiskApprover")
+  ohsRiskAssessmentsForContractor OhsRiskAssessment[]   @relation("OhsRiskContractor")
+  ohsIncidentsReported            OhsIncident[]         @relation("OhsIncidentReporter")
+  ohsIncidentsAsInjured           OhsIncident[]         @relation("OhsIncidentInjured")
+  ohsIncidentsForContractor       OhsIncident[]         @relation("OhsIncidentContractor")
+  ohsCorrectiveResponsible        OhsCorrectiveAction[] @relation("OhsCorrectiveResponsible")
+  ohsCorrectiveVerified           OhsCorrectiveAction[] @relation("OhsCorrectiveVerifier")
+  ohsToolboxCreated               OhsToolboxTalk[]      @relation("OhsToolboxCreator")
+  ohsToolboxForContractor         OhsToolboxTalk[]      @relation("OhsToolboxContractor")
+  ohsAcknowledgements             OhsAcknowledgement[]  @relation("OhsAck")
+  ohsTraining                     OhsTrainingRecord[]   @relation("OhsTraining")
+  ohsInspectionsPerformed         OhsInspection[]       @relation("OhsInspector")
+  ohsInspectionsForContractor     OhsInspection[]       @relation("OhsInspectionContractor")
+  ohsPpeReceived                  OhsPpeIssue[]         @relation("OhsPpeRecipient")
+  ohsPpeIssued                    OhsPpeIssue[]         @relation("OhsPpeIssuer")
+
+  // PR-3 / PR-2 — Order initiator + admin reviewer
+  ordersInitiated       Order[] @relation("OrderInitiator")
+  ordersReviewedAsAdmin Order[] @relation("OrderAdminReviewer")
+
+  // PR-6 — Multi-artisan crew memberships
+  orderCrewMemberships OrderCrew[] @relation("OrderCrewMember")
+
+  // PR-7 — Financial reconciliation + TM commission
+  ordersAsSalesAgent       Order[] @relation("OrderSalesAgent")
+  ordersAsTechnicalManager Order[] @relation("OrderTechnicalManager")
+  ordersMonthLocked        Order[] @relation("OrderMonthLocker")
+
+  // PR-8 — Back-relations for the TM-assignment audit trail
+  tmAssignmentLogsFrom    OrderTmAssignmentLog[] @relation("TmLogFrom")
+  tmAssignmentLogsTo      OrderTmAssignmentLog[] @relation("TmLogTo")
+  tmAssignmentLogsAsActor OrderTmAssignmentLog[] @relation("TmLogActor")
+
+  // PR-8 E — Sales-agent defaults + assignment audit trail
+  defaultSalesAgentForClients     Client[]                       @relation("ClientDefaultSalesAgent")
+  defaultSalesAgentForBuildings   ClientBuilding[]               @relation("ClientBuildingDefaultSalesAgent")
+  salesAgentAssignmentLogsFrom    OrderSalesAgentAssignmentLog[] @relation("SalesAgentLogFrom")
+  salesAgentAssignmentLogsTo      OrderSalesAgentAssignmentLog[] @relation("SalesAgentLogTo")
+  salesAgentAssignmentLogsAsActor OrderSalesAgentAssignmentLog[] @relation("SalesAgentLogActor")
+
+  // PR-8 F — Site Lead + Ops Manager order attribution, defaults + audit trail
+  ordersAsSiteLead                 Order[]                        @relation("OrderSiteLead")
+  ordersAsOpsManager               Order[]                        @relation("OrderOpsManager")
+  defaultSiteLeadForClients        Client[]                       @relation("ClientDefaultSiteLead")
+  defaultSiteLeadForBuildings      ClientBuilding[]               @relation("ClientBuildingDefaultSiteLead")
+  defaultOpsManagerForClients      Client[]                       @relation("ClientDefaultOpsManager")
+  defaultOpsManagerForBuildings    ClientBuilding[]               @relation("ClientBuildingDefaultOpsManager")
+  siteLeadAssignmentLogsFrom       OrderSiteLeadAssignmentLog[]   @relation("SiteLeadLogFrom")
+  siteLeadAssignmentLogsTo         OrderSiteLeadAssignmentLog[]   @relation("SiteLeadLogTo")
+  siteLeadAssignmentLogsAsActor    OrderSiteLeadAssignmentLog[]   @relation("SiteLeadLogActor")
+  opsManagerAssignmentLogsFrom     OrderOpsManagerAssignmentLog[] @relation("OpsManagerLogFrom")
+  opsManagerAssignmentLogsTo       OrderOpsManagerAssignmentLog[] @relation("OpsManagerLogTo")
+  opsManagerAssignmentLogsAsActor  OrderOpsManagerAssignmentLog[] @relation("OpsManagerLogActor")
+  expenseSlipsSubmitted            ExpenseSlip[]                  @relation("ExpenseSlipSubmitter")
+  expenseSlipsApproved             ExpenseSlip[]                  @relation("ExpenseSlipApprover")
+  commissionRules                  CommissionRule[]               @relation("UserCommissionRules")
+  commissionRulesCreated           CommissionRule[]               @relation("CommissionRuleCreator")
+  orderFinancialAdjustmentsCreated OrderFinancialAdjustment[]     @relation("OrderAdjustmentCreator")
+  tmStatementsAsTechManager        TmMonthlyStatement[]           @relation("UserTmStatements")
+  tmStatementsGenerated            TmMonthlyStatement[]           @relation("TmStatementGenerator")
+  tmStatementsLocked               TmMonthlyStatement[]           @relation("TmStatementLocker")
+
+  // PR-8 G — SA / SL / OM monthly statements
+  crewRoleStatementsAsUser         CrewRoleMonthlyStatement[]     @relation("UserCrewRoleStatements")
+  crewRoleStatementsGenerated      CrewRoleMonthlyStatement[]     @relation("CrewRoleStatementGenerator")
+  crewRoleStatementsLocked         CrewRoleMonthlyStatement[]     @relation("CrewRoleStatementLocker")
+
+  // PR-4 — PM compliance management
+  complianceRequirements       PmComplianceRequirement[] @relation("PmComplianceRequirementOwner")
+  contractorAutoBlockOverrides Contractor[]              @relation("ContractorAutoBlockOverride")
+
+  // PR-5 — Tenant inspections
+  inspectionsConducted     TenantInspection[]   @relation("InspectionConductor")
+  inspectionsOwnedByPm     TenantInspection[]   @relation("InspectionPropertyManager")
+  inspectionTemplatesOwned InspectionTemplate[] @relation("InspectionTemplateOwner")
 
   @@index([employerId])
 }
@@ -593,6 +769,26 @@ model Client {
 
   createdById Int
   createdBy   User @relation("ClientCreator", fields: [createdById], references: [id])
+
+  // PR-8 E — default Sales Agent for this client (resolution priority:
+  // Order.salesAgentId → ClientBuilding.defaultSalesAgentId → Client.defaultSalesAgentId → null).
+  defaultSalesAgentId Int?
+  defaultSalesAgent   User? @relation("ClientDefaultSalesAgent", fields: [defaultSalesAgentId], references: [id], onDelete: SetNull)
+
+  // PR-8 F — Client-level defaults for Site Lead + Ops Manager (same resolution
+  // pattern as sales agent: Order.<x>Id → ClientBuilding.default<x>Id → Client.default<x>Id → null).
+  defaultSiteLeadId   Int?
+  defaultSiteLead     User? @relation("ClientDefaultSiteLead", fields: [defaultSiteLeadId], references: [id], onDelete: SetNull)
+  defaultOpsManagerId Int?
+  defaultOpsManager   User? @relation("ClientDefaultOpsManager", fields: [defaultOpsManagerId], references: [id], onDelete: SetNull)
+
+  // PR-9 — Portfolio ownership (which admin is responsible for this client).
+  // Resolution priority for any downstream doc (Invoice/Order/Quotation):
+  //   ClientBuilding.portfolioOwnerId → Client.portfolioOwnerId → null (Unassigned).
+  // See src/server/services/portfolioOwnership.ts for the resolver + scope helpers.
+  portfolioOwnerId Int?
+  portfolioOwner   User? @relation("ClientPortfolioOwner", fields: [portfolioOwnerId], references: [id], onDelete: SetNull)
+  portfolioTag     String? // free-form grouping label ("Sandton commercial", etc.)
 
   // Reusable client → multiple sites/buildings
   buildings  ClientBuilding[]
@@ -619,6 +815,27 @@ model ClientBuilding {
   notes     String?
   isPrimary Boolean @default(false)
 
+  // Building-specific contact (e.g. property manager assigned to this building).
+  managerName  String?
+  managerEmail String?
+  managerPhone String?
+
+  // PR-8 E — building-scoped default sales agent (wins over Client-level default).
+  defaultSalesAgentId Int?
+  defaultSalesAgent   User? @relation("ClientBuildingDefaultSalesAgent", fields: [defaultSalesAgentId], references: [id], onDelete: SetNull)
+
+  // PR-8 F — building-scoped defaults for Site Lead + Ops Manager (win over Client-level defaults).
+  defaultSiteLeadId   Int?
+  defaultSiteLead     User? @relation("ClientBuildingDefaultSiteLead", fields: [defaultSiteLeadId], references: [id], onDelete: SetNull)
+  defaultOpsManagerId Int?
+  defaultOpsManager   User? @relation("ClientBuildingDefaultOpsManager", fields: [defaultOpsManagerId], references: [id], onDelete: SetNull)
+
+  // PR-9 — Building-scoped portfolio owner (wins over Client.portfolioOwnerId).
+  // Enables per-building junior-admin ownership for large clients like
+  // "Eris Property Group" where different admins run different sites.
+  portfolioOwnerId Int?
+  portfolioOwner   User? @relation("ClientBuildingPortfolioOwner", fields: [portfolioOwnerId], references: [id], onDelete: SetNull)
+
   quotations Quotation[] @relation("ClientBuildingQuotations")
   orders     Order[]     @relation("ClientBuildingOrders")
   invoices   Invoice[]   @relation("ClientBuildingInvoices")
@@ -630,6 +847,29 @@ model ClientBuilding {
   ohsInspections     OhsInspection[]
 
   @@index([clientId])
+  @@index([portfolioOwnerId])
+}
+
+/// PR-9 — Audit trail for portfolio ownership changes. Every reassignment of a
+/// Client or ClientBuilding to a new portfolio owner is logged here so nobody
+/// can quietly move accounts around.
+model PortfolioOwnershipLog {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  entityType       String // "CLIENT" | "CLIENT_BUILDING"
+  clientId         Int?
+  clientBuildingId Int?
+  fromUserId       Int?
+  toUserId         Int?
+  actorId          Int
+  actor            User     @relation("PortfolioReassignActor", fields: [actorId], references: [id])
+  reason           String?
+  autoAssigned     Boolean  @default(false)
+
+  @@index([clientId])
+  @@index([clientBuildingId])
+  @@index([toUserId])
+  @@index([createdAt])
 }
 
 model LineItemTemplate {
@@ -646,26 +886,26 @@ model LineItemTemplate {
   // Pricing Library extensions ─────────────────────────────────────────────
   // Source of the entry: MANUAL = user-saved template (trusted), LEARNED_FROM_QUOTE
   // / LEARNED_FROM_INVOICE = automatically absorbed from approved documents.
-  source        String   @default("MANUAL")
+  source           String    @default("MANUAL")
   // TM curation flag. Only items the Technical Manager has reviewed become the
   // "Verified" catalog used as the gold-standard reference.
-  isVerified    Boolean  @default(false)
+  isVerified       Boolean   @default(false)
   // Cost to company for this line item (for margin floor checks).
-  defaultCost   Float    @default(0)
+  defaultCost      Float     @default(0)
   // Usage statistics so juniors can prefer popular / recently-validated items.
-  usageCount    Int      @default(0)
-  lastUsedAt    DateTime?
+  usageCount       Int       @default(0)
+  lastUsedAt       DateTime?
   // Aggregated pricing stats kept in sync by the absorb routine.
-  avgUnitPrice  Float?
-  minUnitPrice  Float?
-  maxUnitPrice  Float?
+  avgUnitPrice     Float?
+  minUnitPrice     Float?
+  maxUnitPrice     Float?
   // Recent samples (last 20) — [{ price, qty, quoteNumber, customerName, clientId, clientBuildingId, approvedAt, approvedById }]
-  priceSamples  Json     @default("[]")
+  priceSamples     Json      @default("[]")
   // Free-form tags for richer search beyond category (e.g. "geyser","plumbing","high-rise")
-  tags          String[] @default([])
+  tags             String[]  @default([])
   // Last person to approve a quote containing this item (helpful for credit / audit)
   lastApprovedById Int?
-  lastApprovedBy   User? @relation("LineItemTemplateLastApprover", fields: [lastApprovedById], references: [id], onDelete: SetNull)
+  lastApprovedBy   User?     @relation("LineItemTemplateLastApprover", fields: [lastApprovedById], references: [id], onDelete: SetNull)
 
   createdById Int?
   createdBy   User? @relation("LineItemTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -683,9 +923,9 @@ model LineItemTemplate {
 /// usually charge THIS customer for THIS kind of work" so juniors don't have
 /// to remember per-client deals.
 model ClientPricingMemory {
-  id               Int      @id @default(autoincrement())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   clientId         Int?
   client           Client?         @relation("ClientPricingMemories", fields: [clientId], references: [id], onDelete: Cascade)
@@ -693,24 +933,259 @@ model ClientPricingMemory {
   clientBuilding   ClientBuilding? @relation("ClientBuildingPricingMemories", fields: [clientBuildingId], references: [id], onDelete: Cascade)
 
   // Normalised description used as the dedupe key (lowercased, collapsed whitespace)
-  descriptionKey   String
-  description      String
-  unitOfMeasure    String   @default("Sum")
-  lastUnitPrice    Float
-  avgUnitPrice     Float
-  minUnitPrice     Float
-  maxUnitPrice     Float
-  usageCount       Int      @default(1)
-  lastUsedAt       DateTime @default(now())
+  descriptionKey String
+  description    String
+  unitOfMeasure  String   @default("Sum")
+  lastUnitPrice  Float
+  avgUnitPrice   Float
+  minUnitPrice   Float
+  maxUnitPrice   Float
+  usageCount     Int      @default(1)
+  lastUsedAt     DateTime @default(now())
 
   // Optional pointer back to the catalog item for cross-reference.
-  catalogItemId    Int?
-  catalogItem      LineItemTemplate? @relation("ClientPricingMemoryCatalog", fields: [catalogItemId], references: [id], onDelete: SetNull)
+  catalogItemId Int?
+  catalogItem   LineItemTemplate? @relation("ClientPricingMemoryCatalog", fields: [catalogItemId], references: [id], onDelete: SetNull)
 
   @@unique([clientId, clientBuildingId, descriptionKey])
   @@index([clientId])
   @@index([clientBuildingId])
   @@index([descriptionKey])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AI Quote Studio (Phase A) — QS-grade quoting foundation.
+// Models below enable materials + suppliers + labour + BOM breakdown
+// so juniors can generate professional quotes with accurate profitability.
+// ═══════════════════════════════════════════════════════════════════
+
+/// Physical materials the company uses (paint, cement, cables, fittings…).
+/// Distinct from LineItemTemplate: a LineItemTemplate is a *billing* unit
+/// ("Paint interior wall — R118/m²"), while a MaterialCatalog entry is a
+/// *consumable* with a coverage rate ("Plascon Wall & All 20 L covers 160 m² per coat").
+/// Named MaterialCatalog to avoid collision with the legacy per-order Material model.
+model MaterialCatalog {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  name        String // "Plascon Wall & All Interior"
+  sku         String? // supplier SKU when known
+  brand       String? // "Plascon", "Dulux"
+  category    String // "PAINT" | "PLASTER" | "CEMENT" | "PLUMBING" | "ELECTRICAL" | "TILES" | "CONSUMABLES" | ...
+  description String?
+
+  // How the material is sold: e.g. pack of 20 with unit "L".
+  packSize Float  @default(1)
+  packUnit String @default("ea") // "L" | "kg" | "m" | "ea" | "m2" | "m3" | "box"
+
+  // Coverage — how much AREA (or length) does one BASE UNIT cover, per coat/pass.
+  // e.g. Plascon Wall & All: 8 m² per L per coat  →  coverageRate=8, coverageUnit="m2_per_L"
+  coverageRate  Float? // null if not applicable (e.g. a switch, a bolt)
+  coverageUnit  String? // "m2_per_L" | "m2_per_kg" | "m_per_ea" | "ea_per_ea"
+  coverageNotes String?
+
+  // Default wastage factor to add on top of raw computed qty (0.10 = 10 %).
+  wastageFactor Float @default(0.10)
+
+  // Optional: default supplier & price for quick lookup (mirrored from most-recent MaterialSupplierPrice).
+  defaultSupplierId Int?
+  defaultSupplier   Supplier? @relation("DefaultSupplier", fields: [defaultSupplierId], references: [id], onDelete: SetNull)
+  lastKnownPrice    Float? // per pack
+  lastPricedAt      DateTime?
+
+  hazardous Boolean @default(false)
+  msdsUrl   String?
+
+  isActive  Boolean @default(true)
+  createdById Int?
+  createdBy   User? @relation("MaterialCatalogCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  supplierPrices    MaterialSupplierPrice[]  @relation("MaterialPrices")
+  taskMaterialUsage WorkTaskMaterialUsage[]
+  bomLines          QuotationBOMLine[]
+
+  @@index([category])
+  @@index([brand])
+  @@index([isActive])
+  @@index([name])
+}
+
+/// Suppliers we buy materials from.
+model Supplier {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String  @unique
+  categories  String[] @default([]) // ["PAINT","PLUMBING"]
+  contactName String?
+  email       String?
+  phone       String?
+  websiteUrl  String?
+  address     String?
+
+  deliveryLeadDays Int   @default(2)
+  minOrderValue    Float @default(0)
+  deliveryFee      Float @default(0)
+
+  // Where the AI should try to fetch fresh prices from (allow-listed domains).
+  priceFeedUrl String?
+  priceListLastFetchedAt DateTime?
+
+  isActive Boolean @default(true)
+
+  prices              MaterialSupplierPrice[] @relation("SupplierPrices")
+  bomLines            QuotationBOMLine[]
+  defaultForMaterials MaterialCatalog[]       @relation("DefaultSupplier")
+
+  @@index([isActive])
+}
+
+/// Per-supplier price for a material. Multiple rows per material (one per
+/// supplier). fetchedAt lets us badge stale prices in the UI.
+model MaterialSupplierPrice {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  materialId Int
+  material   MaterialCatalog @relation("MaterialPrices", fields: [materialId], references: [id], onDelete: Cascade)
+  supplierId Int
+  supplier   Supplier @relation("SupplierPrices", fields: [supplierId], references: [id], onDelete: Cascade)
+
+  unitPrice Float // price per one PACK (Material.packSize × Material.packUnit)
+  minQty    Int   @default(1)
+  currency  String @default("ZAR")
+
+  sourceUrl String? // page we last fetched from
+  fetchedAt DateTime @default(now())
+  isVerified Boolean @default(false) // TM manually confirmed
+  verifiedById Int?
+  verifiedBy   User? @relation("MaterialPriceVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  verifiedAt DateTime?
+
+  notes String?
+
+  @@unique([materialId, supplierId])
+  @@index([materialId])
+  @@index([supplierId])
+  @@index([fetchedAt])
+}
+
+/// Labour roles with daily / hourly rates the QS engine uses to size labour cost.
+model LabourRole {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  code String @unique // "ARTISAN_L1" | "ARTISAN_L2" | "ARTISAN_L3" | "HELPER" | "SITE_LEAD" | "PAINTER" | "PLUMBER" | ...
+  name String // display name
+  description String?
+
+  hourlyRate Float @default(0)
+  dailyRate  Float @default(0)
+
+  // Company-side overhead multiplier applied on top of raw wages (PAYE, UIF, tools, PPE).
+  overheadMultiplier Float @default(1.25)
+
+  isActive Boolean @default(true)
+
+  bomLines QuotationBOMLine[]
+
+  @@index([code])
+}
+
+/// A reusable "how do we build this?" template. Given the task and a quantity
+/// (e.g. 120 m²) the BOM sizer produces: materials needed, wastage-adjusted
+/// quantities, and labour crew + days required.
+model WorkTaskTemplate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name          String  @unique // "Paint interior wall — 2 coats"
+  description   String?
+  category      String // "PAINTING" | "PLASTERING" | "TILING" | "ELECTRICAL" | ...
+  unitOfMeasure String // "m2" | "m" | "ea" | "Lm" | "m3"
+
+  // Productivity: how many units of work can ONE person complete in ONE day
+  // (e.g. one painter paints 60 m² per day, so productionRate = 60).
+  productionRate    Float @default(1)
+  defaultCrewSize   Int   @default(1)
+  // JSON array of { code, count } e.g. [{ code:"PAINTER", count:2 }, { code:"HELPER", count:1 }]
+  defaultCrewRoles  Json  @default("[]")
+
+  // Overheads and margins baked into this task (fallback if quote-level not set).
+  targetMarginPct   Float @default(0.30) // 30 %
+  overheadPct       Float @default(0.05) // 5 %
+
+  isActive Boolean @default(true)
+  createdById Int?
+  createdBy   User? @relation("WorkTaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  materialUsage WorkTaskMaterialUsage[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+/// Junction: which materials does a task consume, and how much per unit of work.
+/// e.g. "Paint interior wall — 2 coats" consumes 0.22 L Plascon per m² (2 × 0.11).
+model WorkTaskMaterialUsage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  taskId     Int
+  task       WorkTaskTemplate @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  materialId Int
+  material   MaterialCatalog  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  // How much of THIS material (in its packUnit terms — L, kg, ea) does ONE unit
+  // of the task's unitOfMeasure consume?
+  qtyPerUnit Float
+  notes      String?
+
+  @@unique([taskId, materialId])
+  @@index([taskId])
+  @@index([materialId])
+}
+
+/// Per-quotation Bill Of Materials line — the cost breakdown the AI produces
+/// for each quotation line item. Enables full profitability analysis.
+model QuotationBOMLine {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  quotationId Int
+  quotation   Quotation @relation("QuotationBOM", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  // Which billing line item does this cost roll up to? (index into Quotation.items JSON, or the QuotationLineItem id)
+  quotationLineItemId Int? // pointer to QuotationLineItem when available
+  lineItemIndex       Int // 0-based ordering fallback
+
+  kind String // "MATERIAL" | "LABOUR" | "OVERHEAD" | "MARGIN"
+
+  materialId   Int?
+  material     MaterialCatalog? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  supplierId   Int?
+  supplier     Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  labourRoleId Int?
+  labourRole   LabourRole?      @relation(fields: [labourRoleId], references: [id], onDelete: SetNull)
+
+  description String // human-readable ("Plascon Wall & All 20L × 3")
+  quantity    Float
+  unit        String // "L" | "day" | "hour" | "ea" | ...
+  unitPrice   Float
+  total       Float
+
+  wastagePct Float @default(0)
+  notes      String?
+  sourceUrl  String? // supplier URL the price came from (for audit)
+
+  @@index([quotationId])
+  @@index([quotationLineItemId])
+  @@index([kind])
 }
 
 model Lead {
@@ -759,12 +1234,68 @@ model Order {
   pausedAt      DateTime?
 
   // SLA tracking
-  slaHours      Int?
-  slaStartedAt  DateTime?
-  slaDueAt      DateTime?
+  slaHours     Int?
+  slaStartedAt DateTime?
+  slaDueAt     DateTime?
 
   assignedToId Int?
   assignedTo   User? @relation("AssignedArtisan", fields: [assignedToId], references: [id])
+
+  // Artisan self-initiated jobs (PR-3) + lost-revenue tracking (PR-2)
+  selfInitiated             Boolean           @default(false)
+  initiatedById             Int?
+  initiatedBy               User?             @relation("OrderInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+  clientOrderNumber         String? // PO ref provided by client
+  orderNumberStatus         OrderNumberStatus @default(HAS_NUMBER)
+  noOrderReason             String? // free-text if PENDING_FROM_CLIENT or NO_ORDER_REQUIRED
+  invoicingBlockers         Json? // [{type:"NO_ORDER_NUMBER", since:"..."}]
+  invoicingReadyAt          DateTime?
+  adminReviewedAt           DateTime?
+  adminReviewedById         Int?
+  adminReviewedBy           User?             @relation("OrderAdminReviewer", fields: [adminReviewedById], references: [id], onDelete: SetNull)
+  selfInitiatedRejected     Boolean           @default(false)
+  selfInitiatedRejectReason String?
+
+  // PR-6 — Multi-artisan crew + per-person labour
+  joinCode          String?   @unique // 6-digit code for crew to join via mobile
+  joinCodeExpiresAt DateTime? // short-lived TTL — code auto-invalidates after this timestamp
+  siteLat           Float? // set by first joiner (lead) — used for geofence checks
+  siteLng           Float?
+  labourBreakdown   Json? // [{ userId, name, minutes, hourlyRate, dailyRate, total }] snapshot at completion
+
+  // PR-7 — Financial reconciliation + TM commission
+  salesAgentId       Int?
+  salesAgent         User?  @relation("OrderSalesAgent", fields: [salesAgentId], references: [id], onDelete: SetNull)
+  salesAgentAmount   Float? // pre-VAT slice of quote allocated to sales agent (not in TM commission base)
+  technicalManagerId Int?
+  technicalManager   User?  @relation("OrderTechnicalManager", fields: [technicalManagerId], references: [id], onDelete: SetNull)
+
+  // PR-8 F — Site Lead + Ops Manager attribution + optional pre-VAT commission slices
+  // + optional time-worked overrides for HOURLY/DAILY commission rules.
+  siteLeadId                Int?
+  siteLead                  User?     @relation("OrderSiteLead", fields: [siteLeadId], references: [id], onDelete: SetNull)
+  siteLeadAmount            Float?
+  siteLeadHoursWorked       Float?
+  siteLeadDaysWorked        Float?
+  opsManagerId              Int?
+  opsManager                User?     @relation("OrderOpsManager", fields: [opsManagerId], references: [id], onDelete: SetNull)
+  opsManagerAmount          Float?
+  opsManagerHoursWorked     Float?
+  opsManagerDaysWorked      Float?
+  commissionExcluded        Boolean   @default(false)
+  commissionExclusionReason String?
+  quotedAmountExclVat       Float? // pre-VAT quote override (else computed from quotation / inclusive)
+  vatRate                   Float     @default(0.15)
+  monthLockedAt             DateTime? // once month-end is locked, no edits to financials
+  monthLockedById           Int?
+  monthLockedBy             User?     @relation("OrderMonthLocker", fields: [monthLockedById], references: [id], onDelete: SetNull)
+
+  // PR-7b — TM time-worked per order (drives HOURLY / DAILY commission rules)
+  tmHoursWorked         Float?
+  tmDaysWorked          Float?
+  // PR-7b — Sales agent time-worked per order (for HOURLY / DAILY sales-agent rules; rare)
+  salesAgentHoursWorked Float?
+  salesAgentDaysWorked  Float?
 
   leadId Int?
   lead   Lead? @relation(fields: [leadId], references: [id])
@@ -796,6 +1327,12 @@ model Order {
   clientRepName           String?
   clientRepSignDate       DateTime?
   clientUnavailableToSign Boolean   @default(false)
+  // Artisan (technician) signature — SA legal best practice for a job-card is
+  // both parties acknowledge completion. Rendered alongside the client
+  // signature block on the job-card PDF.
+  artisanSignatureUrl     String?
+  artisanSignedByName     String?
+  artisanSignDate         DateTime?
   signatureRequestToken   String?   @unique
   signatureRequestSentAt  DateTime?
   documents               String[]  @default([])
@@ -821,6 +1358,159 @@ model Order {
   ohsIncidents       OhsIncident[]
   ohsToolboxTalks    OhsToolboxTalk[]
   ohsInspections     OhsInspection[]
+
+  // PR-6 — Multi-artisan crew
+  crew OrderCrew[]
+
+  // PR-7 — Financial reconciliation + TM commission
+  financialAdjustments   OrderFinancialAdjustment[]
+  linkedBankTransactions BankTransaction[]          @relation("BankTransactionOrder")
+
+  // PR-8 — Full audit trail of TM assignment changes (who, when, why, source)
+  tmAssignmentLogs OrderTmAssignmentLog[] @relation("OrderTmLog")
+
+  // PR-8 E — Full audit trail of Sales Agent assignment changes
+  salesAgentAssignmentLogs OrderSalesAgentAssignmentLog[] @relation("OrderSalesAgentLog")
+
+  // PR-8 F — Full audit trail of Site Lead + Ops Manager assignment changes
+  siteLeadAssignmentLogs   OrderSiteLeadAssignmentLog[]   @relation("OrderSiteLeadLog")
+  opsManagerAssignmentLogs OrderOpsManagerAssignmentLog[] @relation("OrderOpsManagerLog")
+}
+
+// PR-8 — Append-only log of every write to Order.technicalManagerId.
+// One row per assignment change. Powers the "Attribution history" popover
+// in TM statements and answers "why was this order attributed to X?".
+model OrderTmAssignmentLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation("OrderTmLog", fields: [orderId], references: [id], onDelete: Cascade)
+
+  fromTmId Int?
+  fromTm   User? @relation("TmLogFrom", fields: [fromTmId], references: [id], onDelete: SetNull)
+  toTmId   Int?
+  toTm     User? @relation("TmLogTo", fields: [toTmId], references: [id], onDelete: SetNull)
+
+  // Where the assignment came from. Kept as a String (not enum) so we can add
+  // new sources without a migration.
+  //   EXPLICIT_INPUT           – admin/agent typed a TM id at create time
+  //   ARTISAN_PICKED           – artisan chose TM via TmPicker on job-start / self-initiate
+  //   INITIATOR_DEFAULT_TM     – resolved from initiator's defaultTechnicalManagerId
+  //   ASSIGNEE_DEFAULT_TM      – resolved from assignee's defaultTechnicalManagerId
+  //   QUOTE_OWNER_DEFAULT_TM   – resolved from quotation.assignedTo.defaultTechnicalManagerId
+  //   CREW_LEAD                – legacy fallback (OrderCrew role=LEAD)
+  //   ADMIN_OVERRIDE           – admin edited via /admin/tm-statements order-detail knob
+  //   BACKFILL                 – PR-8 historical backfill job
+  //   UNRESOLVABLE_CLEANUP     – admin resolved via /admin/tm-statements/unassigned screen
+  source String
+
+  // Who caused the change. Null for automated processes (backfill script).
+  actorId Int?
+  actor   User? @relation("TmLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  reason String? // free-text (backfill source detail, admin note, etc.)
+
+  @@index([orderId])
+  @@index([toTmId])
+  @@index([createdAt])
+}
+
+// PR-8 E — Append-only log of every write to Order.salesAgentId.
+// Parallel to OrderTmAssignmentLog. Powers attribution badges + audit trail
+// for sales-agent slices in TM statements.
+model OrderSalesAgentAssignmentLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation("OrderSalesAgentLog", fields: [orderId], references: [id], onDelete: Cascade)
+
+  fromSalesAgentId Int?
+  fromSalesAgent   User? @relation("SalesAgentLogFrom", fields: [fromSalesAgentId], references: [id], onDelete: SetNull)
+  toSalesAgentId   Int?
+  toSalesAgent     User? @relation("SalesAgentLogTo", fields: [toSalesAgentId], references: [id], onDelete: SetNull)
+
+  // Attribution source. Kept as String (not enum) so we can add sources without a migration.
+  //   EXPLICIT_INPUT              – admin/agent typed a sales-agent id at create time
+  //   BUILDING_DEFAULT_SALES_AGENT – resolved from ClientBuilding.defaultSalesAgentId
+  //   CLIENT_DEFAULT_SALES_AGENT   – resolved from Client.defaultSalesAgentId
+  //   ADMIN_OVERRIDE              – admin edited via /admin/tm-statements order-detail knob
+  //   BACKFILL                    – PR-8 E historical backfill job
+  //   UNRESOLVABLE_CLEANUP        – admin resolved via unassigned-sales-agent cleanup
+  source String
+
+  actorId Int?
+  actor   User? @relation("SalesAgentLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  reason String?
+
+  @@index([orderId])
+  @@index([toSalesAgentId])
+  @@index([createdAt])
+}
+
+// PR-8 F — Append-only log of every write to Order.siteLeadId.
+// Same schema as OrderSalesAgentAssignmentLog.
+model OrderSiteLeadAssignmentLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation("OrderSiteLeadLog", fields: [orderId], references: [id], onDelete: Cascade)
+
+  fromSiteLeadId Int?
+  fromSiteLead   User? @relation("SiteLeadLogFrom", fields: [fromSiteLeadId], references: [id], onDelete: SetNull)
+  toSiteLeadId   Int?
+  toSiteLead     User? @relation("SiteLeadLogTo", fields: [toSiteLeadId], references: [id], onDelete: SetNull)
+
+  // Attribution source. Kept as String (not enum) so we can add sources without a migration.
+  //   EXPLICIT_INPUT               – admin/agent typed a site-lead id at create time
+  //   ARTISAN_PICKED               – artisan chose site lead via picker on job-start
+  //   INITIATOR_DEFAULT_SITE_LEAD  – resolved from initiator's defaultSiteLeadId
+  //   ASSIGNEE_DEFAULT_SITE_LEAD   – resolved from assignee's defaultSiteLeadId
+  //   BUILDING_DEFAULT_SITE_LEAD   – resolved from ClientBuilding.defaultSiteLeadId
+  //   CLIENT_DEFAULT_SITE_LEAD     – resolved from Client.defaultSiteLeadId
+  //   ADMIN_OVERRIDE               – admin edited via financial knob
+  //   BACKFILL                     – PR-8 F historical backfill job
+  //   UNRESOLVABLE_CLEANUP         – admin resolved via unassigned-cleanup screen
+  source String
+
+  actorId Int?
+  actor   User? @relation("SiteLeadLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  reason String?
+
+  @@index([orderId])
+  @@index([toSiteLeadId])
+  @@index([createdAt])
+}
+
+// PR-8 F — Append-only log of every write to Order.opsManagerId.
+// Same schema as OrderSiteLeadAssignmentLog.
+model OrderOpsManagerAssignmentLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation("OrderOpsManagerLog", fields: [orderId], references: [id], onDelete: Cascade)
+
+  fromOpsManagerId Int?
+  fromOpsManager   User? @relation("OpsManagerLogFrom", fields: [fromOpsManagerId], references: [id], onDelete: SetNull)
+  toOpsManagerId   Int?
+  toOpsManager     User? @relation("OpsManagerLogTo", fields: [toOpsManagerId], references: [id], onDelete: SetNull)
+
+  // Same source values as SiteLead (…_OPS_MANAGER analogues).
+  source String
+
+  actorId Int?
+  actor   User? @relation("OpsManagerLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  reason String?
+
+  @@index([orderId])
+  @@index([toOpsManagerId])
+  @@index([createdAt])
 }
 
 model Project {
@@ -1073,18 +1763,25 @@ model Quotation {
   address                    String
   customerVatNumber          String?
 
-  items               Json // Array of { description, quantity, unitPrice, total }
-  subtotal            Float
-  tax                 Float   @default(0)
-  total               Float
-  companyMaterialCost Float   @default(0)
-  companyLabourCost   Float   @default(0)
-  estimatedProfit     Float   @default(0)
-  labourRate          Float?
-  numPeopleNeeded     Int?
-  estimatedDuration   Float?
-  durationUnit        String? // 'HOURLY' or 'DAILY'
-  quotationLineItems  Json? // Artisan's breakdown of scope and materials
+  items                   Json // Array of { description, quantity, unitPrice, total }
+  subtotal                Float
+  discountPercent         Float     @default(0)
+  discountAmount          Float     @default(0)
+  tax                     Float     @default(0)
+  total                   Float
+  // Deposit REQUESTED on the quotation — carried across when the quotation is
+  // converted to an invoice so the same up-front payment terms flow through.
+  depositRequestedPercent Float     @default(0)
+  depositRequestedAmount  Float     @default(0)
+  depositDueDate          DateTime?
+  companyMaterialCost     Float     @default(0)
+  companyLabourCost       Float     @default(0)
+  estimatedProfit         Float     @default(0)
+  labourRate              Float?
+  numPeopleNeeded         Int?
+  estimatedDuration       Float?
+  durationUnit            String? // 'HOURLY' or 'DAILY'
+  quotationLineItems      Json? // Artisan's breakdown of scope and materials
 
   status             QuotationStatus @default(DRAFT)
   validUntil         DateTime?
@@ -1126,6 +1823,7 @@ model Quotation {
   generatedInvoice         Invoice?                          @relation("QuotationInvoice")
   generatedOrder           Order?                            @relation("QuotationOrder")
   emailSource              QuoteEmailSource?
+  bomLines                 QuotationBOMLine[]                @relation("QuotationBOM")
 }
 
 model QuotationLineItem {
@@ -1155,13 +1853,28 @@ model Invoice {
   clientReferenceNumber String?
   customerVatNumber     String?
 
-  items               Json // Array of { description, quantity, unitPrice, total }
-  subtotal            Float
-  tax                 Float @default(0)
-  total               Float
-  companyMaterialCost Float @default(0)
-  companyLabourCost   Float @default(0)
-  estimatedProfit     Float @default(0)
+  items                   Json // Array of { description, quantity, unitPrice, total }
+  subtotal                Float
+  discountPercent         Float     @default(0)
+  discountAmount          Float     @default(0)
+  tax                     Float     @default(0)
+  total                   Float
+  // Deposit tracking — running total of deposit payments received from the
+  // client. depositAmount reduces the outstanding balance (total - depositAmount).
+  // When depositAmount >= total the invoice is auto-transitioned to PAID.
+  depositAmount           Float     @default(0)
+  depositPaidDate         DateTime?
+  depositReference        String?
+  // Deposit REQUESTED from the client on the invoice document itself. When
+  // depositRequestedPercent > 0 (or depositRequestedAmount > 0) the PDF shows
+  // a "Deposit Required" line and a "Balance on Completion" summary so the
+  // customer knows how much to pay up-front.
+  depositRequestedPercent Float     @default(0)
+  depositRequestedAmount  Float     @default(0)
+  depositDueDate          DateTime?
+  companyMaterialCost     Float     @default(0)
+  companyLabourCost       Float     @default(0)
+  estimatedProfit         Float     @default(0)
 
   status             InvoiceStatus @default(DRAFT)
   isDisputed         Boolean       @default(false)
@@ -1171,6 +1884,13 @@ model Invoice {
   projectDescription String?
   pmApproved         Boolean       @default(false)
   pmApprovedDate     DateTime?
+
+  // Proof-of-payment / remittance attachment (admin-uploaded after marking PAID).
+  remittanceUrl          String?
+  remittanceFileName     String?
+  remittanceUploadedAt   DateTime?
+  remittanceUploadedById Int?
+  remittanceUploadedBy   User?     @relation("InvoiceRemittanceUploader", fields: [remittanceUploadedById], references: [id], onDelete: SetNull)
 
   orderId Int?   @unique
   order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
@@ -1194,7 +1914,7 @@ model Invoice {
   createdBy   User? @relation("InvoiceCreator", fields: [createdById], references: [id])
 
   // Relations
-  lineItems InvoiceLineItem[]
+  lineItems   InvoiceLineItem[]
   creditNotes CreditNote[]
 }
 
@@ -1205,14 +1925,14 @@ model CreditNote {
   creditNoteNumber String           @unique
   status           CreditNoteStatus @default(ISSUED)
 
-  reason           String
-  disputeReason    String?
-  notes            String?
+  reason        String
+  disputeReason String?
+  notes         String?
 
-  customerName     String
-  customerEmail    String
-  customerPhone    String?
-  address          String?
+  customerName  String
+  customerEmail String
+  customerPhone String?
+  address       String?
 
   items    Json
   subtotal Float
@@ -1449,22 +2169,202 @@ model JobActivity {
   artisan   User @relation(fields: [artisanId], references: [id])
 }
 
+// PR-6 — Multi-artisan crew on a single Order.
+// One Order has 1 LEAD + 0..N CREW. Rates are snapshotted at join time so
+// future changes to the User's rate don't retroactively alter completed-job costs.
+model OrderCrew {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  userId Int
+  user   User @relation("OrderCrewMember", fields: [userId], references: [id])
+
+  role String // "LEAD" | "CREW"
+
+  // Snapshot at join time
+  hourlyRate Float?
+  dailyRate  Float?
+
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime?
+  ssraAckedAt DateTime?
+
+  // Anti-collusion: capture location + distance from job site at join time
+  joinLat            Float?
+  joinLng            Float?
+  joinDistanceMeters Float?
+
+  @@unique([orderId, userId])
+  @@index([orderId])
+  @@index([userId])
+}
+
+// PR-7 — Per-user commission rate (effective-dated so history is preserved).
+// PR-7b — Mixed rate types: PERCENT, HOURLY, DAILY, or NONE — and the type can
+// differ between OPEN orders (no quotation) and QUOTED orders (quotationId set).
+//   Example — Tony (TM): openRateType=HOURLY openRateValue=130, quotedRateType=DAILY quotedRateValue=400
+//   Example — Themba (TM): openRateType=PERCENT openRateValue=0.35, quotedRateType=PERCENT quotedRateValue=0.35
+//   Example — Sales agent on 10%: role="SALES_AGENT" openRateType=PERCENT openRateValue=0.10 …
+model CommissionRule {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation("UserCommissionRules", fields: [userId], references: [id], onDelete: Cascade)
+
+  role              String // "TM" | "SITE_LEAD" | "OPS" | "SALES_AGENT"
+  rate              Float // legacy single percent (0.35 = 35%) — kept for backwards compat / display
+  approvalThreshold Float     @default(5000) // expenses above auto-route to admin approval
+  // Rate strategy for OPEN orders (Order.quotationId == null)
+  openRateType      String    @default("PERCENT") // PERCENT | HOURLY | DAILY | NONE
+  openRateValue     Float     @default(0) // PERCENT: 0.35=35%. HOURLY: e.g. 130 (R/h). DAILY: e.g. 400 (R/d).
+  // Rate strategy for QUOTED orders (Order.quotationId != null)
+  quotedRateType    String    @default("PERCENT")
+  quotedRateValue   Float     @default(0)
+  effectiveFrom     DateTime  @default(now())
+  effectiveTo       DateTime? // null = current
+  notes             String?
+
+  createdById Int
+  createdBy   User @relation("CommissionRuleCreator", fields: [createdById], references: [id])
+
+  @@index([userId, effectiveFrom])
+  @@index([effectiveTo])
+}
+
+// PR-7 — Per-order financial adjustments (recon variance, returns, credits, hold-back).
+model OrderFinancialAdjustment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  kind    String // "RECONCILIATION" | "MATERIAL_RETURN" | "CREDIT_NOTE" | "WARRANTY_HOLDBACK" | "OTHER"
+  amount  Float // signed (excl VAT). positive = adds to expenses; negative = credit
+  vatRate Float   @default(0.15)
+  notes   String?
+
+  createdById Int
+  createdBy   User @relation("OrderAdjustmentCreator", fields: [createdById], references: [id])
+
+  @@index([orderId])
+  @@index([kind])
+}
+
+// PR-7 — Snapshot of a Technical Manager's monthly statement (immutable once locked).
+model TmMonthlyStatement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation("UserTmStatements", fields: [userId], references: [id], onDelete: Cascade)
+
+  periodMonth   DateTime // first day of the month
+  generatedAt   DateTime @default(now())
+  generatedById Int
+  generatedBy   User     @relation("TmStatementGenerator", fields: [generatedById], references: [id])
+
+  lockedAt   DateTime?
+  lockedById Int?
+  lockedBy   User?     @relation("TmStatementLocker", fields: [lockedById], references: [id])
+
+  totalQuoted      Float @default(0)
+  totalSalesSlice  Float @default(0)
+  totalExpenses    Float @default(0)
+  totalAdjustments Float @default(0)
+  totalBase        Float @default(0) // Σ commission-base per job (can be negative)
+  rateSnapshot     Float @default(0.35)
+  totalCommission  Float @default(0)
+  jobCount         Int   @default(0)
+
+  payloadJson Json // full snapshot: rows[], outstanding lists, adjustments
+  xlsxUrl     String?
+
+  @@unique([userId, periodMonth])
+  @@index([periodMonth])
+}
+
+// PR-8 G — Snapshot of a Sales Agent / Site Lead / Ops Manager monthly statement.
+// Companion to TmMonthlyStatement; the TM one stays separate because its
+// payload shape and lock semantics are richer (attribution buckets, outstanding lists).
+model CrewRoleMonthlyStatement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  role String // "SALES_AGENT" | "SITE_LEAD" | "OPS_MANAGER"
+
+  userId Int
+  user   User @relation("UserCrewRoleStatements", fields: [userId], references: [id], onDelete: Cascade)
+
+  periodMonth   DateTime // first day of the month
+  generatedAt   DateTime @default(now())
+  generatedById Int
+  generatedBy   User     @relation("CrewRoleStatementGenerator", fields: [generatedById], references: [id])
+
+  lockedAt   DateTime?
+  lockedById Int?
+  lockedBy   User?     @relation("CrewRoleStatementLocker", fields: [lockedById], references: [id])
+
+  totalQuoted  Float @default(0)
+  totalHours   Float @default(0)
+  totalDays    Float @default(0)
+  totalAmount  Float @default(0)
+  jobCount     Int   @default(0)
+
+  payloadJson Json // full snapshot: rows[], totals, rate
+  xlsxUrl     String?
+
+  @@unique([role, userId, periodMonth])
+  @@index([role, periodMonth])
+  @@index([userId])
+}
+
 model ExpenseSlip {
   id          Int          @id @default(autoincrement())
   createdAt   DateTime     @default(now())
-  url         String
+  // Optional — artisans may log expenses without a physical slip (travel, tolls, etc.).
+  url         String?
   category    SlipCategory
   description String?
   amount      Float?
 
   orderId Int
   order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // PR-7 — Per-receipt reconciliation
+  paymentMethod           String? // TM_CARD | COMPANY_CARD | OWN_CASH | PETTY_CASH | ARTISAN_CLAIM
+  cardLast4               String?
+  vatRate                 Float            @default(0.15)
+  amountExclVat           Float? // computed at write; null for legacy rows
+  supplierName            String?
+  purchasedAt             DateTime?
+  state                   String           @default("APPROVED") // DRAFT|SUBMITTED|APPROVED|POSTED|DISPUTED|REJECTED
+  gpsLat                  Float?
+  gpsLng                  Float?
+  submittedById           Int?
+  submittedBy             User?            @relation("ExpenseSlipSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedById            Int?
+  approvedBy              User?            @relation("ExpenseSlipApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt              DateTime?
+  disputedReason          String?
+  linkedBankTransactionId Int?             @unique
+  linkedBankTransaction   BankTransaction? @relation("BankTransactionExpenseSlip", fields: [linkedBankTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([state])
+  @@index([paymentMethod])
+  @@index([submittedById])
 }
 
 model QuotationExpenseSlip {
   id          Int          @id @default(autoincrement())
   createdAt   DateTime     @default(now())
-  url         String
+  // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+  url         String?
   category    SlipCategory
   description String?
   amount      Float?
@@ -1476,7 +2376,8 @@ model QuotationExpenseSlip {
 model MilestoneExpenseSlip {
   id          Int          @id @default(autoincrement())
   createdAt   DateTime     @default(now())
-  url         String
+  // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+  url         String?
   category    SlipCategory
   description String?
   amount      Float?
@@ -1707,9 +2608,16 @@ model Statement {
   notes             String?
   errorMessage      String?
 
+  // Scope (PR-CRM-CUSTOMERS): when present, the statement aggregates invoices
+  // by clientId / clientBuildingId rather than by client_email alone.
+  clientId         Int?
+  clientBuildingId Int?
+
   @@index([client_email])
   @@index([status])
   @@index([statement_date])
+  @@index([clientId])
+  @@index([clientBuildingId])
 }
 
 model HRDocument {
@@ -2062,6 +2970,11 @@ model PropertyManagerOrder {
   clientRepName           String?
   clientRepSignDate       DateTime?
   clientUnavailableToSign Boolean   @default(false)
+  // Artisan (technician) signature — mirrors Order model. Rendered alongside
+  // the client signature block on the job-card PDF.
+  artisanSignatureUrl     String?
+  artisanSignedByName     String?
+  artisanSignDate         DateTime?
   signatureRequestToken   String?   @unique
   signatureRequestSentAt  DateTime?
 
@@ -2429,6 +3342,7 @@ model Building {
   payments             CustomerPayment[]             @relation("BuildingPayments")
   tenantFeedback       TenantFeedback[]              @relation("BuildingTenantFeedback")
   staffMembers         StaffMember[]                 @relation("BuildingStaff")
+  inspections          TenantInspection[]            @relation("BuildingInspections")
 
   @@index([propertyManagerId])
 }
@@ -2613,6 +3527,18 @@ model Contractor {
 
   packageRequests ContractorPackageRequest[]
 
+  // PR-4 — Compliance auto-block
+  autoBlocked             Boolean   @default(false)
+  autoBlockedAt           DateTime?
+  autoBlockOverride       Boolean   @default(false)
+  autoBlockOverrideById   Int?
+  autoBlockOverrideBy     User?     @relation("ContractorAutoBlockOverride", fields: [autoBlockOverrideById], references: [id], onDelete: SetNull)
+  autoBlockOverrideUntil  DateTime?
+  autoBlockOverrideReason String?
+
+  // Computed compliance score (one row per contractor, replaced nightly)
+  complianceScore ContractorComplianceScore?
+
   notes String? @db.Text
 
   @@index([propertyManagerId])
@@ -2679,8 +3605,17 @@ model ContractorDocument {
   expiryDate DateTime? // For licenses, insurance, etc.
   notes      String?
 
+  // PR-4 compliance tracking
+  isRequired          Boolean   @default(false)
+  reminderSent30d     Boolean   @default(false)
+  reminderSent7d      Boolean   @default(false)
+  reminderSentExpired Boolean   @default(false)
+  verifiedAt          DateTime?
+  verifiedById        Int?
+
   @@index([contractorId])
   @@index([documentType])
+  @@index([expiryDate])
 }
 
 model ContractorKPI {
@@ -3082,7 +4017,8 @@ model PropertyManagerOrderJobActivity {
 model PropertyManagerOrderExpenseSlip {
   id          Int          @id @default(autoincrement())
   createdAt   DateTime     @default(now())
-  url         String
+  // Optional — artisans may log expenses without a physical slip (travel, tolls, etc.).
+  url         String?
   category    SlipCategory
   description String?
   amount      Float?
@@ -3806,10 +4742,16 @@ model BankTransaction {
   linkedPaymentRequestId     Int?
   linkedAlternativeRevenueId Int?
 
+  // PR-7 — Per-job linkage (1:1 with ExpenseSlip; many-to-one with Order)
+  linkedExpenseSlip ExpenseSlip? @relation("BankTransactionExpenseSlip")
+  linkedOrderId     Int?
+  linkedOrder       Order?       @relation("BankTransactionOrder", fields: [linkedOrderId], references: [id], onDelete: SetNull)
+
   @@index([bankAccountId])
   @@index([transactionDate])
   @@index([reconciliationStatus])
   @@index([importBatchId])
+  @@index([linkedOrderId])
 }
 
 model BankImportBatch {
@@ -4171,6 +5113,8 @@ model Job {
   niceToHaves      String?        @db.Text
   minSalary        Float?
   maxSalary        Float?
+  salaryPeriod     String         @default("MONTHLY") // MONTHLY | DAILY | HOURLY | WEEKLY | ANNUAL
+  marketRelated    Boolean        @default(false)
   currency         String         @default("ZAR")
   headcount        Int            @default(1)
   openings         Int            @default(1)
@@ -4193,11 +5137,12 @@ model Job {
   pipelineId Int?
   pipeline   JobPipeline? @relation(fields: [pipelineId], references: [id])
 
-  requireIQ         Boolean @default(false)
-  requireEQ         Boolean @default(false)
-  requireBigFive    Boolean @default(false)
+  requireIQ         Boolean @default(true)
+  requireEQ         Boolean @default(true)
+  requireBigFive    Boolean @default(true)
+  requireMBTI       Boolean @default(true)
   requireSJT        Boolean @default(false)
-  requireWorkSample Boolean @default(false)
+  requireWorkSample Boolean @default(true)
   requireInterview  Boolean @default(true)
 
   scoringWeights Json? // { iq:0.15, eq:0.25, bigFive:0.25, interview:0.35 }
@@ -4207,11 +5152,16 @@ model Job {
   internalOnly          Boolean  @default(false)
   eligibleInternalRoles String[] @default([])
 
+  // Response SLA promised to candidates (working days) — shown on careers success page.
+  slaResponseDays Int? @default(5)
+
   applications    Application[]
   approvals       JobApproval[]
   scorecards      Scorecard[]
   interviewPanels InterviewPanel[]
   customStages    JobPipelineStage[] @relation("JobCustomStages")
+  workSampleTasks WorkSampleTask[]
+  interviewQuestionBank InterviewQuestionBank?
 
   @@index([status])
   @@index([department])
@@ -4362,6 +5312,11 @@ model Application {
   hiredAt           DateTime?
   onboardedUserId   Int?             @unique
 
+  // Phase-1 anti-fabrication caches (recomputed by recomputeApplicationScore).
+  redFlagScore    Int? // 0-100, higher = more concerning
+  redFlagSignals  Json? // Array of { code, label, weight, evidence }
+  workSampleScore Float? // Cached aggregate of WorkSampleSubmission scores
+
   // Relations
   assessments           ApplicationAssessment[]
   interviewResponses    ApplicationInterviewResponse[]
@@ -4377,6 +5332,13 @@ model Application {
   consentEvents         ConsentEvent[]
   messages              ApplicationMessage[]
   talentPoolMemberships TalentPoolMembership[]
+  workSampleSubmissions WorkSampleSubmission[]
+  interviewQuestionScores InterviewQuestionScore[]
+  performanceCheckIns   PerformanceCheckIn[]
+  employmentVerifications EmploymentVerification[]
+  assessmentSessions    AssessmentSession[]
+  hiringOverrides       HiringOverride[]
+  blindRevealAudits     BlindRevealAudit[]
 
   @@index([jobId])
   @@index([stageBucket])
@@ -4445,12 +5407,14 @@ model Scorecard {
   name        String
   description String?
   isTemplate  Boolean               @default(false)
+  stage       String? // Phase-2: gates by pipeline bucket (SCREENING/ASSESSMENT/INTERVIEW/OFFER)
   jobId       Int?
   job         Job?                  @relation(fields: [jobId], references: [id])
   criteria    ScorecardCriterion[]
   submissions ScorecardSubmission[]
 
   @@index([jobId])
+  @@index([stage])
 }
 
 model ScorecardCriterion {
@@ -4662,6 +5626,7 @@ model ReferenceCheck {
   refereeEmail  String
   refereePhone  String?
   relationship  String?
+  isHrLine      Boolean     @default(false)
   status        String      @default("PENDING")
   token         String      @unique @default(cuid())
   sentAt        DateTime?
@@ -4669,6 +5634,7 @@ model ReferenceCheck {
   responses     Json?
   aiSummary     String?     @db.Text
   rating        Float?
+  questionnaire ReferenceQuestionnaire?
 
   @@index([applicationId])
 }
@@ -4716,8 +5682,12 @@ model ApplicationMessage {
   deliveredAt   DateTime?
   readAt        DateTime?
   templateKey   String?
+  provider      String? // RESEND | SENDGRID | POSTMARK | WHATSAPP | SMS
+  providerMessageId String?
+  bounces       MessageBounce[]
 
   @@index([applicationId])
+  @@index([providerMessageId])
 }
 
 model DemographicProfile {
@@ -4759,18 +5729,271 @@ model TalentPoolMembership {
   @@unique([poolId, applicationId])
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Phase-1 anti-fabrication additions (2026-08 HR rollout)
+// ═══════════════════════════════════════════════════════════════════════
+
+model WorkSampleTask {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  jobId             Int
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  title             String
+  instructions      String   @db.Text
+  timeLimitMinutes  Int      @default(60)
+  rubric            Json // { dimensions: [{ code, label, weight, description }], scale: 5 }
+  passingScore      Float    @default(60)
+  active            Boolean  @default(true)
+  isTemplate        Boolean  @default(false)
+  createdById       Int
+  createdBy         User     @relation("WorkSampleTaskCreator", fields: [createdById], references: [id])
+  submissions       WorkSampleSubmission[]
+
+  @@index([jobId])
+  @@index([active])
+  @@index([isTemplate])
+}
+
+model WorkSampleSubmission {
+  id            Int             @id @default(autoincrement())
+  createdAt     DateTime        @default(now())
+  taskId        Int
+  task          WorkSampleTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  applicationId Int
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  startedAt     DateTime?
+  submittedAt   DateTime?
+  answerText    String?         @db.Text
+  attachments   Json? // [{ label, fileName, fileUrl, fileType }]
+  timeTakenSec  Int?
+  aiScore       Float? // 0-100 by AI rubric evaluation
+  aiFeedback    String?         @db.Text
+  humanScore    Float? // 0-100 by human reviewer
+  humanFeedback String?         @db.Text
+  scoredById    Int?
+  scoredBy      User?           @relation("WorkSampleScorer", fields: [scoredById], references: [id])
+
+  @@unique([taskId, applicationId])
+  @@index([applicationId])
+}
+
+model InterviewQuestionBank {
+  id          Int                 @id @default(autoincrement())
+  createdAt   DateTime            @default(now())
+  jobId       Int                 @unique
+  job         Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  description String?
+  questions   InterviewQuestion[]
+}
+
+model InterviewQuestion {
+  id             Int                     @id @default(autoincrement())
+  bankId         Int
+  bank           InterviewQuestionBank   @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  order          Int                     @default(0)
+  competency     String // e.g. Communication, Problem-Solving, Integrity, Trade Knowledge
+  question       String                  @db.Text
+  rubric         Json // { 1: "...", 2: "...", 3: "...", 4: "...", 5: "..." }
+  weight         Float                   @default(1.0)
+  requireEvidence Boolean                @default(true)
+  scores         InterviewQuestionScore[]
+
+  @@index([bankId])
+}
+
+model InterviewQuestionScore {
+  id                Int               @id @default(autoincrement())
+  createdAt         DateTime          @default(now())
+  questionId        Int
+  question          InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  applicationId     Int
+  application       Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId     Int
+  interviewer       User              @relation("QuestionScorer", fields: [interviewerId], references: [id])
+  score             Int // 1-5
+  evidence          String            @db.Text
+  specificExample   Boolean           @default(false)
+  personalRole      Boolean           @default(false)
+  measurableOutcome Boolean           @default(false)
+  probeNotes        String?           @db.Text
+
+  @@index([applicationId])
+  @@index([questionId])
+}
+
+model ReferenceQuestionnaire {
+  id                    Int              @id @default(autoincrement())
+  createdAt             DateTime         @default(now())
+  referenceCheckId      Int              @unique
+  referenceCheck        ReferenceCheck   @relation(fields: [referenceCheckId], references: [id], onDelete: Cascade)
+  sentAt                DateTime?
+  completedAt           DateTime?
+  rehireRating          Int? // 1-10, "would you rehire?"
+  topStrength           String?          @db.Text
+  developmentArea       String?          @db.Text
+  attendanceRating      Int? // 1-5
+  conflictHandlingRating Int? // 1-5
+  additionalComments    String?          @db.Text
+  concernFlagged        Boolean          @default(false)
+
+  @@index([referenceCheckId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Phase-3 continuous improvement additions
+// ═══════════════════════════════════════════════════════════════════════
+
+model PerformanceCheckIn {
+  id                Int         @id @default(autoincrement())
+  createdAt         DateTime    @default(now())
+  applicationId     Int
+  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  hiredUserId       Int?
+  hiredUser         User?       @relation("PerformanceCheckInHired", fields: [hiredUserId], references: [id])
+  managerId         Int
+  manager           User        @relation("PerformanceCheckInManager", fields: [managerId], references: [id])
+  dayMilestone      Int // 30, 60, 90, 180
+  overallRating     Int // 1-5
+  meetingExpectations Boolean?
+  wouldRehire       Boolean?
+  strengths         String?     @db.Text
+  concerns          String?     @db.Text
+  atRiskFlag        Boolean     @default(false)
+  submittedAt       DateTime    @default(now())
+
+  @@index([applicationId])
+  @@index([dayMilestone])
+  @@index([atRiskFlag])
+}
+
+model EmploymentVerification {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  employerName  String
+  claimedRole   String?
+  claimedStart  DateTime?
+  claimedEnd    DateTime?
+  hrEmail       String?
+  hrPhone       String?
+  status        String      @default("PENDING") // PENDING, SENT, CONFIRMED, DISPUTED, TIMEOUT
+  token         String      @unique @default(cuid())
+  sentAt        DateTime?
+  respondedAt   DateTime?
+  confirmedRole String?
+  confirmedStart DateTime?
+  confirmedEnd   DateTime?
+  responseNotes String?     @db.Text
+  discrepancy   Boolean     @default(false)
+
+  @@index([applicationId])
+  @@index([status])
+}
+
+model AssessmentSession {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  applicationId     Int
+  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  startedAt         DateTime @default(now())
+  finishedAt        DateTime?
+  pausedAt          DateTime?
+  resumedAt         DateTime?
+  pauseCount        Int      @default(0)
+  webcamGranted     Boolean  @default(false)
+  webcamDeclineReason String?
+  currentStep       String?  // BEHAVIOUR | IQ | EQ | MBTI | BIG_FIVE
+  snapshots         AssessmentSnapshot[]
+  timings           Json?    // { questionKey: seconds } per-question timing log
+  deviceTransfers   AssessmentDeviceTransfer[]
+
+  @@index([applicationId])
+}
+
+model AssessmentSnapshot {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  sessionId         Int
+  session           AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  imageDataUrl      String   @db.Text // small data-URL (< 100KB) — face verification signal
+  step              String?  // which assessment step was active when captured
+
+  @@index([sessionId])
+}
+
 model ConsentEvent {
   id            Int         @id @default(autoincrement())
   createdAt     DateTime    @default(now())
   applicationId Int
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  action        String // GRANTED, WITHDRAWN, DSAR_REQUEST, DELETION_REQUEST, POLICY_VIEW
+  action        String // GRANTED, WITHDRAWN, DSAR_REQUEST, DELETION_REQUEST, POLICY_VIEW, WEBCAM_MONITORING
   version       String
   ip            String?
   userAgent     String?
   notes         String?
 
   @@index([applicationId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HR-frustration remediation additions (2026-08 Phase 1-3)
+// ═══════════════════════════════════════════════════════════════════════
+
+model HiringOverride {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          String // WORK_SAMPLE_WAIVED | HR_LINE_REF_WAIVED | COOLOFF_WAIVED
+  reason        String      @db.Text
+  waivedById    Int
+  waivedBy      User        @relation("HiringOverrideAuthor", fields: [waivedById], references: [id])
+
+  @@index([applicationId])
+  @@index([type])
+}
+
+model BlindRevealAudit {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  userId        Int
+  user          User        @relation("BlindRevealer", fields: [userId], references: [id])
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reason        String      @db.Text
+
+  @@index([userId])
+  @@index([applicationId])
+}
+
+model AssessmentDeviceTransfer {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  sessionId  Int
+  session    AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  code       String
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  usedAt     DateTime?
+
+  @@unique([sessionId, code])
+  @@index([expiresAt])
+}
+
+model MessageBounce {
+  id                    Int       @id @default(autoincrement())
+  createdAt             DateTime  @default(now())
+  applicationMessageId  Int?
+  applicationMessage    ApplicationMessage? @relation(fields: [applicationMessageId], references: [id], onDelete: SetNull)
+  provider              String // RESEND | SENDGRID | POSTMARK | WHATSAPP
+  event                 String // BOUNCE | COMPLAINT | DELIVERED | DEFERRED
+  reason                String?   @db.Text
+  recipient             String
+  raw                   Json?
+
+  @@index([applicationMessageId])
+  @@index([event])
 }
 
 // ===========================================================================
@@ -4780,17 +6003,17 @@ model ConsentEvent {
 // ===========================================================================
 
 enum OhsDocumentType {
-  POLICY               // OHS Policy / Health & Safety Policy (Sec 7)
-  PROCEDURE            // SOP / Safe Work Procedure
-  SAFE_WORK_METHOD     // Safe Work Method Statement (SWMS)
-  RISK_ASSESSMENT      // Generic / baseline risk assessment template
-  EMERGENCY_PLAN       // Emergency Preparedness & Response Plan
-  TOOLBOX_TALK         // Toolbox talk / safety briefing template
-  CHECKLIST            // Inspection / pre-task checklist
-  MSDS                 // Material Safety Data Sheet
-  PERMIT               // Permit-to-work (hot work, confined space, working at heights, etc.)
-  TRAINING_MATERIAL    // Training / induction materials
-  LEGAL_APPOINTMENT    // Sec 16(2), 17, 8(2)(i) appointment letters
+  POLICY // OHS Policy / Health & Safety Policy (Sec 7)
+  PROCEDURE // SOP / Safe Work Procedure
+  SAFE_WORK_METHOD // Safe Work Method Statement (SWMS)
+  RISK_ASSESSMENT // Generic / baseline risk assessment template
+  EMERGENCY_PLAN // Emergency Preparedness & Response Plan
+  TOOLBOX_TALK // Toolbox talk / safety briefing template
+  CHECKLIST // Inspection / pre-task checklist
+  MSDS // Material Safety Data Sheet
+  PERMIT // Permit-to-work (hot work, confined space, working at heights, etc.)
+  TRAINING_MATERIAL // Training / induction materials
+  LEGAL_APPOINTMENT // Sec 16(2), 17, 8(2)(i) appointment letters
   OTHER
 }
 
@@ -4811,11 +6034,11 @@ enum OhsIncidentType {
   NEAR_MISS
   FIRST_AID
   MEDICAL_TREATMENT
-  LOST_TIME_INJURY      // LTI
+  LOST_TIME_INJURY // LTI
   FATALITY
   PROPERTY_DAMAGE
   ENVIRONMENTAL
-  DANGEROUS_OCCURRENCE  // Sec 24
+  DANGEROUS_OCCURRENCE // Sec 24
   OCCUPATIONAL_DISEASE
   OTHER
 }
@@ -4832,7 +6055,7 @@ enum OhsIncidentStatus {
   UNDER_INVESTIGATION
   CORRECTIVE_ACTION
   CLOSED
-  REPORTED_TO_DOL  // Department of Employment & Labour (Sec 24)
+  REPORTED_TO_DOL // Department of Employment & Labour (Sec 24)
 }
 
 enum OhsCorrectiveActionStatus {
@@ -4871,18 +6094,18 @@ enum OhsInspectionResult {
 
 // --- OHS Document Library (policies, procedures, SOPs, MSDS, permits...) ---
 model OhsDocument {
-  id              Int             @id @default(autoincrement())
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id              Int                  @id @default(autoincrement())
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   type            OhsDocumentType
   title           String
-  reference       String?         // Document reference number (e.g. OHS-POL-001)
-  version         String          @default("1.0")
+  reference       String? // Document reference number (e.g. OHS-POL-001)
+  version         String               @default("1.0")
   effectiveDate   DateTime?
-  reviewDate      DateTime?       // Next mandatory review
-  status          OhsRiskStatus   @default(DRAFT)
+  reviewDate      DateTime? // Next mandatory review
+  status          OhsRiskStatus        @default(DRAFT)
   // Rich content (markdown / HTML body of the procedure / policy).
-  content         String          @db.Text
+  content         String               @db.Text
   // Optional structured sections payload (purpose, scope, responsibilities, definitions, references, procedure steps, records).
   sections        Json?
   // Optional uploaded source PDF (MinIO key).
@@ -4890,16 +6113,16 @@ model OhsDocument {
   // Generated/published PDF for download.
   publishedPdfUrl String?
   // Tags for searchability (e.g. "working-at-heights", "electrical").
-  tags            String[]        @default([])
+  tags            String[]             @default([])
   // Owner / scope.
   createdById     Int
-  createdBy       User            @relation("OhsDocumentCreator", fields: [createdById], references: [id])
+  createdBy       User                 @relation("OhsDocumentCreator", fields: [createdById], references: [id])
   contractorId    Int?
-  contractor      User?           @relation("OhsDocumentContractor", fields: [contractorId], references: [id])
+  contractor      User?                @relation("OhsDocumentContractor", fields: [contractorId], references: [id])
   // Required acknowledgements?
-  requiresAck     Boolean         @default(false)
+  requiresAck     Boolean              @default(false)
   // Optional explicit recipients (in addition to role-based targets).
-  targetUserIds   Int[]           @default([])
+  targetUserIds   Int[]                @default([])
   // Acknowledgement records.
   acks            OhsAcknowledgement[]
 
@@ -4910,41 +6133,41 @@ model OhsDocument {
 
 // --- AI-assisted Risk Assessments ---
 model OhsRiskAssessment {
-  id              Int             @id @default(autoincrement())
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  reference       String?
-  title           String
-  activity        String          // The activity / task being assessed
-  location        String?
-  status          OhsRiskStatus   @default(DRAFT)
-  effectiveDate   DateTime?
-  reviewDate      DateTime?
+  id               Int             @id @default(autoincrement())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  reference        String?
+  title            String
+  activity         String // The activity / task being assessed
+  location         String?
+  status           OhsRiskStatus   @default(DRAFT)
+  effectiveDate    DateTime?
+  reviewDate       DateTime?
   // Scope linkage (any of these can be null).
-  projectId       Int?
-  project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  orderId         Int?
-  order           Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  projectId        Int?
+  project          Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId          Int?
+  order            Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
   clientBuildingId Int?
-  clientBuilding  ClientBuilding? @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  clientBuilding   ClientBuilding? @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
   // Personnel.
-  createdById     Int
-  createdBy       User            @relation("OhsRiskCreator", fields: [createdById], references: [id])
-  approvedById    Int?
-  approvedBy      User?           @relation("OhsRiskApprover", fields: [approvedById], references: [id])
-  approvedAt      DateTime?
-  contractorId    Int?
-  contractor      User?           @relation("OhsRiskContractor", fields: [contractorId], references: [id])
+  createdById      Int
+  createdBy        User            @relation("OhsRiskCreator", fields: [createdById], references: [id])
+  approvedById     Int?
+  approvedBy       User?           @relation("OhsRiskApprover", fields: [approvedById], references: [id])
+  approvedAt       DateTime?
+  contractorId     Int?
+  contractor       User?           @relation("OhsRiskContractor", fields: [contractorId], references: [id])
   // Overall residual risk after controls.
-  overallRisk     OhsRiskLevel    @default(LOW)
+  overallRisk      OhsRiskLevel    @default(LOW)
   // AI metadata.
-  aiGenerated     Boolean         @default(false)
-  aiSummary       String?         @db.Text
-  aiSuggestions   Json?
+  aiGenerated      Boolean         @default(false)
+  aiSummary        String?         @db.Text
+  aiSuggestions    Json?
   // Items.
-  items           OhsRiskItem[]
+  items            OhsRiskItem[]
   // Optional published PDF.
-  publishedPdfUrl String?
+  publishedPdfUrl  String?
 
   @@index([status])
   @@index([projectId])
@@ -4957,15 +6180,15 @@ model OhsRiskItem {
   createdAt          DateTime          @default(now())
   riskAssessmentId   Int
   riskAssessment     OhsRiskAssessment @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
-  hazard             String            // The hazard
-  potentialHarm      String            // Who/what may be harmed and how
-  inherentLikelihood Int               // 1-5
-  inherentSeverity   Int               // 1-5
+  hazard             String // The hazard
+  potentialHarm      String // Who/what may be harmed and how
+  inherentLikelihood Int // 1-5
+  inherentSeverity   Int // 1-5
   inherentRisk       OhsRiskLevel
-  controls           String            @db.Text   // Existing + new controls
+  controls           String            @db.Text // Existing + new controls
   responsiblePerson  String?
-  residualLikelihood Int               // 1-5 after controls
-  residualSeverity   Int               // 1-5 after controls
+  residualLikelihood Int // 1-5 after controls
+  residualSeverity   Int // 1-5 after controls
   residualRisk       OhsRiskLevel
   ppeRequired        String[]          @default([])
   trainingRequired   String[]          @default([])
@@ -4978,56 +6201,56 @@ model OhsRiskItem {
 
 // --- Incident / Near-miss reporting (Sec 24 of OHS Act) ---
 model OhsIncident {
-  id                  Int                 @id @default(autoincrement())
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  reference           String              @unique // e.g. OHS-INC-00001
-  type                OhsIncidentType
-  severity            OhsIncidentSeverity
-  status              OhsIncidentStatus   @default(REPORTED)
-  occurredAt          DateTime
-  reportedAt          DateTime            @default(now())
-  location            String
-  description         String              @db.Text
-  immediateActions    String?             @db.Text
+  id                   Int                   @id @default(autoincrement())
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  reference            String                @unique // e.g. OHS-INC-00001
+  type                 OhsIncidentType
+  severity             OhsIncidentSeverity
+  status               OhsIncidentStatus     @default(REPORTED)
+  occurredAt           DateTime
+  reportedAt           DateTime              @default(now())
+  location             String
+  description          String                @db.Text
+  immediateActions     String?               @db.Text
   // Persons involved (free text + optional linked user).
-  injuredPersonName   String?
-  injuredPersonRole   String?
+  injuredPersonName    String?
+  injuredPersonRole    String?
   injuredPersonContact String?
-  injuredUserId       Int?
-  injuredUser         User?               @relation("OhsIncidentInjured", fields: [injuredUserId], references: [id], onDelete: SetNull)
-  witnesses           String?             @db.Text
+  injuredUserId        Int?
+  injuredUser          User?                 @relation("OhsIncidentInjured", fields: [injuredUserId], references: [id], onDelete: SetNull)
+  witnesses            String?               @db.Text
   // Reporter.
-  reportedById        Int
-  reportedBy          User                @relation("OhsIncidentReporter", fields: [reportedById], references: [id])
+  reportedById         Int
+  reportedBy           User                  @relation("OhsIncidentReporter", fields: [reportedById], references: [id])
   // Scope / context.
-  projectId           Int?
-  project             Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  orderId             Int?
-  order               Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  clientBuildingId    Int?
-  clientBuilding      ClientBuilding?     @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
-  contractorId        Int?
-  contractor          User?               @relation("OhsIncidentContractor", fields: [contractorId], references: [id])
+  projectId            Int?
+  project              Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId              Int?
+  order                Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  clientBuildingId     Int?
+  clientBuilding       ClientBuilding?       @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  contractorId         Int?
+  contractor           User?                 @relation("OhsIncidentContractor", fields: [contractorId], references: [id])
   // Investigation.
-  rootCause           String?             @db.Text
-  investigationNotes  String?             @db.Text
+  rootCause            String?               @db.Text
+  investigationNotes   String?               @db.Text
   // AI suggestion: should this be reported to DoL (Sec 24 OHS Act)?
-  dolReportable       Boolean             @default(false)
+  dolReportable        Boolean               @default(false)
   // Manual fact: has the DoL notification actually been filed?
-  reportedToDol       Boolean             @default(false)
-  reportedToDolAt     DateTime?
-  reportedToDolBy     String?
-  reportedToDolRef    String?
+  reportedToDol        Boolean               @default(false)
+  reportedToDolAt      DateTime?
+  reportedToDolBy      String?
+  reportedToDolRef     String?
   // AI insights.
-  aiInsights          String?             @db.Text
-  aiClassification    Json?
+  aiInsights           String?               @db.Text
+  aiClassification     Json?
   // Photo / document attachments (MinIO keys/urls).
-  attachments         String[]            @default([])
+  attachments          String[]              @default([])
   // Generated PDF.
-  publishedPdfUrl     String?
+  publishedPdfUrl      String?
   // Corrective actions.
-  correctiveActions   OhsCorrectiveAction[]
+  correctiveActions    OhsCorrectiveAction[]
 
   @@index([type])
   @@index([severity])
@@ -5061,30 +6284,30 @@ model OhsCorrectiveAction {
 
 // --- Toolbox Talks ---
 model OhsToolboxTalk {
-  id            Int                  @id @default(autoincrement())
-  createdAt     DateTime             @default(now())
-  publishedAt   DateTime?
-  reference     String?
-  title         String
-  topic         String
-  content       String               @db.Text
+  id              Int                  @id @default(autoincrement())
+  createdAt       DateTime             @default(now())
+  publishedAt     DateTime?
+  reference       String?
+  title           String
+  topic           String
+  content         String               @db.Text
   // Target audience (roles).
-  targetRoles   String[]             @default([])
+  targetRoles     String[]             @default([])
   // Optional scope.
-  projectId     Int?
-  project       Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  orderId       Int?
-  order         Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  contractorId  Int?
-  contractor    User?                @relation("OhsToolboxContractor", fields: [contractorId], references: [id])
-  createdById   Int
-  createdBy     User                 @relation("OhsToolboxCreator", fields: [createdById], references: [id])
-  status        OhsRiskStatus        @default(DRAFT)
-  ackDeadline   DateTime?
+  projectId       Int?
+  project         Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId         Int?
+  order           Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  contractorId    Int?
+  contractor      User?                @relation("OhsToolboxContractor", fields: [contractorId], references: [id])
+  createdById     Int
+  createdBy       User                 @relation("OhsToolboxCreator", fields: [createdById], references: [id])
+  status          OhsRiskStatus        @default(DRAFT)
+  ackDeadline     DateTime?
   publishedPdfUrl String?
   // Optional explicit recipients (in addition to role-based targets). Used to send a talk to specific artisans.
-  targetUserIds Int[]                @default([])
-  acks          OhsAcknowledgement[]
+  targetUserIds   Int[]                @default([])
+  acks            OhsAcknowledgement[]
 
   @@index([status])
   @@index([projectId])
@@ -5092,20 +6315,20 @@ model OhsToolboxTalk {
 
 // --- Generic acknowledgement record (works for documents, toolbox talks, etc.) ---
 model OhsAcknowledgement {
-  id              Int             @id @default(autoincrement())
-  createdAt       DateTime        @default(now())
-  userId          Int
-  user            User            @relation("OhsAck", fields: [userId], references: [id], onDelete: Cascade)
-  documentId      Int?
-  document        OhsDocument?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  toolboxTalkId   Int?
-  toolboxTalk     OhsToolboxTalk? @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
-  ackedAt         DateTime        @default(now())
-  signatureText   String?
+  id             Int             @id @default(autoincrement())
+  createdAt      DateTime        @default(now())
+  userId         Int
+  user           User            @relation("OhsAck", fields: [userId], references: [id], onDelete: Cascade)
+  documentId     Int?
+  document       OhsDocument?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  toolboxTalkId  Int?
+  toolboxTalk    OhsToolboxTalk? @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
+  ackedAt        DateTime        @default(now())
+  signatureText  String?
   // Drawn signature captured on the device (data URL, base64-encoded PNG).
-  signatureImage  String?         @db.Text
-  ipAddress       String?
-  userAgent       String?
+  signatureImage String?         @db.Text
+  ipAddress      String?
+  userAgent      String?
 
   @@unique([userId, documentId])
   @@unique([userId, toolboxTalkId])
@@ -5116,19 +6339,19 @@ model OhsAcknowledgement {
 
 // --- Training records (legal requirement: induction, working at heights, first aid, fire fighter, etc.) ---
 model OhsTrainingRecord {
-  id            Int               @id @default(autoincrement())
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  userId        Int
-  user          User              @relation("OhsTraining", fields: [userId], references: [id], onDelete: Cascade)
-  course        String
-  provider      String?
-  competency    String?
-  status        OhsTrainingStatus @default(REQUIRED)
-  completedAt   DateTime?
-  expiresAt     DateTime?
+  id             Int               @id @default(autoincrement())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  userId         Int
+  user           User              @relation("OhsTraining", fields: [userId], references: [id], onDelete: Cascade)
+  course         String
+  provider       String?
+  competency     String?
+  status         OhsTrainingStatus @default(REQUIRED)
+  completedAt    DateTime?
+  expiresAt      DateTime?
   certificateUrl String?
-  notes         String?
+  notes          String?
 
   @@index([userId])
   @@index([status])
@@ -5137,26 +6360,26 @@ model OhsTrainingRecord {
 
 // --- Inspections ---
 model OhsInspection {
-  id              Int                 @id @default(autoincrement())
-  createdAt       DateTime            @default(now())
-  type            OhsInspectionType
-  reference       String?
-  performedAt     DateTime
-  performedById   Int
-  performedBy     User                @relation("OhsInspector", fields: [performedById], references: [id])
-  location        String?
-  projectId       Int?
-  project         Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  orderId         Int?
-  order           Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  id               Int                 @id @default(autoincrement())
+  createdAt        DateTime            @default(now())
+  type             OhsInspectionType
+  reference        String?
+  performedAt      DateTime
+  performedById    Int
+  performedBy      User                @relation("OhsInspector", fields: [performedById], references: [id])
+  location         String?
+  projectId        Int?
+  project          Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orderId          Int?
+  order            Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
   clientBuildingId Int?
-  clientBuilding  ClientBuilding?     @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
-  contractorId    Int?
-  contractor      User?               @relation("OhsInspectionContractor", fields: [contractorId], references: [id])
-  result          OhsInspectionResult @default(PASS)
-  findings        Json?
-  notes           String?             @db.Text
-  publishedPdfUrl String?
+  clientBuilding   ClientBuilding?     @relation(fields: [clientBuildingId], references: [id], onDelete: SetNull)
+  contractorId     Int?
+  contractor       User?               @relation("OhsInspectionContractor", fields: [contractorId], references: [id])
+  result           OhsInspectionResult @default(PASS)
+  findings         Json?
+  notes            String?             @db.Text
+  publishedPdfUrl  String?
 
   @@index([type])
   @@index([performedAt])
@@ -5165,22 +6388,226 @@ model OhsInspection {
 
 // --- PPE issue register ---
 model OhsPpeIssue {
-  id          Int      @id @default(autoincrement())
-  createdAt   DateTime @default(now())
-  userId      Int
-  user        User     @relation("OhsPpeRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  itemName    String
-  size        String?
-  quantity    Int      @default(1)
-  issuedAt    DateTime @default(now())
-  issuedById  Int
-  issuedBy    User     @relation("OhsPpeIssuer", fields: [issuedById], references: [id])
+  id             Int       @id @default(autoincrement())
+  createdAt      DateTime  @default(now())
+  userId         Int
+  user           User      @relation("OhsPpeRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  itemName       String
+  size           String?
+  quantity       Int       @default(1)
+  issuedAt       DateTime  @default(now())
+  issuedById     Int
+  issuedBy       User      @relation("OhsPpeIssuer", fields: [issuedById], references: [id])
   replacementDue DateTime?
-  signature   String?  // signed acknowledgement text
-  notes       String?
+  signature      String? // signed acknowledgement text
+  notes          String?
 
   @@index([userId])
   @@index([issuedAt])
 }
 
+// ============================================================================
+// PR-4 � PM CONTRACTOR COMPLIANCE HUB
+// ============================================================================
 
+// PM-customisable compliance requirements per PM.
+// Each PM can define which documents they want to track for their contractors,
+// with optional weight + per-service-type filters.
+model PmComplianceRequirement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  propertyManagerId Int
+  propertyManager   User @relation("PmComplianceRequirementOwner", fields: [propertyManagerId], references: [id], onDelete: Cascade)
+
+  documentType      DocumentType // matches ContractorDocument.documentType OR is OTHER for free-form
+  customLabel       String? // e.g. "Work at Heights Certificate" (used when documentType=OTHER)
+  weight            Int          @default(10) // 1..100, used in scoring
+  isMandatory       Boolean      @default(true)
+  serviceTypeFilter String? // null = applies to all, else only this service type
+  notes             String?
+  isActive          Boolean      @default(true)
+
+  @@unique([propertyManagerId, documentType, customLabel])
+  @@index([propertyManagerId])
+}
+
+// Cached compliance score per contractor (computed by nightly cron + on demand).
+model ContractorComplianceScore {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contractorId Int        @unique
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  propertyManagerId Int?
+
+  score     Int            @default(0) // 0-100
+  band      ComplianceBand @default(RED)
+  breakdown Json // array of {requirement, status, weight, points}
+
+  missingCount           Int @default(0)
+  expiredCount           Int @default(0)
+  expiringCount30d       Int @default(0)
+  expiringCount7d        Int @default(0)
+  incidentsLast12mo      Int @default(0)
+  majorIncidentsLast12mo Int @default(0)
+  ssraCompletedJobs      Int @default(0)
+  totalJobsLast90d       Int @default(0)
+
+  previousScore Int?
+  previousBand  ComplianceBand?
+  computedAt    DateTime        @default(now())
+
+  @@index([propertyManagerId])
+  @@index([band])
+  @@index([score])
+}
+
+// ============================================================================
+// PR-5 — TENANT INSPECTION REPORT (Ingoing / Outgoing)
+// ============================================================================
+
+// Reusable inspection room+item templates.
+// System ships with defaults (propertyManagerId=NULL); each PM can add their own.
+model InspectionTemplate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  propertyManagerId Int? // NULL = global system template
+  owner             User? @relation("InspectionTemplateOwner", fields: [propertyManagerId], references: [id], onDelete: Cascade)
+
+  name         String // "Standard 2-bed apartment"
+  description  String?
+  buildingType String? // RESIDENTIAL | COMMERCIAL | INDUSTRIAL — optional filter
+  isDefault    Boolean @default(false)
+
+  // Shape: [{ name, type, displayOrder, items: [{ name, category }] }]
+  rooms Json
+
+  @@index([propertyManagerId])
+}
+
+model TenantInspection {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inspectionNumber String @unique // INSP-2026-0001
+
+  type   InspectionType
+  status InspectionStatus @default(DRAFT)
+
+  // Property
+  buildingId Int
+  building   Building @relation("BuildingInspections", fields: [buildingId], references: [id])
+  unitNumber String?
+
+  // Tenant
+  tenantName     String
+  tenantIdNumber String?
+  tenantEmail    String
+  tenantPhone    String?
+
+  // Ownership
+  propertyManagerId Int
+  propertyManager   User  @relation("InspectionPropertyManager", fields: [propertyManagerId], references: [id])
+  conductedById     Int?
+  conductedBy       User? @relation("InspectionConductor", fields: [conductedById], references: [id], onDelete: SetNull)
+
+  // Schedule
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  // General data
+  generalNotes      String? @db.Text
+  weatherConditions String?
+  meterReadings     Json? // {electricity, water, gas}
+  keyHandover       Json? // {frontDoor:2, garage:1, ...}
+
+  // Outgoing inspection pairing
+  linkedIngoingId    Int?              @unique
+  linkedIngoing      TenantInspection? @relation("InspectionPair", fields: [linkedIngoingId], references: [id], onDelete: SetNull)
+  outgoingForIngoing TenantInspection? @relation("InspectionPair")
+
+  // Sign-offs
+  tenantSignatureUrl   String?
+  tenantSignedAt       DateTime?
+  tenantSignatureToken String?   @unique
+  tenantTokenExpiresAt DateTime?
+  pmSignatureUrl       String?
+  pmSignedAt           DateTime?
+  witnessSignatureUrl  String?
+  witnessName          String?
+
+  // Outputs
+  pdfReportUrl String?
+
+  // Damage assessment (mostly outgoing)
+  totalDamageCost Float?
+  depositAmount   Float?
+  depositDeducted Float?
+  depositRefunded Float?
+  tenantDisputed  Boolean @default(false)
+  disputeNotes    String? @db.Text
+
+  rooms TenantInspectionRoom[]
+
+  @@index([propertyManagerId])
+  @@index([buildingId])
+  @@index([status])
+  @@index([type])
+  @@index([scheduledFor])
+}
+
+model TenantInspectionRoom {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  inspectionId Int
+  inspection   TenantInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  roomName     String // "Master Bedroom"
+  roomType     String // BEDROOM | BATHROOM | KITCHEN | LIVING | EXTERIOR | GARAGE | OTHER
+  displayOrder Int    @default(0)
+
+  overallCondition ConditionRating @default(NOT_APPLICABLE)
+  notes            String?         @db.Text
+
+  items TenantInspectionItem[]
+
+  @@index([inspectionId])
+}
+
+model TenantInspectionItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  roomId Int
+  room   TenantInspectionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  itemName     String // "Walls", "Ceiling", "Light fitting", "Geyser"
+  category     String? // STRUCTURE | FIXTURES | APPLIANCES | SERVICES | FINISHES
+  displayOrder Int     @default(0)
+
+  condition     ConditionRating @default(NOT_APPLICABLE)
+  isPreExisting Boolean         @default(false)
+  isNewDamage   Boolean         @default(false)
+  notes         String?         @db.Text
+  photoUrls     String[]        @default([])
+
+  // Damage costing (outgoing)
+  repairRequired      Boolean @default(false)
+  estimatedRepairCost Float?
+  tenantLiable        Boolean @default(false)
+
+  // For comparison with ingoing
+  ingoingItemId Int?
+
+  @@index([roomId])
+  @@index([ingoingItemId])
+}

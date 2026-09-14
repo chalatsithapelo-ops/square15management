@@ -81,7 +81,7 @@ async function withRefRetry<T>(prefix: string, table: "incident" | "risk" | "too
 async function companyHeader() {
   const c = await getCompanyDetails();
   return {
-    name: c?.companyName || "Square 15 Property Management",
+    name: c?.companyName || "Square 15 Facility Solutions",
     email: c?.companyEmail || null,
     phone: c?.companyPhone || null,
     address: c?.companyPhysicalAddress || null,

@@ -12,17 +12,25 @@ function CareersPage() {
   const trpc = useTRPC();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
-  const jobsQ = useQuery(trpc.listPublicJobs.queryOptions({
-    search: search || undefined,
-    category: category || undefined,
-  }));
+  const jobsQ = useQuery({
+    ...trpc.listPublicJobs.queryOptions({
+      search: search || undefined,
+      category: category || undefined,
+    }),
+    // Keep the public careers page in near-real-time sync with admin edits.
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="bg-gradient-to-r from-teal-700 to-cyan-700 text-white">
         <div className="max-w-5xl mx-auto px-6 py-16 text-center">
           <h1 className="text-4xl font-bold mb-3">Join our team</h1>
-          <p className="text-teal-100 mb-8">Find your next opportunity with SQR15 Property Management</p>
+          <p className="text-teal-100 mb-8">Find your next opportunity with Square 15 Facility Solutions</p>
           <div className="max-w-xl mx-auto bg-white rounded-xl p-2 flex items-center gap-2 shadow-xl">
             <Search className="w-5 h-5 text-gray-400 ml-3" />
             <input
@@ -71,11 +79,28 @@ function CareersPage() {
                 </div>
               </div>
               {j.description && <p className="text-sm text-gray-600 mt-3 line-clamp-2">{j.description}</p>}
-              {(j.minSalary || j.maxSalary) && (
-                <div className="mt-2 text-sm font-medium text-teal-700">
-                  R{j.minSalary?.toLocaleString()}{j.maxSalary ? ` – R${j.maxSalary.toLocaleString()}` : ""} {j.currency ?? "ZAR"}
-                </div>
-              )}
+              {(() => {
+                const jj = j as any;
+                if (jj.marketRelated) {
+                  return (
+                    <div className="mt-2 text-sm font-medium text-teal-700">Market related</div>
+                  );
+                }
+                if (j.minSalary || j.maxSalary) {
+                  const periodSuffix =
+                    jj.salaryPeriod === "HOURLY" ? "/hour"
+                    : jj.salaryPeriod === "DAILY" ? "/day"
+                    : jj.salaryPeriod === "WEEKLY" ? "/week"
+                    : jj.salaryPeriod === "ANNUAL" ? "/year"
+                    : "/month";
+                  return (
+                    <div className="mt-2 text-sm font-medium text-teal-700">
+                      R{j.minSalary?.toLocaleString()}{j.maxSalary ? ` – R${j.maxSalary.toLocaleString()}` : ""} {j.currency ?? "ZAR"}{periodSuffix}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </Link>
           ))}
           {jobsQ.data?.length === 0 && (
@@ -84,6 +109,13 @@ function CareersPage() {
               No open positions right now. Check back soon.
             </div>
           )}
+        </div>
+
+        <div className="mt-8 pt-6 border-t text-center text-sm text-gray-500">
+          Already applied and lost your link?{" "}
+          <Link to="/careers/resend-link" className="text-teal-700 hover:text-teal-800 font-medium">
+            Resend my application link →
+          </Link>
         </div>
       </div>
     </div>

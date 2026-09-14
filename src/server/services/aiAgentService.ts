@@ -5,7 +5,7 @@ import { authenticateUser } from '~/server/utils/auth';
 import { createAIAgentTools } from './aiAgentTools';
 
 // Initialize Gemini model
-const model = google('gemini-2.0-flash');
+const model = google('gemini-3.6-flash');
 
 /**
  * Main AI Agent function - With full tool capabilities
@@ -45,7 +45,7 @@ export async function runAIAgent({
     console.log('[AI Agent Service] Gemini API key present:', env.GOOGLE_GENERATIVE_AI_API_KEY.substring(0, 10) + '...');
     
     // System prompt for AI Agent with comprehensive system knowledge
-    const systemPrompt = `You are an intelligent AI Assistant for the SQR15 Property Management System - a comprehensive business management platform.
+    const systemPrompt = `You are an intelligent AI Assistant for Square 15 Facility Solutions — a comprehensive business management platform covering property management, facilities maintenance and commercial operations.
 
 ## CRITICAL REMINDER - YOU MUST ACTUALLY CREATE RECORDS
 When a user asks you to create a lead, contact, invoice, order, or any other record:
@@ -65,7 +65,7 @@ When a user asks you to create a lead, contact, invoice, order, or any other rec
 Current user: ${user.firstName} ${user.lastName} (${user.email})
 User ID: ${user.id}
 Your role: Intelligent business operations assistant, Sales & Marketing Manager with direct system access
-Company: Square 15 Property Maintenance (www.square15.co.za)
+Company: Square 15 Facility Solutions (www.square15.co.za)
 Current Date: ${new Date().toISOString().split('T')[0]}
 
 ## CORE SYSTEM KNOWLEDGE - LEAD CREATION IN CRM
@@ -260,7 +260,7 @@ Current Date: ${new Date().toISOString().split('T')[0]}
 
 ## YOUR ROLE AS SALES & MARKETING MANAGER
 
-You are the company's AI-powered Sales & Marketing Manager. The company (Square 15 Property Maintenance, website: www.square15.co.za) cannot afford to hire a salesperson or marketing person, so YOU are responsible for:
+You are the company's AI-powered Sales & Marketing Manager. The company (Square 15 Facility Solutions, website: www.square15.co.za) cannot afford to hire a salesperson or marketing person, so YOU are responsible for:
 
 **SALES MANAGEMENT:**
 - Proactively monitor the lead pipeline and suggest follow-ups
@@ -338,7 +338,7 @@ When asked about marketing, sales, or business growth:
 - {{estimatedValue}} - Estimated project value
 
 **Example Campaign HTML:**
-\`<h2>Hi {{customerName}},</h2><p>We noticed you were interested in {{serviceType}} services. Square 15 Property Maintenance is running a special this month!</p><p>Contact us today for a free quote.<br>📞 Call us or reply to this email.</p><p>Best regards,<br>The Square 15 Team<br>www.square15.co.za</p>\`
+\`<h2>Hi {{customerName}},</h2><p>We noticed you were interested in {{serviceType}} services. Square 15 Facility Solutions is running a special this month!</p><p>Contact us today for a free quote.<br>📞 Call us or reply to this email.</p><p>Best regards,<br>The Square 15 Team<br>www.square15.co.za</p>\`
 
 ### CRITICAL WORKFLOW - CREATING QUOTATIONS FOR LEADS (CONTINUED):
 
@@ -516,7 +516,7 @@ Would you like me to create quarterly reports or drill into specific expense cat
 YOU ARE FULLY CAPABLE AND DIRECTLY INTEGRATED. ACT WITH CONFIDENCE. USE YOUR TOOLS PROACTIVELY.
 Your purpose: Help users accomplish business goals through intelligent system operation.`;
 
-    console.log('[AI Agent Service] Calling generateText with model: gemini-2.0-flash');
+    console.log('[AI Agent Service] Calling generateText with model: gemini-3.6-flash');
     console.log('[AI Agent Service] System prompt length:', systemPrompt.length);
     console.log('[AI Agent Service] User message:', messages[messages.length - 1]?.content?.substring(0, 100));
     console.log('[AI Agent Service] Tools available:', Object.keys(aiAgentTools).join(', '));
