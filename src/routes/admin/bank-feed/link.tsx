@@ -105,7 +105,7 @@ function LinkBankAccountPage() {
             <Link2 className="w-8 h-8 text-blue-600" /> Direct Bank Link
           </h1>
           <p className="text-gray-600 mt-2">
-            Connect your bank account through a regulated SA aggregator (Stitch or Mono) for live,
+            Connect your bank account through a regulated SA aggregator (Stitch, Mono, or Nedbank) for live,
             automatic transaction sync. No credentials are stored on our servers — you log in
             on the provider's secure portal and approve consent.
           </p>
@@ -118,8 +118,10 @@ function LinkBankAccountPage() {
             <div>
               <div className="font-semibold text-green-800">Bank account linked</div>
               <div className="text-sm text-green-700">
-                Initial backfill of the last 90 days has started. New transactions will arrive
-                via webhook in real time.
+                Initial backfill of the last 90 days has started.{" "}
+                {search.provider === "NEDBANK"
+                  ? "New transactions will be pulled automatically every 15 minutes."
+                  : "New transactions will arrive via webhook in real time."}
               </div>
             </div>
           </div>
@@ -141,7 +143,7 @@ function LinkBankAccountPage() {
             <div className="font-semibold">How it works</div>
             <ul className="mt-1 space-y-1 list-disc list-inside">
               <li>Add a bank account first (use <strong>Back to Bank Feed</strong> &rarr; <strong>+ Add Account</strong>).</li>
-              <li>Come back here and click <strong>Link with Stitch</strong> or <strong>Link with Mono</strong> next to it.</li>
+              <li>Come back here and click <strong>Link with Stitch</strong>, <strong>Link with Mono</strong>, or <strong>Link with Nedbank</strong> next to it.</li>
               <li>The provider opens a secure widget; you log in with your bank credentials directly with them. We never see them.</li>
               <li>You approve read-only access to transactions.</li>
               <li>We store an encrypted (AES-256-GCM) consent token and use it to pull your transactions automatically.</li>
@@ -288,7 +290,9 @@ function LinkBankAccountPage() {
                               className={
                                 p.id === "MONO"
                                   ? "px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                                  : "px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                  : p.id === "NEDBANK"
+                                    ? "px-3 py-1.5 text-sm rounded-md bg-green-800 text-white hover:bg-green-900 disabled:opacity-50"
+                                    : "px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                               }
                             >
                               {busyId === a.id && startLink.isPending ? (

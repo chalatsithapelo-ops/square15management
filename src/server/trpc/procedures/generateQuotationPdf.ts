@@ -177,11 +177,34 @@ export const generateQuotationPdf = baseProcedure
           paymentTerms: pdfSettings.paymentTerms || undefined,
         },
         items: lineItems,
-        totals: {
-          subtotal: quotation.subtotal,
-          vat: quotation.tax,
-          total: quotation.total,
-        },
+        totals: (() => {
+          // Present the totals block so the printed math adds up: pass the
+          // discounted (net) exclusive as `subtotal` so template `VAT = total - subtotal`
+          // reflects the actual VAT charged. `totalDiscount` renders the discount line.
+          const grossSubtotal = Number(quotation.subtotal) || 0;
+          const discountAmount = Number((quotation as any).discountAmount) || 0;
+          const netSubtotal = Math.max(0, grossSubtotal - discountAmount);
+          // Deposit REQUESTED on the quotation \u2014 render up-front payment
+          // terms so the client knows what to pay before the job begins.
+          const depReqAmt = Number((quotation as any).depositRequestedAmount) || 0;
+          const depReqPct = Number((quotation as any).depositRequestedPercent) || 0;
+          const balOnCompletion = Math.max(0, (Number(quotation.total) || 0) - depReqAmt);
+          const depDue = (quotation as any).depositDueDate ?? null;
+          return {
+            subtotal: netSubtotal,
+            vat: quotation.tax,
+            total: quotation.total,
+            ...(discountAmount > 0 ? { totalDiscount: discountAmount } : {}),
+            ...(depReqAmt > 0
+              ? {
+                  depositRequested: depReqAmt,
+                  depositRequestedPercent: depReqPct,
+                  balanceOnCompletion: balOnCompletion,
+                  depositDueDate: depDue,
+                }
+              : {}),
+          };
+        })(),
         banking: (companyDetails as any).companyBankName ? {
           bankName: (companyDetails as any).companyBankName || "",
           accountName: (companyDetails as any).companyBankAccountName || "",

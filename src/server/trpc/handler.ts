@@ -1,13 +1,17 @@
 import { eventHandler } from "h3";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./root";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { anthropic } from "@ai-sdk/anthropic";
 import { startEmailPoller, startEmailIdle } from "../services/bankFeed/emailPoller";
 import { startOrderEmailPoller } from "../services/orderEmail/orderEmailPoller";
 import { startQuoteEmailPoller } from "../services/quoteEmail/quoteEmailPoller";
 import { loadPollerConfigFromDB } from "./procedures/emailAutomationSettings";
 import { startBankFeedPoller } from "../services/bankFeed/providerConnector";
+import { bootstrapUnbilledWorkDigest } from "../services/unbilledDigest";
+import { bootstrapComplianceChecker } from "../services/complianceChecker";
+import { bootstrapRecruitmentAutomation } from "../services/recruitment/atsAutomation";
+import { bootstrapPortfolioDigest } from "../services/portfolioDigest";
 
 // ── Bank Feed (Finance) Email Poller Bootstrap ───────────────────────
 let emailPollerStarted = false;
@@ -119,6 +123,7 @@ async function bootstrapQuoteEmailPoller() {
 let stitchPollerStarted = false;
 function bootstrapStitchPoller() {
   if (stitchPollerStarted) return;
+  if (process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== "0") return;
   const enabled =
     process.env.STITCH_ENABLED === "1" || process.env.STITCH_ENABLED === "true";
   if (!enabled) return;
@@ -149,6 +154,7 @@ function bootstrapStitchPoller() {
 let monoPollerStarted = false;
 function bootstrapMonoPoller() {
   if (monoPollerStarted) return;
+  if (process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== "0") return;
   const enabled =
     process.env.MONO_ENABLED === "1" || process.env.MONO_ENABLED === "true";
   if (!enabled) return;
@@ -175,6 +181,53 @@ function bootstrapMonoPoller() {
   }
 }
 
+// ── Nedbank Direct Bank Feed Poller Bootstrap ────────────────────────
+// Nedbank Accounts API is poll-only (no webhook). We share the same
+// startBankFeedPoller() timer with Stitch/Mono — it iterates every
+// linked BankAccount and routes via getProvider().
+let nedbankPollerStarted = false;
+function bootstrapNedbankPoller() {
+  if (nedbankPollerStarted) return;
+  if (process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== "0") return;
+  const enabled =
+    process.env.NEDBANK_ENABLED === "1" || process.env.NEDBANK_ENABLED === "true";
+  if (!enabled) return;
+  if (
+    !process.env.NEDBANK_CLIENT_ID ||
+    !process.env.NEDBANK_CLIENT_SECRET ||
+    !process.env.BANK_FEED_TOKEN_ENC_KEY
+  ) {
+    console.warn(
+      "[Nedbank] NEDBANK_ENABLED=1 but NEDBANK_CLIENT_ID/SECRET or BANK_FEED_TOKEN_ENC_KEY missing — poller NOT started"
+    );
+    return;
+  }
+  if (!process.env.NEDBANK_CERT_PATH || !process.env.NEDBANK_CERT_PASSPHRASE) {
+    console.warn(
+      "[Nedbank] NEDBANK_ENABLED=1 but NEDBANK_CERT_PATH / NEDBANK_CERT_PASSPHRASE missing — B2B API requires mTLS, poller NOT started"
+    );
+    return;
+  }
+  nedbankPollerStarted = true;
+  if (stitchPollerStarted || monoPollerStarted) {
+    console.log("[Nedbank] Direct bank-feed enabled (sharing the existing poll timer)");
+    return;
+  }
+  try {
+    const intervalMs = parseInt(
+      process.env.NEDBANK_POLL_MS || `${15 * 60 * 1000}`,
+      10
+    );
+    startBankFeedPoller(intervalMs);
+    console.log(
+      `[Nedbank] Direct bank-feed poller started (${intervalMs / 1000}s interval, poll-only — no webhook)`
+    );
+  } catch (err) {
+    console.error("[Nedbank] Failed to start direct bank-feed poller:", err);
+    nedbankPollerStarted = false;
+  }
+}
+
 const handler = eventHandler(async (event) => {
   // Start email pollers on first request (lazy init)
   bootstrapEmailPoller();
@@ -182,6 +235,18 @@ const handler = eventHandler(async (event) => {
   bootstrapQuoteEmailPoller();
   bootstrapStitchPoller();
   bootstrapMonoPoller();
+  bootstrapNedbankPoller();
+  // Cron-like jobs that send emails / mutate state must run on ONE worker
+  // only, otherwise PM2 cluster fires them once per worker (duplicate mails).
+  // PM2 exposes NODE_APP_INSTANCE (0..N-1); pick worker 0 as the "leader".
+  const isSchedulerLeader =
+    !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === "0";
+  if (isSchedulerLeader) {
+    bootstrapUnbilledWorkDigest();
+    bootstrapComplianceChecker();
+    bootstrapRecruitmentAutomation();
+    bootstrapPortfolioDigest();
+  }
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.
   if (
@@ -191,6 +256,7 @@ const handler = eventHandler(async (event) => {
     try {
       const model = anthropic("claude-4-5-haiku");
       const result = await generateText({
+        aiFeature: "debug.anthropic",
         model,
         system: "You are helpful.",
         messages: [{ role: "user", content: "Say hi." }],

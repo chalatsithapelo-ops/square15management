@@ -408,7 +408,7 @@ function EditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-5">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-5 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">
           {item ? "Edit catalog item" : "New verified catalog item"}
         </h2>

@@ -39,7 +39,10 @@ import {
   Landmark,
   UserPlus,
   Shield,
+  ShieldCheck,
   BookOpen,
+  FileSpreadsheet,
+  Sparkles,
 } from "lucide-react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -233,12 +236,22 @@ function AdminDashboard() {
     ...trpc.getEmployees.queryOptions({ token: token! }),
     ...dashboardQueryDefaults,
   });
+  // Self-initiated jobs still awaiting admin review — surfaces the count on the
+  // dashboard tile so admins don't miss artisan-started jobs.
+  const selfInitiatedPendingQuery = useQuery({
+    ...trpc.adminListSelfInitiated.queryOptions({ token: token!, status: "pending" }),
+    ...dashboardQueryDefaults,
+  });
   const operationalExpensesQuery = useQuery({
     ...trpc.getOperationalExpenses.queryOptions({ token: token! }),
     ...dashboardQueryDefaults,
   });
   const alternativeRevenuesQuery = useQuery({
     ...trpc.getAlternativeRevenues.queryOptions({ token: token! }),
+    ...dashboardQueryDefaults,
+  });
+  const bankReceiptsQuery = useQuery({
+    ...trpc.getBankReceipts.queryOptions({ token: token! }),
     ...dashboardQueryDefaults,
   });
   const metricSnapshotsQuery = useQuery({
@@ -382,7 +395,11 @@ function AdminDashboard() {
   const alternativeRevenueTotal = alternativeRevenuesQuery.data
     ? filteredAlternativeRevenues.filter((r: any) => r.isApproved === true).reduce((sum, r: any) => sum + (r.amount ?? 0), 0)
     : 0;
-  const totalRevenue = invoiceRevenue + alternativeRevenueTotal;
+  // Bank credits not yet allocated to an invoice or approved revenue record (cash received).
+  const bankReceiptsTotal = (bankReceiptsQuery.data?.receipts ?? [])
+    .filter((r) => isInPeriod(r.transactionDate))
+    .reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  const totalRevenue = invoiceRevenue + alternativeRevenueTotal + bankReceiptsTotal;
 
   // Expenses (only actual order costs - not quotation estimates)
   const orderMaterialCosts = ordersQuery.data
@@ -470,9 +487,11 @@ function AdminDashboard() {
     { title: "Messages", description: "Communicate with customers and artisans", icon: MessageSquare, href: "/messages", color: "from-teal-500 to-teal-600", stats: `${unreadConversations.length} unread` },
     { title: "Projects", description: "Oversee development projects", icon: FolderKanban, href: "/admin/projects", color: "from-purple-500 to-purple-600", stats: `${activeProjects} active projects` },
     { title: "Quotations", description: "Create and manage quotes", icon: FileText, href: "/admin/quotations", color: "from-orange-500 to-orange-600", stats: `${pendingQuotations} pending quotes` },
+    { title: "AI Quote Studio", description: "Type a brief — AI QS produces materials, labour, coverage & profit breakdown", icon: Sparkles, href: "/admin/quotes/studio", color: "from-fuchsia-500 to-purple-600", stats: "Quantity Surveyor in your pocket" },
     { title: "Pricing Library", description: "Self-learning catalog so juniors quote at TM standard", icon: BookOpen, href: "/admin/pricing-library", color: "from-purple-500 to-fuchsia-600", stats: "Verified prices & AI scope builder" },
     { title: "Invoices", description: "Track payments and billing", icon: Receipt, href: "/admin/invoices", color: "from-red-500 to-red-600", stats: `${unpaidInvoices} unpaid invoices` },
     { title: "Statements", description: "Customer billing statements with age analysis", icon: FileText, href: "/admin/statements", color: "from-purple-500 to-purple-600", stats: "Automated statement generation" },
+    { title: "Quotations & Invoices Report", description: "End-to-end status: job done, PO/order, job card signed, invoiced", icon: FileSpreadsheet, href: "/admin/reports/quotations-invoices", color: "from-cyan-500 to-blue-600", stats: "Automated status report" },
     { title: "OHS / Health & Safety", description: "AI-driven risk assessments, incidents, toolbox talks & training (OHS Act 85/1993)", icon: Shield, href: "/admin/ohs", color: "from-amber-500 to-orange-600", stats: "Compliance & safety" },
     { title: "Management Accounts", description: "Financial reports and analytics", icon: DollarSign, href: "/admin/accounts", color: "from-teal-500 to-teal-600", stats: `R${(totalRevenue ?? 0).toLocaleString()} revenue`, permission: "VIEW_ACCOUNTS" as Permission },
     { title: "Bank Feed", description: "Automated bank transaction import & reconciliation", icon: Landmark, href: "/admin/bank-feed", color: "from-emerald-500 to-emerald-600", stats: "Real-time banking", permission: "VIEW_ACCOUNTS" as Permission },
@@ -480,6 +499,9 @@ function AdminDashboard() {
     { title: "Liabilities", description: "Manage organizational debt and payables", icon: AlertTriangle, href: "/admin/liabilities", color: "from-red-500 to-red-600", stats: `R${(unpaidLiabilitiesAmount ?? 0).toLocaleString()} unpaid`, permission: "VIEW_LIABILITIES" as Permission },
     { title: "Payment Requests", description: "Review artisan payment requests", icon: CreditCard, href: "/admin/payment-requests", color: "from-pink-500 to-pink-600", stats: `${pendingPaymentRequests} pending requests`, permission: "VIEW_PAYMENT_REQUESTS" as Permission },
     { title: "Artisan Expenses", description: "Track costs and spending per artisan", icon: Wallet, href: "/admin/artisan-expenses", color: "from-amber-500 to-amber-600", stats: "Financial tracking", permission: "VIEW_PAYMENT_REQUESTS" as Permission },
+    { title: "TM Statements", description: "Monthly Technical Manager commission, locked & exportable", icon: Wallet, href: "/admin/tm-statements", color: "from-emerald-500 to-teal-600", stats: "Per-TM monthly payout", permission: "VIEW_ACCOUNTS" as Permission },
+    { title: "Commission Rules", description: "Per-user commission rates & auto-approval thresholds", icon: ShieldCheck, href: "/admin/commission-rules", color: "from-indigo-500 to-violet-600", stats: "TM / Site Lead / Ops", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
+    { title: "Expense Approvals", description: "Review artisan-submitted receipts", icon: Receipt, href: "/admin/expense-approvals", color: "from-rose-500 to-pink-600", stats: "Approve / dispute / reject", permission: "VIEW_PAYMENT_REQUESTS" as Permission },
     { title: "Order Inbox", description: "AI-parsed order emails awaiting review", icon: Mail, href: "/admin/order-inbox", color: "from-sky-500 to-sky-600", stats: "Email automation", permission: "VIEW_PAYMENT_REQUESTS" as Permission },
     { title: "HR Tool", description: "Employee management, KPIs, and leave tracking", icon: UserCircle2, href: "/admin/hr", color: "from-violet-500 to-violet-600", stats: `${employees.length} total employees`, permission: "VIEW_ALL_EMPLOYEES" as Permission },
     { title: "AI Agent", description: "Your intelligent business assistant", icon: Bot, href: "/admin/ai-agent", color: "from-cyan-500 to-cyan-600", stats: "34 tools available" },
@@ -490,11 +512,16 @@ function AdminDashboard() {
     { title: "Registrations", description: "Review and approve new account requests", icon: ClipboardList, href: "/admin/registrations", color: "from-yellow-500 to-yellow-600", stats: "Admin tool", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
     { title: "Settings", description: "Manage company branding and settings", icon: Settings, href: "/admin/settings", color: "from-gray-500 to-gray-600", stats: user?.role === "SENIOR_ADMIN" ? "Admin access" : "View only", permission: "MANAGE_SYSTEM_SETTINGS" as Permission },
     { title: "Recruitment", description: "AI-powered artisan recruitment & assessments", icon: UserPlus, href: "/admin/recruitment", color: "from-teal-500 to-emerald-600", stats: "AI recruitment" },
+    { title: "Money on the Floor", description: "Unbilled completed jobs at risk of write-off", icon: DollarSign, href: "/admin/billing/unbilled-work", color: "from-red-600 to-orange-600", stats: "Stop revenue leakage" },
+    { title: "Self-initiated jobs", description: "Artisan started jobs needing admin review", icon: ClipboardList, href: "/admin/jobs/needs-review", color: "from-amber-500 to-orange-600", stats: `${(selfInitiatedPendingQuery.data as any[] | undefined)?.length ?? 0} pending review` },
   ];
 
   const isDemoJuniorAdmin = user?.role === "JUNIOR_ADMIN" && user?.email === "junior@propmanagement.com";
 
   const filteredDashboardCards = dashboardCards.filter((card) => {
+    // TM Statements: TECHNICAL_MANAGER always sees the tile (their own view only)
+    // even though they lack VIEW_ACCOUNTS.
+    if (card.title === "TM Statements" && user?.role === "TECHNICAL_MANAGER") return true;
     if (card.permission && !hasPermission(card.permission)) return false;
     if ((card.title === "Subscriptions" || card.title === "Registrations") && isDemoJuniorAdmin) return false;
     return true;
@@ -701,6 +728,7 @@ function AdminDashboard() {
                         <div className="space-y-3">
                           <BreakdownRow label="Invoice Revenue" value={invoiceRevenue} total={totalRevenue} color="bg-emerald-500" />
                           <BreakdownRow label="Alternative Revenue" value={alternativeRevenueTotal} total={totalRevenue} color="bg-teal-400" />
+                          <BreakdownRow label="Bank Receipts (not yet matched to invoices)" value={bankReceiptsTotal} total={totalRevenue} color="bg-cyan-400" />
                           <div className="pt-3 border-t border-emerald-200/50 flex justify-between items-center">
                             <span className="text-sm font-semibold text-gray-700">Total Revenue</span>
                             <span className="text-sm font-bold text-emerald-600">R{totalRevenue.toLocaleString()}</span>

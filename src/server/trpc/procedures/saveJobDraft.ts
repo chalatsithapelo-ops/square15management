@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { SlipCategory } from "@prisma/client";
+import { userIsOnOrderCrew } from "~/server/utils/orderAccess";
 
 /**
  * Save a draft of job completion data without finalizing.
@@ -21,7 +22,8 @@ export const saveJobDraft = baseProcedure
       expenseSlips: z
         .array(
           z.object({
-            url: z.string(),
+            // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+            url: z.string().optional(),
             category: z.nativeEnum(SlipCategory),
             description: z.string().optional(),
             amount: z.number().optional(),
@@ -112,7 +114,7 @@ export const saveJobDraft = baseProcedure
         await db.propertyManagerOrderExpenseSlip.createMany({
           data: input.expenseSlips.map((slip) => ({
             orderId: input.orderId,
-            url: slip.url,
+            url: slip.url ?? null,
             category: slip.category,
             description: slip.description,
             amount: slip.amount,
@@ -146,8 +148,10 @@ export const saveJobDraft = baseProcedure
         throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
       }
 
-      if (order.assignedToId !== user.id && user.role !== "ADMIN" && user.role !== "SENIOR_ADMIN") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "You are not assigned to this order" });
+      const isAdminTier = user.role === "ADMIN" || user.role === "SENIOR_ADMIN";
+      const onCrew = !isAdminTier && (await userIsOnOrderCrew(order.id, user.id));
+      if (order.assignedToId !== user.id && !isAdminTier && !onCrew) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You are not on this job's crew" });
       }
 
       // Save expense slips
@@ -158,7 +162,7 @@ export const saveJobDraft = baseProcedure
         await db.expenseSlip.createMany({
           data: input.expenseSlips.map((slip) => ({
             orderId: input.orderId,
-            url: slip.url,
+            url: slip.url ?? null,
             category: slip.category,
             description: slip.description,
             amount: slip.amount,

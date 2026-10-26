@@ -7,6 +7,7 @@ import { env } from "~/server/env";
 import { sendInvoiceNotificationEmail } from "~/server/utils/email";
 import { notifyAdminsInvoicePaid, notifyCustomerInvoice } from "~/server/utils/notifications";
 import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const updateInvoiceStatus = baseProcedure
   .input(
@@ -218,6 +219,16 @@ export const updateInvoiceStatus = baseProcedure
           // Don't fail the operation if email fails
         }
       }
+
+      await writeAuditLog(db, {
+        actor: user,
+        action: "STATUS_CHANGE",
+        entityType: "Invoice",
+        entityId: invoice.id,
+        before: { status: currentInvoice.status },
+        after: { status: invoice.status },
+        description: `Invoice ${invoice.invoiceNumber} status changed from ${currentInvoice.status} to ${invoice.status}${input.rejectionReason ? ` (reason: ${input.rejectionReason})` : ''}`,
+      });
 
       return invoice;
     } catch (error) {

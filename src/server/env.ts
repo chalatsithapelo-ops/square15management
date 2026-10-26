@@ -164,7 +164,39 @@ const envSchema = z.object({
   MONO_REDIRECT_URI: optionalTrimmedString,
   MONO_POLL_MS: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 15 * 60 * 1000)),
 
-  // 64 hex chars = 32 bytes for AES-256-GCM. Required if any STITCH_*/MONO_* used.
+  // NEDBANK_ENABLED: feature flag for the Nedbank Accounts API connector
+  //   (UK Open Banking v3.1 AISP style). When "1"/"true" the bootstrap
+  //   will start the Nedbank poll cron and require NEDBANK_CLIENT_ID +
+  //   NEDBANK_CLIENT_SECRET + BANK_FEED_TOKEN_ENC_KEY.
+  // NOTE: since 2026-07 Nedbank issues an mTLS cert (PKCS#12) for each
+  // sandbox app. When NEDBANK_CERT_PATH is set, all Nedbank HTTP calls
+  // route through an undici Agent configured with that cert + passphrase.
+  // When unset (older-style app), plain fetch is used — this keeps the
+  // integration back-compat for pre-mTLS sandbox tenants.
+  // Sandbox base: https://api.nedbank.co.za/apimarket/sandbox
+  NEDBANK_ENABLED: z.string().optional().transform((val) => val === "1" || val === "true"),
+  NEDBANK_CLIENT_ID: optionalTrimmedString,
+  NEDBANK_CLIENT_SECRET: optionalTrimmedString,
+  // Absolute path to the Nedbank-issued .pfx / .p12 (PKCS#12) transport cert.
+  NEDBANK_CERT_PATH: optionalTrimmedString,
+  // Passphrase Nedbank emailed alongside the .pfx. Optional in the schema
+  // because some certs are exported without one — the mTLS helper treats
+  // missing passphrase as "no passphrase".
+  NEDBANK_CERT_PASSPHRASE: optionalTrimmedString,
+  NEDBANK_API_BASE: z
+    .string()
+    .optional()
+    .default("https://api.nedbank.co.za/apimarket/sandbox"),
+  NEDBANK_FINANCIAL_ID: z.string().optional().default("OB/2017/001"),
+  NEDBANK_REDIRECT_URI: optionalTrimmedString,
+  // Optional: pin a specific Nedbank AccountId if the consent covers many.
+  NEDBANK_PREFERRED_ACCOUNT_ID: optionalTrimmedString,
+  NEDBANK_POLL_MS: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 15 * 60 * 1000)),
+
+  // 64 hex chars = 32 bytes for AES-256-GCM. Required if any STITCH_*/MONO_*/NEDBANK_* used.
   BANK_FEED_TOKEN_ENC_KEY: optionalTrimmedString,
 
   // PayFast (optional - required only if using PayFast checkout)

@@ -31,17 +31,35 @@ import { Dialog, Transition } from "@headlessui/react";
 
 export const Route = createFileRoute("/admin/statements/")({
   component: StatementsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    clientId: typeof search.clientId === "string" ? Number(search.clientId) : (search.clientId as number | undefined),
+    clientBuildingId:
+      typeof search.clientBuildingId === "string"
+        ? Number(search.clientBuildingId)
+        : (search.clientBuildingId as number | undefined),
+  }),
 });
 
-const statementSchema = z.object({
-  client_email: z.string().email("Invalid email address"),
-  period_start: z.string().min(1, "Start date is required"),
-  period_end: z.string().min(1, "End date is required"),
-  customerName: z.string().optional(),
-  customerPhone: z.string().optional(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-});
+const statementSchema = z
+  .object({
+    client_email: z
+      .string()
+      .email("Invalid email address")
+      .optional()
+      .or(z.literal("")),
+    clientId: z.number().optional(),
+    clientBuildingId: z.number().optional(),
+    period_start: z.string().min(1, "Start date is required"),
+    period_end: z.string().min(1, "End date is required"),
+    customerName: z.string().optional(),
+    customerPhone: z.string().optional(),
+    address: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .refine((v) => !!(v.client_email || v.clientId || v.clientBuildingId), {
+    message: "Search and select a customer, company, or building",
+    path: ["client_email"],
+  });
 
 type StatementForm = z.infer<typeof statementSchema>;
 
@@ -58,6 +76,7 @@ type EditStatementForm = z.infer<typeof editStatementSchema>;
 function StatementsPage() {
   const { token, user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showGenerateForm, setShowGenerateForm] = useState(false);
@@ -71,6 +90,20 @@ function StatementsPage() {
   const [deletingStatementId, setDeletingStatementId] = useState<number | null>(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
+  // Selected statement scope — drives whether email is the lookup key, or whether
+  // we aggregate invoices for an entire company / a specific building.
+  type StatementScope = {
+    kind: "company" | "building" | "customer" | "pm";
+    label: string;
+    sublabel?: string;
+    clientId?: number;
+    clientBuildingId?: number;
+    email?: string;
+    buildingCount?: number;
+    managerName?: string;
+  };
+  const [selectedScope, setSelectedScope] = useState<StatementScope | null>(null);
 
   const statementsQuery = useQuery(
     trpc.getStatements.queryOptions({
@@ -131,12 +164,79 @@ function StatementsPage() {
     }
   }, [customerDetailsQuery.error]);
 
+  // Hydrate scope from URL (?clientId=…&clientBuildingId=…) — e.g. when the
+  // user clicks "Statement" from the CRM Customers tab.
+  const clientsQuery = useQuery({
+    ...trpc.getClients.queryOptions({ token: token! }),
+    enabled: !!token && (!!search.clientId || !!search.clientBuildingId),
+  });
+
+  useEffect(() => {
+    if (selectedScope) return; // already chose
+    if (!search.clientId && !search.clientBuildingId) return;
+    const clients = clientsQuery.data;
+    if (!clients) return;
+    const client = clients.find((c: any) => c.id === search.clientId);
+    if (!client) return;
+
+    setShowGenerateForm(true);
+
+    if (search.clientBuildingId) {
+      const building = (client.buildings || []).find(
+        (b: any) => b.id === search.clientBuildingId,
+      );
+      if (!building) return;
+      setSelectedScope({
+        kind: "building",
+        label: building.name,
+        sublabel: [
+          client.companyName || client.name,
+          building.managerName ? `Manager: ${building.managerName}` : null,
+        ]
+          .filter(Boolean)
+          .join(" • "),
+        clientId: client.id,
+        clientBuildingId: building.id,
+        email: building.managerEmail || client.email,
+        managerName: building.managerName,
+      });
+      setValue("clientId", client.id);
+      setValue("clientBuildingId", building.id);
+      setValue("client_email", building.managerEmail || client.email || "");
+      setValue(
+        "customerName",
+        `${client.companyName || client.name} — ${building.name}`,
+      );
+      setValue("customerPhone", building.managerPhone || client.phone || "");
+      setValue("address", building.address || client.address || "");
+    } else {
+      setSelectedScope({
+        kind: "company",
+        label: client.companyName || client.name,
+        sublabel:
+          (client.buildings?.length || 0) > 0
+            ? `${client.buildings.length} building${client.buildings.length === 1 ? "" : "s"} — aggregating all invoices`
+            : "Company-wide statement",
+        clientId: client.id,
+        email: client.email,
+        buildingCount: client.buildings?.length || 0,
+      });
+      setValue("clientId", client.id);
+      setValue("clientBuildingId", undefined);
+      setValue("client_email", client.email || "");
+      setValue("customerName", client.companyName || client.name);
+      setValue("customerPhone", client.phone || "");
+      setValue("address", client.address || "");
+    }
+  }, [clientsQuery.data, search.clientId, search.clientBuildingId, selectedScope, setValue]);
+
   const generateStatementMutation = useMutation(
     trpc.generateStatement.mutationOptions({
       onSuccess: () => {
         toast.success("Statement generation started! It will be ready shortly.");
         queryClient.invalidateQueries({ queryKey: trpc.getStatements.queryKey() });
         reset();
+        setSelectedScope(null);
         setShowGenerateForm(false);
         
         // Poll for updates
@@ -229,6 +329,7 @@ function StatementsPage() {
     generateStatementMutation.mutate({
       token: token!,
       ...data,
+      client_email: data.client_email || undefined,
     });
   };
 
@@ -404,64 +505,192 @@ function StatementsPage() {
 
                 {/* Search Results Dropdown */}
                 {showCustomerDropdown && customerSearchQuery.length >= 2 && customerSearchResults.data && (
-                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
                     {customerSearchResults.data.length === 0 ? (
                       <div className="p-3 text-sm text-gray-500">No customers found</div>
                     ) : (
-                      customerSearchResults.data.map((customer, idx) => (
-                        <button
-                          key={`${customer.customerEmail}-${idx}`}
-                          type="button"
-                          onClick={() => {
-                            setValue("client_email", customer.customerEmail);
-                            setValue("customerName", customer.customerName);
-                            setValue("customerPhone", customer.customerPhone || "");
-                            setValue("address", customer.address || "");
-                            setCustomerSearchQuery("");
-                            setShowCustomerDropdown(false);
-                            toast.success("Customer selected!");
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-purple-50 border-b border-gray-100 last:border-0 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium text-gray-900 text-sm">{customer.customerName}</div>
-                              <div className="text-xs text-gray-500 flex items-center mt-0.5">
-                                <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
-                                {customer.customerEmail}
+                      customerSearchResults.data.map((customer: any, idx: number) => {
+                        const kind = customer.kind || "customer";
+                        const kindBadge =
+                          kind === "company"
+                            ? { cls: "bg-purple-100 text-purple-700", label: "Company" }
+                            : kind === "building"
+                            ? { cls: "bg-blue-100 text-blue-700", label: "Building" }
+                            : kind === "pm"
+                            ? { cls: "bg-emerald-100 text-emerald-700", label: "PM Customer" }
+                            : { cls: "bg-gray-100 text-gray-700", label: "Customer" };
+                        return (
+                          <button
+                            key={`${kind}-${customer.clientId ?? ""}-${customer.clientBuildingId ?? ""}-${customer.customerEmail || idx}`}
+                            type="button"
+                            onClick={() => {
+                              // Set form fields
+                              setValue("client_email", customer.customerEmail || "");
+                              setValue("customerName", customer.customerName || "");
+                              setValue("customerPhone", customer.customerPhone || "");
+                              setValue("address", customer.address || "");
+                              setValue("clientId", customer.clientId);
+                              setValue("clientBuildingId", customer.clientBuildingId);
+
+                              // Set scope summary
+                              if (kind === "company") {
+                                setSelectedScope({
+                                  kind,
+                                  label: customer.companyName || customer.customerName,
+                                  sublabel: customer.buildingCount
+                                    ? `${customer.buildingCount} building${customer.buildingCount === 1 ? "" : "s"} — aggregating all invoices`
+                                    : "Company-wide statement",
+                                  clientId: customer.clientId,
+                                  email: customer.customerEmail,
+                                  buildingCount: customer.buildingCount,
+                                });
+                              } else if (kind === "building") {
+                                setSelectedScope({
+                                  kind,
+                                  label: customer.buildingName,
+                                  sublabel: [
+                                    customer.companyName,
+                                    customer.managerName ? `Manager: ${customer.managerName}` : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" • "),
+                                  clientId: customer.clientId,
+                                  clientBuildingId: customer.clientBuildingId,
+                                  email: customer.customerEmail,
+                                  managerName: customer.managerName,
+                                });
+                              } else {
+                                setSelectedScope({
+                                  kind,
+                                  label: customer.customerName,
+                                  sublabel: customer.customerEmail,
+                                  email: customer.customerEmail,
+                                });
+                              }
+
+                              setCustomerSearchQuery("");
+                              setShowCustomerDropdown(false);
+                              toast.success(
+                                kind === "company"
+                                  ? `Selected company: ${customer.companyName || customer.customerName}`
+                                  : kind === "building"
+                                  ? `Selected building: ${customer.buildingName}`
+                                  : "Customer selected!",
+                              );
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-purple-50 border-b border-gray-100 last:border-0 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${kindBadge.cls}`}>
+                                    {kindBadge.label}
+                                  </span>
+                                  <div className="font-medium text-gray-900 text-sm truncate">
+                                    {customer.customerName}
+                                  </div>
+                                </div>
+                                {customer.customerEmail && (
+                                  <div className="text-xs text-gray-500 flex items-center mt-1">
+                                    <Mail className="h-3 w-3 mr-1 flex-shrink-0" />
+                                    {customer.customerEmail}
+                                  </div>
+                                )}
+                                {customer.managerName && (
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    Manager: {customer.managerName}
+                                  </div>
+                                )}
+                                {customer.address && (
+                                  <div className="text-xs text-gray-400 truncate mt-0.5">{customer.address}</div>
+                                )}
                               </div>
-                              {customer.address && (
-                                <div className="text-xs text-gray-400 truncate mt-0.5">{customer.address}</div>
-                              )}
+                              <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
+                                {kind === "company" && customer.buildingCount ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700">
+                                    <Building2 className="h-3 w-3 mr-1" />
+                                    {customer.buildingCount} building{customer.buildingCount === 1 ? "" : "s"}
+                                  </span>
+                                ) : null}
+                                {kind === "building" && customer.companyName && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                    <Users className="h-3 w-3 mr-1" />
+                                    {customer.companyName}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
-                              {customer.buildingName && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
-                                  <Building2 className="h-3 w-3 mr-1" />
-                                  {customer.buildingName}
-                                </span>
-                              )}
-                              {customer.companyName && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-50 text-green-700">
-                                  <Users className="h-3 w-3 mr-1" />
-                                  {customer.companyName}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ))
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Selected Scope Badge */}
+            {selectedScope && (
+              <div
+                className={`mb-4 p-3 rounded-lg border flex items-start justify-between gap-3 ${
+                  selectedScope.kind === "company"
+                    ? "bg-purple-50 border-purple-200"
+                    : selectedScope.kind === "building"
+                    ? "bg-blue-50 border-blue-200"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
+                        selectedScope.kind === "company"
+                          ? "bg-purple-100 text-purple-700"
+                          : selectedScope.kind === "building"
+                          ? "bg-blue-100 text-blue-700"
+                          : selectedScope.kind === "pm"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {selectedScope.kind === "company"
+                        ? "Company-wide"
+                        : selectedScope.kind === "building"
+                        ? "Building"
+                        : selectedScope.kind === "pm"
+                        ? "PM Customer"
+                        : "Customer"}
+                    </span>
+                    <span className="font-medium text-gray-900 truncate">{selectedScope.label}</span>
+                  </div>
+                  {selectedScope.sublabel && (
+                    <div className="text-xs text-gray-600 mt-1">{selectedScope.sublabel}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedScope(null);
+                    setValue("clientId", undefined);
+                    setValue("clientBuildingId", undefined);
+                    setValue("client_email", "");
+                    setValue("customerName", "");
+                    setValue("customerPhone", "");
+                    setValue("address", "");
+                  }}
+                  className="text-gray-500 hover:text-gray-700 flex-shrink-0"
+                  aria-label="Clear selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Email *
+                    Customer Email {selectedScope?.clientId ? <span className="text-gray-400 font-normal">(optional when company/building selected)</span> : "*"}
                   </label>
                   <input
                     type="email"

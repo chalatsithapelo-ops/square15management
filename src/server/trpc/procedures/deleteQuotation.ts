@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { minioClient } from "~/server/minio";
 import { db } from "~/server/db";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const deleteQuotation = baseProcedure
   .input(
@@ -77,6 +78,20 @@ export const deleteQuotation = baseProcedure
       // Delete the quotation (cascade will handle related records)
       await db.quotation.delete({
         where: { id: input.quotationId },
+      });
+
+      await writeAuditLog(db, {
+        actor: user,
+        action: "DELETE",
+        entityType: "Quotation",
+        entityId: input.quotationId,
+        before: {
+          quoteNumber: quotation.quoteNumber,
+          customerName: quotation.customerName,
+          total: quotation.total,
+          status: quotation.status,
+        },
+        description: `Deleted quotation ${quotation.quoteNumber} for ${quotation.customerName}`,
       });
 
       return {

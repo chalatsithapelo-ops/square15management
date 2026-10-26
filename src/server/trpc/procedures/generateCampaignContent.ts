@@ -2,11 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
-import { generateText } from 'ai';
+import { generateText } from '~/server/services/ai/controlledGeneration';
 import { google } from '@ai-sdk/google';
 import { env } from '~/server/env';
 
-const model = google('gemini-2.0-flash');
+const model = google('gemini-3.6-flash');
 
 export const generateCampaignContent = baseProcedure
   .input(
@@ -31,7 +31,7 @@ export const generateCampaignContent = baseProcedure
     }
 
     try {
-      const systemPrompt = `You are a professional marketing content creator for Square 15 Property Maintenance (www.square15.co.za), a South African property maintenance company.
+      const systemPrompt = `You are a professional marketing content creator for Square 15 Facility Solutions (www.square15.co.za), a South African property management, facility solutions and maintenance company.
 
 Your job is to generate complete, professional email campaign content based on the user's description.
 
@@ -39,7 +39,7 @@ IMPORTANT RULES:
 1. Generate a campaign name, email subject line, and FULL HTML email body
 2. The HTML must be professional, visually appealing, and responsive
 3. Use inline CSS styles (no external stylesheets)
-4. Include the company name "Square 15 Property Maintenance" in the design
+4. Include the company name "Square 15 Facility Solutions" in the design
 5. Use these personalization tokens where appropriate: {{customerName}}, {{serviceType}}, {{address}}, {{estimatedValue}}
 6. Include a clear call-to-action button linking to https://www.square15.co.za
 7. Use modern email design with gradients, cards, icons (emoji), and clean typography
@@ -62,6 +62,8 @@ Respond ONLY with a JSON object in this exact format (no markdown, no code block
 }`;
 
       const result = await generateText({
+        aiFeature: "campaign.content",
+        aiUserId: user.id,
         model,
         system: systemPrompt,
         prompt: input.prompt,

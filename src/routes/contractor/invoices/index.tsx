@@ -142,6 +142,7 @@ function InvoicesPage() {
   ]);
   const [companyMaterialCost, setCompanyMaterialCost] = useState<string>("");
   const [companyLabourCost, setCompanyLabourCost] = useState<string>("");
+  const [discountPercent, setDiscountPercent] = useState<string>("");
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionInvoiceId, setRejectionInvoiceId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -259,6 +260,7 @@ function InvoicesPage() {
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
+        setDiscountPercent("");
         setReferencedOrder(null);
         setShowAddForm(false);
       },
@@ -278,6 +280,7 @@ function InvoicesPage() {
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
+        setDiscountPercent("");
         setShowAddForm(false);
         setEditingInvoice(null);
       },
@@ -844,6 +847,11 @@ function InvoicesPage() {
     // Populate cost fields
     setCompanyMaterialCost(invoice.companyMaterialCost?.toString() || "");
     setCompanyLabourCost(invoice.companyLabourCost?.toString() || "");
+    setDiscountPercent(
+      invoice.discountPercent && invoice.discountPercent > 0
+        ? String(invoice.discountPercent)
+        : "",
+    );
   };
 
   const handleExportPdf = (invoiceId: number) => {
@@ -956,12 +964,24 @@ function InvoicesPage() {
 
   const calculateSubtotal = () => computeInvoiceTotals(lineItems).subtotal;
 
-  const calculateTax = () => computeInvoiceTotals(lineItems).tax;
+  const clampedDiscountPct = () => {
+    const raw = parseFloat(discountPercent);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return Math.min(100, raw);
+  };
 
-  const calculateTotal = () => computeInvoiceTotals(lineItems).total;
+  const calculateDiscountAmount = () =>
+    computeInvoiceTotals(lineItems, clampedDiscountPct()).discountAmount;
+
+  const calculateNetSubtotal = () =>
+    computeInvoiceTotals(lineItems, clampedDiscountPct()).netSubtotal;
+
+  const calculateTax = () => computeInvoiceTotals(lineItems, clampedDiscountPct()).tax;
+
+  const calculateTotal = () => computeInvoiceTotals(lineItems, clampedDiscountPct()).total;
 
   const calculateEstimatedProfit = () => {
-    const subtotal = calculateSubtotal();
+    const subtotal = calculateNetSubtotal();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
     return subtotal - materialCost - labourCost;
@@ -976,9 +996,10 @@ function InvoicesPage() {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
     const total = calculateTotal();
+    const discountPct = clampedDiscountPct();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
-    const estimatedProfit = subtotal - materialCost - labourCost;
+    const estimatedProfit = calculateNetSubtotal() - materialCost - labourCost;
 
     if (editingInvoice) {
       updateInvoiceDetailsMutation.mutate({
@@ -990,6 +1011,7 @@ function InvoicesPage() {
         subtotal,
         tax,
         total,
+        discountPercent: discountPct,
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
@@ -1002,6 +1024,7 @@ function InvoicesPage() {
         subtotal,
         tax,
         total,
+        discountPercent: discountPct,
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
@@ -1698,10 +1721,41 @@ function InvoicesPage() {
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-3 mb-1">
+                  <label htmlFor="contractor-invoice-discount-percent" className="text-sm font-medium text-gray-700">
+                    Discount (%)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="contractor-invoice-discount-percent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(e.target.value)}
+                      placeholder="0"
+                      className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-right text-sm focus:ring-2 focus:ring-brand-danger-500 focus:border-transparent"
+                    />
+                    <span className="text-sm text-gray-600">%</span>
+                  </div>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">R{calculateSubtotal().toFixed(2)}</span>
                 </div>
+                {clampedDiscountPct() > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-red-700">
+                      <span>Discount ({clampedDiscountPct().toFixed(2)}%):</span>
+                      <span className="font-medium">-R{calculateDiscountAmount().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal after discount:</span>
+                      <span className="font-medium">R{calculateNetSubtotal().toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">VAT (15%):</span>
                   <span className="font-medium">R{calculateTax().toFixed(2)}</span>
@@ -1741,6 +1795,7 @@ function InvoicesPage() {
                     setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
                     setCompanyMaterialCost("");
                     setCompanyLabourCost("");
+                    setDiscountPercent("");
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >

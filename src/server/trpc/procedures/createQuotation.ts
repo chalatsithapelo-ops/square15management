@@ -5,7 +5,10 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { computeInvoiceTotals } from "~/utils/money";
 import { resolveClientId, resolveClientBuildingId } from "~/server/trpc/procedures/clients";
+import { getNextQuoteNumber } from "~/server/utils/documentNumbers";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const createQuotation = baseProcedure
   .input(
@@ -35,6 +38,12 @@ export const createQuotation = baseProcedure
       subtotal: z.number(),
       tax: z.number().default(0),
       total: z.number(),
+      discountPercent: z.number().min(0).max(100).default(0),
+      // Deposit REQUESTED on the quotation (percent authoritative;
+      // amount recomputed server-side from canonical total).
+      depositRequestedPercent: z.number().min(0).max(100).optional(),
+      depositRequestedAmount: z.number().min(0).optional(),
+      depositDueDate: z.string().optional(),
       validUntil: z.string().optional(),
       notes: z.string().optional(),
       assignedToId: z.number().optional(),
@@ -85,22 +94,9 @@ export const createQuotation = baseProcedure
         
         quoteNumber = input.quoteNumber;
       } else {
-        // Auto-generate unique quotation number by scanning ALL existing numbers for the true max
+        // Auto-generate using shared helper (skips poisoned suffixes)
         const companyDetails = await getCompanyDetails();
-        const prefix = companyDetails.quotationPrefix;
-        const allQuotations = await db.quotation.findMany({
-          select: { quoteNumber: true },
-        });
-        let maxSuffix = 0;
-        const pattern = new RegExp(`^${prefix}-(\\d+)$`);
-        for (const q of allQuotations) {
-          const match = q.quoteNumber.match(pattern);
-          if (match) {
-            const num = parseInt(match[1] ?? "0", 10);
-            if (num > maxSuffix) maxSuffix = num;
-          }
-        }
-        quoteNumber = `${prefix}-${String(maxSuffix + 1).padStart(5, "0")}`;
+        quoteNumber = await getNextQuoteNumber(db, companyDetails.quotationPrefix);
       }
 
       // Verify user token (already verified above)
@@ -132,7 +128,26 @@ export const createQuotation = baseProcedure
         existingClientBuildingId: input.clientBuildingId ?? null,
         clientId: resolvedClientId,
         address: input.address,
+        // PR-8J — pass the site/building name so distinct sites sharing a
+        // head-office accounting address get their own ClientBuilding row
+        // (and therefore appear in the artisan dropdown).
+        buildingName: input.customerName,
       });
+
+      // Canonicalise totals server-side so the stored values always match
+      // what the form/PDF will display (avoids 5014.57 vs 5014.58 drift).
+      const canonicalTotals = computeInvoiceTotals(input.items, input.discountPercent);
+
+      // Deposit request derivation — percent authoritative.
+      const roundMoney2 = (n: number) =>
+        Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
+      const qDepPct = Math.max(0, Math.min(100, Number(input.depositRequestedPercent) || 0));
+      let qDepAmt = 0;
+      if (qDepPct > 0) {
+        qDepAmt = roundMoney2((canonicalTotals.total * qDepPct) / 100);
+      } else if (input.depositRequestedAmount && input.depositRequestedAmount > 0) {
+        qDepAmt = roundMoney2(Math.min(canonicalTotals.total, input.depositRequestedAmount));
+      }
 
       const quotation = await db.quotation.create({
         data: {
@@ -143,9 +158,11 @@ export const createQuotation = baseProcedure
           customerPhone: input.customerPhone,
           address: input.address,
           items: input.items,
-          subtotal: input.subtotal,
-          tax: input.tax,
-          total: input.total,
+          subtotal: canonicalTotals.subtotal,
+          discountPercent: canonicalTotals.discountPercent,
+          discountAmount: canonicalTotals.discountAmount,
+          tax: canonicalTotals.tax,
+          total: canonicalTotals.total,
           validUntil: input.validUntil ? new Date(input.validUntil) : null,
           notes: input.notes || null,
           assignedToId: user.role === "CONTRACTOR" ? user.id : (input.assignedToId || null),
@@ -157,6 +174,9 @@ export const createQuotation = baseProcedure
           labourRate: input.labourRate || null,
           customerVatNumber: input.customerVatNumber || null,
           projectDescription: input.projectDescription || null,
+          depositRequestedPercent: qDepPct,
+          depositRequestedAmount: qDepAmt,
+          depositDueDate: input.depositDueDate ? new Date(input.depositDueDate) : null,
           clientId: resolvedClientId,
           clientBuildingId: resolvedBuildingId,
           status: (user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER") ? "DRAFT" : "DRAFT",
@@ -218,6 +238,20 @@ export const createQuotation = baseProcedure
       } catch (notifError) {
         console.error('Failed to send quotation assignment notification:', notifError);
       }
+
+      await writeAuditLog(db, {
+        actor: user,
+        action: "CREATE",
+        entityType: "Quotation",
+        entityId: quotation.id,
+        after: {
+          quoteNumber: quotation.quoteNumber,
+          customerName: quotation.customerName,
+          total: quotation.total,
+          status: quotation.status,
+        },
+        description: `Created quotation ${quotation.quoteNumber} for ${quotation.customerName}`,
+      });
 
       return quotation;
     } catch (error) {

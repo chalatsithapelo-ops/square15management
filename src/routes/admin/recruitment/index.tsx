@@ -16,6 +16,74 @@ export const Route = createFileRoute("/admin/recruitment/")({
   component: RecruitmentDashboard,
 });
 
+function CheckinsDueTile({ token }: { token: string }) {
+  const trpc = useTRPC();
+  const q = useQuery(trpc.listDuePerformanceCheckIns.queryOptions({ token }));
+  const rows = q.data as any[] | undefined;
+  if (!rows || rows.length === 0) return null;
+  return (
+    <a
+      href="/admin/recruitment/hr-quality"
+      className="block mb-4 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 hover:shadow-md transition-all p-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-amber-700" />
+          </div>
+          <div>
+            <div className="font-semibold text-gray-900">
+              {rows.length} performance check-in{rows.length === 1 ? "" : "s"} due
+            </div>
+            <div className="text-xs text-gray-600 mt-0.5">
+              Line managers owe day 30/60/90/180 feedback on recent hires. Click to open.
+            </div>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-amber-700" />
+      </div>
+    </a>
+  );
+}
+
+function EmailDeliveryHealthBanner({ token }: { token: string }) {
+  const trpc = useTRPC();
+  const q = useQuery(trpc.getEmailDeliveryHealth.queryOptions({ token }));
+  const h = q.data;
+  if (!h || h.severity === "OK") return null;
+  const isOutage = h.severity === "OUTAGE";
+  return (
+    <div className={`mb-4 rounded-xl border p-4 ${isOutage ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}`}>
+      <div className="flex items-start gap-3">
+        <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isOutage ? "text-red-600" : "text-amber-600"}`} />
+        <div className="flex-1">
+          <div className={`font-semibold ${isOutage ? "text-red-900" : "text-amber-900"}`}>
+            {isOutage ? "Email delivery is DOWN" : "Some candidate emails failed"}
+            {" — "}
+            {h.failed24h} failed / {h.delivered24h + h.failed24h} sent in the last 24h ({h.failedPct}%)
+          </div>
+          {h.lastError && (
+            <div className={`text-xs mt-1 ${isOutage ? "text-red-800" : "text-amber-800"}`}>
+              Last error: <span className="font-mono">{h.lastError}</span>
+              {h.lastTemplate && <> · template <span className="font-mono">{h.lastTemplate}</span></>}
+            </div>
+          )}
+          {h.hint && (
+            <div className={`text-sm mt-2 ${isOutage ? "text-red-900" : "text-amber-900"}`}>
+              → {h.hint}
+            </div>
+          )}
+          {isOutage && (
+            <div className="text-xs text-red-800 mt-2">
+              Candidates will not receive portal links, interview invites, offers or rejection feedback until this is restored. Every message is still logged for audit and the candidate can still access their portal via the link they see on the "Application started" page.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type AppStatus = "NEW" | "ASSESSMENTS_PENDING" | "ASSESSMENTS_COMPLETE" | "INTERVIEW_PENDING" | "INTERVIEW_COMPLETE" | "UNDER_REVIEW" | "SHORTLISTED" | "APPROVED" | "REJECTED" | "ONBOARDED";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
@@ -63,6 +131,15 @@ function RecruitmentDashboard() {
       trade: tradeFilter || undefined,
       sortBy: "createdAt",
       sortOrder: "desc",
+    })
+  );
+
+  const newAtsQuery = useQuery(
+    trpc.getApplications.queryOptions({
+      token: token!,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      take: 500,
     })
   );
 
@@ -331,7 +408,12 @@ function RecruitmentDashboard() {
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Users className="w-6 h-6 text-teal-600" /> Recruitment
             </h1>
-            <p className="text-sm text-gray-500 mt-1">{total} total applications</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {(newAtsQuery.data?.length ?? 0) + total} total application{(newAtsQuery.data?.length ?? 0) + total === 1 ? "" : "s"}
+              {(newAtsQuery.data?.length ?? 0) > 0 && (
+                <span className="text-teal-600"> ({newAtsQuery.data!.length} on the new ATS)</span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => {
@@ -349,6 +431,35 @@ function RecruitmentDashboard() {
           </div>
         </div>
 
+        {/* New-ATS candidate banner — points users at the modern candidates
+            page. The list rendered lower down on this page reads from the
+            legacy ArtisanApplication table only. */}
+        <EmailDeliveryHealthBanner token={token!} />
+        <CheckinsDueTile token={token!} />
+        {(newAtsQuery.data?.length ?? 0) > 0 && (
+          <a
+            href="/admin/recruitment/candidates"
+            className="block mb-4 rounded-xl border border-teal-300 bg-gradient-to-r from-teal-50 to-emerald-50 hover:shadow-md transition-all p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-teal-700" />
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">
+                    {newAtsQuery.data!.length} new-ATS candidate{newAtsQuery.data!.length === 1 ? "" : "s"} across all jobs
+                  </div>
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    Applicants who came through the modern careers site are shown on the Candidates page. Click to open.
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-teal-700" />
+            </div>
+          </a>
+        )}
+
         {/* Management Hub — admin navigation to all recruitment surfaces */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Link to="/admin/recruitment/jobs"
@@ -363,8 +474,8 @@ function RecruitmentDashboard() {
               </div>
             </div>
           </Link>
-          <Link to="/admin/recruitment"
-            className="group bg-white border border-teal-300 ring-1 ring-teal-200 rounded-xl p-4 transition-all">
+          <a href="/admin/recruitment/candidates"
+            className="group bg-white border border-teal-300 ring-1 ring-teal-200 rounded-xl p-4 transition-all hover:shadow-md">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
                 <Users className="w-5 h-5 text-teal-700" />
@@ -374,7 +485,7 @@ function RecruitmentDashboard() {
                 <div className="text-xs text-gray-500">Review & manage</div>
               </div>
             </div>
-          </Link>
+          </a>
           <Link to="/admin/recruitment/analytics"
             className="group bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-400 hover:shadow-md transition-all">
             <div className="flex items-center gap-3">
@@ -525,3 +636,4 @@ function RecruitmentDashboard() {
     </div>
   );
 }
+

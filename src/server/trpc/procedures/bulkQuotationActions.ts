@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 const QUOTATION_STATUSES = [
   "DRAFT",
@@ -49,10 +50,28 @@ export const bulkUpdateQuotationStatus = baseProcedure
       updateData.rejectionReason = input.rejectionReason || "Bulk rejection";
     }
 
+    const priorQuotes = await db.quotation.findMany({
+      where: { id: { in: input.quotationIds } },
+      select: { id: true, status: true, quoteNumber: true },
+    });
+
     const result = await db.quotation.updateMany({
       where: { id: { in: input.quotationIds } },
       data: updateData,
     });
+
+    for (const q of priorQuotes) {
+      if (q.status === input.status) continue;
+      await writeAuditLog(db, {
+        actor: user,
+        action: "STATUS_CHANGE",
+        entityType: "Quotation",
+        entityId: q.id,
+        before: { status: q.status },
+        after: { status: input.status },
+        description: `Bulk status change: ${q.quoteNumber} → ${input.status}${input.rejectionReason ? ` (reason: ${input.rejectionReason})` : ''}`,
+      });
+    }
 
     return { updated: result.count };
   });
@@ -88,8 +107,30 @@ export const bulkDeleteQuotations = baseProcedure
       });
     }
 
+    const priorForDelete = await db.quotation.findMany({
+      where: { id: { in: input.quotationIds } },
+      select: { id: true, quoteNumber: true, customerName: true, total: true, status: true },
+    });
+
     const result = await db.quotation.deleteMany({
       where: { id: { in: input.quotationIds } },
     });
+
+    for (const q of priorForDelete) {
+      await writeAuditLog(db, {
+        actor: user,
+        action: "DELETE",
+        entityType: "Quotation",
+        entityId: q.id,
+        before: {
+          quoteNumber: q.quoteNumber,
+          customerName: q.customerName,
+          total: q.total,
+          status: q.status,
+        },
+        description: `Bulk delete of quotation ${q.quoteNumber}`,
+      });
+    }
+
     return { deleted: result.count };
   });

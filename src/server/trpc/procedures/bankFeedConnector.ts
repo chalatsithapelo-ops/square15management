@@ -18,6 +18,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
 import { stitchProvider } from "~/server/services/bankFeed/stitchClient";
 import { monoProvider } from "~/server/services/bankFeed/monoClient";
+import { nedbankProvider } from "~/server/services/bankFeed/nedbankClient";
 import {
   persistLink,
   unlinkBankAccount as unlinkAccountSvc,
@@ -44,7 +45,7 @@ export const linkBankAccountStart = baseProcedure
     z.object({
       token: z.string(),
       bankAccountId: z.number().int(),
-      provider: z.enum(["STITCH", "MONO"]).default("STITCH"),
+      provider: z.enum(["STITCH", "MONO", "NEDBANK"]).default("STITCH"),
     })
   )
   .mutation(async ({ input }) => {
@@ -65,26 +66,60 @@ export const linkBankAccountStart = baseProcedure
       return { authorizeUrl: url };
     }
 
-    // MONO
-    if (process.env.MONO_ENABLED !== "1" && process.env.MONO_ENABLED !== "true") {
-      throw new Error("Mono direct bank feed is not enabled (MONO_ENABLED=0)");
+    if (input.provider === "MONO") {
+      if (process.env.MONO_ENABLED !== "1" && process.env.MONO_ENABLED !== "true") {
+        throw new Error("Mono direct bank feed is not enabled (MONO_ENABLED=0)");
+      }
+      if (
+        !process.env.MONO_SECRET_KEY ||
+        !process.env.MONO_PUBLIC_KEY ||
+        !process.env.BANK_FEED_TOKEN_ENC_KEY
+      ) {
+        throw new Error("Mono is not fully configured — check server env vars");
+      }
+      const monoState = createState({ userId: user.id, bankAccountId: input.bankAccountId });
+      const monoRedirectUri =
+        process.env.MONO_REDIRECT_URI ||
+        `${process.env.BASE_URL || ""}/api/bank-feed/mono-callback`;
+      const monoUrl = monoProvider.getAuthorizeUrl({
+        state: monoState,
+        redirectUri: monoRedirectUri,
+      });
+      return { authorizeUrl: monoUrl };
+    }
+
+    // NEDBANK — B2B "Account Enquiries" API. NO OAuth, NO consent flow.
+    // Linking is instant: verify creds via /balances, pick the account,
+    // persist the link inline, then return a self-redirect URL so the
+    // client's existing `window.location = authorizeUrl` flow still works.
+    if (process.env.NEDBANK_ENABLED !== "1" && process.env.NEDBANK_ENABLED !== "true") {
+      throw new Error("Nedbank direct bank feed is not enabled (NEDBANK_ENABLED=0)");
     }
     if (
-      !process.env.MONO_SECRET_KEY ||
-      !process.env.MONO_PUBLIC_KEY ||
+      !process.env.NEDBANK_CLIENT_ID ||
+      !process.env.NEDBANK_CLIENT_SECRET ||
       !process.env.BANK_FEED_TOKEN_ENC_KEY
     ) {
-      throw new Error("Mono is not fully configured — check server env vars");
+      throw new Error("Nedbank is not fully configured — check server env vars");
     }
-    const monoState = createState({ userId: user.id, bankAccountId: input.bankAccountId });
-    const monoRedirectUri =
-      process.env.MONO_REDIRECT_URI ||
-      `${process.env.BASE_URL || ""}/api/bank-feed/mono-callback`;
-    const monoUrl = monoProvider.getAuthorizeUrl({
-      state: monoState,
-      redirectUri: monoRedirectUri,
+    if (!process.env.NEDBANK_CERT_PATH || !process.env.NEDBANK_CERT_PASSPHRASE) {
+      throw new Error(
+        "Nedbank mTLS cert not configured (NEDBANK_CERT_PATH + NEDBANK_CERT_PASSPHRASE required)"
+      );
+    }
+    const nb = await nedbankProvider.startLink({
+      baseUrl: process.env.BASE_URL || "",
     });
-    return { authorizeUrl: monoUrl };
+    await persistLink({
+      bankAccountId: input.bankAccountId,
+      providerId: "NEDBANK",
+      link: nb.link,
+    });
+    // Fire off a first backfill (don't block the response).
+    syncBankAccount(input.bankAccountId, { sinceDays: 90 }).catch((err) =>
+      console.error("[Nedbank] initial backfill error:", err)
+    );
+    return { authorizeUrl: nb.authorizeUrl };
   });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -190,10 +225,16 @@ export const getBankFeedProviders = baseProcedure
       !!process.env.MONO_SECRET_KEY &&
       !!process.env.MONO_PUBLIC_KEY &&
       !!process.env.BANK_FEED_TOKEN_ENC_KEY;
+    const nedbankEnabled =
+      (process.env.NEDBANK_ENABLED === "1" || process.env.NEDBANK_ENABLED === "true") &&
+      !!process.env.NEDBANK_CLIENT_ID &&
+      !!process.env.NEDBANK_CLIENT_SECRET &&
+      !!process.env.BANK_FEED_TOKEN_ENC_KEY;
     return {
       providers: [
         { id: "STITCH" as const, enabled: stitchEnabled, label: "Stitch" },
         { id: "MONO" as const, enabled: monoEnabled, label: "Mono" },
+        { id: "NEDBANK" as const, enabled: nedbankEnabled, label: "Nedbank" },
       ],
     };
   });

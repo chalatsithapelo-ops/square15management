@@ -112,6 +112,93 @@ async function sendViaResend(apiKey: string, params: {
   console.log(`Email sent via Resend to: ${params.to.join(", ")} (id: ${result.data?.id})`);
 }
 
+// SendGrid HTTP API fallback — kicks in when Resend hits quota / DNS problems.
+async function sendViaSendGrid(apiKey: string, params: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  attachments?: EmailAttachment[];
+}): Promise<void> {
+  const fromMatch = params.from.match(/^(.*?)\s*<(.+)>$/);
+  const fromEmail = fromMatch ? fromMatch[2] : params.from;
+  const fromName = fromMatch ? fromMatch[1] : undefined;
+  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      personalizations: [{ to: params.to.map((email) => ({ email })) }],
+      from: { email: fromEmail, name: fromName },
+      subject: params.subject,
+      content: [{ type: "text/html", value: params.html }],
+      attachments: params.attachments?.map((att) => ({
+        content: att.content.toString("base64"),
+        filename: att.filename,
+        type: att.contentType || "application/pdf",
+        disposition: "attachment",
+      })),
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`SendGrid error ${res.status}: ${body.slice(0, 200)}`);
+  }
+  console.log(`Email sent via SendGrid to: ${params.to.join(", ")}`);
+}
+
+// Postmark HTTP API fallback — 3rd-tier for high-deliverability transactional.
+async function sendViaPostmark(serverToken: string, params: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  attachments?: EmailAttachment[];
+}): Promise<void> {
+  const res = await fetch("https://api.postmarkapp.com/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Postmark-Server-Token": serverToken,
+    },
+    body: JSON.stringify({
+      From: params.from,
+      To: params.to.join(","),
+      Subject: params.subject,
+      HtmlBody: params.html,
+      MessageStream: "outbound",
+      Attachments: params.attachments?.map((att) => ({
+        Name: att.filename,
+        Content: att.content.toString("base64"),
+        ContentType: att.contentType || "application/pdf",
+      })),
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Postmark error ${res.status}: ${body.slice(0, 200)}`);
+  }
+  console.log(`Email sent via Postmark to: ${params.to.join(", ")}`);
+}
+
+async function getBackupProviderConfig(): Promise<{ sendgrid?: string; postmark?: string }> {
+  const out: { sendgrid?: string; postmark?: string } = {};
+  try {
+    const rows = await db.systemSettings.findMany({
+      where: { key: { in: ["sendgrid_api_key", "postmark_server_token"] } },
+    });
+    for (const r of rows) {
+      if (r.key === "sendgrid_api_key" && r.value) out.sendgrid = r.value;
+      if (r.key === "postmark_server_token" && r.value) out.postmark = r.value;
+    }
+  } catch (e) {
+    console.error("Failed to read backup provider config:", e);
+  }
+  if (!out.sendgrid && process.env.SENDGRID_API_KEY) out.sendgrid = process.env.SENDGRID_API_KEY;
+  if (!out.postmark && process.env.POSTMARK_SERVER_TOKEN) out.postmark = process.env.POSTMARK_SERVER_TOKEN;
+  return out;
+}
+
 /**
  * Create a nodemailer transporter with SMTP configuration
  */
@@ -165,6 +252,8 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     const companyDetails = await getCompanyDetails();
     const toArray = Array.isArray(params.to) ? params.to : [params.to];
 
+    const providerErrors: string[] = [];
+
     // Try Resend first (HTTP-based, bypasses SMTP port blocks)
     const resendConfig = await getResendConfig();
     if (resendConfig) {
@@ -179,7 +268,41 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
         });
         return;
       } catch (resendError) {
-        console.error("Resend failed, falling back to SMTP:", resendError);
+        const msg = resendError instanceof Error ? resendError.message : String(resendError);
+        providerErrors.push(`Resend: ${msg}`);
+        console.error("Resend failed, trying backup providers:", msg);
+      }
+    }
+
+    // Backup HTTP providers (SendGrid → Postmark) BEFORE the SMTP fallback,
+    // because on DigitalOcean the SMTP fallback almost always times out.
+    const backup = await getBackupProviderConfig();
+    const backupFrom = resendConfig
+      ? `${companyDetails.companyName} <${resendConfig.fromEmail}>`
+      : `${companyDetails.companyName} <${env.SMTP_USER}>`;
+
+    if (backup.sendgrid) {
+      try {
+        await sendViaSendGrid(backup.sendgrid, {
+          from: backupFrom, to: toArray, subject: params.subject, html: params.html, attachments: params.attachments,
+        });
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        providerErrors.push(`SendGrid: ${msg}`);
+        console.error("SendGrid failed, trying Postmark:", msg);
+      }
+    }
+    if (backup.postmark) {
+      try {
+        await sendViaPostmark(backup.postmark, {
+          from: backupFrom, to: toArray, subject: params.subject, html: params.html, attachments: params.attachments,
+        });
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        providerErrors.push(`Postmark: ${msg}`);
+        console.error("Postmark failed, falling back to SMTP:", msg);
       }
     }
 

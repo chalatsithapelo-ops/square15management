@@ -3,11 +3,11 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
-import { generateText } from 'ai';
+import { generateText } from '~/server/services/ai/controlledGeneration';
 import { google } from '@ai-sdk/google';
 import { env } from '~/server/env';
 
-const model = google('gemini-2.0-flash');
+const model = google('gemini-3.6-flash');
 
 export const amendCampaignWithAI = baseProcedure
   .input(
@@ -58,7 +58,7 @@ export const amendCampaignWithAI = baseProcedure
     }
 
     try {
-      const systemPrompt = `You are a marketing content editor for Square 15 Property Maintenance.
+      const systemPrompt = `You are a marketing content editor for Square 15 Facility Solutions.
 
 You are given an existing email campaign and an instruction to modify it. Apply the requested changes while maintaining the overall design quality and structure.
 
@@ -87,6 +87,8 @@ Respond ONLY with a JSON object in this exact format (no markdown, no code block
 }`;
 
       const result = await generateText({
+        aiFeature: "campaign.amend",
+        aiUserId: user.id,
         model,
         system: systemPrompt,
         prompt: input.instruction,

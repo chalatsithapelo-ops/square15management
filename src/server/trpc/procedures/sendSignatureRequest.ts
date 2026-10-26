@@ -14,18 +14,28 @@ export const sendSignatureRequest = baseProcedure
       token: z.string(),
       orderId: z.number(),
       isPMOrder: z.boolean().optional(),
-      recipientEmail: z.string().email(),
+      // Optional for method=link (copy to clipboard only, nothing sent).
+      recipientEmail: z.string().optional(),
       recipientName: z.string().min(1),
-      method: z.enum(["email", "whatsapp"]),
+      method: z.enum(["email", "whatsapp", "link"]),
     })
   )
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    if (!["SENIOR_ADMIN", "JUNIOR_ADMIN", "PROPERTY_MANAGER"].includes(user.role)) {
+    // Artisans are on-site with the client and often need to share the link
+    // themselves (WhatsApp from their own phone, SMS, in-person QR, etc.).
+    if (!["SENIOR_ADMIN", "JUNIOR_ADMIN", "PROPERTY_MANAGER", "ARTISAN"].includes(user.role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only admins and property managers can send signature requests",
+        message: "You are not permitted to send signature requests",
+      });
+    }
+
+    if (input.method !== "link" && !input.recipientEmail) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: input.method === "email" ? "Email address is required" : "Phone number is required",
       });
     }
 
@@ -114,7 +124,7 @@ export const sendSignatureRequest = baseProcedure
       `;
 
       await sendEmail({
-        to: input.recipientEmail,
+        to: input.recipientEmail!,
         subject: `Job Card Signature Required - Order ${orderNumber}`,
         html,
       });
@@ -122,7 +132,17 @@ export const sendSignatureRequest = baseProcedure
       return {
         success: true,
         method: "email",
+        signingUrl,
         message: `Signature request sent to ${input.recipientEmail}`,
+      };
+    } else if (input.method === "link") {
+      // Just return the signing URL — caller copies to clipboard, shares via
+      // any channel (SMS, iMessage, in-person QR, etc.).
+      return {
+        success: true,
+        method: "link",
+        signingUrl,
+        message: "Signing link ready. Share it however you like.",
       };
     } else {
       // WhatsApp - generate a wa.me link for the admin to share
@@ -135,7 +155,7 @@ export const sendSignatureRequest = baseProcedure
       );
 
       // Clean up phone number for WhatsApp (remove spaces, dashes, leading 0, add country code)
-      let phone = input.recipientEmail.replace(/[\s\-()]/g, "");
+      let phone = (input.recipientEmail ?? "").replace(/[\s\-()]/g, "");
       if (phone.startsWith("0")) {
         phone = "27" + phone.substring(1); // South Africa default
       }

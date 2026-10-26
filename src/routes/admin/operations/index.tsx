@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
+import { JobCardEditModal } from "~/components/JobCardEditModal";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
@@ -42,12 +43,29 @@ import {
   ChevronUp,
   Trash2,
   FileSpreadsheet,
+  PenLine,
+  Link2,
+  CheckCircle2,
 } from "lucide-react";
 import { ReportModal } from "~/components/ReportModal";
 import { FileAttachment } from "~/components/FileAttachment";
 import { OperationalExpenseForm } from "~/components/OperationalExpenseForm";
+import { CrewPanel } from "~/components/CrewPanel";
+import { OrderFinancialsPanel } from "~/components/OrderFinancialsPanel";
+import { JobCardSignatureModal } from "~/components/JobCardSignatureModal";
+import {
+  PortfolioScopeToggle,
+  useInitialPortfolioScope,
+  type PortfolioScope,
+} from "~/components/PortfolioScopeToggle";
 
 export const Route = createFileRoute("/admin/operations/")({
+  // Accept an optional `?orderNumber=ORD-XXXXX` param so other pages (e.g. the
+  // Quotations "Edit Job Card" button) can deep-link into Operations and land
+  // with the search box pre-filled to that order.
+  validateSearch: (search: Record<string, unknown>) => ({
+    orderNumber: typeof search.orderNumber === "string" ? search.orderNumber : undefined,
+  }),
   component: OperationsPage,
 });
 
@@ -65,6 +83,7 @@ const orderSchema = z
     otherServiceType: z.string().optional(),
     description: z.string().min(1, "Description is required"),
     assignedToId: z.number().optional(),
+    technicalManagerId: z.number().optional(),
     callOutFee: z.number().default(0),
     labourRate: z.number().optional(),
     totalMaterialBudget: z.number().optional(),
@@ -95,6 +114,8 @@ const serviceTypeOptions = [
 ] as const;
 
 const orderStatuses = [
+  { value: "SELF_INITIATED", label: "Self-initiated", color: "bg-amber-100 text-amber-800" },
+  { value: "AWAITING_ORDER_NUMBER", label: "Awaiting PO number", color: "bg-orange-100 text-orange-800" },
   { value: "PENDING_REVIEW", label: "Pending Review", color: "bg-orange-100 text-orange-800" },
   { value: "PENDING", label: "Pending", color: "bg-gray-100 text-gray-800" },
   { value: "ASSIGNED", label: "Assigned", color: "bg-yellow-100 text-yellow-800" },
@@ -104,11 +125,12 @@ const orderStatuses = [
 ];
 
 function OperationsPage() {
-  const { token } = useAuthStore();
+  const { token, user: authUser } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const routeSearch = Route.useSearch();
   const [showAddForm, setShowAddForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(routeSearch.orderNumber ?? "");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
@@ -141,18 +163,44 @@ function OperationsPage() {
     customerEmail: string;
     customerPhone: string;
   } | null>(null);
+  // Post-completion in-person signature capture — admin sits with the client.
+  const [signJobCardOrderId, setSignJobCardOrderId] = useState<number | null>(null);
   const [sigReqName, setSigReqName] = useState("");
   const [sigReqContact, setSigReqContact] = useState("");
-  const [sigReqMethod, setSigReqMethod] = useState<"email" | "whatsapp">("email");
+  const [sigReqMethod, setSigReqMethod] = useState<"email" | "whatsapp" | "link">("email");
+
+  // Inline review state for self-initiated jobs (kept in operations page so
+  // admins can approve/reject/capture PO # without navigating to a separate
+  // review screen).
+  const [reviewApprovingId, setReviewApprovingId] = useState<number | null>(null);
+  const [reviewApproveNote, setReviewApproveNote] = useState("");
+  const [reviewRejectOrderId, setReviewRejectOrderId] = useState<number | null>(null);
+  const [reviewRejectReason, setReviewRejectReason] = useState("");
+  const [poCaptureOrderId, setPoCaptureOrderId] = useState<number | null>(null);
+  const [poCaptureValue, setPoCaptureValue] = useState("");
+  const initialScope = useInitialPortfolioScope();
+  const [scope, setScope] = useState<PortfolioScope>(initialScope);
 
   const ordersQuery = useQuery(
     trpc.getOrders.queryOptions({
       token: token!,
+      scope,
+    }, {
+      // Auto-refresh so client-signed job cards show up without a manual
+      // reload. 20s is well below the timeout of a typical signing session.
+      refetchInterval: 20_000,
+      refetchIntervalInBackground: false,
     })
   );
 
   const artisansQuery = useQuery(
     trpc.getArtisans.queryOptions({
+      token: token!,
+    })
+  );
+
+  const technicalManagersQuery = useQuery(
+    trpc.adminListTechnicalManagers.queryOptions({
       token: token!,
     })
   );
@@ -247,16 +295,69 @@ function OperationsPage() {
 
   const sendSignatureRequestMutation = useMutation(
     trpc.sendSignatureRequest.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         if (data.method === "whatsapp" && data.whatsappUrl) {
           window.open(data.whatsappUrl, "_blank");
         }
-        toast.success(data.message);
+        if (data.method === "link" && data.signingUrl) {
+          try {
+            await navigator.clipboard.writeText(data.signingUrl);
+            toast.success("Signing link copied to clipboard — paste it anywhere to share");
+          } catch {
+            // Clipboard API blocked (older browser / non-secure origin)
+            toast.success(`Link ready: ${data.signingUrl}`);
+          }
+        } else {
+          toast.success(data.message);
+        }
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
         setSignatureRequestOrder(null);
       },
       onError: (error) => {
         toast.error(error.message || "Failed to send signature request");
       },
+    })
+  );
+
+  // Self-initiated review actions — surfaced inline on each order card so
+  // admins can approve / reject / capture the client PO without leaving the
+  // normal operations flow.
+  const approveSelfInitiatedMutation = useMutation(
+    trpc.adminApproveSelfInitiated.mutationOptions({
+      onSuccess: () => {
+        toast.success("Job approved");
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.adminListSelfInitiated.queryKey() });
+        setReviewApprovingId(null);
+        setReviewApproveNote("");
+      },
+      onError: (error) => toast.error(error.message || "Failed to approve job"),
+    })
+  );
+
+  const rejectSelfInitiatedMutation = useMutation(
+    trpc.adminRejectSelfInitiated.mutationOptions({
+      onSuccess: () => {
+        toast.success("Job rejected");
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.adminListSelfInitiated.queryKey() });
+        setReviewRejectOrderId(null);
+        setReviewRejectReason("");
+      },
+      onError: (error) => toast.error(error.message || "Failed to reject job"),
+    })
+  );
+
+  const attachClientOrderNumberMutation = useMutation(
+    trpc.adminAttachClientOrderNumber.mutationOptions({
+      onSuccess: () => {
+        toast.success("Client PO captured");
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.adminListSelfInitiated.queryKey() });
+        setPoCaptureOrderId(null);
+        setPoCaptureValue("");
+      },
+      onError: (error) => toast.error(error.message || "Failed to capture PO"),
     })
   );
 
@@ -290,6 +391,7 @@ function OperationsPage() {
 
   const generateOrderPdfRawMutation = useMutation(trpc.generateOrderPdf.mutationOptions());
   const generateJobCardPdfMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+  const [editJobCardOrderId, setEditJobCardOrderId] = useState<number | null>(null);
   const generateInvoicePdfMutation = useMutation(trpc.generateInvoicePdf.mutationOptions());
 
   const base64ToUint8Array = (base64: string) => {
@@ -616,6 +718,7 @@ function OperationsPage() {
       otherServiceType: split.otherServiceType,
       description: order.description,
       assignedToId: order.assignedToId || undefined,
+      technicalManagerId: (order as any).technicalManagerId || undefined,
       callOutFee: order.callOutFee,
       labourRate: order.labourRate || undefined,
       totalMaterialBudget: order.totalMaterialBudget || undefined,
@@ -827,6 +930,7 @@ function OperationsPage() {
         ...rest,
         serviceType: resolvedServiceType,
         assignedToId: data.assignedToId ? Number(data.assignedToId) : null,
+        technicalManagerId: data.technicalManagerId ? Number(data.technicalManagerId) : null,
         callOutFee: Number(data.callOutFee) || 0,
         labourRate: data.labourRate ? Number(data.labourRate) : null,
         totalMaterialBudget: data.totalMaterialBudget ? Number(data.totalMaterialBudget) : undefined,
@@ -841,6 +945,7 @@ function OperationsPage() {
         ...rest,
         serviceType: resolvedServiceType,
         assignedToId: data.assignedToId ? Number(data.assignedToId) : undefined,
+        technicalManagerId: data.technicalManagerId ? Number(data.technicalManagerId) : undefined,
         callOutFee: Number(data.callOutFee) || 0,
         labourRate: data.labourRate ? Number(data.labourRate) : undefined,
         totalMaterialBudget: data.totalMaterialBudget ? Number(data.totalMaterialBudget) : undefined,
@@ -928,6 +1033,10 @@ function OperationsPage() {
               <FileSpreadsheet className="h-5 w-5 mr-2" />
               Generate Report
             </button>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Scope:</span>
+            <PortfolioScopeToggle scope={scope} onChange={setScope} />
           </div>
         </div>
       </header>
@@ -1152,6 +1261,26 @@ function OperationsPage() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Responsible Technical Manager <span className="text-red-600">*</span>
+                </label>
+                <select
+                  {...register("technicalManagerId", { valueAsNumber: true })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select TM…</option>
+                  {(technicalManagersQuery.data ?? []).map((tm) => (
+                    <option key={tm.id} value={tm.id}>
+                      {tm.name} {tm.role !== "TECHNICAL_MANAGER" ? `(${tm.role})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Commission for this job will be attributed to the selected TM.
+                </p>
               </div>
 
               <div className="md:col-span-1">
@@ -1772,6 +1901,51 @@ function OperationsPage() {
                         No Signature
                       </span>
                     )}
+                    {(order as any).selfInitiated && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-indigo-100 text-indigo-800 inline-flex items-center gap-1"
+                        title={
+                          (order as any).initiatedBy
+                            ? `Started in the field by ${(order as any).initiatedBy.firstName} ${(order as any).initiatedBy.lastName}`
+                            : "Started in the field by an artisan"
+                        }
+                      >
+                        <Sparkles className="h-3 w-3" /> Self-initiated
+                      </span>
+                    )}
+                    {(order as any).selfInitiated && !(order as any).adminReviewedAt && !(order as any).selfInitiatedRejected && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-amber-100 text-amber-800"
+                        title="Awaiting admin review — invoice is gated until approved"
+                      >
+                        Needs review
+                      </span>
+                    )}
+                    {(order as any).selfInitiatedRejected && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-red-100 text-red-800"
+                        title={(order as any).selfInitiatedRejectReason || "Rejected"}
+                      >
+                        Rejected
+                      </span>
+                    )}
+                    {(!(order as any).clientOrderNumber &&
+                      (order as any).orderNumberStatus === "PENDING_FROM_CLIENT") && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-orange-100 text-orange-800 inline-flex items-center gap-1"
+                        title="Client PO number outstanding — invoice blocked until captured"
+                      >
+                        <AlertTriangle className="h-3 w-3" /> No PO#
+                      </span>
+                    )}
+                    {(order as any).clientOrderNumber && (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-gray-100 text-gray-700"
+                        title="Client PO number"
+                      >
+                        PO {(order as any).clientOrderNumber}
+                      </span>
+                    )}
                     <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{order.customerName}</span>
                     <span className="text-xs text-gray-500 hidden md:inline">• {order.serviceType}</span>
                   </div>
@@ -1836,6 +2010,179 @@ function OperationsPage() {
                       <p className="text-xs text-amber-900">{order.notes}</p>
                     </div>
                   )}
+
+                  {/* Self-initiated review panel — approve/reject + capture
+                      client PO inline. Removes the /admin/jobs/needs-review
+                      bottleneck: admin does everything from this card. */}
+                  {(order as any).selfInitiated && (
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="text-xs text-indigo-900 space-y-0.5">
+                          <p className="font-semibold flex items-center gap-1">
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Self-initiated by{" "}
+                            {(order as any).initiatedBy
+                              ? `${(order as any).initiatedBy.firstName} ${(order as any).initiatedBy.lastName}`
+                              : "artisan"}
+                          </p>
+                          {(order as any).orderNumberStatus && (
+                            <p className="text-indigo-700">
+                              PO status: <span className="font-medium">{(order as any).orderNumberStatus.replace(/_/g, " ").toLowerCase()}</span>
+                              {(order as any).noOrderReason && ` — ${(order as any).noOrderReason}`}
+                            </p>
+                          )}
+                          {(order as any).adminReviewedAt && !(order as any).selfInitiatedRejected && (
+                            <p className="text-green-700 font-medium">
+                              ✓ Reviewed & approved
+                            </p>
+                          )}
+                          {(order as any).selfInitiatedRejected && (order as any).selfInitiatedRejectReason && (
+                            <p className="text-red-700 font-medium">
+                              Rejected: {(order as any).selfInitiatedRejectReason}
+                            </p>
+                          )}
+                          {Array.isArray((order as any).invoicingBlockers) && (order as any).invoicingBlockers.length > 0 && (
+                            <p className="text-amber-800">
+                              Invoice blocked:{" "}
+                              {(order as any).invoicingBlockers
+                                .map((b: any) => (b?.type || "").replace(/_/g, " ").toLowerCase())
+                                .filter(Boolean)
+                                .join(", ")}
+                            </p>
+                          )}
+                        </div>
+                        {!(order as any).adminReviewedAt && !(order as any).selfInitiatedRejected && (
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => { setReviewApprovingId(order.id); setReviewApproveNote(""); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => { setReviewRejectOrderId(order.id); setReviewRejectReason(""); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Approve confirmation w/ optional note */}
+                      {reviewApprovingId === order.id && (
+                        <div className="mt-2 pt-2 border-t border-indigo-200 bg-green-50 -mx-3 px-3 pb-3 rounded-b space-y-2">
+                          <label className="block text-xs font-medium text-gray-700">Approval note (optional)</label>
+                          <textarea
+                            value={reviewApproveNote}
+                            onChange={(e) => setReviewApproveNote(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded h-16 focus:outline-none focus:ring-1 focus:ring-green-500"
+                            placeholder="e.g. Verified with client, proceed to invoice"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => { setReviewApprovingId(null); setReviewApproveNote(""); }}
+                              className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              disabled={approveSelfInitiatedMutation.isPending}
+                              onClick={() => approveSelfInitiatedMutation.mutate({
+                                token: token!, orderId: order.id, note: reviewApproveNote.trim() || undefined,
+                              })}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {approveSelfInitiatedMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                              Confirm approve
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reject inline form */}
+                      {reviewRejectOrderId === order.id && (
+                        <div className="mt-2 pt-2 border-t border-indigo-200 bg-red-50 -mx-3 px-3 pb-3 rounded-b space-y-2">
+                          <label className="block text-xs font-medium text-gray-700">Reason for rejection (artisan will be notified)</label>
+                          <textarea
+                            value={reviewRejectReason}
+                            onChange={(e) => setReviewRejectReason(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded h-16 focus:outline-none focus:ring-1 focus:ring-red-500"
+                            placeholder="At least 3 characters"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => { setReviewRejectOrderId(null); setReviewRejectReason(""); }}
+                              className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              disabled={rejectSelfInitiatedMutation.isPending || reviewRejectReason.trim().length < 3}
+                              onClick={() => rejectSelfInitiatedMutation.mutate({
+                                token: token!, orderId: order.id, reason: reviewRejectReason.trim(),
+                              })}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {rejectSelfInitiatedMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                              Confirm reject
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Capture-PO inline form — only when PO is outstanding */}
+                      {!(order as any).clientOrderNumber &&
+                        (order as any).orderNumberStatus === "PENDING_FROM_CLIENT" && (
+                        poCaptureOrderId === order.id ? (
+                          <div className="mt-2 pt-2 border-t border-indigo-200 bg-orange-50 -mx-3 px-3 pb-3 rounded-b space-y-2">
+                            <label className="block text-xs font-medium text-gray-700">Client PO / order number</label>
+                            <input
+                              type="text"
+                              value={poCaptureValue}
+                              onChange={(e) => setPoCaptureValue(e.target.value)}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              placeholder="e.g. PO-2025-01234"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => { setPoCaptureOrderId(null); setPoCaptureValue(""); }}
+                                className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                disabled={attachClientOrderNumberMutation.isPending || !poCaptureValue.trim()}
+                                onClick={() => attachClientOrderNumberMutation.mutate({
+                                  token: token!, orderId: order.id, clientOrderNumber: poCaptureValue.trim(),
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                              >
+                                {attachClientOrderNumberMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Save PO
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <button
+                              onClick={() => { setPoCaptureOrderId(order.id); setPoCaptureValue(""); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
+                            >
+                              <AlertTriangle className="h-3 w-3" /> Capture client PO
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  {/* PR-6 — Multi-artisan crew + per-person labour breakdown */}
+                  <CrewPanel orderId={order.id} />
+
+                  {/* PR-7 — Order financials & TM commission */}
+                  <OrderFinancialsPanel orderId={order.id} artisans={artisansQuery.data ?? []} />
 
                   {/* Materials - compact table format */}
                   {order.materials && order.materials.length > 0 && (
@@ -1962,6 +2309,30 @@ function OperationsPage() {
                   </button>
                   {order.status === "COMPLETED" && (
                     <>
+                      {/* Client-signature status badge — surfaces whether the
+                          client has signed remotely / in-person / not yet. */}
+                      {order.signedJobCardUrl && order.clientRepSignDate ? (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-lg"
+                          title={`Signed by ${order.clientRepName ?? "client"} on ${new Date(order.clientRepSignDate).toLocaleString("en-ZA")}`}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Signed
+                        </span>
+                      ) : (order as any).signatureRequestSentAt ? (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 rounded-lg animate-pulse"
+                          title={`Link sent ${new Date((order as any).signatureRequestSentAt).toLocaleString("en-ZA")} — awaiting client signature`}
+                        >
+                          <Link2 className="h-3.5 w-3.5 mr-1" />Awaiting Client Signature
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg"
+                          title="Client has not signed this job card"
+                        >
+                          Not Signed
+                        </span>
+                      )}
                       <button
                         onClick={() => handleDownloadJobCard(order.id)}
                         disabled={downloadingJobCardId === order.id}
@@ -1973,6 +2344,14 @@ function OperationsPage() {
                           <><Receipt className="h-3.5 w-3.5 mr-1" />Job Card</>
                         )}
                       </button>
+                      {order.status !== "CANCELLED" && (
+                        <button
+                          onClick={() => setEditJobCardOrderId(order.id)}
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        >
+                          <PenLine className="h-3.5 w-3.5 mr-1" />Edit Job Card
+                        </button>
+                      )}
                       {order.invoice && (
                         <button
                           onClick={() => handleDownloadMergedPdf(order)}
@@ -2005,7 +2384,7 @@ function OperationsPage() {
                           )}
                         </button>
                       )}
-                      {order.clientUnavailableToSign && !order.signedJobCardUrl && (
+                      {order.status === "COMPLETED" && !order.signedJobCardUrl && (
                         <button
                           onClick={() => {
                             setSignatureRequestOrder({
@@ -2016,12 +2395,22 @@ function OperationsPage() {
                             });
                             setSigReqName(order.customerName);
                             setSigReqContact(order.customerEmail);
-                            setSigReqMethod("email");
+                            setSigReqMethod("link");
                           }}
                           className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
-                          title="Request the client to sign the job card electronically"
+                          title="Send the client a link to sign the job card remotely (email, WhatsApp, or copy link)"
                         >
-                          <AlertTriangle className="h-3.5 w-3.5 mr-1" />Request Signature
+                          <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                          {order.signatureRequestSentAt ? "Resend Sign Link" : "Send Sign Link"}
+                        </button>
+                      )}
+                      {(!order.clientRepSignDate || !order.artisanSignatureUrl) && !order.isPMOrder && (
+                        <button
+                          onClick={() => setSignJobCardOrderId(order.id)}
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                          title={!order.clientRepSignDate ? "Capture client signature in-person (client & artisan)" : "Capture artisan signature"}
+                        >
+                          <PenLine className="h-3.5 w-3.5 mr-1" />Sign Job Card
                         </button>
                       )}
                     </>
@@ -2102,6 +2491,35 @@ function OperationsPage() {
         </div>
       )}
 
+      {editJobCardOrderId !== null && (
+        <JobCardEditModal orderId={editJobCardOrderId} onClose={() => setEditJobCardOrderId(null)} />
+      )}
+      {/* Post-completion in-person Sign Job Card modal */}
+      {signJobCardOrderId !== null && (() => {
+        const target = orders.find((o: any) => o.id === signJobCardOrderId);
+        if (!target || !token) return null;
+        return (
+          <JobCardSignatureModal
+            token={token}
+            currentUserName={authUser ? `${authUser.firstName ?? ""} ${authUser.lastName ?? ""}`.trim() : undefined}
+            order={{
+              id: target.id,
+              orderNumber: target.orderNumber,
+              serviceType: target.serviceType,
+              description: target.description,
+              signedJobCardUrl: target.signedJobCardUrl,
+              clientRepName: target.clientRepName,
+              clientRepSignDate: target.clientRepSignDate as any,
+              artisanSignatureUrl: (target as any).artisanSignatureUrl ?? null,
+              artisanSignedByName: (target as any).artisanSignedByName ?? null,
+              artisanSignDate: (target as any).artisanSignDate ?? null,
+              isPMOrder: !!target.isPMOrder,
+            }}
+            onClose={() => setSignJobCardOrderId(null)}
+          />
+        );
+      })()}
+
       {/* Request Signature Modal */}
       {signatureRequestOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2132,6 +2550,19 @@ function OperationsPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
+                      setSigReqMethod("link");
+                    }}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      sigReqMethod === "link"
+                        ? "bg-amber-50 border-amber-300 text-amber-700"
+                        : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                    title="Copy link to clipboard — share via any channel"
+                  >
+                    <Link2 className="h-4 w-4 inline mr-1" />Copy Link
+                  </button>
+                  <button
+                    onClick={() => {
                       setSigReqMethod("email");
                       setSigReqContact(signatureRequestOrder.customerEmail);
                     }}
@@ -2159,17 +2590,24 @@ function OperationsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {sigReqMethod === "email" ? "Email Address" : "Phone Number"}
-                </label>
-                <input
-                  type={sigReqMethod === "email" ? "email" : "tel"}
-                  value={sigReqContact}
-                  onChange={(e) => setSigReqContact(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
+              {sigReqMethod !== "link" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {sigReqMethod === "email" ? "Email Address" : "Phone Number"}
+                  </label>
+                  <input
+                    type={sigReqMethod === "email" ? "email" : "tel"}
+                    value={sigReqContact}
+                    onChange={(e) => setSigReqContact(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              )}
+              {sigReqMethod === "link" && (
+                <p className="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded p-2">
+                  We’ll generate the signing link and copy it to your clipboard. Paste it into WhatsApp, SMS, iMessage, or hand the client a QR of it — whichever works. As soon as they sign, this page updates automatically.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
@@ -2181,15 +2619,19 @@ function OperationsPage() {
               </button>
               <button
                 onClick={() => {
-                  if (!sigReqName.trim() || !sigReqContact.trim()) {
-                    toast.error("Please fill in all fields");
+                  if (!sigReqName.trim()) {
+                    toast.error("Please enter the recipient name");
+                    return;
+                  }
+                  if (sigReqMethod !== "link" && !sigReqContact.trim()) {
+                    toast.error(sigReqMethod === "email" ? "Please enter an email address" : "Please enter a phone number");
                     return;
                   }
                   sendSignatureRequestMutation.mutate({
                     token: token!,
                     orderId: signatureRequestOrder.id,
                     recipientName: sigReqName.trim(),
-                    recipientEmail: sigReqContact.trim(),
+                    recipientEmail: sigReqMethod === "link" ? undefined : sigReqContact.trim(),
                     method: sigReqMethod,
                   });
                 }}
@@ -2197,9 +2639,13 @@ function OperationsPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {sendSignatureRequestMutation.isPending ? (
-                  <><Loader2 className="h-4 w-4 inline mr-1 animate-spin" />Sending...</>
+                  <><Loader2 className="h-4 w-4 inline mr-1 animate-spin" />Working...</>
                 ) : (
-                  sigReqMethod === "email" ? "Send Email" : "Open WhatsApp"
+                  sigReqMethod === "email"
+                    ? "Send Email"
+                    : sigReqMethod === "whatsapp"
+                      ? "Open WhatsApp"
+                      : "Copy Link"
                 )}
               </button>
             </div>

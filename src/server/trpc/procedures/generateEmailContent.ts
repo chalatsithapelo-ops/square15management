@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { env } from "~/server/env";
 
@@ -38,7 +38,7 @@ export const generateEmailContent = baseProcedure
 
     try {
       // Set up AI model
-      const model = google("gemini-2.0-flash-exp");
+      const model = google("gemini-3.6-flash");
 
       // Build context-specific information
       let contextInfo = "";
@@ -76,6 +76,8 @@ export const generateEmailContent = baseProcedure
 
       // Generate email content
       const { object } = await generateObject({
+        aiFeature: "email.content",
+        aiUserId: user.id,
         model,
         schema: z.object({
           subject: z.string().describe("Email subject line - clear, professional, and engaging"),

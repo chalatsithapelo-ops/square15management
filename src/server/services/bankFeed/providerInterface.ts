@@ -1,11 +1,12 @@
 /**
  * Generic bank-feed aggregator provider interface.
  *
- * Implemented by `stitchClient.ts` (Stitch.money) and (future) `monoClient.ts`.
+ * Implemented by `stitchClient.ts` (Stitch.money), `monoClient.ts` (Mono),
+ * and `nedbankClient.ts` (Nedbank Accounts API, UK Open Banking v3.1 style).
  * Stored against BankAccount.externalProvider so we can swap providers per-row.
  */
 
-export type BankFeedProviderId = "STITCH" | "MONO";
+export type BankFeedProviderId = "STITCH" | "MONO" | "NEDBANK";
 
 /** Normalised transaction shape across providers (matches storeBatchTransactions input). */
 export interface NormalisedTransaction {

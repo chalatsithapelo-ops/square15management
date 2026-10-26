@@ -8,6 +8,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import { db } from "~/server/db";
 import { authenticateUser } from "~/server/utils/auth";
 import { sendEmail } from "~/server/utils/email";
+import { sendCandidateEmail } from "~/server/services/recruitment/messaging";
 import { assertHiringManager, assertRecruiter, transitionApplication } from "~/server/services/recruitment/atsHelpers";
 
 export const createOffer = baseProcedure
@@ -138,16 +139,20 @@ export const sendOffer = baseProcedure
       where: { id: offer.id },
       data: { status: "SENT", sentAt: new Date() },
     });
-    sendEmail({
+    void sendCandidateEmail({
+      applicationId: offer.applicationId,
       to: offer.application.email,
       subject: `Offer: ${offer.title}`,
+      templateKey: "OFFER_SENT",
+      sentById: user.id,
       html: `<p>Hi ${offer.application.firstName},</p>
              <p>We are delighted to offer you the role of <b>${offer.title}</b>.</p>
              <p>Base: ${offer.currency} ${offer.baseSalary} / ${offer.salaryPeriod.toLowerCase()}</p>
              <p>Start date: ${offer.startDate.toLocaleDateString()}</p>
              <p>Please review and respond before <b>${offer.expiresAt?.toLocaleString() ?? ""}</b>:</p>
              <p><a href="${process.env.APP_URL ?? ""}/offer/${offer.signToken}">Review &amp; sign offer</a></p>`,
-    }).catch(() => {});
+      companionMessage: `Your offer for ${offer.title} is ready. Base ${offer.currency} ${offer.baseSalary}/${offer.salaryPeriod.toLowerCase()}, start ${offer.startDate.toLocaleDateString()}. Review & sign on your portal.`,
+    });
     return updated;
   });
 

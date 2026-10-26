@@ -5,7 +5,7 @@
  * Uses Gemini AI for interview answer evaluation and overall candidate summary.
  */
 
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { db } from "~/server/db";
 import {
@@ -16,7 +16,10 @@ import {
   type IQQuestion,
 } from "./assessmentQuestions";
 
-const model = google("gemini-2.0-flash");
+// Use the always-current "latest" alias so API-key model-availability drift
+// (e.g. gemini-3.6-flash being removed for new users) does not silently break
+// the entire interview-scoring pipeline. Override via env.RECRUITMENT_GEMINI_MODEL.
+const model = google(process.env.RECRUITMENT_GEMINI_MODEL || "gemini-flash-latest");
 
 // ═══════════════════════════════════════════════════════════════════════
 // IQ Scoring — percentage correct, weighted by difficulty
@@ -237,6 +240,7 @@ export async function scoreInterviewAnswer(
   trade: string
 ): Promise<{ score: number; analysis: string; dimensions: Record<string, number> }> {
   const { text } = await generateText({
+    aiFeature: "recruitment.scoring",
     model,
     system: `You are an expert HR assessor for a property management company evaluating artisan candidates.
 Score the candidate's answer on a 0-10 scale across these dimensions: professionalism, problem_solving, communication, reliability, integrity, trade_knowledge.
@@ -252,17 +256,27 @@ Respond ONLY with valid JSON:
     prompt: `Question (dimension: ${dimension}): "${question}"\n\nCandidate's Answer: "${answer}"`,
   });
 
+  const cleaned = text.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+  let parsed: any;
   try {
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-    return {
-      score: Math.min(10, Math.max(0, parsed.score || 0)),
-      analysis: parsed.analysis || "",
-      dimensions: parsed.dimensions || {},
-    };
+    parsed = JSON.parse(cleaned);
   } catch {
-    return { score: 5, analysis: "Unable to parse AI response", dimensions: {} };
+    throw new Error("Unable to parse AI interview scoring response as JSON");
   }
+  if (
+    !parsed ||
+    typeof parsed.score !== "number" ||
+    !Number.isFinite(parsed.score) ||
+    parsed.score < 0 ||
+    parsed.score > 10
+  ) {
+    throw new Error("AI interview score must be a finite number between 0 and 10");
+  }
+  return {
+    score: parsed.score,
+    analysis: parsed.analysis || "",
+    dimensions: parsed.dimensions || {},
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -324,6 +338,7 @@ export async function computeOverallScore(applicationId: number): Promise<{
   const mbtiType = mbtiAssessment?.results ? (mbtiAssessment.results as any).type : "Unknown";
 
   const { text: aiSummary } = await generateText({
+    aiFeature: "recruitment.assessmentSummary",
     model,
     system: `You are an expert HR advisor for a property management company. Summarize this artisan candidate concisely.`,
     prompt: `Candidate: ${app.firstName} ${app.lastName}

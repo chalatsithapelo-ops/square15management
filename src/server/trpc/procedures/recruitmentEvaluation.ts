@@ -1,15 +1,16 @@
-/**
- * Recruitment 2.0 — Scorecards, Interviews, Background, Reference checks.
+﻿/**
+ * Recruitment 2.0 â€” Scorecards, Interviews, Background, Reference checks.
  */
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { baseProcedure } from "~/server/trpc/main";
 import { db } from "~/server/db";
 import { authenticateUser } from "~/server/utils/auth";
 import { sendEmail } from "~/server/utils/email";
+import { sendCandidateEmail } from "~/server/services/recruitment/messaging";
 import {
   assertRecruiter,
   assertHiringManager,
@@ -17,11 +18,11 @@ import {
 } from "~/server/services/recruitment/atsHelpers";
 import { generateICS } from "~/server/services/recruitment/scheduling";
 
-const gemini = google("gemini-2.0-flash");
+const gemini = google(process.env.RECRUITMENT_GEMINI_MODEL || "gemini-flash-latest");
 
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // SCORECARDS
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const createScorecard = baseProcedure
   .input(
@@ -90,6 +91,10 @@ export const submitScorecard = baseProcedure
   )
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
+    // Only recruiters/hiring managers/admins may submit scorecards.
+    // Without this, any authenticated user (customer, artisan, contractor)
+    // could satisfy `assertScorecardExistsForDecision` and drive a HIRE/REJECT.
+    assertRecruiter(user);
     const submission = await db.scorecardSubmission.create({
       data: {
         scorecardId: input.scorecardId,
@@ -110,9 +115,9 @@ export const submitScorecard = baseProcedure
     return submission;
   });
 
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // INTERVIEW PANELS & SCHEDULING
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const createInterviewPanel = baseProcedure
   .input(
@@ -264,9 +269,12 @@ export const bookInterview = baseProcedure
         attendeeEmails: [booking.application.email],
       });
 
-      sendEmail({
+      void sendCandidateEmail({
+        applicationId: booking.applicationId,
         to: booking.application.email,
         subject: "Your interview is scheduled",
+        templateKey: "INTERVIEW_SCHEDULED",
+        sentById: user.id,
         html: `<p>Hi ${booking.application.firstName},</p>
                <p>Your interview is scheduled for <b>${booking.scheduledStart.toLocaleString()}</b>.</p>
                ${booking.meetingUrl ? `<p>Meeting link: <a href="${booking.meetingUrl}">${booking.meetingUrl}</a></p>` : ""}
@@ -277,9 +285,10 @@ export const bookInterview = baseProcedure
             filename: "interview.ics",
             content: Buffer.from(ics, "utf8"),
             contentType: "text/calendar",
-          } as any,
+          },
         ],
-      }).catch(() => {});
+        companionMessage: `Your interview is scheduled for ${booking.scheduledStart.toLocaleString()}${booking.meetingUrl ? ` — ${booking.meetingUrl}` : ""}. Full details on your portal.`,
+      });
 
       await db.interviewBooking.update({
         where: { id: booking.id },
@@ -323,11 +332,15 @@ export const cancelInterview = baseProcedure
     if (b.slotId) {
       await db.interviewSlot.update({ where: { id: b.slotId }, data: { available: true } });
     }
-    sendEmail({
+    void sendCandidateEmail({
+      applicationId: b.applicationId,
       to: b.application.email,
       subject: "Your interview has been cancelled",
+      templateKey: "INTERVIEW_CANCELLED",
+      sentById: user.id,
       html: `<p>We regret to inform you that the interview scheduled for ${b.scheduledStart.toLocaleString()} has been cancelled. We will reach out to reschedule.</p>`,
-    }).catch(() => {});
+      companionMessage: `Your interview on ${b.scheduledStart.toLocaleDateString()} has been cancelled. We'll reach out to reschedule.`,
+    });
     return b;
   });
 
@@ -342,9 +355,9 @@ export const completeInterview = baseProcedure
     });
   });
 
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // BACKGROUND CHECKS (internal stub provider, pluggable)
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const requestBackgroundCheck = baseProcedure
   .input(
@@ -394,9 +407,9 @@ export const updateBackgroundCheck = baseProcedure
     });
   });
 
-// ═══════════════════════════════════════════════════════════════════════
-// REFERENCE CHECKS — email-based workflow with token
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// REFERENCE CHECKS â€” email-based workflow with token
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const requestReferenceCheck = baseProcedure
   .input(
@@ -463,6 +476,7 @@ export const submitReferenceResponse = baseProcedure
     let aiSummary: string | null = null;
     try {
       const { text } = await generateText({
+        aiFeature: "recruitment.referenceSummary",
         model: gemini,
         prompt: `Summarize this professional reference in 2 sentences and give a 1-5 rating:
 Strengths: ${input.responses.strengths}

@@ -1,4 +1,4 @@
-import { generateText } from 'ai';
+import { generateText } from '~/server/services/ai/controlledGeneration';
 import { google } from '@ai-sdk/google';
 import { env } from '~/server/env';
 import { authenticateUser } from '~/server/utils/auth';
@@ -42,7 +42,7 @@ export async function runAIAgent({
       throw new Error('Gemini API key not configured. Please contact your administrator.');
     }
     
-    console.log('[AI Agent Service] Gemini API key present:', env.GOOGLE_GENERATIVE_AI_API_KEY.substring(0, 10) + '...');
+    console.log('[AI Agent Service] Gemini API key configured:', Boolean(env.GOOGLE_GENERATIVE_AI_API_KEY));
     
     // System prompt for AI Agent with comprehensive system knowledge
     const systemPrompt = `You are an intelligent AI Assistant for Square 15 Facility Solutions — a comprehensive business management platform covering property management, facilities maintenance and commercial operations.
@@ -582,6 +582,8 @@ Your purpose: Help users accomplish business goals through intelligent system op
         console.log('[AI Agent Service] Current message count:', conversationMessages.length);
         
         const result = await generateText({
+          aiFeature: "agent.chat",
+          aiUserId: user.id,
           model,
           system: systemPrompt,
           messages: conversationMessages as any,

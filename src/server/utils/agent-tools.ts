@@ -4,6 +4,7 @@ import { db } from '~/server/db';
 import { authenticateUser, requirePermission, requireAdmin, PERMISSIONS } from '~/server/utils/auth';
 import { TRPCError } from '@trpc/server';
 import { getCompanyDetails } from '~/server/utils/company-details';
+import { getNextInvoiceNumber, getNextQuoteNumber } from '~/server/utils/documentNumbers';
 import PDFDocument from "pdfkit";
 
 // ============================================================================
@@ -999,14 +1000,7 @@ export const createInvoiceTool = tool({
       
       // Get company details for invoice prefix
       const companyDetails = await getCompanyDetails();
-      const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
-      const allPMInvoices = await db.propertyManagerInvoice.findMany({ select: { invoiceNumber: true } });
-      let maxNum = 0;
-      for (const inv of [...allInvoices, ...allPMInvoices]) {
-        const match = inv.invoiceNumber.match(/(\d+)$/);
-        if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
-      }
-      const invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, "0")}`;
+      const invoiceNumber = await getNextInvoiceNumber(db, companyDetails.invoicePrefix);
       
       // Create a single line item from the description
       const lineItem = {
@@ -1088,8 +1082,7 @@ export const createQuotationTool = tool({
       
       // Get company details for quotation prefix
       const companyDetails = await getCompanyDetails();
-      const count = await db.quotation.count();
-      const quoteNumber = `${companyDetails.quotationPrefix}-${String(count + 1).padStart(5, "0")}`;
+      const quoteNumber = await getNextQuoteNumber(db, companyDetails.quotationPrefix);
       
       // Create a single line item from the description
       const lineItem = {

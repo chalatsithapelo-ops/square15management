@@ -15,15 +15,29 @@
 import { db } from "~/server/db";
 import { stitchProvider } from "./stitchClient";
 import { monoProvider } from "./monoClient";
+import { nedbankProvider, fetchAccountBalance, fetchAccountStatements } from "./nedbankClient";
 import { bankFeedEvents } from "./eventBus";
 import { createTransactionHash } from "./transactionStore";
 import { encryptToken, decryptToken, encryptTokenOrNull } from "./tokenCrypto";
+import { reconcileTransaction } from "./reconciliationEngine";
+import { categorizeTransaction } from "./categorizationEngine";
 import type {
   BankFeedProvider,
   BankFeedProviderId,
   ProviderLinkResult,
   NormalisedTransaction,
 } from "./providerInterface";
+
+function describeSyncError(err: unknown): string {
+  const parts: string[] = [];
+  let current: any = err;
+  for (let depth = 0; current && depth < 4; depth++, current = current.cause) {
+    const message = typeof current?.message === "string" ? current.message : String(current);
+    if (message && !parts.includes(message)) parts.push(message);
+    if (current?.code && !parts.includes(String(current.code))) parts.push(String(current.code));
+  }
+  return parts.join(" | ").slice(0, 500) || "Unknown bank-feed error";
+}
 
 // ── Provider registry ──────────────────────────────────────────────────────
 
@@ -33,6 +47,8 @@ export function getProvider(id: BankFeedProviderId): BankFeedProvider {
       return stitchProvider;
     case "MONO":
       return monoProvider;
+    case "NEDBANK":
+      return nedbankProvider;
     default:
       throw new Error(`[BankFeed] Unknown provider: ${id}`);
   }
@@ -156,7 +172,9 @@ export async function ingestProviderTransactions(opts: {
     | "STITCH_POLL"
     | "MONO_WEBHOOK"
     | "MONO_BACKFILL"
-    | "MONO_POLL";
+    | "MONO_POLL"
+    | "NEDBANK_BACKFILL"
+    | "NEDBANK_POLL";
   transactions: NormalisedTransaction[];
   importBatchId?: number;
 }): Promise<{ newCount: number; duplicateCount: number; errors: string[] }> {
@@ -166,9 +184,30 @@ export async function ingestProviderTransactions(opts: {
 
   for (const tx of opts.transactions) {
     try {
+      if (tx.externalId) {
+        const byProviderId = await db.$queryRaw<Array<{ id: number }>>`
+          SELECT id FROM "BankTransaction"
+          WHERE "bankAccountId" = ${opts.bankAccountId}
+            AND "providerTransactionId" = ${tx.externalId}
+          LIMIT 1
+        `;
+        if (byProviderId.length > 0) {
+          duplicateCount++;
+          continue;
+        }
+      }
       const hash = createTransactionHash(tx.date, tx.amount, tx.description, tx.balance);
       const existing = await db.bankTransaction.findUnique({ where: { transactionHash: hash } });
       if (existing) {
+        if (tx.externalId) {
+          await db.$executeRaw`
+            UPDATE "BankTransaction"
+            SET "providerTransactionId"=${tx.externalId}
+            WHERE id=${existing.id}
+              AND "bankAccountId"=${opts.bankAccountId}
+              AND "providerTransactionId" IS NULL
+          `;
+        }
         duplicateCount++;
         continue;
       }
@@ -187,7 +226,48 @@ export async function ingestProviderTransactions(opts: {
           importBatchId: opts.importBatchId,
         },
       });
+      if (tx.externalId) {
+        await db.$executeRaw`
+          UPDATE "BankTransaction"
+          SET "providerTransactionId" = ${tx.externalId}
+          WHERE id = ${created.id}
+            AND "bankAccountId" = ${opts.bankAccountId}
+        `;
+      }
       newCount++;
+
+      // Every provider ingestion must use the same categorize → reconcile
+      // pipeline as CSV/email. Persist direct API categorizations too.
+      let categorization: {
+        category: string;
+        isConfirmed: boolean;
+        linkedEntityType: string | null;
+        linkedEntityId: number | null;
+        confidence: number;
+      } | null = null;
+      try {
+        await categorizeTransaction(created.id, tx.description, tx.amount, tx.transactionType);
+        categorization = await db.transactionCategorization.findUnique({
+          where: { bankTransactionId: created.id },
+          select: { category: true, isConfirmed: true, linkedEntityType: true, linkedEntityId: true, confidence: true },
+        });
+      } catch (categorizationError) {
+        console.warn(`[BankFeed] Categorization deferred for transaction ${created.id}: ${describeSyncError(categorizationError)}`);
+      }
+
+      try {
+        await reconcileTransaction({
+          id: created.id,
+          transactionDate: tx.date,
+          description: tx.description,
+          amount: tx.amount,
+          transactionType: tx.transactionType,
+          reference: tx.reference ?? null,
+          categorization,
+        });
+      } catch (reconcileError) {
+        console.warn(`[BankFeed] Auto-reconcile skipped for transaction ${created.id}: ${describeSyncError(reconcileError)}`);
+      }
 
       bankFeedEvents.emitTransaction({
         bankAccountId: opts.bankAccountId,
@@ -214,54 +294,122 @@ export async function ingestProviderTransactions(opts: {
  * Updates externalSyncCursor + externalLastSyncAt on success.
  */
 export async function syncBankAccount(bankAccountId: number, opts?: { sinceDays?: number }) {
-  const { accessToken, provider, externalAccountId } = await getValidAccessToken(bankAccountId);
   const acct = await db.bankAccount.findUnique({ where: { id: bankAccountId } });
-  const sinceDate = opts?.sinceDays
-    ? new Date(Date.now() - opts.sinceDays * 24 * 60 * 60 * 1000)
-    : undefined;
+  if (!acct?.externalProvider || !acct.externalAccountId) {
+    throw new Error(`[BankFeed] BankAccount ${bankAccountId} has no external link`);
+  }
+  const provider = getProvider(acct.externalProvider as BankFeedProviderId);
+  const externalAccountId = acct.externalAccountId;
+  const accessToken = provider.id === "NEDBANK"
+    ? ""
+    : (await getValidAccessToken(bankAccountId)).accessToken;
 
-  let cursor: string | null = acct?.externalSyncCursor || null;
+  let sinceDate: Date | undefined;
+  if (opts?.sinceDays) {
+    sinceDate = new Date(Date.now() - opts.sinceDays * 24 * 60 * 60 * 1000);
+  } else if (provider.id === "NEDBANK") {
+    const latest = await db.bankTransaction.findFirst({
+      where: { bankAccountId },
+      orderBy: { transactionDate: "desc" },
+      select: { transactionDate: true },
+    });
+    const anchor = latest?.transactionDate ?? acct.externalLastSyncAt ?? new Date();
+    sinceDate = new Date(Math.min(anchor.getTime(), Date.now()) - 3 * 24 * 60 * 60 * 1000);
+    if (!latest && !acct.externalLastSyncAt) sinceDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  }
+
+  let cursor: string | null = provider.id === "NEDBANK" ? null : acct.externalSyncCursor || null;
+  let lastSeenCursor = cursor;
   let totalNew = 0;
   let totalDup = 0;
+  let reachedEnd = false;
   const errors: string[] = [];
-  let lastSeenCursor: string | null = cursor;
 
-  // Page through; cap at 20 pages to avoid runaway loops
-  for (let page = 0; page < 20; page++) {
-    const result = await provider.fetchTransactions({
-      accessToken,
-      externalAccountId,
-      cursor,
-      sinceDate,
-    });
+  if (provider.id === "NEDBANK") {
+    try {
+      const balance = await fetchAccountBalance(externalAccountId);
+      if (!balance.currentBalance) {
+        errors.push("Balance refresh: Nedbank returned no current-balance record.");
+      } else {
+        const asOf = balance.currentBalance.dateTime ? new Date(balance.currentBalance.dateTime) : new Date();
+        await db.bankAccount.update({
+          where: { id: bankAccountId },
+          data: {
+            currentBalance: balance.currentBalance.amount,
+            availableBalance: balance.availableBalance?.amount ?? null,
+            balanceCurrency: balance.currentBalance.currency || "ZAR",
+            balanceIndicator: balance.currentBalance.indicator || "Credit",
+            balanceType: "CurrentBalance",
+            balanceAsOf: Number.isNaN(asOf.getTime()) ? new Date() : asOf,
+            balanceCapturedAt: new Date(),
+          },
+        });
+      }
+    } catch (err) {
+      errors.push(`Balance refresh: ${describeSyncError(err)}`);
+    }
 
+    try {
+      const statements = await fetchAccountStatements(externalAccountId);
+      for (const statement of statements) {
+        if (!statement.statementId || !statement.startDateTime) continue;
+        const startDateTime = new Date(statement.startDateTime);
+        if (Number.isNaN(startDateTime.getTime())) continue;
+        const row = {
+          statementReference: statement.statementReference ?? null,
+          statementType: statement.type ?? null,
+          startDateTime,
+          endDateTime: statement.endDateTime ? new Date(statement.endDateTime) : null,
+          creationDateTime: statement.creationDateTime ? new Date(statement.creationDateTime) : null,
+          broughtForwardAmount: statement.broughtForward?.amount ?? null,
+          broughtForwardIndicator: statement.broughtForward?.indicator ?? null,
+          carriedForwardAmount: statement.carriedForward?.amount ?? null,
+          carriedForwardIndicator: statement.carriedForward?.indicator ?? null,
+          currency: statement.carriedForward?.currency ?? statement.broughtForward?.currency ?? "ZAR",
+        };
+        await db.bankAccountStatement.upsert({
+          where: { bankAccountId_externalStatementId: { bankAccountId, externalStatementId: statement.statementId } },
+          update: row,
+          create: { bankAccountId, externalStatementId: statement.statementId, ...row },
+        });
+      }
+      console.log(`[BankFeed][Nedbank] ${acct.accountName}: balance and ${statements.length} statement header(s) refreshed`);
+    } catch (err) {
+      errors.push(`Statement refresh: ${describeSyncError(err)}`);
+    }
+  }
+
+  for (let page = 0; page < 50; page++) {
+    const result = await provider.fetchTransactions({ accessToken, externalAccountId, cursor, sinceDate });
     const ingest = await ingestProviderTransactions({
       bankAccountId,
       providerId: provider.id,
-      source: opts?.sinceDays ? "STITCH_BACKFILL" : "STITCH_POLL",
+      source: opts?.sinceDays
+        ? (`${provider.id}_BACKFILL` as "STITCH_BACKFILL" | "MONO_BACKFILL" | "NEDBANK_BACKFILL")
+        : (`${provider.id}_POLL` as "STITCH_POLL" | "MONO_POLL" | "NEDBANK_POLL"),
       transactions: result.transactions,
     });
     totalNew += ingest.newCount;
     totalDup += ingest.duplicateCount;
     errors.push(...ingest.errors);
-
-    if (result.nextCursor) {
-      lastSeenCursor = result.nextCursor;
-      cursor = result.nextCursor;
-    } else {
+    if (!result.nextCursor) {
+      reachedEnd = true;
       break;
     }
+    lastSeenCursor = result.nextCursor;
+    cursor = result.nextCursor;
   }
+
+  if (!reachedEnd) errors.push("Transaction pagination reached the 50-page safety limit; next poll will repeat the incremental date window.");
 
   await db.bankAccount.update({
     where: { id: bankAccountId },
     data: {
-      externalSyncCursor: lastSeenCursor || acct?.externalSyncCursor,
+      externalSyncCursor: provider.id === "NEDBANK" ? null : (lastSeenCursor || acct.externalSyncCursor),
       externalLastSyncAt: new Date(),
       externalLastError: errors.length ? errors.slice(0, 3).join(" | ") : null,
     },
   });
-
   return { newCount: totalNew, duplicateCount: totalDup, errors };
 }
 
@@ -298,12 +446,16 @@ export function startBankFeedPoller(intervalMs?: number) {
               `[BankFeed][Poll] ${a.accountName}: ${r.newCount} new, ${r.duplicateCount} dup`
             );
           }
+          if (r.errors.length > 0) {
+            console.error(`[BankFeed][Poll] ${a.accountName}: ${r.errors.join(" | ")}`);
+          }
         } catch (err) {
-          console.error(`[BankFeed][Poll] ${a.accountName}: ${(err as Error).message}`);
+          const message = describeSyncError(err);
+          console.error(`[BankFeed][Poll] ${a.accountName}: ${message}`);
           await db.bankAccount
             .update({
               where: { id: a.id },
-              data: { externalLastError: (err as Error).message.slice(0, 500) },
+              data: { externalLastError: message },
             })
             .catch(() => {});
         }

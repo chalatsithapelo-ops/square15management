@@ -15,7 +15,7 @@
  * All schedules boot lazily on first request via `bootstrapRecruitmentAutomation`.
  */
 
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { db } from "~/server/db";
 import { minioClient } from "~/server/minio";
@@ -152,6 +152,7 @@ Return ONLY valid JSON with this exact shape:
 
   try {
     const { text } = await generateText({
+      aiFeature: "recruitment.cvExtraction",
       model,
       maxTokens: 1500,
       messages: [
@@ -259,6 +260,7 @@ Return ONLY valid JSON with this exact shape:
       }
     }
     const { text } = await generateText({
+      aiFeature: "recruitment.portfolioScoring",
       model,
       maxTokens: 800,
       messages: [{ role: "user", content }],
@@ -477,7 +479,6 @@ async function sendSlaNudges() {
           "TECHNICAL_MANAGER",
         ],
       },
-      isActive: true,
     },
     select: { id: true, email: true, firstName: true, role: true },
     take: 50,

@@ -26,6 +26,11 @@ import {
   logAiDecision,
 } from "~/server/services/recruitment/atsAutomation";
 import { sendCandidateEmail } from "~/server/services/recruitment/messaging";
+import { createNotification } from "~/server/utils/notifications";
+import { pushPendingArtisan } from "~/server/services/maintenanceAppBridge";
+import { evaluateScreening } from "~/server/trpc/procedures/screeningQuestions";
+import { recruitmentAssessmentSummary } from "~/utils/recruitmentAssessmentSummary";
+import { INTERVIEW_QUESTIONS_TEMPLATE } from "~/server/services/recruitment/assessmentQuestions";
 
 // ═══════════════════════════════════════════════════════════════════════
 // JOBS
@@ -60,6 +65,7 @@ export const createJob = baseProcedure
       hiringManagerId: z.number().optional(),
       recruiterId: z.number().optional(),
       pipelineId: z.number().optional(),
+      jobType: z.enum(["COMMERCIAL", "MAINTENANCE_APP"]).default("COMMERCIAL"),
       requireIQ: z.boolean().default(true),
       requireEQ: z.boolean().default(true),
       requireBigFive: z.boolean().default(true),
@@ -194,6 +200,7 @@ export const getJobs = baseProcedure
       status: z.string().optional(),
       search: z.string().optional(),
       mineOnly: z.boolean().default(false),
+      jobType: z.enum(["COMMERCIAL", "MAINTENANCE_APP"]).optional(),
     }),
   )
   .query(async ({ input }) => {
@@ -201,6 +208,7 @@ export const getJobs = baseProcedure
     assertRecruiter(user);
     const where: any = {};
     if (input.status) where.status = input.status;
+    if (input.jobType) where.jobType = input.jobType;
     if (input.search) {
       where.OR = [
         { title: { contains: input.search, mode: "insensitive" } },
@@ -454,6 +462,20 @@ export const createApplication = baseProcedure
         })
         .optional(),
       landingUrl: z.string().optional(),
+      // Screening answers (optional, evaluated for knockout on submit)
+      screeningAnswers: z.array(z.object({
+        questionId: z.number(),
+        answerText: z.string().nullable().optional(),
+        answerNumber: z.number().nullable().optional(),
+      })).default([]).superRefine((answers, ctx) => {
+        const ids = new Set<number>();
+        answers.forEach((answer, index) => {
+          if (ids.has(answer.questionId)) {
+            ctx.addIssue({ code: "custom", path: [index, "questionId"], message: "Each screening question may only be answered once" });
+          }
+          ids.add(answer.questionId);
+        });
+      }),
       // Consent
       consent: z.object({
         granted: z.literal(true),
@@ -512,6 +534,10 @@ export const createApplication = baseProcedure
         throw new TRPCError({ code: "BAD_REQUEST", message: "Job not open" });
     }
 
+    // Internal E2E tests use reserved .invalid addresses. Suppress AI and
+    // SMS/WhatsApp fan-out for those synthetic submissions, but retain the
+    // real database, screening, email-audit and in-app notification paths.
+    const isE2eTest = input.sourceDetail?.startsWith("E2E_TEST:") === true && input.email.toLowerCase().endsWith("@example.invalid");
     // Rate limit
     const dup = await db.application.findFirst({
       where: {
@@ -675,8 +701,122 @@ export const createApplication = baseProcedure
       userAgent: input.consent.userAgent,
     });
 
-    // Fire AI match scoring, CV parsing, portfolio review, assessment invite (all background)
+    // Always evaluate the full current question set. The prior answers.length
+    // condition allowed applicants to bypass every knockout with an empty list.
     if (job) {
+      const questions = await db.screeningQuestion.findMany({
+        where: { jobId: job.id },
+        orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+      });
+      const allowedIds = new Set(questions.map((question) => question.id));
+      // Ignore answers for other jobs rather than allowing them to satisfy a
+      // current requirement. Missing valid answers still fail closed below.
+      const validScreeningAnswers = input.screeningAnswers.filter((answer) => allowedIds.has(answer.questionId));
+      if (questions.length > 0) {
+        const evalResult = evaluateScreening(
+          questions.map((q) => ({
+            id: q.id,
+            questionType: q.questionType,
+            required: q.required,
+            knockoutEnabled: q.knockoutEnabled,
+            expectedYesNo: q.expectedYesNo,
+            minNumber: q.minNumber,
+            maxNumber: q.maxNumber,
+            acceptableOptions: q.acceptableOptions,
+            options: q.options,
+          })),
+          validScreeningAnswers,
+        );
+        // Persist answers regardless
+        if (evalResult.results.length > 0) {
+          await db.screeningAnswer.createMany({
+            data: evalResult.results.map((r) => ({
+              applicationId: app.id,
+              questionId: r.questionId,
+              answerText: r.answerText,
+              answerNumber: r.answerNumber,
+              passed: r.passed,
+            })),
+          });
+        }
+        if (!evalResult.passed) {
+          // find or create the FAILED_SCREENING rejection reason
+          let reason = await db.rejectionReason.findFirst({ where: { code: "FAILED_SCREENING" } });
+          if (!reason) {
+            reason = await db.rejectionReason.create({
+              data: {
+                code: "FAILED_SCREENING",
+                label: "Did not meet minimum screening requirements",
+                category: "SCREENING",
+                description: "Auto-rejected because required screening answers did not meet the job's minimum criteria.",
+              },
+            });
+          }
+          const rejected = await db.application.update({
+            where: { id: app.id },
+            data: {
+              stageBucket: "REJECTED",
+              stageEnteredAt: new Date(),
+              rejectionReasonId: reason.id,
+              rejectionDetail: `Auto-rejected: failed ${evalResult.failedIds.length} of ${questions.length} screening criteria`,
+              reviewedAt: new Date(),
+            },
+          });
+          await db.applicationStageHistory.create({
+            data: {
+              applicationId: app.id,
+              toStageId: null,
+              bucket: "REJECTED",
+              movedById: null,
+              reason: "Auto-rejected: screening knockout",
+            },
+          });
+          const emailResult = await sendCandidateEmail({
+            applicationId: app.id,
+            to: app.email,
+            subject: `${isE2eTest ? "[E2E TEST] " : ""}Update on your application — ${job.title}`,
+            templateKey: "SCREENING_AUTO_REJECTION",
+            html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#111827;"><h1>Thank you for applying</h1><p>We reviewed your answers to the minimum-requirement questions for the ${job.title} role. Based on those answers, your application will not move forward for this role.</p><p>Thank you for your interest in Square 15 Facility Solutions.</p></body></html>`,
+          });
+          const candidateMessaging = isE2eTest
+            ? { whatsappAccepted: false, smsAttempted: false, skipped: "Reserved E2E test suppresses external candidate messages" }
+            : await import("~/server/trpc/procedures/recruitmentPhase4")
+                .then((m) => m.sendCandidateStatusCompanion(
+                  app.id,
+                  "Your answers did not meet the minimum requirements for this role. Thank you for your interest in Square 15 Facility Solutions.",
+                  "SCREENING_AUTO_REJECTION",
+                  null,
+                ))
+                .catch((err) => ({
+                  whatsappAccepted: false,
+                  smsAttempted: false,
+                  error: err instanceof Error ? err.message : String(err),
+                }));
+          const recipients = [...new Set([job.recruiterId, job.hiringManagerId, assignedRecruiterId].filter((id): id is number => typeof id === "number"))];
+          const notificationResults = await Promise.all(recipients.map((recipientId) => createNotification({
+            recipientId,
+            recipientRole: "RECRUITER",
+            message: `${isE2eTest ? "[E2E TEST] " : ""}An application for ${job.title} was auto-rejected at minimum-requirement screening. Review the screening record if needed.`,
+            type: "SYSTEM_ALERT",
+            relatedEntityId: app.id,
+            relatedEntityType: "APPLICATION",
+          })));
+          return {
+            id: rejected.id,
+            autoRejected: true,
+            failedScreening: true,
+            failedScreeningCount: evalResult.failedIds.length,
+            emailAcceptedByProvider: emailResult.ok,
+            emailError: emailResult.error,
+            candidateMessaging,
+            notificationsCreated: notificationResults.filter(Boolean).length,
+          };
+        }
+      }
+    }
+
+    // Fire AI match scoring, CV parsing, portfolio review, assessment invite (all background)
+    if (job && !isE2eTest) {
       kickoffApplicationAI(app.id);
     }
 
@@ -696,10 +836,10 @@ export const createApplication = baseProcedure
     // Fire-and-forget: sendCandidateEmail never throws; it records both
     // successful and failed attempts to ApplicationMessage so the audit
     // trail is complete regardless of SMTP outcome.
-    void sendCandidateEmail({
+    const candidateEmailResult = await sendCandidateEmail({
       applicationId: app.id,
       to: app.email,
-      subject: "Action needed — finish your Square 15 application",
+      subject: `${isE2eTest ? "[E2E TEST] " : ""}Action needed — finish your Square 15 application`,
       templateKey: "APPLICATION_CONFIRMATION",
       html: `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f9fafb; padding:24px; color:#111827;">
@@ -723,14 +863,28 @@ export const createApplication = baseProcedure
 </body></html>`,
     });
 
-    void import("~/server/trpc/procedures/recruitmentPhase4")
-      .then((m) => m.sendCandidateConfirmationCompanions(app.id))
-      .catch(() => {});
+    const recipients = [...new Set([job?.recruiterId, job?.hiringManagerId, assignedRecruiterId].filter((id): id is number => typeof id === "number"))];
+    const notificationResults = await Promise.all(recipients.map((recipientId) => createNotification({
+      recipientId,
+      recipientRole: "RECRUITER",
+      message: `${isE2eTest ? "[E2E TEST] " : ""}New application received for ${job?.title ?? "a recruitment role"}. Review the candidate and screening answers in Recruitment.`,
+      type: "SYSTEM_ALERT",
+      relatedEntityId: app.id,
+      relatedEntityType: "APPLICATION",
+    })));
+
+    if (!isE2eTest) {
+      void import("~/server/trpc/procedures/recruitmentPhase4")
+        .then((m) => m.sendCandidateConfirmationCompanions(app.id))
+        .catch(() => {});
+    }
 
     return {
       id: app.id,
       accessToken: app.accessToken,
       portalUrl: `/candidate/${app.accessToken}`,
+      emailSent: candidateEmailResult.ok,
+      notificationsCreated: notificationResults.filter(Boolean).length,
     };
   });
 
@@ -748,6 +902,7 @@ export const getApplications = baseProcedure
       search: z.string().optional(),
       minScore: z.number().optional(),
       source: z.string().optional(),
+      jobType: z.enum(["COMMERCIAL", "MAINTENANCE_APP"]).optional(),
       sortBy: z.enum(["createdAt", "overallScore", "aiMatchScore"]).default("createdAt"),
       sortOrder: z.enum(["asc", "desc"]).default("desc"),
       take: z.number().default(100),
@@ -764,6 +919,7 @@ export const getApplications = baseProcedure
     if (input.assignedRecruiterId) where.assignedRecruiterId = input.assignedRecruiterId;
     if (input.minScore !== undefined) where.overallScore = { gte: input.minScore };
     if (input.source) where.sourceChannel = input.source;
+    if (input.jobType) where.job = { jobType: input.jobType };
     if (input.search) {
       where.OR = [
         { firstName: { contains: input.search, mode: "insensitive" } },
@@ -777,7 +933,7 @@ export const getApplications = baseProcedure
       orderBy: { [input.sortBy]: input.sortOrder },
       take: input.take,
       include: {
-        job: { select: { id: true, title: true } },
+        job: { select: { id: true, title: true, jobType: true } },
         currentStage: { select: { id: true, name: true } },
         rejectionReason: { select: { label: true, category: true } },
         assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
@@ -836,6 +992,12 @@ export const getApplicationDetail = baseProcedure
           include: { author: { select: { firstName: true, lastName: true } } },
         },
         attachments: true,
+        workSampleSubmissions: {
+          include: {
+            task: { select: { id: true, title: true, instructions: true, passingScore: true, rubric: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         rejectionReason: true,
         assignedRecruiter: { select: { firstName: true, lastName: true, email: true } },
         reviewedBy: { select: { firstName: true, lastName: true } },
@@ -845,7 +1007,17 @@ export const getApplicationDetail = baseProcedure
       },
     });
     if (!app) throw new TRPCError({ code: "NOT_FOUND" });
-    return maybeBlindApplication(app, input.unblind);
+    const activeTasks = app.jobId ? await db.workSampleTask.findMany({
+      where: { jobId: app.jobId, active: true }, select: { id: true },
+    }) : [];
+    return maybeBlindApplication({ ...app, assessmentSummary: recruitmentAssessmentSummary({
+      assessments: app.assessments,
+      interviewResponses: app.interviewResponses,
+      workSampleSubmissions: app.workSampleSubmissions,
+      activeTaskIds: activeTasks.map(t => t.id),
+      interviewQuestionCount: INTERVIEW_QUESTIONS_TEMPLATE.length,
+      requireInterview: app.job?.requireInterview ?? true,
+    }) }, input.unblind);
   });
 
 // Redact PII on applications sitting in SCREENING bucket unless viewer
@@ -869,6 +1041,31 @@ function maybeBlindApplication<T extends { stageBucket?: string | null; id: numb
     idNumber: a.idNumber ? "\u2022\u2022\u2022" : a.idNumber,
     demographicProfile: null,
   }) as T & { blinded: boolean };
+}
+
+
+// INTERVIEW_ENFORCEMENT_v1
+async function assertInterviewBeforeOffer(applicationId: number, targetBucket: string, reason?: string) {
+  if (targetBucket !== "OFFER" && targetBucket !== "HIRED") return;
+  const app = await db.application.findUnique({
+    where: { id: applicationId },
+    include: {
+      job: { select: { jobType: true, title: true } },
+      stageHistory: { select: { bucket: true } },
+    },
+  });
+  if (!app || !app.job) return;
+  if ((app.job as any).jobType !== "COMMERCIAL") return; // Maintenance App is fast-track by design
+  const visitedInterview = app.stageHistory.some((h: any) => h.bucket === "INTERVIEW");
+  if (visitedInterview) return;
+  if (reason && /SKIP_INTERVIEW|OVERRIDE|no.?interview/i.test(reason)) return;
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message:
+      "Commercial candidates must go through the INTERVIEW stage before OFFER/HIRED. " +
+      "Move the application to the INTERVIEW column first (this sends the candidate an interview-booking email). " +
+      "To override for this candidate specifically, include the word SKIP_INTERVIEW in the reason field.",
+  });
 }
 
 export const moveApplicationStage = baseProcedure
@@ -910,6 +1107,10 @@ export const moveApplicationStage = baseProcedure
       if (input.toBucket === "HIRED") {
         await assertHiringPreconditions(input.applicationId);
       }
+    }
+
+    if (input.toBucket === "OFFER" || input.toBucket === "HIRED") {
+      await assertInterviewBeforeOffer(input.applicationId, input.toBucket, input.reason);
     }
 
     await transitionApplication({
@@ -1384,4 +1585,118 @@ export const recomputeScore = baseProcedure
     assertRecruiter(user);
     const score = await recomputeApplicationScore(input.applicationId);
     return { score };
+  });
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// confirmFastTrackHire — one-click confirmation for MAINTENANCE_APP candidates
+// who passed the fast-track threshold. Advances the application to OFFER.
+// ═══════════════════════════════════════════════════════════════════════════
+export const confirmFastTrackHire = baseProcedure
+  .input(z.object({ token: z.string(), applicationId: z.number().int() }))
+  .mutation(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const app = await db.application.findUnique({
+      where: { id: input.applicationId },
+      include: { job: { select: { jobType: true, title: true } } },
+    });
+    if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
+    if ((app.job as any)?.jobType !== "MAINTENANCE_APP")
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Fast-track only available for Maintenance App roles" });
+    if (!app.fastTrackReady)
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Candidate has not reached the fast-track threshold" });
+    if (app.fastTrackApprovedAt)
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Already fast-tracked" });
+    if (["HIRED", "REJECTED", "WITHDRAWN"].includes(app.stageBucket))
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Application is closed" });
+
+    await db.application.update({
+      where: { id: input.applicationId },
+      data: {
+        fastTrackApprovedById: user.id,
+        fastTrackApprovedAt: new Date(),
+      },
+    });
+    await transitionApplication({
+      applicationId: input.applicationId,
+      toBucket: "OFFER",
+      movedById: user.id,
+      reason: `Fast-track hire approved (Maintenance App) by ${user.firstName} ${user.lastName}`,
+    });
+
+    // Push to Firestore pendingArtisans for the Maintenance App admin to approve.
+    // Fire-and-forget so the recruiter click stays fast.
+    void (async () => {
+      try {
+        const full = await db.application.findUnique({
+          where: { id: input.applicationId },
+          include: {
+            attachments: true,
+          },
+        });
+        if (!full) return;
+        const qualDocs = (full.attachments ?? [])
+          .filter((a) => a.label === "Qualification")
+          .map((a) => ({ label: a.label, fileName: a.fileName, fileUrl: a.fileUrl, fileType: a.fileType ?? undefined }));
+        await pushPendingArtisan({
+          applicationId: full.id,
+          name: `${full.firstName} ${full.lastName}`.trim(),
+          email: full.email,
+          contact: full.phone,
+          primaryTrade: full.primaryTrade,
+          yearsExperience: full.yearsExperience,
+          city: full.city,
+          province: full.province,
+          resumeUrl: full.resumeUrl,
+          portfolioUrls: full.portfolioUrls,
+          qualificationsText: full.qualifications,
+          qualificationDocuments: qualDocs,
+          aiSummary: full.aiSummary,
+          scores: {
+            overall: full.overallScore,
+            workSample: full.workSampleScore,
+            redFlag: full.redFlagScore,
+          },
+          approvedByRecruiter: { id: user.id, name: `${user.firstName} ${user.lastName}` },
+        });
+      } catch (e) {
+        console.warn("[confirmFastTrackHire] Firestore push failed:", (e as Error).message);
+      }
+    })();
+
+    return { ok: true };
+  });
+
+export const hireApplication = baseProcedure
+  .input(
+    z.object({
+      token: z.string(),
+      applicationId: z.number(),
+      notes: z.string().optional(),
+    }),
+  )
+  .mutation(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const app = await db.application.update({
+      where: { id: input.applicationId },
+      data: {
+        stageBucket: "HIRED",
+        stageEnteredAt: new Date(),
+        hiredAt: new Date(),
+        reviewedById: user.id,
+        reviewedAt: new Date(),
+      },
+    });
+    await db.applicationStageHistory.create({
+      data: {
+        applicationId: app.id,
+        toStageId: null,
+        bucket: "HIRED",
+        movedById: user.id,
+        reason: input.notes ?? "Hire decision recorded",
+      },
+    });
+    return app;
   });

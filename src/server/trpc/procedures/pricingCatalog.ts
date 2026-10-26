@@ -26,7 +26,7 @@ import {
   type CatalogQuotationLineItem,
   PRICING_DEVIATION_THRESHOLD,
 } from "~/server/utils/pricingCatalog";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 const ROLES_ALLOWED_TO_VIEW = [
@@ -674,8 +674,10 @@ export const generateScopeFromBrief = baseProcedure
       .join("\n");
 
     try {
-      const model = google("gemini-2.0-flash-exp");
+      const model = google("gemini-3.6-flash");
       const { object } = await generateObject({
+        aiFeature: "pricing.quoteLines",
+        aiUserId: user.id,
         model,
         output: "array",
         schema: z.object({

@@ -9,7 +9,7 @@
  */
 
 import { TRPCError } from "@trpc/server";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { db } from "~/server/db";
 import type { AuthenticatedUser } from "~/server/utils/auth";
@@ -143,7 +143,7 @@ export type ScoreWeights = {
   aiMatch?: number;
 };
 
-const DEFAULT_WEIGHTS: ScoreWeights = {
+const DEFAULT_WEIGHTS_COMMERCIAL: ScoreWeights = {
   iq: 0.10,
   eq: 0.15,
   bigFive: 0.15,
@@ -154,6 +154,21 @@ const DEFAULT_WEIGHTS: ScoreWeights = {
   aiMatch: 0.05,
 };
 
+// Maintenance-app hires skip the onsite interview → no human scorecard;
+// customer service + personality carry more of the weight.
+const DEFAULT_WEIGHTS_MAINTENANCE_APP: ScoreWeights = {
+  iq: 0.05,
+  eq: 0.20,
+  bigFive: 0.25,
+  sjt: 0.05,
+  workSample: 0.20,
+  interview: 0.20,
+  humanScorecard: 0.00,
+  aiMatch: 0.05,
+};
+
+const DEFAULT_WEIGHTS: ScoreWeights = DEFAULT_WEIGHTS_COMMERCIAL;
+
 export async function recomputeApplicationScore(applicationId: number, weights?: ScoreWeights) {
   const app = await db.application.findUnique({
     where: { id: applicationId },
@@ -161,18 +176,22 @@ export async function recomputeApplicationScore(applicationId: number, weights?:
       assessments: true,
       interviewResponses: true,
       scorecardSubmissions: { where: { submittedAt: { not: null } } },
-      job: { select: { scoringWeights: true } },
+      job: { select: { scoringWeights: true, jobType: true } },
     },
   });
   if (!app) return null;
 
+  const jobType = (app.job as any)?.jobType ?? "COMMERCIAL";
+  const baseDefaults = jobType === "MAINTENANCE_APP"
+    ? DEFAULT_WEIGHTS_MAINTENANCE_APP
+    : DEFAULT_WEIGHTS_COMMERCIAL;
   const w: ScoreWeights = {
-    ...DEFAULT_WEIGHTS,
+    ...baseDefaults,
     ...(app.job?.scoringWeights as ScoreWeights | null),
     ...(weights ?? {}),
   };
 
-  const get = (type: string) => app.assessments.find((a) => a.type === type)?.score ?? null;
+  const get = (type: string) => app.assessments.find((a) => a.type === type && a.completedAt)?.score ?? null;
   const parts: { key: keyof ScoreWeights; value: number | null }[] = [
     { key: "iq", value: get("IQ") },
     { key: "eq", value: get("EQ") },
@@ -181,10 +200,11 @@ export async function recomputeApplicationScore(applicationId: number, weights?:
     { key: "workSample", value: get("WORK_SAMPLE") },
   ];
 
-  if (app.interviewResponses.length) {
+  const scoredInterview = app.interviewResponses.filter(r => r.aiScore != null);
+  if (scoredInterview.length) {
     const avg =
-      app.interviewResponses.reduce((s, r) => s + (r.aiScore ?? 0), 0) /
-      app.interviewResponses.length;
+      scoredInterview.reduce((s, r) => s + r.aiScore!, 0) /
+      scoredInterview.length;
     parts.push({ key: "interview", value: avg * 10 });
   } else {
     parts.push({ key: "interview", value: null });
@@ -222,6 +242,40 @@ export async function recomputeApplicationScore(applicationId: number, weights?:
       humanScore: humanOnly,
     },
   });
+
+  // Fast-track flag for MAINTENANCE_APP roles.
+  if (jobType === "MAINTENANCE_APP" && overall !== null) {
+    try {
+      const wsSubs = await db.workSampleSubmission.findMany({
+        where: { applicationId },
+        select: { aiWritingScore: true },
+      });
+      const irs = await db.applicationInterviewResponse.findMany({
+        where: { applicationId },
+        select: { aiWritingScore: true },
+      });
+      const risks = [...wsSubs, ...irs]
+        .map((r) => r.aiWritingScore)
+        .filter((v): v is number => typeof v === "number");
+      const avgAiRisk = risks.length ? risks.reduce((a, b) => a + b, 0) / risks.length : 0;
+      const rf = await db.application.findUnique({
+        where: { id: applicationId },
+        select: { redFlagScore: true, fastTrackReady: true, fastTrackApprovedAt: true },
+      });
+      const meets =
+        overall >= 75 &&
+        (rf?.redFlagScore ?? 0) < 30 &&
+        avgAiRisk < 40;
+      if (meets && !rf?.fastTrackApprovedAt && rf?.fastTrackReady !== true) {
+        await db.application.update({
+          where: { id: applicationId },
+          data: { fastTrackReady: true },
+        });
+      }
+    } catch (e) {
+      console.warn("[recomputeApplicationScore] fast-track evaluation failed:", e);
+    }
+  }
 
   // Refresh cached red-flag score (fire-and-forget, imported lazily to avoid
   // a circular ts-check between phase1 and helpers).
@@ -263,6 +317,7 @@ export async function recomputeApplicationScore(applicationId: number, weights?:
       .join("\n");
 
     const { text } = await generateText({
+      aiFeature: "recruitment.candidateSummary",
       model,
       system:
         "You are a South African recruitment assistant for Square 15 Facility Solutions. " +
@@ -330,7 +385,9 @@ export async function recomputeApplicationScore(applicationId: number, weights?:
       if (overall != null) bits.push(`Overall composite ${overall}/100`);
       const factSummary =
         (bits.length ? bits.join(" · ") + ". " : "") +
-        "AI narrative unavailable (temporary provider error). Please retry Recompute shortly.";
+        (/credits.*depleted|prepayment|billing|RESOURCE_EXHAUSTED/i.test(String((err as Error)?.message))
+          ? "AI scoring and narrative pending: Gemini billing credits are depleted. An administrator must top up Google AI Studio billing, then retry scoring. Unscored answers are not zero scores."
+          : "AI narrative pending: provider unavailable. Saved answers require retry or hiring-team review; unscored answers are not zero scores.");
       await db.application.update({
         where: { id: applicationId },
         data: { aiSummary: factSummary },
@@ -397,7 +454,12 @@ CANDIDATE:
 Return ONLY valid JSON: {"score": <0-100>, "explanation": "<2-3 sentences>"}`;
 
   try {
-    const { text } = await generateText({ model, prompt, maxTokens: 300 });
+    const { text } = await generateText({
+      aiFeature: "recruitment.jobMatch",
+      model,
+      prompt,
+      maxTokens: 300,
+    });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return;
     const parsed = JSON.parse(match[0]) as { score: number; explanation: string };

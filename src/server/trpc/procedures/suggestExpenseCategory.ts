@@ -4,7 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const suggestExpenseCategory = baseProcedure
@@ -18,7 +18,7 @@ export const suggestExpenseCategory = baseProcedure
   .mutation(async ({ input }) => {
     try {
       const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const { userId } = z.object({ userId: z.number() }).parse(verified);
 
       if (!input.imageDataBuffer && !input.imageUrl) {
         throw new TRPCError({
@@ -48,9 +48,11 @@ export const suggestExpenseCategory = baseProcedure
         });
       }
 
-      const model = google("gemini-2.0-flash-exp");
+      const model = google("gemini-3.6-flash");
 
       const { object } = await generateObject({
+        aiFeature: "suggestExpenseCategory",
+        aiUserId: userId,
         model,
         output: "enum",
         enum: ["MATERIALS", "TOOLS", "TRANSPORTATION", "OTHER"],

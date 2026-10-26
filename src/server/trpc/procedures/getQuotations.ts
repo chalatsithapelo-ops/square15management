@@ -5,6 +5,10 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { applyDemoIsolation } from "~/server/utils/demoAccounts";
+import {
+  portfolioMineWhereForDoc,
+  unassignedDocWhere,
+} from "~/server/services/portfolioOwnership";
 
 export const getQuotations = baseProcedure
   .input(
@@ -21,6 +25,8 @@ export const getQuotations = baseProcedure
         "REJECTED",
         "SUBMITTED" // Deprecated
       ]).nullable().optional(),
+      scope: z.enum(["MINE", "ALL", "UNASSIGNED"]).optional(),
+      ownerId: z.number().optional(),
     })
   )
   .query(async ({ input }) => {
@@ -112,6 +118,27 @@ export const getQuotations = baseProcedure
       // Demo data isolation
       await applyDemoIsolation(where, user, db);
 
+      // ─── PR-9 portfolio scope for admin-tier users ────────────────────
+      const isAdminTier = [
+        "ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN",
+        "MANAGER", "TECHNICAL_MANAGER",
+      ].includes(user.role);
+      if (isAdminTier) {
+        const scope =
+          input.scope ??
+          ((user as any).defaultPortfolioView === "MINE" ? "MINE" : "ALL");
+        if (scope === "MINE") {
+          const targetUserId = input.ownerId ?? user.id;
+          const mine = await portfolioMineWhereForDoc(targetUserId);
+          where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), mine];
+        } else if (scope === "UNASSIGNED") {
+          where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), unassignedDocWhere()];
+        } else if (input.ownerId) {
+          const mine = await portfolioMineWhereForDoc(input.ownerId);
+          where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), mine];
+        }
+      }
+
       const quotations = await db.quotation.findMany({
         where,
         include: {
@@ -156,8 +183,51 @@ export const getQuotations = baseProcedure
               id: true,
               orderNumber: true,
               status: true,
+              startTime: true,
               endTime: true,
               createdAt: true,
+              // Fields required by the Quotations row action bar so it can
+              // render the same job-card actions as the Operations page
+              // (Signed badge, Download Job Card, Send Sign Link, Sign Job
+              // Card modal, etc.) — otherwise the row silently drops the
+              // post-generation actions after "Manual Job Card" runs.
+              customerName: true,
+              customerEmail: true,
+              customerPhone: true,
+              serviceType: true,
+              description: true,
+              signedJobCardUrl: true,
+              signatureRequestSentAt: true,
+              clientRepName: true,
+              clientRepSignDate: true,
+              clientUnavailableToSign: true,
+              artisanSignatureUrl: true,
+              artisanSignedByName: true,
+              artisanSignDate: true,
+              // Extra fields consumed by the Quotations "Edit Job Card"
+              // modal so the same popup can pre-fill from the existing
+              // Order without a second round-trip. Cheap on the wire — all
+              // scalars or short arrays.
+              clientOrderNumber: true,
+              notes: true,
+              beforePictures: true,
+              afterPictures: true,
+              materials: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  quantity: true,
+                  unitPrice: true,
+                  supplier: true,
+                },
+              },
+              invoice: {
+                select: {
+                  id: true,
+                  invoiceNumber: true,
+                },
+              },
             },
           },
           generatedInvoice: {
@@ -226,9 +296,22 @@ export const getQuotations = baseProcedure
         };
       });
     } catch (error) {
+      // Surface the underlying error to server logs so future Prisma / schema
+      // problems don't get silently masked as "Invalid or expired token".
+      console.error("[getQuotations] failed:", error);
+      // JWT verification errors carry these names — re-raise as UNAUTHORIZED
+      // so the client can prompt re-login. Anything else is a real fault.
+      const name = (error as any)?.name;
+      if (name === "JsonWebTokenError" || name === "TokenExpiredError" || name === "NotBeforeError") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid or expired token",
+        });
+      }
+      if (error instanceof TRPCError) throw error;
       throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid or expired token",
+        code: "INTERNAL_SERVER_ERROR",
+        message: (error as any)?.message || "Failed to load quotations",
       });
     }
   });

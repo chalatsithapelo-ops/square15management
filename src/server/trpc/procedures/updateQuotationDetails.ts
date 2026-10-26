@@ -4,6 +4,9 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { authenticateUser } from "~/server/utils/auth";
+import { computeInvoiceTotals } from "~/utils/money";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const updateQuotationDetails = baseProcedure
   .input(
@@ -34,6 +37,11 @@ export const updateQuotationDetails = baseProcedure
       subtotal: z.number().optional(),
       tax: z.number().optional(),
       total: z.number().optional(),
+      discountPercent: z.number().min(0).max(100).optional(),
+      // Deposit REQUESTED on the quotation.
+      depositRequestedPercent: z.number().min(0).max(100).optional(),
+      depositRequestedAmount: z.number().min(0).optional(),
+      depositDueDate: z.string().nullable().optional(),
       validUntil: z.string().optional(),
       notes: z.string().optional(),
       assignedToId: z.number().nullable().optional(),
@@ -89,9 +97,29 @@ export const updateQuotationDetails = baseProcedure
       if (input.customerPhone !== undefined) updateData.customerPhone = input.customerPhone;
       if (input.address !== undefined) updateData.address = input.address;
       if (input.items !== undefined) updateData.items = input.items;
-      if (input.subtotal !== undefined) updateData.subtotal = input.subtotal;
-      if (input.tax !== undefined) updateData.tax = input.tax;
-      if (input.total !== undefined) updateData.total = input.total;
+      // When items and/or discount change, recanonicalise all totals so the DB,
+      // the web form, and the generated PDF always agree to the cent.
+      if (input.items !== undefined || input.discountPercent !== undefined) {
+        const items =
+          input.items ??
+          ((currentQuotation.items as any[] | null) ?? []).map((it) => ({
+            total: Number(it?.total) || 0,
+          }));
+        const pct =
+          input.discountPercent !== undefined
+            ? input.discountPercent
+            : (currentQuotation as any).discountPercent ?? 0;
+        const canonical = computeInvoiceTotals(items, pct);
+        updateData.subtotal = canonical.subtotal;
+        updateData.discountPercent = canonical.discountPercent;
+        updateData.discountAmount = canonical.discountAmount;
+        updateData.tax = canonical.tax;
+        updateData.total = canonical.total;
+      } else {
+        if (input.subtotal !== undefined) updateData.subtotal = input.subtotal;
+        if (input.tax !== undefined) updateData.tax = input.tax;
+        if (input.total !== undefined) updateData.total = input.total;
+      }
       if (input.validUntil !== undefined) {
         updateData.validUntil = input.validUntil ? new Date(input.validUntil) : null;
       }
@@ -108,6 +136,33 @@ export const updateQuotationDetails = baseProcedure
       if (input.labourRate !== undefined) updateData.labourRate = input.labourRate;
       if (input.customerVatNumber !== undefined) updateData.customerVatNumber = input.customerVatNumber || null;
       if (input.projectDescription !== undefined) updateData.projectDescription = input.projectDescription || null;
+
+      // Deposit-request recalculation — keep percent + amount in sync with total.
+      const roundMoneyQ = (n: number) =>
+        Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
+      const qNextTotal =
+        typeof updateData.total === "number" ? updateData.total : Number((currentQuotation as any).total) || 0;
+      const qWantsPct = input.depositRequestedPercent !== undefined;
+      const qWantsAmt = input.depositRequestedAmount !== undefined;
+      if (qWantsPct || qWantsAmt || updateData.total !== undefined) {
+        const qPct = qWantsPct
+          ? Math.max(0, Math.min(100, Number(input.depositRequestedPercent) || 0))
+          : Number((currentQuotation as any).depositRequestedPercent) || 0;
+        let qAmt = 0;
+        if (qPct > 0) {
+          qAmt = roundMoneyQ((qNextTotal * qPct) / 100);
+        } else if (qWantsAmt && (input.depositRequestedAmount ?? 0) > 0) {
+          qAmt = roundMoneyQ(Math.min(qNextTotal, input.depositRequestedAmount!));
+        } else if (!qWantsAmt) {
+          const existing = Number((currentQuotation as any).depositRequestedAmount) || 0;
+          qAmt = existing > 0 ? roundMoneyQ(Math.min(qNextTotal, existing)) : 0;
+        }
+        updateData.depositRequestedPercent = qPct;
+        updateData.depositRequestedAmount = qAmt;
+      }
+      if (input.depositDueDate !== undefined) {
+        updateData.depositDueDate = input.depositDueDate ? new Date(input.depositDueDate) : null;
+      }
 
       const quotation = await db.quotation.update({
         where: { id: input.quotationId },
@@ -162,6 +217,51 @@ export const updateQuotationDetails = baseProcedure
         }
       } catch (notifError) {
         console.error('Failed to send quotation reassignment notification:', notifError);
+      }
+
+      try {
+        const actor = await authenticateUser(input.token);
+        await writeAuditLog(db, {
+          actor,
+          action: "UPDATE",
+          entityType: "Quotation",
+          entityId: quotation.id,
+          before: {
+            quoteNumber: currentQuotation.quoteNumber,
+            customerName: currentQuotation.customerName,
+            customerEmail: currentQuotation.customerEmail,
+            customerPhone: currentQuotation.customerPhone,
+            address: currentQuotation.address,
+            total: currentQuotation.total,
+            subtotal: currentQuotation.subtotal,
+            tax: currentQuotation.tax,
+            notes: currentQuotation.notes,
+            assignedToId: currentQuotation.assignedToId,
+            projectDescription: currentQuotation.projectDescription,
+            companyMaterialCost: currentQuotation.companyMaterialCost,
+            companyLabourCost: currentQuotation.companyLabourCost,
+            estimatedProfit: currentQuotation.estimatedProfit,
+          },
+          after: {
+            quoteNumber: quotation.quoteNumber,
+            customerName: quotation.customerName,
+            customerEmail: quotation.customerEmail,
+            customerPhone: quotation.customerPhone,
+            address: quotation.address,
+            total: quotation.total,
+            subtotal: quotation.subtotal,
+            tax: quotation.tax,
+            notes: quotation.notes,
+            assignedToId: quotation.assignedToId,
+            projectDescription: quotation.projectDescription,
+            companyMaterialCost: quotation.companyMaterialCost,
+            companyLabourCost: quotation.companyLabourCost,
+            estimatedProfit: quotation.estimatedProfit,
+          },
+          description: `Edited quotation ${quotation.quoteNumber}`,
+        });
+      } catch (auditErr) {
+        console.error('Failed to write quotation update audit log:', auditErr);
       }
 
       return quotation;

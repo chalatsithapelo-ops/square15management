@@ -41,21 +41,26 @@ const ACCOUNT_TYPE_OPTIONS = [
 
 const EXPENSE_CATEGORIES = [
   "PETROL", "OFFICE_SUPPLIES", "RENT", "UTILITIES", "INSURANCE",
-  "SALARIES", "MARKETING", "MAINTENANCE", "TRAVEL", "PROFESSIONAL_FEES",
-  "TELECOMMUNICATIONS", "SOFTWARE_SUBSCRIPTIONS", "OTHER",
+  "BANK_FEES", "SALARIES", "MARKETING", "MATERIAL_PURCHASE", "INDEPENDENT_CONTRACTOR",
+  "MAINTENANCE", "TRAVEL", "PROFESSIONAL_FEES", "TELECOMMUNICATIONS",
+  "SOFTWARE_SUBSCRIPTIONS", "LOAN_REPAYMENT", "VEHICLE_FINANCE", "HOME_BOND", "OTHER",
 ];
 
 const REVENUE_CATEGORIES = [
   "INVOICE_PAYMENT", "RENTAL_INCOME", "CONSULTING", "INTEREST",
-  "INVESTMENTS", "COMMISSION", "REFUND", "OTHER_REVENUE",
+  "INVESTMENTS", "COMMISSION", "REFUND", "OWNER_CONTRIBUTION", "LOAN_RECEIVED",
+  "INTERNAL_TRANSFER", "OTHER_REVENUE",
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
   PETROL: "Petrol / Fuel", OFFICE_SUPPLIES: "Office Supplies", RENT: "Rent",
-  UTILITIES: "Utilities", INSURANCE: "Insurance", SALARIES: "Salaries",
-  MARKETING: "Marketing", MAINTENANCE: "Maintenance", TRAVEL: "Travel",
+  UTILITIES: "Utilities", INSURANCE: "Insurance", BANK_FEES: "Bank Fees", SALARIES: "Salaries",
+  MARKETING: "Marketing", MATERIAL_PURCHASE: "Material Purchase", INDEPENDENT_CONTRACTOR: "Independent Contractor", MAINTENANCE: "Maintenance", TRAVEL: "Travel",
   PROFESSIONAL_FEES: "Professional Fees", TELECOMMUNICATIONS: "Telecoms",
   SOFTWARE_SUBSCRIPTIONS: "Software", OTHER: "Other",
+  LOAN_REPAYMENT: "Loan Repayment", VEHICLE_FINANCE: "Car Instalment", HOME_BOND: "Home Bond",
+  OWNER_CONTRIBUTION: "Owner Contribution (not revenue)", LOAN_RECEIVED: "Loan Received (not revenue)",
+  INTERNAL_TRANSFER: "Internal Transfer (not revenue)",
   INVOICE_PAYMENT: "Invoice Payment", RENTAL_INCOME: "Rental Income",
   CONSULTING: "Consulting", INTEREST: "Interest", INVESTMENTS: "Investments",
   COMMISSION: "Commission", REFUND: "Refund", OTHER_REVENUE: "Other Revenue",
@@ -200,6 +205,9 @@ function BankFeedPage() {
           </div>
         )}
 
+        {/* Nedbank Live Balance & Data */}
+        {token && <NedbankLiveSection accounts={accounts} token={token} />}
+
         {/* Tabs */}
         <div className="flex gap-1 bg-white/50 rounded-lg p-1">
           {(["overview", "accounts", "transactions", "review", "import"] as const).map((tab) => (
@@ -222,7 +230,7 @@ function BankFeedPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "overview" && <OverviewTab stats={stats} accounts={accounts} />}
+        {activeTab === "overview" && <OverviewTab stats={stats} accounts={accounts} onViewAll={() => setActiveTab("transactions")} />}
         {activeTab === "accounts" && (
           <AccountsTab
             accounts={accounts}
@@ -270,16 +278,20 @@ function StatCard({ title, value, icon, color, highlight }: {
 
 // ── Overview Tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ stats, accounts }: { stats: any; accounts: any[] }) {
+function OverviewTab({ stats, accounts, onViewAll }: { stats: any; accounts: any[]; onViewAll: () => void }) {
   const { token } = useAuthStore();
   const trpc = useTRPC();
+  const [recentPage, setRecentPage] = useState(0);
+  const recentLimit = 10;
 
   const recentQuery = useQuery({
-    ...trpc.getBankTransactions.queryOptions({ token: token!, limit: 10 }),
+    ...trpc.getBankTransactions.queryOptions({ token: token!, limit: recentLimit, offset: recentPage * recentLimit }),
     enabled: !!token,
   });
 
   const recent = recentQuery.data?.transactions || [];
+  const recentTotal = recentQuery.data?.total || 0;
+  const recentPages = Math.max(1, Math.ceil(recentTotal / recentLimit));
 
   if (!stats || accounts.length === 0) {
     return (
@@ -319,7 +331,7 @@ function OverviewTab({ stats, accounts }: { stats: any; accounts: any[] }) {
           </div>
           <div className="flex gap-4 text-right">
             <div><div className="text-2xl font-bold">{stats.matchedCount}</div><div className="text-xs text-blue-200">Reconciled</div></div>
-            <div><div className="text-2xl font-bold">{stats.pendingReviewCount}</div><div className="text-xs text-blue-200">Pending</div></div>
+            <div><div className="text-2xl font-bold">{stats.pendingReviewCount}</div><div className="text-xs text-blue-200">Categorization review</div></div>
             <div><div className="text-2xl font-bold">{stats.unmatchedCount}</div><div className="text-xs text-blue-200">Unmatched</div></div>
           </div>
         </div>
@@ -329,7 +341,13 @@ function OverviewTab({ stats, accounts }: { stats: any; accounts: any[] }) {
       <div className="bg-white rounded-xl border">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">Recent Transactions</h3>
-          <span className="text-xs text-gray-500">{stats.totalTransactions} total</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">{recentTotal} total</span>
+            <button onClick={onViewAll} className="text-xs text-blue-700 hover:underline">All transactions</button>
+            <button disabled={recentPage === 0} onClick={() => setRecentPage((p) => p - 1)} className="text-xs px-2 py-1 border rounded disabled:opacity-40">Prev</button>
+            <span className="text-xs text-gray-500">{recentPage + 1}/{recentPages}</span>
+            <button disabled={recentPage >= recentPages - 1} onClick={() => setRecentPage((p) => p + 1)} className="text-xs px-2 py-1 border rounded disabled:opacity-40">Next</button>
+          </div>
         </div>
         <div className="divide-y">
           {recent.length === 0 ? (
@@ -453,6 +471,7 @@ function TransactionsTab() {
       token: token!,
       transactionType: filters.transactionType || undefined,
       reconciliationStatus: filters.reconciliationStatus || undefined,
+      search: filters.search || undefined,
       limit,
       offset: page * limit,
     }),
@@ -461,14 +480,26 @@ function TransactionsTab() {
 
   const transactions = txQuery.data?.transactions || [];
   const total = txQuery.data?.total || 0;
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const qc = useQueryClient();
+  const autoMatchMut = useMutation({
+    ...trpc.runInvoiceAutoMatch.mutationOptions(),
+    onSuccess: (r: any) => {
+      toast.success(r.allocatedCount ? `${r.allocatedCount} payment(s) matched; invoices marked paid` : "No new unique invoice matches found");
+      qc.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const pager = (
+    <div className="flex items-center gap-2">
+      <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="text-xs px-3 py-1.5 border rounded disabled:opacity-40">Prev</button>
+      <span className="text-xs text-gray-500">Page {page + 1} of {totalPages}</span>
+      <button disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="text-xs px-3 py-1.5 border rounded disabled:opacity-40">Next</button>
+    </div>
+  );
 
-  const filtered = filters.search
-    ? transactions.filter((tx: any) =>
-        tx.description.toLowerCase().includes(filters.search.toLowerCase()) ||
-        tx.categorization?.category?.toLowerCase().includes(filters.search.toLowerCase())
-      )
-    : transactions;
+  const filtered = transactions;
 
   return (
     <div className="space-y-4">
@@ -480,13 +511,13 @@ function TransactionsTab() {
             type="text"
             placeholder="Search transactions..."
             value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            onChange={(e) => { setPage(0); setFilters({ ...filters, search: e.target.value }); }}
             className="flex-1 text-sm border-0 focus:ring-0 px-0"
           />
         </div>
         <select
           value={filters.transactionType}
-          onChange={(e) => setFilters({ ...filters, transactionType: e.target.value as any })}
+          onChange={(e) => { setPage(0); setFilters({ ...filters, transactionType: e.target.value as any }); }}
           className="text-sm border rounded-lg px-3 py-1.5"
         >
           <option value="">All Types</option>
@@ -495,7 +526,7 @@ function TransactionsTab() {
         </select>
         <select
           value={filters.reconciliationStatus}
-          onChange={(e) => setFilters({ ...filters, reconciliationStatus: e.target.value as any })}
+          onChange={(e) => { setPage(0); setFilters({ ...filters, reconciliationStatus: e.target.value as any }); }}
           className="text-sm border rounded-lg px-3 py-1.5"
         >
           <option value="">All Status</option>
@@ -511,15 +542,17 @@ function TransactionsTab() {
 
       {/* Transaction List */}
       <div className="bg-white rounded-xl border">
-        <div className="p-3 border-b flex items-center justify-between">
+        <div className="p-3 border-b flex items-center justify-between gap-3 flex-wrap">
           <span className="text-sm text-gray-500">{total} transactions</span>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs px-2 py-1 border rounded disabled:opacity-40">Prev</button>
-              <span className="text-xs text-gray-500">Page {page + 1}/{totalPages}</span>
-              <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs px-2 py-1 border rounded disabled:opacity-40">Next</button>
-            </div>
-          )}
+          <button
+            onClick={() => autoMatchMut.mutate({ token: token! })}
+            disabled={autoMatchMut.isPending}
+            className="text-xs px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+            title="Match unallocated bank credits to unpaid invoices and mark them paid"
+          >
+            {autoMatchMut.isPending ? "Matching…" : "Auto-match invoice payments"}
+          </button>
+          {pager}
         </div>
         <div className="divide-y">
           {filtered.length === 0 ? (
@@ -530,6 +563,7 @@ function TransactionsTab() {
             ))
           )}
         </div>
+        <div className="p-3 border-t flex justify-end">{pager}</div>
       </div>
     </div>
   );
@@ -541,12 +575,15 @@ function ReviewTab() {
   const { token } = useAuthStore();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
 
   const txQuery = useQuery({
     ...trpc.getBankTransactions.queryOptions({
       token: token!,
       isConfirmed: false,
-      limit: 50,
+      limit: pageSize,
+      offset: page * pageSize,
     }),
     enabled: !!token,
   });
@@ -564,12 +601,37 @@ function ReviewTab() {
     ...trpc.recategorizeBankTransaction.mutationOptions(),
     onSuccess: () => {
       toast.success("Category updated & rule created");
-      txQuery.refetch();
+      queryClient.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const applyRulesMutation = useMutation({
+    ...trpc.applyBankCategorizationLearning.mutationOptions(),
+    onSuccess: (result) => {
+      toast.success(`Saved rules checked ${result.scanned} transactions and categorized ${result.categorized}`);
+      queryClient.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+      setPage(0);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const categorizeMissingMutation = useMutation({
+    ...trpc.categorizeMissingBankTransactions.mutationOptions(),
+    onSuccess: (result) => {
+      toast.success(`Categorized ${result.categorized}/${result.scanned} missing transactions; ${result.errors} errors`);
+      queryClient.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+      setPage(0);
     },
     onError: (err: any) => toast.error(err.message),
   });
 
   const transactions = txQuery.data?.transactions || [];
+  const reviewTotal = txQuery.data?.total || 0;
+  const reviewPages = Math.ceil(reviewTotal / pageSize);
 
   return (
     <div className="space-y-4">
@@ -582,6 +644,24 @@ function ReviewTab() {
           </p>
         </div>
       </div>
+
+      <div className="bg-white border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">{reviewTotal} transactions need a category or confirmation. OTHER remains in this queue until explicitly reviewed.</p>
+        <div className="flex items-center gap-2">
+          <button onClick={() => applyRulesMutation.mutate({ token: token! })} disabled={applyRulesMutation.isPending} className="px-3 py-2 border rounded-lg text-sm disabled:opacity-50">
+            {applyRulesMutation.isPending ? "Applying…" : "Apply saved rules"}
+          </button>
+          <button onClick={() => categorizeMissingMutation.mutate({ token: token!, take: 100 })} disabled={categorizeMissingMutation.isPending} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">
+            {categorizeMissingMutation.isPending ? "Categorizing…" : "Categorize missing (up to 100)"}
+          </button>
+        </div>
+      </div>
+
+      {reviewPages > 1 && <div className="flex items-center justify-end gap-2">
+        <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="px-2 py-1 border rounded text-xs disabled:opacity-40">Prev</button>
+        <span className="text-xs text-gray-500">Page {page + 1}/{reviewPages}</span>
+        <button disabled={page >= reviewPages - 1} onClick={() => setPage((p) => p + 1)} className="px-2 py-1 border rounded text-xs disabled:opacity-40">Next</button>
+      </div>}
 
       {txQuery.isLoading ? (
         <div className="bg-white rounded-xl border p-12 text-center">
@@ -623,7 +703,8 @@ function ReviewCard({ tx, onConfirm, onRecategorize, isLoading }: {
   tx: any; onConfirm: () => void; onRecategorize: (cat: string) => void; isLoading: boolean;
 }) {
   const [showEdit, setShowEdit] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(tx.categorization?.category || "");
+  const initialCategory = tx.categorization?.category;
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory && !["OTHER", "OTHER_REVENUE"].includes(initialCategory) ? initialCategory : "");
 
   const isDebit = tx.transactionType === "DEBIT";
   const categories = isDebit ? EXPENSE_CATEGORIES : REVENUE_CATEGORIES;
@@ -687,18 +768,18 @@ function ReviewCard({ tx, onConfirm, onRecategorize, isLoading }: {
       <div className="mt-3 flex items-center gap-2">
         {!showEdit ? (
           <>
-            <button
+            {cat && !["OTHER", "OTHER_REVENUE"].includes(cat.category) && <button
               onClick={onConfirm}
               disabled={isLoading}
               className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5" /> Confirm
-            </button>
+            </button>}
             <button
               onClick={() => setShowEdit(true)}
               className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition"
             >
-              <Edit className="w-3.5 h-3.5" /> Change Category
+              <Edit className="w-3.5 h-3.5" /> {cat && !["OTHER", "OTHER_REVENUE"].includes(cat.category) ? "Change Category" : "Choose Category"}
             </button>
           </>
         ) : (
@@ -928,8 +1009,40 @@ function ImportTab({ accounts }: { accounts: any[] }) {
 function TransactionRow({ tx, compact }: { tx: any; compact?: boolean }) {
   const isDebit = tx.transactionType === "DEBIT";
   const cat = tx.categorization;
+  const { token, user } = useAuthStore();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState<string>(cat?.category ?? "");
+  const categories = isDebit ? EXPENSE_CATEGORIES : REVENUE_CATEGORIES;
+
+  const recategorizeMut = useMutation({
+    ...trpc.recategorizeBankTransaction.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Category updated â€” rule saved");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const approveExpenseMut = useMutation({
+    ...trpc.approveOperationalExpense.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Linked expense approved; Management Accounts is updated");
+      qc.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getOperationalExpenses.queryKey() });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const canApproveExpenses = user?.role === "SENIOR_ADMIN" || !!user?.role?.includes("CONTRACTOR");
+  const [allocating, setAllocating] = useState(false);
+  const canAllocate = !compact && !isDebit && tx.reconciliationStatus === "UNMATCHED" && !tx.linkedInvoiceId;
 
   return (
+    <div>
     <div className={`flex items-center justify-between ${compact ? "px-4 py-3" : "px-5 py-4"} hover:bg-gray-50 transition`}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -939,7 +1052,7 @@ function TransactionRow({ tx, compact }: { tx: any; compact?: boolean }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-800 truncate">{tx.description}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs text-gray-400">
               {new Date(tx.transactionDate).toLocaleDateString("en-ZA")}
             </span>
@@ -948,10 +1061,44 @@ function TransactionRow({ tx, compact }: { tx: any; compact?: boolean }) {
                 {tx.bankAccount.bankName?.replace("_", " ")}
               </span>
             )}
-            {cat && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
-                {CATEGORY_LABELS[cat.category] || cat.category}
+            {editing ? (
+              <span className="inline-flex items-center gap-1">
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs px-1.5 py-0.5 border border-blue-300 rounded bg-white text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                >
+                  <option value="">Select categoryâ€¦</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+                  ))}
+                </select>
+                <button
+                  className="text-xs px-2 py-0.5 bg-blue-600 text-white rounded disabled:opacity-50"
+                  disabled={!selected || selected === cat?.category || recategorizeMut.isPending}
+                  onClick={() => recategorizeMut.mutate({ token: token!, transactionId: tx.id, category: selected, createRule: true })}
+                >
+                  {recategorizeMut.isPending ? "â€¦" : "Save"}
+                </button>
+                <button
+                  className="text-xs px-1.5 py-0.5 text-gray-500 hover:text-gray-700"
+                  onClick={() => { setEditing(false); setSelected(cat?.category ?? ""); }}
+                >
+                  âœ•
+                </button>
               </span>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+                className={`text-xs px-1.5 py-0.5 rounded-full transition hover:ring-1 hover:ring-blue-400 cursor-pointer ${
+                  cat ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500 border border-dashed border-gray-300"
+                }`}
+                title="Click to change category"
+              >
+                {cat ? (CATEGORY_LABELS[cat.category] || cat.category) : "Uncategorized"}
+              </button>
             )}
             <span className={`text-xs px-1 py-0.5 rounded ${
               tx.reconciliationStatus === "MATCHED" ? "bg-green-100 text-green-700" :
@@ -963,9 +1110,106 @@ function TransactionRow({ tx, compact }: { tx: any; compact?: boolean }) {
           </div>
         </div>
       </div>
-      <p className={`text-sm font-semibold ${isDebit ? "text-red-600" : "text-green-600"} whitespace-nowrap ml-3`}>
-        {isDebit ? "-" : "+"}R{tx.amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-      </p>
+      <div className="ml-3 flex flex-col items-end gap-1">
+        <p className={`text-sm font-semibold ${isDebit ? "text-red-600" : "text-green-600"} whitespace-nowrap`}>
+          {isDebit ? "-" : "+"}R{tx.amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+        </p>
+        {!compact && tx.linkedOperationalExpense && !tx.linkedOperationalExpense.isApproved && (
+          canApproveExpenses ? (
+            <button
+              disabled={approveExpenseMut.isPending}
+              onClick={() => approveExpenseMut.mutate({ token: token!, id: tx.linkedOperationalExpense.id, isApproved: true })}
+              className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+              title="This approval is shared with Management Accounts; approving here removes the same expense from that pending queue."
+            >
+              {approveExpenseMut.isPending ? "Approving…" : "Approve linked expense"}
+            </button>
+          ) : <span className="text-[11px] text-amber-700">Linked expense pending approval</span>
+        )}
+        {!compact && tx.linkedOperationalExpense?.isApproved && <span className="text-[11px] text-green-700">Linked expense approved</span>}
+        {canAllocate && (
+          <button
+            onClick={() => setAllocating((v) => !v)}
+            className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          >
+            {allocating ? "Close" : "Match to invoices"}
+          </button>
+        )}
+      </div>
+    </div>
+    {allocating && canAllocate && <InvoiceAllocationPanel tx={tx} onDone={() => setAllocating(false)} />}
+    </div>
+  );
+}
+
+function InvoiceAllocationPanel({ tx, onDone }: { tx: any; onDone: () => void }) {
+  const { token } = useAuthStore();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const [picked, setPicked] = useState<number[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const candidatesQuery = useQuery({
+    ...trpc.getInvoiceAllocationCandidates.queryOptions({ token: token!, transactionId: tx.id }),
+    enabled: !!token,
+  });
+  const data = candidatesQuery.data;
+  const selected = picked ?? data?.suggestedInvoiceIds ?? [];
+  const invoices = (data?.invoices ?? []).filter((inv: any) => showAll || inv.related || selected.includes(inv.id));
+  const selectedTotal = (data?.invoices ?? []).filter((inv: any) => selected.includes(inv.id)).reduce((s: number, inv: any) => s + inv.outstanding, 0);
+  const difference = Math.round((tx.amount - selectedTotal) * 100) / 100;
+  const allocateMut = useMutation({
+    ...trpc.allocateBankCreditToInvoices.mutationOptions(),
+    onSuccess: (r: any) => {
+      toast.success(`Marked paid: ${r.invoiceNumbers.join(", ")}`);
+      qc.invalidateQueries({ queryKey: trpc.getBankTransactions.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getBankFeedStats.queryKey() });
+      qc.invalidateQueries({ queryKey: trpc.getInvoices.queryKey() });
+      onDone();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const toggle = (id: number) => setPicked(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <div className="mx-5 mb-4 p-4 rounded-lg border border-emerald-200 bg-emerald-50/40 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2 text-sm">
+        <span>Allocate <b>R{tx.amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</b> to unpaid invoices</span>
+        <label className="flex items-center gap-2 text-xs text-gray-600">
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show all unpaid invoices
+        </label>
+      </div>
+      {candidatesQuery.isLoading ? (
+        <p className="text-xs text-gray-500">Loading invoices…</p>
+      ) : invoices.length === 0 ? (
+        <p className="text-xs text-gray-500">No related unpaid invoices found for this payer. Tick "Show all unpaid invoices" to search every open invoice.</p>
+      ) : (
+        <div className="max-h-72 overflow-y-auto divide-y bg-white rounded border">
+          {invoices.map((inv: any) => (
+            <label key={inv.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs cursor-pointer hover:bg-gray-50">
+              <span className="flex items-center gap-2 min-w-0">
+                <input type="checkbox" checked={selected.includes(inv.id)} onChange={() => toggle(inv.id)} />
+                <span className="font-medium">{inv.invoiceNumber}</span>
+                <span className="text-gray-500 truncate">{inv.customerName}</span>
+                {inv.dueDate && <span className="text-gray-400">due {new Date(inv.dueDate).toLocaleDateString("en-ZA")}</span>}
+              </span>
+              <span className="whitespace-nowrap">R{inv.outstanding.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+        <span className={Math.abs(difference) <= 1 ? "text-emerald-700" : "text-amber-700"}>
+          Selected R{selectedTotal.toLocaleString("en-ZA", { minimumFractionDigits: 2 })} · Difference R{difference.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+          {data?.suggestedInvoiceIds?.length ? " · suggested match pre-selected" : ""}
+        </span>
+        <button
+          disabled={selected.length === 0 || Math.abs(difference) > 1 || allocateMut.isPending}
+          onClick={() => allocateMut.mutate({ token: token!, transactionId: tx.id, invoiceIds: selected })}
+          className="px-3 py-1.5 rounded bg-emerald-600 text-white disabled:opacity-50"
+        >
+          {allocateMut.isPending ? "Saving…" : "Mark selected invoices paid"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1123,3 +1367,180 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     </div>
   );
 }
+
+
+// ── Nedbank Live Balance & Data (shown for every NEDBANK-linked account) ────
+
+function NedbankLiveSection({ accounts, token }: { accounts: any[]; token: string }) {
+  const nedbankAccts = accounts.filter(
+    (a) => a.externalProvider === "NEDBANK" && a.feedEnabled && a.externalAccountId
+  );
+  if (nedbankAccts.length === 0) return null;
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      {nedbankAccts.map((a) => (
+        <NedbankAccountCard key={a.id} account={a} token={token} />
+      ))}
+    </div>
+  );
+}
+
+function NedbankAccountCard({ account, token }: { account: any; token: string }) {
+  const trpc = useTRPC();
+  const q = useQuery({
+    ...trpc.getNedbankAccountSummary.queryOptions({ token, bankAccountId: account.id }),
+    enabled: !!token,
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const data = q.data;
+  const acct = data?.account as any;
+  const balAmount: any = acct?.currentBalance == null ? null : Number(acct.currentBalance);
+  const balIndicator: any = String(acct?.balanceIndicator ?? "Credit");
+  const isOverdrawn = balIndicator.toLowerCase() === "debit" && balAmount !== null && balAmount > 0;
+  const balCurrency: any = String(acct?.balanceCurrency ?? "ZAR");
+  const balAsOf = acct?.balanceAsOf ? new Date(acct.balanceAsOf) : null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-emerald-50 to-blue-50 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <Landmark className="w-5 h-5 text-emerald-700" />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">{account.accountName}</h3>
+            <p className="text-xs text-gray-500">Nedbank · Account {account.externalAccountId}</p>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {balAsOf ? `Balance as of ${balAsOf.toLocaleString("en-ZA")}` : "Balance pending sync"}
+        </div>
+      </div>
+
+      {/* Balance strip */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5">
+        <div className={`rounded-lg p-4 ${isOverdrawn ? "bg-red-50 border border-red-100" : "bg-emerald-50 border border-emerald-100"}`}>
+          <div className={`flex items-center gap-2 text-xs font-medium mb-1 ${isOverdrawn ? "text-red-700" : "text-emerald-700"}`}>
+            <Banknote className="w-4 h-4" />
+            {isOverdrawn ? "Balance (Overdrawn)" : "Current Balance"}
+          </div>
+          <p className={`text-2xl font-bold ${isOverdrawn ? "text-red-800" : "text-emerald-800"}`}>
+            {balAmount === null ? "—" : `${isOverdrawn ? "-" : ""}${balCurrency} ${balAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">{balIndicator} indicator · {acct?.balanceType || "CurrentBalance"}</p>
+        </div>
+        <div className="rounded-lg p-4 bg-blue-50 border border-blue-100">
+          <div className="flex items-center gap-2 text-xs font-medium mb-1 text-blue-700">
+            <CreditCard className="w-4 h-4" />
+            Available Balance
+          </div>
+          <p className="text-2xl font-bold text-blue-800">
+            {acct?.availableBalance == null ? "—" : `${balCurrency} ${Number(acct?.availableBalance as any).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Reported by Nedbank</p>
+        </div>
+        <div className="rounded-lg p-4 bg-gray-50 border border-gray-200">
+          <div className="flex items-center gap-2 text-xs font-medium mb-1 text-gray-700">
+            <Clock className="w-4 h-4" />
+            Last Sync
+          </div>
+          <p className="text-lg font-semibold text-gray-800">
+            {acct?.externalLastSyncAt ? new Date(acct.externalLastSyncAt).toLocaleString("en-ZA") : "Never"}
+          </p>
+          {acct?.externalLastError ? (
+            <p className="text-xs text-red-600 mt-1 truncate" title={acct.externalLastError}>Error: {acct.externalLastError}</p>
+          ) : (
+            <p className="text-xs text-gray-500 mt-1">No errors</p>
+          )}
+        </div>
+      </div>
+
+      {/* Statements */}
+      {data?.statements && data.statements.length > 0 && (
+        <div className="px-5 pb-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 flex items-center gap-2">
+            <FileText className="w-3 h-3" /> Statement History ({data.statements.length})
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-left text-xs text-gray-500 uppercase">
+                  <th className="px-3 py-2">Period</th>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2 text-right">Opening</th>
+                  <th className="px-3 py-2 text-right">Closing</th>
+                  <th className="px-3 py-2 text-right">Movement</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.statements.map((st: any) => {
+                  const opening = st.broughtForwardIndicator === "Debit" ? -(st.broughtForwardAmount || 0) : (st.broughtForwardAmount || 0);
+                  const closing = st.carriedForwardIndicator === "Debit" ? -(st.carriedForwardAmount || 0) : (st.carriedForwardAmount || 0);
+                  const movement = closing - opening;
+                  return (
+                    <tr key={st.id} className="border-t border-gray-100">
+                      <td className="px-3 py-2 text-gray-700">
+                        {new Date(st.startDateTime).toLocaleDateString("en-ZA")}
+                        {st.endDateTime ? ` → ${new Date(st.endDateTime).toLocaleDateString("en-ZA")}` : ""}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 text-xs">{st.statementType || "—"}</td>
+                      <td className={`px-3 py-2 text-right font-mono ${opening < 0 ? "text-red-700" : "text-gray-800"}`}>
+                        R{opening.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-3 py-2 text-right font-mono ${closing < 0 ? "text-red-700" : "text-gray-800"}`}>
+                        R{closing.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-3 py-2 text-right font-mono ${movement < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                        {movement >= 0 ? "+" : ""}R{movement.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Recurring debits */}
+      {data?.recurringDebits && data.recurringDebits.length > 0 && (
+        <div className="px-5 pb-5">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 flex items-center gap-2">
+            <TrendingDown className="w-3 h-3" /> Recurring Debits (detected from last 120 days)
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-left text-xs text-gray-500 uppercase">
+                  <th className="px-3 py-2">Description</th>
+                  <th className="px-3 py-2 text-right">Occurrences</th>
+                  <th className="px-3 py-2 text-right">Avg Amount</th>
+                  <th className="px-3 py-2 text-right">Last Amount</th>
+                  <th className="px-3 py-2">Last Seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recurringDebits.map((r: any, i: number) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="px-3 py-2 text-gray-800 truncate max-w-md" title={r.description}>{r.description}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{r.occurrences}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 font-mono">R{r.averageAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2 text-right text-red-700 font-mono">R{r.lastAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2 text-gray-500 text-xs">{new Date(r.lastDate).toLocaleDateString("en-ZA")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {q.isLoading && (
+        <div className="px-5 pb-4 text-xs text-gray-500 flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" /> Refreshing balance…
+        </div>
+      )}
+    </div>
+  );
+}
+

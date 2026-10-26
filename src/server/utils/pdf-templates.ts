@@ -82,6 +82,19 @@ export interface PDFTotals {
   subtotal: number;
   vat: number;
   total: number;
+  // Deposit received against the invoice. When present and > 0 the PDF also
+  // renders a Balance Due line so the client sees what is still owing.
+  depositPaid?: number;
+  balanceDue?: number;
+  depositPaidDate?: Date | null;
+  depositReference?: string | null;
+  // Deposit REQUESTED from the client (up-front payment before work begins).
+  // Renders a distinct "Deposit Required" block plus a "Balance on Completion"
+  // summary so the customer knows exactly how much to pay now.
+  depositRequested?: number;
+  depositRequestedPercent?: number;
+  balanceOnCompletion?: number;
+  depositDueDate?: Date | null;
 }
 
 export interface PDFBankingDetails {
@@ -483,6 +496,13 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .text(fromPostal || "", margin, addressY, { width: addrColWidth, lineGap: 2 })
     .text(fromPhysical || "", margin + addrColWidth + 5, addressY, { width: addrColWidth, lineGap: 2 });
 
+  // Measure actual FROM address block height so PROJECT DESCRIPTION below
+  // doesn't overlap when the address has 4+ lines (postal code etc).
+  doc.fontSize(7.5).font("Helvetica");
+  const fromPostalH = doc.heightOfString(fromPostal || " ", { width: addrColWidth, lineGap: 2 });
+  const fromPhysicalH = doc.heightOfString(fromPhysical || " ", { width: addrColWidth, lineGap: 2 });
+  addressY += Math.max(fromPostalH, fromPhysicalH) + 4;
+
   // TO: Customer details (right column)
   let toY = separatorY + 29;
   const toColumnWidth = contentWidth / 2 - 10;
@@ -552,7 +572,10 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
   }
 
   // ===== PROJECT DESCRIPTION (above table) =====
-  let preTableY = Math.max(addressY + 50, toY + 10);
+  // addressY is now the bottom of the FROM address block; toY is the bottom
+  // of the TO block. Reserve 20pt for the PROJECT DESCRIPTION label
+  // (drawn at preTableY - 18) so it never overlaps the addresses above.
+  let preTableY = Math.max(addressY, toY) + 20;
   if (data.projectDescription) {
     doc
       .fontSize(8)
@@ -762,6 +785,97 @@ function renderClassicTemplate(doc: typeof PDFDocument.prototype, data: FullPDFD
     .font("Helvetica-Bold")
     .text("Grand Total:", totalsLabelX, totY + 2, { width: 95, align: "right" })
     .text(formatCurrency(displayGrand), totalsValueX, totY + 2, { width: totalsValueW, align: "right" });
+
+  // Deposit + Balance Due lines (only when a deposit has been recorded).
+  const depositPaidExec = roundCurrency2dp(totals.depositPaid ?? 0);
+  if (depositPaidExec > 0) {
+    const balanceExec = roundCurrency2dp(
+      totals.balanceDue !== undefined ? totals.balanceDue : Math.max(0, displayGrand - depositPaidExec),
+    );
+    totY += 28;
+    doc
+      .fontSize(9)
+      .fillColor("#065f46")
+      .font("Helvetica-Bold")
+      .text("Deposit Received:", totalsLabelX, totY, { width: 95, align: "right" })
+      .text("-" + formatCurrency(depositPaidExec), totalsValueX, totY, { width: totalsValueW, align: "right" });
+    totY += 14;
+    // Highlight Balance Due
+    doc
+      .rect(totalsLabelX - 5, totY - 3, pageWidth - margin - totalsLabelX + 10, 20)
+      .fill(balanceExec <= 0.005 ? "#059669" : "#B91C1C");
+    doc
+      .fontSize(10)
+      .fillColor("#ffffff")
+      .font("Helvetica-Bold")
+      .text(balanceExec <= 0.005 ? "PAID IN FULL:" : "Balance Due:", totalsLabelX, totY + 2, { width: 95, align: "right" })
+      .text(formatCurrency(balanceExec), totalsValueX, totY + 2, { width: totalsValueW, align: "right" });
+    if (totals.depositReference || totals.depositPaidDate) {
+      totY += 22;
+      const bits: string[] = [];
+      if (totals.depositPaidDate) {
+        bits.push(`Received ${new Date(totals.depositPaidDate).toLocaleDateString("en-ZA")}`);
+      }
+      if (totals.depositReference) bits.push(`Ref: ${totals.depositReference}`);
+      doc
+        .fontSize(7)
+        .fillColor("#555555")
+        .font("Helvetica-Oblique")
+        .text(bits.join(" • "), totalsLabelX - 60, totY, {
+          width: pageWidth - margin - (totalsLabelX - 60),
+          align: "right",
+        });
+    }
+  }
+
+  // Deposit REQUESTED — up-front payment terms shown on the invoice/quotation
+  // PDF so the client knows exactly how much to pay before work begins.
+  const depositRequestedExec = roundCurrency2dp(totals.depositRequested ?? 0);
+  if (depositRequestedExec > 0) {
+    const balanceOnCompletionExec = roundCurrency2dp(
+      totals.balanceOnCompletion !== undefined
+        ? totals.balanceOnCompletion
+        : Math.max(0, displayGrand - depositRequestedExec),
+    );
+    totY += 30;
+    // Highlight bar for Deposit Required. Widen the label region so
+    // "Deposit Required (50%):" fits on a single line without wrapping.
+    const depLabelX = totalsLabelX - 80; // extra room for longer label text
+    const depLabelW = totalsValueX - depLabelX - 5;
+    doc
+      .rect(depLabelX - 5, totY - 3, pageWidth - margin - depLabelX + 10, 22)
+      .fill("#4338CA");
+    const depLabel = totals.depositRequestedPercent && totals.depositRequestedPercent > 0
+      ? `Deposit Required (${totals.depositRequestedPercent.toFixed(0)}%):`
+      : "Deposit Required:";
+    doc
+      .fontSize(10)
+      .fillColor("#ffffff")
+      .font("Helvetica-Bold")
+      .text(depLabel, depLabelX, totY + 4, { width: depLabelW, align: "right" })
+      .text(formatCurrency(depositRequestedExec), totalsValueX, totY + 4, { width: totalsValueW, align: "right" });
+    totY += 26;
+    doc
+      .fontSize(9)
+      .fillColor("#374151")
+      .font("Helvetica")
+      .text("Balance on Completion:", depLabelX, totY, { width: depLabelW, align: "right" })
+      .font("Helvetica-Bold")
+      .text(formatCurrency(balanceOnCompletionExec), totalsValueX, totY, { width: totalsValueW, align: "right" });
+    if (totals.depositDueDate) {
+      totY += 14;
+      doc
+        .fontSize(7)
+        .fillColor("#4338CA")
+        .font("Helvetica-Oblique")
+        .text(
+          `Deposit due by ${new Date(totals.depositDueDate).toLocaleDateString("en-ZA")}`,
+          depLabelX - 20,
+          totY,
+          { width: pageWidth - margin - (depLabelX - 20), align: "right" },
+        );
+    }
+  }
 
   // ===== PAYMENT TERMS (critical section requested by user) =====
   const paymentTermsText = data.paymentTerms || data.document.paymentTerms;
@@ -1029,6 +1143,68 @@ function renderModernTemplate(doc: typeof PDFDocument.prototype, data: FullPDFDa
     .text("TOTAL:", tX, yPos + 3, { width: 70, align: "right" })
     .font("Helvetica-Bold")
     .text(formatCurrency(modernTotal), 460, yPos + 3, { width: 75, align: "right" });
+
+  // Deposit + Balance Due (modern template)
+  const modernDeposit = roundCurrency2dp(totals.depositPaid ?? 0);
+  if (modernDeposit > 0) {
+    const modernBalance = roundCurrency2dp(
+      totals.balanceDue !== undefined ? totals.balanceDue : Math.max(0, modernTotal - modernDeposit),
+    );
+    yPos += 34;
+    doc.fontSize(10).fillColor("#065f46").font("Helvetica-Bold")
+      .text("Deposit Received:", tX, yPos, { width: 70, align: "right" })
+      .text("-" + formatCurrency(modernDeposit), 460, yPos, { width: 75, align: "right" });
+    yPos += 18;
+    doc.rect(380, yPos - 5, 165, 24).fill(modernBalance <= 0.005 ? "#059669" : "#B91C1C");
+    doc.fontSize(11).fillColor("#ffffff").font("Helvetica-Bold")
+      .text(modernBalance <= 0.005 ? "PAID IN FULL:" : "Balance Due:", tX, yPos + 2, { width: 70, align: "right" })
+      .text(formatCurrency(modernBalance), 460, yPos + 2, { width: 75, align: "right" });
+    if (totals.depositReference || totals.depositPaidDate) {
+      yPos += 22;
+      const bits: string[] = [];
+      if (totals.depositPaidDate) bits.push(`Received ${new Date(totals.depositPaidDate).toLocaleDateString("en-ZA")}`);
+      if (totals.depositReference) bits.push(`Ref: ${totals.depositReference}`);
+      doc.fontSize(8).fillColor("#555555").font("Helvetica-Oblique")
+        .text(bits.join(" • "), 300, yPos, { width: 245, align: "right" });
+    }
+  }
+
+  // Deposit REQUESTED — up-front payment terms shown on the invoice/quotation
+  // PDF so the client knows exactly how much to pay before work begins.
+  const modernDepReq = roundCurrency2dp(totals.depositRequested ?? 0);
+  if (modernDepReq > 0) {
+    const modernBalanceOnCompletion = roundCurrency2dp(
+      totals.balanceOnCompletion !== undefined
+        ? totals.balanceOnCompletion
+        : Math.max(0, modernTotal - modernDepReq),
+    );
+    yPos += 34;
+    // Widen the highlight bar so longer labels fit on one line.
+    const modDepBarX = 300;
+    const modDepBarW = 245;
+    const modDepLabelX = modDepBarX + 5;
+    const modDepLabelW = 460 - modDepLabelX - 5;
+    doc.rect(modDepBarX, yPos - 5, modDepBarW, 26).fill("#4338CA");
+    const depReqLabel = totals.depositRequestedPercent && totals.depositRequestedPercent > 0
+      ? `Deposit Required (${totals.depositRequestedPercent.toFixed(0)}%):`
+      : "Deposit Required:";
+    doc.fontSize(10).fillColor("#ffffff").font("Helvetica-Bold")
+      .text(depReqLabel, modDepLabelX, yPos + 4, { width: modDepLabelW, align: "right" })
+      .text(formatCurrency(modernDepReq), 460, yPos + 4, { width: 75, align: "right" });
+    yPos += 26;
+    doc.fontSize(9).fillColor("#374151").font("Helvetica")
+      .text("Balance on Completion:", modDepLabelX, yPos, { width: modDepLabelW, align: "right" })
+      .font("Helvetica-Bold")
+      .text(formatCurrency(modernBalanceOnCompletion), 460, yPos, { width: 75, align: "right" });
+    if (totals.depositDueDate) {
+      yPos += 16;
+      doc.fontSize(8).fillColor("#4338CA").font("Helvetica-Oblique")
+        .text(
+          `Deposit due by ${new Date(totals.depositDueDate).toLocaleDateString("en-ZA")}`,
+          300, yPos, { width: 245, align: "right" },
+        );
+    }
+  }
 
   // ===== PAYMENT DETAILS BOX =====
   if (banking) {

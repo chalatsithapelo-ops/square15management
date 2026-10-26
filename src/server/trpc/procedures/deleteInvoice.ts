@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const deleteInvoice = baseProcedure
   .input(
@@ -48,6 +49,20 @@ export const deleteInvoice = baseProcedure
     // Delete the invoice (cascade handles lineItems)
     await db.invoice.delete({
       where: { id: input.invoiceId },
+    });
+
+    await writeAuditLog(db, {
+      actor: user,
+      action: "DELETE",
+      entityType: "Invoice",
+      entityId: invoice.id,
+      before: {
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customerName,
+        total: invoice.total,
+        status: invoice.status,
+      },
+      description: `Deleted invoice ${invoice.invoiceNumber} (${invoice.customerName})`,
     });
 
     return { success: true };

@@ -3,6 +3,7 @@ import {
   createTRPCRouter,
 } from "~/server/trpc/main";
 import { login } from "~/server/trpc/procedures/login";
+import { getAIUsageSummary, updateAIBudgetControls } from "~/server/trpc/procedures/aiUsageControls";
 import { register } from "~/server/trpc/procedures/register";
 import { getCurrentUser } from "~/server/trpc/procedures/getCurrentUser";
 import { getUserPermissions } from "~/server/trpc/procedures/getUserPermissions";
@@ -30,6 +31,7 @@ import { getOrders } from "~/server/trpc/procedures/getOrders";
 import { updateOrderStatus } from "~/server/trpc/procedures/updateOrderStatus";
 import { saveJobDraft } from "~/server/trpc/procedures/saveJobDraft";
 import { updateCompletedOrderDetails } from "~/server/trpc/procedures/updateCompletedOrderDetails";
+import { getJobCardForEdit, updateJobCard } from "~/server/trpc/procedures/jobCardEditor";
 import { pauseJob } from "~/server/trpc/procedures/pauseJob";
 import { resumeJob } from "~/server/trpc/procedures/resumeJob";
 import { updateOrderDetails } from "~/server/trpc/procedures/updateOrderDetails";
@@ -52,6 +54,11 @@ import { updateQuotationDetails } from "~/server/trpc/procedures/updateQuotation
 import { convertQuotationToInvoice } from "~/server/trpc/procedures/convertQuotationToInvoice";
 import { convertQuotationToOrder } from "~/server/trpc/procedures/convertQuotationToOrder";
 import { convertOrderToInvoice } from "~/server/trpc/procedures/convertOrderToInvoice";
+import { createQuotationFromOrder } from "~/server/trpc/procedures/createQuotationFromOrder";
+import { generateJobCardForQuotation } from "~/server/trpc/procedures/generateJobCardForQuotation";
+import { updateManualJobCard } from "~/server/trpc/procedures/updateManualJobCard";
+import { generateJobCardForInvoice } from "~/server/trpc/procedures/generateJobCardForInvoice";
+import { getEntityAuditLog } from "~/server/trpc/procedures/getEntityAuditLog";
 import {
   getLineItemTemplates,
   createLineItemTemplate,
@@ -72,6 +79,15 @@ import {
   listApprovedQuotationsForTemplate,
 } from "~/server/trpc/procedures/pricingCatalog";
 import {
+  generateQuoteStudio,
+  persistStudioQuote,
+} from "~/server/trpc/procedures/quoteStudio";
+import {
+  refreshMaterialPrice,
+  listMaterialCatalog,
+  listWorkTaskTemplates,
+} from "~/server/trpc/procedures/refreshMaterialPrice";
+import {
   bulkUpdateQuotationStatus,
   bulkDeleteQuotations,
 } from "~/server/trpc/procedures/bulkQuotationActions";
@@ -82,9 +98,12 @@ import { deletePaymentRequest } from "~/server/trpc/procedures/deletePaymentRequ
 import { deleteOrder } from "~/server/trpc/procedures/deleteOrder";
 import { deleteInvoice } from "~/server/trpc/procedures/deleteInvoice";
 import { getInvoices } from "~/server/trpc/procedures/getInvoices";
+import { getQuotationInvoiceReport } from "~/server/trpc/procedures/getQuotationInvoiceReport";
 import { createInvoice } from "~/server/trpc/procedures/createInvoice";
 import { updateInvoiceStatus } from "~/server/trpc/procedures/updateInvoiceStatus";
 import { updateInvoiceDetails } from "~/server/trpc/procedures/updateInvoiceDetails";
+import { adminAttachInvoiceRemittance, adminClearInvoiceRemittance } from "~/server/trpc/procedures/invoiceRemittance";
+import { recordInvoiceDeposit, clearInvoiceDeposit } from "~/server/trpc/procedures/recordInvoiceDeposit";
 import { createCreditNote } from "~/server/trpc/procedures/createCreditNote";
 import { getCreditNotes } from "~/server/trpc/procedures/getCreditNotes";
 import { generateCreditNotePdf } from "~/server/trpc/procedures/generateCreditNotePdf";
@@ -143,6 +162,7 @@ import { searchCustomersForStatement } from "~/server/trpc/procedures/searchCust
 import { sendSignatureRequest } from "~/server/trpc/procedures/sendSignatureRequest";
 import { getOrderForSigning } from "~/server/trpc/procedures/getOrderForSigning";
 import { submitRemoteSignature } from "~/server/trpc/procedures/submitRemoteSignature";
+import { submitJobCardSignatures } from "~/server/trpc/procedures/submitJobCardSignatures";
 import { getAssets } from "~/server/trpc/procedures/getAssets";
 import { createAsset } from "~/server/trpc/procedures/createAsset";
 import { updateAsset } from "~/server/trpc/procedures/updateAsset";
@@ -156,6 +176,64 @@ import { createAlternativeRevenue } from "~/server/trpc/procedures/createAlterna
 import { updateAlternativeRevenue } from "~/server/trpc/procedures/updateAlternativeRevenue";
 import { approveAlternativeRevenue } from "~/server/trpc/procedures/approveAlternativeRevenue";
 import { getPaymentRequests } from "~/server/trpc/procedures/getPaymentRequests";
+import { getPendingOnboarding, onboardHiredCandidate } from "~/server/trpc/procedures/hrOnboarding";
+import { getPotentialAssessors } from "~/server/trpc/procedures/getPotentialAssessors";
+import { bookInterviewWithAssessors } from "~/server/trpc/procedures/bookInterviewWithAssessors";
+import { getMyUpcomingInterviews } from "~/server/trpc/procedures/getMyUpcomingInterviews";
+import {
+  getFinanceAutomationStatus,
+  listDebtorReminderHistory,
+  listVatReconciliationRuns,
+  runVatReconciliationNow,
+  listArtisanPaymentStatements,
+} from "~/server/trpc/procedures/financeAutomation";
+import {
+  getFinanceHealthSummary,
+  listFlaggedFinanceItems,
+  listFinanceAuditFixHistory,
+  dismissFlag,
+} from "~/server/trpc/procedures/financeHealth";
+
+import {
+  listClientWorkOrders,
+  getClientWorkOrder,
+  updateClientWorkOrderLocal,
+  pushClientWorkOrderStatus,
+  linkOrderToClientWorkOrder,
+  linkInvoiceToClientWorkOrder,
+  pushInvoiceToMyBuildings,
+  pushAttachmentToMyBuildings,
+  generatePublicInvoiceUrl,
+  testMyBuildingsConnection,
+  syncMyBuildingsNow,
+  listMyBuildingsSyncLog,
+  getMyBuildingsIntegrationStatus,
+  listSiteMappings,
+  upsertSiteMapping,
+  deleteSiteMapping,
+  listUnmappedSites,
+  getMyBuildingsCashflowForecast,
+} from "~/server/trpc/procedures/clientWorkOrders";
+
+import {
+  createScreeningQuestion,
+  updateScreeningQuestion,
+  deleteScreeningQuestion,
+  listScreeningQuestionsForJob,
+  getPublicScreeningQuestions,
+} from "~/server/trpc/procedures/screeningQuestions";
+import { softDeleteEmployee } from "~/server/trpc/procedures/softDeleteEmployee";
+import { getEmployeeRoleCounts } from "~/server/trpc/procedures/getEmployeeRoleCounts";
+import { getAcceptedOfferForApplication } from "~/server/trpc/procedures/recruitmentOffers";
+import {
+  getFortnightWageReport,
+  generateNedbankWagePaymentCsv,
+  bulkMarkPaymentRequestsPaid,
+  getWageReportRecipients,
+  addWageReportRecipient,
+  removeWageReportRecipient,
+  sendFortnightWageReportEmailNow,
+} from "~/server/trpc/procedures/wageReport";
 import { createPaymentRequest } from "~/server/trpc/procedures/createPaymentRequest";
 import { updatePaymentRequestStatus } from "~/server/trpc/procedures/updatePaymentRequestStatus";
 import { getConversations } from "~/server/trpc/procedures/getConversations";
@@ -210,6 +288,7 @@ import { updateContractorBranding } from "~/server/trpc/procedures/updateContrac
 import { updateContractorCompanyDetails } from "~/server/trpc/procedures/updateContractorCompanyDetails";
 import { generateFinancialReport } from "~/server/trpc/procedures/generateFinancialReport";
 import { getFinancialReports } from "~/server/trpc/procedures/getFinancialReports";
+import { getBankIntegratedPL } from "~/server/trpc/procedures/getBankIntegratedPL";
 import { getFinancialReportById } from "~/server/trpc/procedures/getFinancialReportById";
 import { suggestExpenseCategory } from "~/server/trpc/procedures/suggestExpenseCategory";
 import { updateProjectActualCost } from "~/server/trpc/procedures/updateProjectActualCost";
@@ -368,6 +447,7 @@ import { rateCompletedWork } from "~/server/trpc/procedures/rateCompletedWork";
 // External contractor submission links (email-based)
 import { getExternalSubmissionInfo } from "~/server/trpc/procedures/getExternalSubmissionInfo";
 import { getPresignedUploadUrlForSubmission } from "~/server/trpc/procedures/getPresignedUploadUrlForSubmission";
+import { getPresignedUploadUrlForApplication } from "~/server/trpc/procedures/getPresignedUploadUrlForApplication";
 import { submitExternalRFQQuotation } from "~/server/trpc/procedures/submitExternalRFQQuotation";
 import { acceptExternalOrder } from "~/server/trpc/procedures/acceptExternalOrder";
 import { submitExternalOrderInvoice } from "~/server/trpc/procedures/submitExternalOrderInvoice";
@@ -434,7 +514,7 @@ import { updateStaffTaskStatus } from "~/server/trpc/procedures/updateStaffTaskS
 import { addStaffTaskComment } from "~/server/trpc/procedures/addStaffTaskComment";
 import { updateStaffTaskChecklist } from "~/server/trpc/procedures/updateStaffTaskChecklist";
 import { restoreData } from "~/server/trpc/procedures/restoreData";
-import { getClients, createClient, updateClient, deleteClient, getClient, getClientBuildings, createClientBuilding, updateClientBuilding, deleteClientBuilding } from "~/server/trpc/procedures/clients";
+import { getClients, createClient, updateClient, deleteClient, getClient, getClientBuildings, createClientBuilding, updateClientBuilding, deleteClientBuilding, listPortfolioOwners, reassignClientPortfolio, reassignBuildingPortfolio, bulkReassignClients, setMyPortfolioView, setMyOnLeaveHandover, getPortfolioAuditLog } from "~/server/trpc/procedures/clients";
 
 // Order Email Inbox
 import { getOrderInbox, reviewOrderEmail } from "~/server/trpc/procedures/orderInbox";
@@ -454,6 +534,10 @@ import {
   getBankAccountFeedStatus,
   getBankFeedProviders,
 } from "~/server/trpc/procedures/bankFeedConnector";
+import { runNedbankNightlyNow } from "~/server/trpc/procedures/runNedbankNightlyNow";
+import { getMaintenanceAppBridgeStatus } from "~/server/trpc/procedures/getMaintenanceAppBridgeStatus";
+import { listMaintenanceAppArtisans } from "~/server/trpc/procedures/listMaintenanceAppArtisans";
+import { getNedbankAccountSummary } from "~/server/trpc/procedures/getNedbankAccountSummary";
 import {
   getBankTransactions,
   importCSVStatement,
@@ -463,6 +547,10 @@ import {
   getBankFeedStats,
   getImportBatches,
   updateTransactionReconciliation,
+  getBankReceipts,
+  getInvoiceAllocationCandidates,
+  allocateBankCreditToInvoices,
+  runInvoiceAutoMatch,
 } from "~/server/trpc/procedures/bankTransactions";
 import { getFeatureFlags } from "~/server/trpc/procedures/featureFlags";
 import {
@@ -482,6 +570,7 @@ import {
 // Recruitment 2.0 — modern ATS
 import {
   createJob,
+  confirmFastTrackHire,
   updateJob,
   publishJob,
   closeJob,
@@ -497,12 +586,80 @@ import {
   getApplicationDetail,
   moveApplicationStage,
   rejectApplication,
+  hireApplication,
   assignRecruiter,
   addApplicationNote,
   getRejectionReasons,
   setupRejectionReasons,
   recomputeScore,
+  recruiterSendMessage,
 } from "~/server/trpc/procedures/recruitmentAts";
+import {
+  createWorkSampleTask,
+  updateWorkSampleTask,
+  listWorkSampleTasks,
+  scoreWorkSampleSubmission,
+  candidateGetWorkSampleTasks,
+  candidateStartWorkSample,
+  candidateSubmitWorkSample,
+  upsertInterviewQuestionBank,
+  getInterviewQuestionBank,
+  scoreInterviewQuestion,
+  listInterviewQuestionScores,
+  recomputeRedFlagScore,
+  sendReferenceQuestionnaire,
+  getReferenceQuestionnaireByToken,
+  submitReferenceQuestionnaire,
+} from "~/server/trpc/procedures/recruitmentPhase1";
+import { getInterviewerCalibration } from "~/server/trpc/procedures/recruitmentPhase2";
+import {
+  submitPerformanceCheckIn,
+  listPerformanceCheckIns,
+  listDuePerformanceCheckIns,
+  getSourceChannelReport,
+  createEmploymentVerification,
+  sendEmploymentVerificationEmail,
+  getEmploymentVerificationByToken,
+  submitEmploymentVerification,
+  getCandidateFeedbackReport,
+  getRecruiterSlaReport,
+} from "~/server/trpc/procedures/recruitmentPhase3";
+import {
+  deleteWorkSampleTask,
+  createReferenceCheck,
+  assertHrLineReferenceOnFile,
+  candidateStartSession,
+  candidatePauseSession,
+  candidateResumeSession,
+  candidateFinishSession,
+  candidateCaptureSnapshot,
+  listAssessmentSessions,
+  candidateSnapshotFailure,
+  getSessionSnapshot,
+  getCalibrationCorrelation,
+  triggerRecruiterSlaNudges,
+  getEmailDeliveryHealth,
+} from "~/server/trpc/procedures/recruitmentPackageA";
+import { candidateAssessmentPortal, candidateSaveAssessmentDraft, candidateSubmitPortalAssessment } from "~/server/trpc/procedures/candidateAssessmentPortal";
+import {
+  createHiringOverride,
+  listHiringOverrides,
+  revealBlindCandidate,
+  listBlindReveals,
+  hasActiveBlindReveal,
+  createDeviceTransferCode,
+  claimDeviceTransferCode,
+  listJobsWithWorkSamples,
+  copyWorkSamplesFromJob,
+  listJobsWithInterviewBank,
+  copyInterviewBankFromJob,
+  aiSuggestInterviewQuestions,
+  getApplicationDecisionSnapshot,
+  sendPortalLinkAllChannels,
+  resendReferenceQuestionnaire,
+  sendReferenceLinkWhatsApp,
+  logWebcamConsent,
+} from "~/server/trpc/procedures/recruitmentPhase4";
 import {
   createScorecard,
   getScorecards,
@@ -515,6 +672,13 @@ import {
   cancelInterview,
   completeInterview,
   requestBackgroundCheck,
+  listMyAssignedBackgroundChecks,
+  adminUploadBackgroundCheckDocument,
+  assignBackgroundCheckAssessor,
+  decideBackgroundCheckDocument,
+  getBackgroundCheckDocument,
+  uploadBackgroundCheckDocument,
+  getBackgroundCheckByToken,
   updateBackgroundCheck,
   requestReferenceCheck,
   submitReferenceResponse,
@@ -535,6 +699,13 @@ import {
   candidateWithdraw,
   candidateGetInterviewQuestions,
   candidateSubmitInterviewAnswer,
+  candidateGetAssessmentQuestions,
+  candidateGetAssessmentStatus,
+  candidateSubmitAssessment,
+  candidateListInterviewSlots,
+  candidateBookInterviewSlot,
+  adminTriggerReferenceRequest,
+  adminTriggerReferralReward,
   createTalentPool,
   listTalentPools,
   addToTalentPool,
@@ -553,8 +724,171 @@ import {
   analyticsEEA,
   analyticsRecruiterDashboard,
 } from "~/server/trpc/procedures/recruitmentExtras";
+import {
+  bulkRejectApplications,
+  shortlistTopApplications,
+  compareApplications,
+  resendCandidatePortalLink,
+  submitRejectionFeedback,
+} from "~/server/trpc/procedures/recruitmentActions";
+
+// PR-2 — Money on the Floor
+import {
+  getUnbilledWork,
+  exportUnbilledWorkExcel,
+  sendUnbilledWorkDigest,
+} from "~/server/trpc/procedures/unbilledWork";
+
+// PR-3 — Artisan Start-a-Job + SSRA
+import {
+  artisanGetStartJobContext,
+  artisanCreateOrder,
+  artisanGetSsraTemplate,
+  artisanSubmitSsra,
+  artisanGenerateSsraForOrder,
+  adminListSelfInitiated,
+  adminApproveSelfInitiated,
+  adminRejectSelfInitiated,
+  adminAttachClientOrderNumber,
+} from "~/server/trpc/procedures/artisanJobs";
+
+// PR-6 — Multi-artisan crew (lead + crew, join codes, per-person labour)
+import {
+  artisanGetCrew,
+  artisanJoinByCode,
+  artisanLeaveOrder,
+  artisanAckSsra,
+  artisanRegenerateJoinCode,
+  artisanGetMyCrewOrders,
+  adminGetOrderCrewPresence,
+} from "~/server/trpc/procedures/orderCrew";
+
+// PR-7 — TM commission + financial reconciliation
+import {
+  adminListCommissionRules,
+  adminUpsertCommissionRule,
+  adminDeactivateCommissionRule,
+  adminDeleteCommissionRule,
+} from "~/server/trpc/procedures/commissionRules";
+import { adminListTechnicalManagers, adminSetUserDefaultTechnicalManager, getActiveTechnicalManagers, adminListUserTmDefaults } from "~/server/trpc/procedures/technicalManagers";
+import {
+  adminSetOrderSalesAgent,
+  adminToggleOrderCommissionExclusion,
+  adminSetOrderTechnicalManager,
+  adminSetOrderQuotedAmount,
+  adminSetOrderTmTime,
+  adminSetOrderSalesAgentTime,
+  adminAddOrderAdjustment,
+  adminListOrderAdjustments,
+  adminDeleteOrderAdjustment,
+  adminGetOrderFinancialsSummary,
+  // PR-8 F — admin Site Lead + Ops Manager knobs
+  adminSetOrderSiteLead,
+  adminSetOrderOpsManager,
+} from "~/server/trpc/procedures/orderFinancials";
+import {
+  adminListExpenseSlipsForReview,
+  adminApproveExpenseSlip,
+  adminDisputeExpenseSlip,
+  adminRejectExpenseSlip,
+  adminLinkExpenseSlipToBankTransaction,
+} from "~/server/trpc/procedures/expenseSlipReview";
+import {
+  artisanAddExpenseSlip,
+  artisanListMyExpenseSlips,
+  artisanDeleteMyExpenseSlip,
+} from "~/server/trpc/procedures/artisanExpenseSubmit";
+import {
+  adminListTmCandidates,
+  adminTmStatementPreview,
+  adminTmStatementRowDetail,
+  adminTmStatementList,
+  adminTmStatementGenerateAndLock,
+  adminTmStatementUnlock,
+  adminTmStatementExportXlsx,
+} from "~/server/trpc/procedures/tmStatement";
+// PR-8 — Historical Technical Manager backfill
+import {
+  adminTmBackfillDryRun,
+  adminTmBackfillApply,
+  adminResolveUnassignedTm,
+} from "~/server/trpc/procedures/tmBackfill";
+
+// PR-8 E — Sales Agent defaults management
+import {
+  adminListSalesAgents,
+  adminListClientSalesAgentDefaults,
+  adminListBuildingSalesAgentDefaults,
+  adminSetClientDefaultSalesAgent,
+  adminSetBuildingDefaultSalesAgent,
+} from "~/server/trpc/procedures/salesAgents";
+
+// PR-8 F — Site Lead + Ops Manager defaults management
+import {
+  adminListSiteLeads,
+  adminListUserSiteLeadDefaults,
+  adminSetUserDefaultSiteLead,
+  adminListClientSiteLeadDefaults,
+  adminSetClientDefaultSiteLead,
+  adminListBuildingSiteLeadDefaults,
+  adminSetBuildingDefaultSiteLead,
+  adminListOpsManagers,
+  adminListUserOpsManagerDefaults,
+  adminSetUserDefaultOpsManager,
+  adminListClientOpsManagerDefaults,
+  adminSetClientDefaultOpsManager,
+  adminListBuildingOpsManagerDefaults,
+  adminSetBuildingDefaultOpsManager,
+  getActiveSiteLeads,
+  getActiveOpsManagers,
+} from "~/server/trpc/procedures/crewRoles";
+
+// PR-8 F — SA / SL / OM monthly statements
+import {
+  adminRoleStatementListCandidates,
+  adminRoleStatementPreview,
+  // PR-8 G — list / lock / unlock / xlsx export
+  adminRoleStatementList,
+  adminRoleStatementGenerateAndLock,
+  adminRoleStatementUnlock,
+  adminRoleStatementExportXlsx,
+} from "~/server/trpc/procedures/crewRoleStatement";
+
+// PR-4 — PM Contractor Compliance Hub
+import {
+  getPmComplianceOverview,
+  getContractorCompliance,
+  listComplianceRequirements,
+  upsertComplianceRequirement,
+  deleteComplianceRequirement,
+  seedSaDefaultRequirements,
+  recomputeContractorScore,
+  overrideContractorAutoBlock,
+  clearContractorAutoBlockOverride,
+  uploadContractorDocumentAsPm,
+} from "~/server/trpc/procedures/pmCompliance";
+
+// PR-5 — Tenant Inspection Report
+import {
+  getInspectionTemplates,
+  createInspectionTemplate,
+  deleteInspectionTemplate,
+  createTenantInspection,
+  getInspections,
+  getInspectionDetail,
+  updateInspectionItem,
+  updateInspectionRoom,
+  updateInspectionMeta,
+  finalizeInspection,
+  getInspectionByToken,
+  submitTenantSignature,
+  compareInspections,
+  generateInspectionPdf,
+} from "~/server/trpc/procedures/tenantInspections";
 
 export const appRouter = createTRPCRouter({
+  getAIUsageSummary,
+  updateAIBudgetControls,
   // Auth
   login,
   register,
@@ -585,6 +919,15 @@ export const appRouter = createTRPCRouter({
   updateClientBuilding,
   deleteClientBuilding,
 
+  // Portfolio ownership (PR-9)
+  listPortfolioOwners,
+  reassignClientPortfolio,
+  reassignBuildingPortfolio,
+  bulkReassignClients,
+  setMyPortfolioView,
+  setMyOnLeaveHandover,
+  getPortfolioAuditLog,
+
   // CRM - Leads
   createLead,
   getLeads,
@@ -610,6 +953,8 @@ export const appRouter = createTRPCRouter({
   updateOrderStatus,
   saveJobDraft,
   updateCompletedOrderDetails,
+  getJobCardForEdit,
+  updateJobCard,
   pauseJob,
   resumeJob,
   updateOrderDetails,
@@ -675,6 +1020,11 @@ export const appRouter = createTRPCRouter({
   convertQuotationToInvoice,
   convertQuotationToOrder,
   convertOrderToInvoice,
+  createQuotationFromOrder,
+  generateJobCardForQuotation,
+  updateManualJobCard,
+  generateJobCardForInvoice,
+  getEntityAuditLog,
   getLineItemTemplates,
   createLineItemTemplate,
   updateLineItemTemplate,
@@ -690,6 +1040,11 @@ export const appRouter = createTRPCRouter({
   computeQuoteDeviationReport,
   generateScopeFromBrief,
   listApprovedQuotationsForTemplate,
+  generateQuoteStudio,
+  persistStudioQuote,
+  refreshMaterialPrice,
+  listMaterialCatalog,
+  listWorkTaskTemplates,
   bulkUpdateQuotationStatus,
   bulkDeleteQuotations,
   getPipeline,
@@ -701,9 +1056,14 @@ export const appRouter = createTRPCRouter({
   
   // Invoices
   getInvoices,
+  getQuotationInvoiceReport,
   createInvoice,
   updateInvoiceStatus,
   updateInvoiceDetails,
+  adminAttachInvoiceRemittance,
+  adminClearInvoiceRemittance,
+  recordInvoiceDeposit,
+  clearInvoiceDeposit,
   createCreditNote,
   getCreditNotes,
   generateCreditNotePdf,
@@ -758,6 +1118,7 @@ export const appRouter = createTRPCRouter({
   sendSignatureRequest,
   getOrderForSigning,
   submitRemoteSignature,
+  submitJobCardSignatures,
 
   // Assets
   getAssets,
@@ -777,6 +1138,53 @@ export const appRouter = createTRPCRouter({
   
   // Payment Requests
   getPaymentRequests,
+  getPendingOnboarding,
+  getPotentialAssessors,
+  bookInterviewWithAssessors,
+  getMyUpcomingInterviews,
+  getFinanceAutomationStatus,
+  listDebtorReminderHistory,
+  listVatReconciliationRuns,
+  runVatReconciliationNow,
+  listArtisanPaymentStatements,
+  getFinanceHealthSummary,
+  listFlaggedFinanceItems,
+  listFinanceAuditFixHistory,
+  dismissFlag,
+  listClientWorkOrders,
+  getClientWorkOrder,
+  updateClientWorkOrderLocal,
+  pushClientWorkOrderStatus,
+  linkOrderToClientWorkOrder,
+  linkInvoiceToClientWorkOrder,
+  pushInvoiceToMyBuildings,
+  pushAttachmentToMyBuildings,
+  generatePublicInvoiceUrl,
+  testMyBuildingsConnection,
+  syncMyBuildingsNow,
+  listMyBuildingsSyncLog,
+  getMyBuildingsIntegrationStatus,
+  listSiteMappings,
+  upsertSiteMapping,
+  deleteSiteMapping,
+  listUnmappedSites,
+  getMyBuildingsCashflowForecast,
+  getPublicScreeningQuestions,
+  listScreeningQuestionsForJob,
+  deleteScreeningQuestion,
+  updateScreeningQuestion,
+  createScreeningQuestion,
+  softDeleteEmployee,
+  getEmployeeRoleCounts,
+  getAcceptedOfferForApplication,
+  onboardHiredCandidate,
+  getFortnightWageReport,
+  generateNedbankWagePaymentCsv,
+  bulkMarkPaymentRequestsPaid,
+  getWageReportRecipients,
+  addWageReportRecipient,
+  removeWageReportRecipient,
+  sendFortnightWageReportEmailNow,
   createPaymentRequest,
   updatePaymentRequestStatus,
   
@@ -935,6 +1343,7 @@ export const appRouter = createTRPCRouter({
   // Financial Reports (Management Accounts)
   generateFinancialReport,
   getFinancialReports,
+  getBankIntegratedPL,
   getFinancialReportById,
   
   // AI-powered features
@@ -959,6 +1368,7 @@ export const appRouter = createTRPCRouter({
   getPresignedUploadUrl,
   getPresignedDownloadUrl,
   getPresignedUploadUrlForSubmission,
+  getPresignedUploadUrlForApplication,
   uploadCompanyLogo,
   deleteCompanyLogo,
   getCompanyLogoUrl,
@@ -1083,6 +1493,10 @@ export const appRouter = createTRPCRouter({
   backfillBankAccountFeed,
   getBankAccountFeedStatus,
   getBankFeedProviders,
+  runNedbankNightlyNow,
+  getNedbankAccountSummary,
+  getMaintenanceAppBridgeStatus,
+  listMaintenanceAppArtisans,
   getBankTransactions,
   importCSVStatement,
   recategorizeBankTransaction,
@@ -1091,6 +1505,10 @@ export const appRouter = createTRPCRouter({
   getBankFeedStats,
   getImportBatches,
   updateTransactionReconciliation,
+  getBankReceipts,
+  getInvoiceAllocationCandidates,
+  allocateBankCreditToInvoices,
+  runInvoiceAutoMatch,
   getFeatureFlags,
   getCashbookSummary,
   getReconciliationGaps,
@@ -1107,6 +1525,7 @@ export const appRouter = createTRPCRouter({
 
   // Recruitment 2.0 — ATS (Jobs, Applications, Pipelines)
   createJob,
+  confirmFastTrackHire,
   updateJob,
   publishJob,
   closeJob,
@@ -1122,11 +1541,81 @@ export const appRouter = createTRPCRouter({
   getApplicationDetail,
   moveApplicationStage,
   rejectApplication,
+  hireApplication,
   assignRecruiter,
   addApplicationNote,
   getRejectionReasons,
   setupRejectionReasons,
   recomputeScore,
+  recruiterSendMessage,
+
+  // Recruitment Phase 1 — anti-fabrication
+  createWorkSampleTask,
+  updateWorkSampleTask,
+  listWorkSampleTasks,
+  scoreWorkSampleSubmission,
+  candidateGetWorkSampleTasks,
+  candidateStartWorkSample,
+  candidateSubmitWorkSample,
+  upsertInterviewQuestionBank,
+  getInterviewQuestionBank,
+  scoreInterviewQuestion,
+  listInterviewQuestionScores,
+  recomputeRedFlagScore,
+  sendReferenceQuestionnaire,
+  getReferenceQuestionnaireByToken,
+  submitReferenceQuestionnaire,
+  getInterviewerCalibration,
+
+  // Phase 3 continuous improvement
+  submitPerformanceCheckIn,
+  listPerformanceCheckIns,
+  listDuePerformanceCheckIns,
+  getSourceChannelReport,
+  createEmploymentVerification,
+  sendEmploymentVerificationEmail,
+  getEmploymentVerificationByToken,
+  submitEmploymentVerification,
+  getCandidateFeedbackReport,
+  getRecruiterSlaReport,
+
+  // Package A completion (100% rollout)
+  deleteWorkSampleTask,
+  createReferenceCheck,
+  assertHrLineReferenceOnFile,
+  candidateStartSession,
+  candidatePauseSession,
+  candidateResumeSession,
+  candidateFinishSession,
+  candidateCaptureSnapshot,
+  candidateAssessmentPortal,
+  candidateSaveAssessmentDraft,
+  candidateSubmitPortalAssessment,
+  candidateSnapshotFailure,
+  listAssessmentSessions,
+  getSessionSnapshot,
+  getCalibrationCorrelation,
+  triggerRecruiterSlaNudges,
+  getEmailDeliveryHealth,
+
+  // Phase 4 · HR frustration remediation
+  createHiringOverride,
+  listHiringOverrides,
+  revealBlindCandidate,
+  listBlindReveals,
+  hasActiveBlindReveal,
+  createDeviceTransferCode,
+  claimDeviceTransferCode,
+  listJobsWithWorkSamples,
+  copyWorkSamplesFromJob,
+  listJobsWithInterviewBank,
+  copyInterviewBankFromJob,
+  aiSuggestInterviewQuestions,
+  getApplicationDecisionSnapshot,
+  sendPortalLinkAllChannels,
+  resendReferenceQuestionnaire,
+  sendReferenceLinkWhatsApp,
+  logWebcamConsent,
 
   // Recruitment 2.0 — Evaluation (Scorecards, Interviews, Checks)
   createScorecard,
@@ -1140,6 +1629,13 @@ export const appRouter = createTRPCRouter({
   cancelInterview,
   completeInterview,
   requestBackgroundCheck,
+  listMyAssignedBackgroundChecks,
+  adminUploadBackgroundCheckDocument,
+  assignBackgroundCheckAssessor,
+  getBackgroundCheckByToken,
+  uploadBackgroundCheckDocument,
+  getBackgroundCheckDocument,
+  decideBackgroundCheckDocument,
   updateBackgroundCheck,
   requestReferenceCheck,
   submitReferenceResponse,
@@ -1160,6 +1656,13 @@ export const appRouter = createTRPCRouter({
   candidateWithdraw,
   candidateGetInterviewQuestions,
   candidateSubmitInterviewAnswer,
+  candidateGetAssessmentQuestions,
+  candidateGetAssessmentStatus,
+  candidateSubmitAssessment,
+  candidateListInterviewSlots,
+  candidateBookInterviewSlot,
+  adminTriggerReferenceRequest,
+  adminTriggerReferralReward,
   createTalentPool,
   listTalentPools,
   addToTalentPool,
@@ -1177,6 +1680,142 @@ export const appRouter = createTRPCRouter({
   analyticsAdverseImpact,
   analyticsEEA,
   analyticsRecruiterDashboard,
+
+  // Recruitment 2.0 — Bulk actions, shortlist, compare, portal link, feedback
+  bulkRejectApplications,
+  shortlistTopApplications,
+  compareApplications,
+  resendCandidatePortalLink,
+  submitRejectionFeedback,
+
+  // Money on the Floor (PR-2)
+  getUnbilledWork,
+  exportUnbilledWorkExcel,
+  sendUnbilledWorkDigest,
+
+  // Artisan Start-a-Job / SSRA (PR-3)
+  artisanGetStartJobContext,
+  artisanCreateOrder,
+  artisanGetSsraTemplate,
+  artisanSubmitSsra,
+  artisanGenerateSsraForOrder,
+  adminListSelfInitiated,
+  adminApproveSelfInitiated,
+  adminRejectSelfInitiated,
+  adminAttachClientOrderNumber,
+
+  // Multi-artisan crew (PR-6)
+  artisanGetCrew,
+  artisanJoinByCode,
+  artisanLeaveOrder,
+  artisanAckSsra,
+  artisanRegenerateJoinCode,
+  artisanGetMyCrewOrders,
+  adminGetOrderCrewPresence,
+
+  // PR-7 — TM commission + financial reconciliation
+  adminListCommissionRules,
+  adminUpsertCommissionRule,
+  adminDeactivateCommissionRule,
+  adminDeleteCommissionRule,
+  adminListTechnicalManagers,
+  adminSetUserDefaultTechnicalManager,
+  getActiveTechnicalManagers,
+  adminListUserTmDefaults,
+  adminSetOrderSalesAgent,
+  adminToggleOrderCommissionExclusion,
+  adminSetOrderTechnicalManager,
+  adminSetOrderQuotedAmount,
+  adminSetOrderTmTime,
+  adminSetOrderSalesAgentTime,
+  adminAddOrderAdjustment,
+  adminListOrderAdjustments,
+  adminDeleteOrderAdjustment,
+  adminGetOrderFinancialsSummary,
+  // PR-8 F — admin Site Lead + Ops Manager knobs
+  adminSetOrderSiteLead,
+  adminSetOrderOpsManager,
+  adminListExpenseSlipsForReview,
+  adminApproveExpenseSlip,
+  adminDisputeExpenseSlip,
+  adminRejectExpenseSlip,
+  adminLinkExpenseSlipToBankTransaction,
+  artisanAddExpenseSlip,
+  artisanListMyExpenseSlips,
+  artisanDeleteMyExpenseSlip,
+  adminListTmCandidates,
+  adminTmStatementPreview,
+  adminTmStatementRowDetail,
+  adminTmStatementList,
+  adminTmStatementGenerateAndLock,
+  adminTmStatementUnlock,
+  adminTmStatementExportXlsx,
+  // PR-8 — historical TM backfill
+  adminTmBackfillDryRun,
+  adminTmBackfillApply,
+  adminResolveUnassignedTm,
+
+  // PR-8 E — Sales Agent defaults management
+  adminListSalesAgents,
+  adminListClientSalesAgentDefaults,
+  adminListBuildingSalesAgentDefaults,
+  adminSetClientDefaultSalesAgent,
+  adminSetBuildingDefaultSalesAgent,
+
+  // PR-8 F — Site Lead + Ops Manager defaults management
+  adminListSiteLeads,
+  adminListUserSiteLeadDefaults,
+  adminSetUserDefaultSiteLead,
+  adminListClientSiteLeadDefaults,
+  adminSetClientDefaultSiteLead,
+  adminListBuildingSiteLeadDefaults,
+  adminSetBuildingDefaultSiteLead,
+  adminListOpsManagers,
+  adminListUserOpsManagerDefaults,
+  adminSetUserDefaultOpsManager,
+  adminListClientOpsManagerDefaults,
+  adminSetClientDefaultOpsManager,
+  adminListBuildingOpsManagerDefaults,
+  adminSetBuildingDefaultOpsManager,
+  getActiveSiteLeads,
+  getActiveOpsManagers,
+
+  // PR-8 F — SA / SL / OM monthly statements
+  adminRoleStatementListCandidates,
+  adminRoleStatementPreview,
+  // PR-8 G — list / lock / unlock / xlsx export
+  adminRoleStatementList,
+  adminRoleStatementGenerateAndLock,
+  adminRoleStatementUnlock,
+  adminRoleStatementExportXlsx,
+
+  // PM Compliance Hub (PR-4)
+  getPmComplianceOverview,
+  getContractorCompliance,
+  listComplianceRequirements,
+  upsertComplianceRequirement,
+  deleteComplianceRequirement,
+  seedSaDefaultRequirements,
+  recomputeContractorScore,
+  overrideContractorAutoBlock,
+  clearContractorAutoBlockOverride,
+  uploadContractorDocumentAsPm,
+
+  // Tenant Inspection (PR-5)
+  getInspectionTemplates,
+  createInspectionTemplate,
+  deleteInspectionTemplate,
+  createTenantInspection,
+  getInspections,
+  getInspectionDetail,
+  updateInspectionItem,
+  updateInspectionRoom,
+  updateInspectionMeta,
+  finalizeInspection,
+  getInspectionByToken,
+  submitTenantSignature,
+  compareInspections,
+  generateInspectionPdf,
 });
 
 export type AppRouter = typeof appRouter;

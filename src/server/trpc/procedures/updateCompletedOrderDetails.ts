@@ -5,6 +5,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { SlipCategory } from "@prisma/client";
+import { userIsLeadOfOrder } from "~/server/utils/orderAccess";
 
 export const updateCompletedOrderDetails = baseProcedure
   .input(
@@ -18,7 +19,8 @@ export const updateCompletedOrderDetails = baseProcedure
       clientUnavailableToSign: z.boolean().optional(),
       materialCost: z.number().optional(),
       expenseSlips: z.array(z.object({
-        url: z.string(),
+        // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+        url: z.string().optional(),
         category: z.nativeEnum(SlipCategory),
         description: z.string().optional(),
         amount: z.number().optional(),
@@ -59,11 +61,13 @@ export const updateCompletedOrderDetails = baseProcedure
         });
       }
 
-      // Verify the user is the assigned artisan
-      if (order.assignedToId !== parsed.userId) {
+      // PR-6: only the LEAD (or legacy assignedTo) can edit a completed job's details.
+      const isLegacyAssigned = order.assignedToId === parsed.userId;
+      const isLead = !isLegacyAssigned && (await userIsLeadOfOrder(order.id, parsed.userId));
+      if (!isLegacyAssigned && !isLead) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You can only update your own completed jobs",
+          message: "Only the job lead can edit completed job details",
         });
       }
 
@@ -114,7 +118,7 @@ export const updateCompletedOrderDetails = baseProcedure
           await db.expenseSlip.createMany({
             data: input.expenseSlips.map((slip) => ({
               orderId: input.orderId,
-              url: slip.url,
+              url: slip.url ?? null,
               category: slip.category,
               description: slip.description,
               amount: slip.amount,

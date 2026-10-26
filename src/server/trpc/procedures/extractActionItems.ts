@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const extractActionItems = baseProcedure
@@ -22,7 +22,7 @@ export const extractActionItems = baseProcedure
 
     try {
       // Set up AI model
-      const model = google("gemini-2.0-flash-exp");
+      const model = google("gemini-3.6-flash");
 
       // Build context information
       let contextInfo = "";
@@ -40,6 +40,8 @@ export const extractActionItems = baseProcedure
 
       // Extract action items
       const { object } = await generateObject({
+        aiFeature: "extractActionItems",
+        aiUserId: user.id,
         model,
         output: "array",
         schema: z.object({

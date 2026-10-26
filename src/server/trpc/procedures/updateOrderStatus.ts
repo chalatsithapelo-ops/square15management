@@ -13,6 +13,9 @@ import { fetchImageAsBuffer } from "~/server/utils/pdf-images";
 import { authenticateUser } from "~/server/utils/auth";
 import { notifyAdmins, notifyCustomerOrderStatus, createNotification } from "~/server/utils/notifications";
 import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
+import { userIsLeadOfOrder, userIsOnOrderCrew, computeLabourBreakdown } from "~/server/utils/orderAccess";
+import { writeAuditLog } from "~/server/utils/auditLog";
+import { logTmAssignment, ensureTmAssignmentAllowed, type TmAssignmentSource } from "~/server/utils/tmAssignmentLog";
 
 export const updateOrderStatus = baseProcedure
   .input(
@@ -26,7 +29,8 @@ export const updateOrderStatus = baseProcedure
       beforePictures: z.array(z.string()).optional(),
       afterPictures: z.array(z.string()).optional(),
       expenseSlips: z.array(z.object({
-        url: z.string(),
+        // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+        url: z.string().optional(),
         category: z.nativeEnum(SlipCategory),
         description: z.string().optional(),
         amount: z.number().optional(),
@@ -40,6 +44,12 @@ export const updateOrderStatus = baseProcedure
       daysWorked: z.number().optional(),
       hourlyRate: z.number().optional(),
       dailyRate: z.number().optional(),
+      // PR-8 — TM the artisan is reporting under. Only consumed when this call
+      // transitions the order to IN_PROGRESS. If the order already has an
+      // explicit `technicalManagerId` (set by admin, quote conversion, etc.)
+      // this value is IGNORED so users can never silently overwrite an
+      // authoritative choice from the field.
+      technicalManagerId: z.number().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -135,7 +145,7 @@ export const updateOrderStatus = baseProcedure
         if (!input.expenseSlips || input.expenseSlips.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "At least one expense slip is required to complete the job",
+            message: "At least one expense entry is required to complete the job (a slip file OR a slip-less entry such as travel)",
           });
         }
         updateData.endTime = new Date();
@@ -185,7 +195,7 @@ export const updateOrderStatus = baseProcedure
           await db.propertyManagerOrderExpenseSlip.createMany({
             data: input.expenseSlips.map((slip) => ({
               orderId: input.orderId,
-              url: slip.url,
+              url: slip.url ?? null,
               category: slip.category,
               description: slip.description,
               amount: slip.amount,
@@ -250,7 +260,7 @@ export const updateOrderStatus = baseProcedure
           await db.expenseSlip.createMany({
             data: input.expenseSlips.map((slip) => ({
               orderId: input.orderId,
-              url: slip.url,
+              url: slip.url ?? null,
               category: slip.category,
               description: slip.description,
               amount: slip.amount,
@@ -442,15 +452,95 @@ export const updateOrderStatus = baseProcedure
           });
         }
         
-        // Authorization check: verify user is assigned to this regular order
-        if (order.assignedToId !== user.id) {
-          console.log('ERROR: User not authorized for order. order.assignedToId:', order.assignedToId, 'user.id:', user.id);
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "You are not assigned to this order",
-          });
+        // Authorization check (PR-6): admins always pass; for non-COMPLETED any
+        // active crew member or the legacy assigned artisan may act; COMPLETED
+        // is gated to the LEAD only so admin sees one clean finalisation.
+        const isAdminTier = ["ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "MANAGER", "TECHNICAL_MANAGER"].includes(user.role);
+        if (!isAdminTier) {
+          const isLegacyAssigned = order.assignedToId === user.id;
+          if (input.status === "COMPLETED") {
+            const isLead = await userIsLeadOfOrder(order.id, user.id);
+            if (!isLead && !isLegacyAssigned) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "Only the job lead can mark the job as completed",
+              });
+            }
+          } else {
+            const onCrew = await userIsOnOrderCrew(order.id, user.id);
+            if (!onCrew && !isLegacyAssigned) {
+              console.log('ERROR: User not authorized for order. order.assignedToId:', order.assignedToId, 'user.id:', user.id);
+              throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "You are not on this job's crew",
+              });
+            }
+          }
         }
         console.log('Authorization passed for regular order:', order.orderNumber);
+
+        // PR-8 — If we're transitioning to IN_PROGRESS and the order has no
+        // Technical Manager yet, the caller MUST supply one (or already have
+        // been set by admin via a different flow). Prevents the null-TM →
+        // wrong-statement bug from ever happening again for artisan-started
+        // work. Admin roles are allowed to start without picking one for
+        // legacy/emergency situations — the "Unassigned TM" cleanup screen
+        // will surface those.
+        if (input.status === "IN_PROGRESS" && !order.technicalManagerId) {
+          const isArtisanRole = user.role === "ARTISAN" || user.role === "CONTRACTOR";
+          if (input.technicalManagerId) {
+            const activeTm = await db.commissionRule.findFirst({
+              where: {
+                userId: input.technicalManagerId,
+                role: "TM",
+                effectiveFrom: { lte: new Date() },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
+              },
+              select: { id: true },
+            });
+            if (!activeTm) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Selected Technical Manager is not active — refresh the list and choose again.",
+              });
+            }
+            // PR-8 D — strict month-lock: block if either the order's month or
+            // the incoming TM's statement for that month is already locked.
+            await ensureTmAssignmentAllowed(db, order.id, input.technicalManagerId);
+            updateData.technicalManagerId = input.technicalManagerId;
+            // PR-8 — record who set the TM and via which flow.
+            const tmLogSource: TmAssignmentSource = isArtisanRole ? "ARTISAN_PICKED" : "ADMIN_OVERRIDE";
+            await logTmAssignment(db, {
+              orderId: order.id,
+              fromTmId: null,
+              toTmId: input.technicalManagerId,
+              source: tmLogSource,
+              actorId: user.id,
+              reason: `Set on IN_PROGRESS transition for order ${order.orderNumber}`,
+            });
+          } else if (isArtisanRole) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Pick your Technical Manager before starting the job.",
+              cause: { code: "TM_REQUIRED" } as any,
+            });
+          }
+          // Admin without a pick + null TM → allowed; row will show up in the
+          // "Unassigned TM" admin cleanup screen for later triage.
+        }
+
+        // PR-6 - on completion, snapshot per-artisan labour breakdown into the order
+        if (input.status === "COMPLETED") {
+          try {
+            const { rows, grandTotal } = await computeLabourBreakdown(order.id);
+            updateData.labourBreakdown = rows as any;
+            if (input.labourCost === undefined && grandTotal > 0) {
+              updateData.labourCost = grandTotal;
+            }
+          } catch (e) {
+            console.error('[updateOrderStatus] computeLabourBreakdown failed:', e);
+          }
+        }
       }
 
       // Update the appropriate order type
@@ -499,10 +589,46 @@ export const updateOrderStatus = baseProcedure
         });
       } else if (order) {
         // Calculate total cost for regular orders
-        updateData.totalCost =
-          (input.materialCost ?? order.materialCost) +
-          (input.labourCost ?? order.labourCost) +
-          order.callOutFee;
+        const effectiveMaterialCost = input.materialCost ?? order.materialCost;
+        const effectiveLabourCost = input.labourCost ?? order.labourCost;
+        const effectiveCallOutFee = order.callOutFee;
+        const effectiveTotalCost = effectiveMaterialCost + effectiveLabourCost + effectiveCallOutFee;
+
+        // Guardrail: block job completion when Cost to Company is zero.
+        // A completed job with R0 cost to company is almost always a data-entry
+        // mistake (missing expense slips or unrecorded labour). This prevents
+        // the auto-invoice generation below from firing on a zero-cost order,
+        // which in turn was causing invoices to be rejected downstream.
+        if (input.status === "COMPLETED" && effectiveTotalCost <= 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              `Cannot complete ${order.orderNumber}: Cost to Company is R 0.00 ` +
+              `(materials R${effectiveMaterialCost.toFixed(2)}, labour R${effectiveLabourCost.toFixed(2)}, call-out R${effectiveCallOutFee.toFixed(2)}). ` +
+              `Please record the actual materials cost, labour cost, and/or call-out fee before signing off the job card.`,
+          });
+        }
+
+        updateData.totalCost = effectiveTotalCost;
+
+        // ── No bottleneck for self-initiated jobs ──────────────────────
+        // When the artisan finishes a self-initiated job (status → COMPLETED),
+        // auto-clear the PENDING_ADMIN_REVIEW blocker and stamp adminReviewedAt
+        // so the job flows straight to Ready for Invoicing without waiting for
+        // a separate admin approval step. The audit trail records that the
+        // completion itself was the review.
+        if (input.status === "COMPLETED" && order.selfInitiated) {
+          const existingBlockers = Array.isArray(order.invoicingBlockers)
+            ? (order.invoicingBlockers as any[]).filter(
+                (b) => b?.type !== "PENDING_ADMIN_REVIEW"
+              )
+            : [];
+          updateData.invoicingBlockers = existingBlockers;
+          if (!order.adminReviewedAt) {
+            updateData.adminReviewedAt = new Date();
+            updateData.adminReviewedById = user.id;
+          }
+        }
 
         // Update regular Order
         updatedOrder = await db.order.update({
@@ -1231,6 +1357,19 @@ export const updateOrderStatus = baseProcedure
           console.error("[updateOrderStatus] Completion report task crashed:", unhandledError);
         });
       }
+
+      // Audit trail
+      const previousStatus = order?.status ?? pmOrder?.status ?? null;
+      const isPmEntity = !!pmOrder;
+      await writeAuditLog(db, {
+        actor: user,
+        action: "STATUS_CHANGE",
+        entityType: isPmEntity ? "PropertyManagerOrder" : "Order",
+        entityId: updatedOrder.id,
+        before: { status: previousStatus },
+        after: { status: updatedOrder.status },
+        description: `Order ${updatedOrder.orderNumber} status changed from ${previousStatus ?? "?"} to ${updatedOrder.status}`,
+      });
 
       return updatedOrder;
     } catch (error) {

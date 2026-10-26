@@ -493,6 +493,22 @@ function OverviewTab() {
               Create detailed budgets, track expenses, and schedule preventative maintenance for your properties.
             </p>
           </div>
+
+          <Link to="/property-manager/contractors/compliance" className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-6 text-left border border-emerald-200 hover:shadow-md transition-shadow">
+            <Briefcase className="h-8 w-8 text-emerald-600 mb-3" />
+            <h4 className="font-semibold text-gray-900 mb-2">Contractor Compliance Hub</h4>
+            <p className="text-sm text-gray-700">
+              Track contractor documents, scores, and auto-block under-compliant vendors. SA-default requirements built in.
+            </p>
+          </Link>
+
+          <Link to="/property-manager/inspections" className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-6 text-left border border-cyan-200 hover:shadow-md transition-shadow">
+            <ClipboardList className="h-8 w-8 text-cyan-600 mb-3" />
+            <h4 className="font-semibold text-gray-900 mb-2">Tenant Inspections</h4>
+            <p className="text-sm text-gray-700">
+              Court-ready ingoing/outgoing inspections with magic-link tenant sign-off and damage cost tracking.
+            </p>
+          </Link>
         </div>
       </div>
     </div>

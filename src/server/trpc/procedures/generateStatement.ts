@@ -50,29 +50,72 @@ export async function createStatementWithUniqueNumber(
 
 export const generateStatement = baseProcedure
   .input(
-    z.object({
-      token: z.string(),
-      client_email: z.string().email(),
-      period_start: z.string(), // ISO date string
-      period_end: z.string(), // ISO date string
-      customerName: z.string().optional(),
-      customerPhone: z.string().optional(),
-      address: z.string().optional(),
-      notes: z.string().optional(),
-      // When false, generate the statement + PDF but do not email/notify the customer.
-      // Useful for PM workflows where statements are reviewed/amended before sending.
-      sendToCustomer: z.boolean().optional().default(true),
-    })
+    z
+      .object({
+        token: z.string(),
+        // Either client_email OR clientId / clientBuildingId is required.
+        client_email: z.string().email().optional(),
+        clientId: z.number().optional(),
+        clientBuildingId: z.number().optional(),
+        period_start: z.string(), // ISO date string
+        period_end: z.string(), // ISO date string
+        customerName: z.string().optional(),
+        customerPhone: z.string().optional(),
+        address: z.string().optional(),
+        notes: z.string().optional(),
+        sendToCustomer: z.boolean().optional().default(true),
+      })
+      .refine((v) => !!(v.client_email || v.clientId || v.clientBuildingId), {
+        message: "Provide client_email, clientId, or clientBuildingId",
+        path: ["client_email"],
+      }),
   )
   .mutation(async ({ input }) => {
     // Authenticate user and require admin privileges
     const user = await authenticateUser(input.token);
 
+    // Resolve scope → derive the effective client_email + customer details if
+    // they were not provided explicitly (allows the UI to pick a company row
+    // without typing an email).
+    let resolvedEmail: string | undefined = input.client_email;
+    let resolvedName: string | undefined = input.customerName;
+    let resolvedPhone: string | undefined = input.customerPhone;
+    let resolvedAddress: string | undefined = input.address;
+
+    if (input.clientBuildingId) {
+      const building = await db.clientBuilding.findUnique({
+        where: { id: input.clientBuildingId },
+        include: { client: true },
+      });
+      if (!building) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Building not found" });
+      }
+      resolvedEmail = resolvedEmail || building.managerEmail || building.client.email;
+      resolvedName =
+        resolvedName ||
+        `${building.client.companyName || building.client.name} — ${building.name}`;
+      resolvedPhone = resolvedPhone || building.managerPhone || building.client.phone;
+      resolvedAddress = resolvedAddress || building.address;
+    } else if (input.clientId) {
+      const client = await db.client.findUnique({ where: { id: input.clientId } });
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+      }
+      resolvedEmail = resolvedEmail || client.email;
+      resolvedName = resolvedName || client.companyName || client.name;
+      resolvedPhone = resolvedPhone || client.phone;
+      resolvedAddress = resolvedAddress || client.address || undefined;
+    }
+
+    if (!resolvedEmail) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Could not resolve customer email for statement" });
+    }
+
     if (user.role === "PROPERTY_MANAGER") {
       const managedCustomer = await db.propertyManagerCustomer.findFirst({
         where: {
           propertyManagerId: user.id,
-          email: input.client_email,
+          email: resolvedEmail,
         },
         select: { id: true },
       });
@@ -104,37 +147,41 @@ export const generateStatement = baseProcedure
       });
     }
 
-    // Duplicate-period guard: prevent accidentally generating two statements for
-    // the exact same customer + period when the prior one is still active.
+    // Duplicate-period guard — scoped by clientBuildingId / clientId / email
+    // so a company-wide statement doesn't conflict with a per-building one.
     const existingForPeriod = await db.statement.findFirst({
       where: {
-        client_email: input.client_email,
         period_start,
         period_end,
         status: { in: ["generated", "sent", "viewed", "paid", "overdue"] },
+        ...(input.clientBuildingId
+          ? { clientBuildingId: input.clientBuildingId }
+          : input.clientId
+          ? { clientId: input.clientId, clientBuildingId: null }
+          : { client_email: resolvedEmail, clientId: null, clientBuildingId: null }),
       },
       select: { id: true, statement_number: true, status: true },
     });
     if (existingForPeriod) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: `A ${existingForPeriod.status} statement (${existingForPeriod.statement_number}) already exists for this customer and period. Delete it first or pick a different period.`,
+        message: `A ${existingForPeriod.status} statement (${existingForPeriod.statement_number}) already exists for this scope and period. Delete it first or pick a different period.`,
       });
     }
 
     // Create statement record with prepopulated data if available.
     // Statement number is allocated atomically to avoid race conditions.
     const statement = await createStatementWithUniqueNumber({
-      client_email: input.client_email,
-      client_name: input.customerName || "", // Will be populated from invoices if not provided
-      customerPhone: input.customerPhone || null,
-      address: input.address || null,
+      client_email: resolvedEmail,
+      client_name: resolvedName || "",
+      customerPhone: resolvedPhone || null,
+      address: resolvedAddress || null,
       statement_date: new Date(),
       period_start,
       period_end,
       notes: input.notes || null,
       status: "generated",
-      invoice_details: [], // Will be populated in background process
+      invoice_details: [],
       age_analysis: {
         current: 0,
         days_1_30: 0,
@@ -142,7 +189,9 @@ export const generateStatement = baseProcedure
         days_61_90: 0,
         days_91_120: 0,
         over_120: 0,
-      }, // Will be populated in background process
+      },
+      clientId: input.clientId ?? null,
+      clientBuildingId: input.clientBuildingId ?? null,
     });
     const statement_number = statement.statement_number;
 
@@ -150,14 +199,16 @@ export const generateStatement = baseProcedure
     generateStatementInBackground(
       statement.id,
       statement_number,
-      input.client_email,
+      resolvedEmail,
       period_start,
       period_end,
-      input.customerName,
-      input.customerPhone,
-      input.address,
+      resolvedName,
+      resolvedPhone,
+      resolvedAddress,
       input.notes,
-      input.sendToCustomer
+      input.sendToCustomer,
+      input.clientId,
+      input.clientBuildingId,
     ).catch(
       (error) => {
         console.error("Error generating statement:", error);
@@ -186,9 +237,28 @@ export async function generateStatementInBackground(
   providedCustomerPhone?: string,
   providedAddress?: string,
   providedNotes?: string,
-  sendToCustomer: boolean = true
+  sendToCustomer: boolean = true,
+  clientId?: number,
+  clientBuildingId?: number,
 ) {
   try {
+    // Effective "this customer" WHERE-fragment for invoices.
+    //  - buildingId    → strictly invoices linked to that building
+    //  - clientId      → invoices linked to client OR legacy invoices that
+    //                    still match by email (covers pre-link history)
+    //  - default       → email-only (legacy behavior for ad-hoc statements)
+    const customerWhere = clientBuildingId
+      ? { clientBuildingId }
+      : clientId
+      ? { OR: [{ clientId }, { customerEmail: client_email }] }
+      : { customerEmail: client_email };
+
+    // Same scope as a CreditNote sub-filter (`invoice: { ... }`).
+    const creditNoteCustomerWhere = clientBuildingId
+      ? { invoice: { clientBuildingId } }
+      : clientId
+      ? { invoice: { OR: [{ clientId }, { customerEmail: client_email }] } }
+      : { invoice: { customerEmail: client_email } };
     // ===== LEDGER MODEL =====
     // closing = opening + new_charges - payments_received - credits_in_period
     //
@@ -204,7 +274,11 @@ export async function generateStatementInBackground(
     // 1) Opening balance from prior statement (carry forward).
     const priorStatement = await db.statement.findFirst({
       where: {
-        client_email,
+        ...(clientBuildingId
+          ? { clientBuildingId }
+          : clientId
+          ? { clientId }
+          : { client_email }),
         period_end: { lt: period_start },
         status: { in: ["sent", "viewed", "paid", "overdue"] },
       },
@@ -216,7 +290,7 @@ export async function generateStatementInBackground(
     // 2) Invoices CREATED in period (charges this period).
     const periodInvoices = await db.invoice.findMany({
       where: {
-        customerEmail: client_email,
+        ...customerWhere,
         status: { in: ["SENT", "OVERDUE", "PAID"] },
         createdAt: { gte: period_start, lte: period_end },
       },
@@ -231,7 +305,7 @@ export async function generateStatementInBackground(
     //    when the invoice was created – needed for the payments_received total).
     const paidInPeriod = await db.invoice.findMany({
       where: {
-        customerEmail: client_email,
+        ...customerWhere,
         status: "PAID",
         paidDate: { gte: period_start, lte: period_end },
       },
@@ -241,7 +315,7 @@ export async function generateStatementInBackground(
     // 4) Currently outstanding invoices (for aging + accrued interest).
     const outstandingInvoices = await db.invoice.findMany({
       where: {
-        customerEmail: client_email,
+        ...customerWhere,
         status: { in: ["SENT", "OVERDUE"] },
         createdAt: { lte: period_end },
       },
@@ -259,7 +333,7 @@ export async function generateStatementInBackground(
       where: {
         status: "ISSUED",
         createdAt: { gte: period_start, lte: period_end },
-        invoice: { customerEmail: client_email },
+        ...creditNoteCustomerWhere,
       },
       select: {
         id: true,
@@ -330,7 +404,7 @@ export async function generateStatementInBackground(
             address: periodInvoices[0].address ?? null,
           }
         : await db.invoice.findFirst({
-            where: { customerEmail: client_email },
+            where: customerWhere,
             orderBy: { createdAt: "desc" },
             select: { customerName: true, customerPhone: true, address: true },
           });

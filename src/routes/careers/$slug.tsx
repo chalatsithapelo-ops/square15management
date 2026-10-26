@@ -1,10 +1,11 @@
-import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState } from "react";
-import { ArrowLeft, MapPin, Briefcase, Building2, CheckCircle2, Sparkles, Shield, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowLeft, MapPin, Briefcase, Building2, CheckCircle2, Sparkles, Shield, Loader2, Upload, FileText, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { z } from "zod";
+import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
 
 export const Route = createFileRoute("/careers/$slug")({
   component: JobPublicPage,
@@ -22,38 +23,55 @@ function JobPublicPage() {
   const { slug } = Route.useParams();
   const s = Route.useSearch();
   const trpc = useTRPC();
-  const nav = useNavigate();
-  const jobQ = useQuery(trpc.getPublicJob.queryOptions({ slug }));
+  const jobQ = useQuery({
+    ...trpc.getPublicJob.queryOptions({ slug }),
+    // Keep the public job posting in near-real-time sync with admin edits.
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
+  });
   const [showApply, setShowApply] = useState(false);
   const [submitted, setSubmitted] = useState<{ portalUrl: string } | null>(null);
+  const [autoRejected, setAutoRejected] = useState(false);
 
   const applyMut = useMutation(
     trpc.createApplication.mutationOptions({
-      onSuccess: (res) => setSubmitted(res),
+      onSuccess: (res: any) => {
+        if (res?.autoRejected) {
+          setAutoRejected(true);
+          return;
+        }
+        setSubmitted({ portalUrl: res?.portalUrl ?? `/candidate/${res?.accessToken}` });
+      },
       onError: (e) => toast.error(e.message),
     }),
   );
 
   const job = jobQ.data;
 
+  if (autoRejected) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl border p-8 max-w-md text-center">
+          <div className="w-16 h-16 rounded-full bg-gray-100 mx-auto mb-3 flex items-center justify-center text-3xl">⚠️</div>
+          <h1 className="text-xl font-bold mb-2">Thank you for your interest</h1>
+          <p className="text-sm text-gray-600">
+            Unfortunately your responses did not meet the minimum requirements for this specific role. Your details will be retained and considered for future opportunities that better match your profile.
+          </p>
+        </div>
+      </div>
+    );
+  }
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl border p-8 max-w-md text-center">
-          <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto mb-3" />
+          <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
           <h1 className="text-xl font-bold mb-2">Application received</h1>
-          <p className="text-sm text-gray-600 mb-5">
-            Thanks for applying. We've emailed you a link to track your progress. You can also bookmark your candidate portal:
-          </p>
-          <a
-            href={submitted.portalUrl}
-            className="inline-block px-5 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium"
-          >
-            Open candidate portal
-          </a>
-          <div className="mt-5">
-            <Link to="/careers" className="text-sm text-teal-600 hover:underline">← Browse more jobs</Link>
-          </div>
+          <p className="text-sm text-gray-600 mb-5">Thank you for applying. You can use your candidate portal to follow your application.</p>
+          <a href={submitted.portalUrl} className="inline-flex rounded-lg bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700">Open candidate portal</a>
         </div>
       </div>
     );
@@ -107,16 +125,46 @@ function JobPublicPage() {
           </div>
 
           {!showApply ? (
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setShowApply(true)}
-                className="px-8 py-3 bg-teal-600 text-white rounded-xl font-semibold shadow-lg hover:bg-teal-700"
-              >
-                Apply now
-              </button>
-              <p className="text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" /> AI-assisted screening · fair evaluation · POPIA compliant
-              </p>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-left">
+                <div className="text-sm font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  ⚠️ Before you apply — how Square 15 pays
+                </div>
+                <p className="text-xs text-amber-900 mb-2">
+                  All roles at Square 15 Facility Solutions are engaged as
+                  <b> Independent Contractors</b>. We do <b>not</b> pay monthly salaries.
+                </p>
+                <ul className="text-xs text-amber-900 space-y-1.5 list-disc list-inside">
+                  <li>
+                    <b>Commercial Division artisans</b> (Plumbing, Electrical, Carpentry, Painting, etc.):
+                    paid on a <b>daily rate</b>, an <b>hourly rate</b>, or <b>both</b> —
+                    the model varies per client and per job.
+                  </li>
+                  <li>
+                    <b>Maintenance App artisans</b>: paid <b>per job</b>. The amount is
+                    displayed on the Square 15 Maintenance App <b>before you accept</b> —
+                    no surprises.
+                  </li>
+                  <li>
+                    <b>Sales Agents</b>: paid on <b>commission per job</b> generated —
+                    no basic salary.
+                  </li>
+                </ul>
+                <p className="text-[11px] text-amber-800 mt-2 italic">
+                  By continuing you confirm you understand this pay structure.
+                </p>
+              </div>
+              <div className="text-center">
+                <button
+                  onClick={() => setShowApply(true)}
+                  className="px-8 py-3 bg-teal-600 text-white rounded-xl font-semibold shadow-lg hover:bg-teal-700"
+                >
+                  I understand — Apply now
+                </button>
+                <p className="text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> AI-assisted screening · fair evaluation · POPIA compliant
+                </p>
+              </div>
             </div>
           ) : (
             <ApplyForm
@@ -143,20 +191,63 @@ function Section({ title, children }: any) {
 }
 
 function ApplyForm({ jobSlug, utm, referrerEmail, onSubmit, pending }: any) {
+  type PublicScreeningQuestion = { id: number; questionText: string; questionType: "YES_NO" | "NUMBER" | "SELECT"; required: boolean; options: string[] };
+  const screeningQuery = useQuery<PublicScreeningQuestion[]>({
+    queryKey: ["getPublicScreeningQuestions", jobSlug],
+    queryFn: async () => {
+      const response = await fetch("/trpc/getPublicScreeningQuestions?input=" + encodeURIComponent(JSON.stringify({ json: { jobSlug } })));
+      const result = await response.json();
+      if (!response.ok || result.error) throw new Error(result.error?.json?.message || "Could not load minimum requirements");
+      return result.result?.data?.json ?? [];
+    },
+    staleTime: 60_000,
+  });
+  const screeningQuestions = screeningQuery.data ?? [];
+  const [screeningAnswers, setScreeningAnswers] = useState<{ questionId: number; answerText?: string | null; answerNumber?: number | null }[]>([]);
   const [f, setF] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     primaryTrade: "", yearsExperience: 0, qualifications: "",
-    motivationLetter: "", linkedInUrl: "", resumeUrl: "",
+    motivationLetter: "", linkedInUrl: "",
     expectedSalary: "", availability: "", city: "", province: "",
     race: "", gender: "", disability: "",
     consent: false, marketing: false,
   });
+  // Uploaded documents
+  const [cv, setCv] = useState<UploadedFile | null>(null);
+  const [certs, setCerts] = useState<UploadedFile[]>([]);
+  const [portfolio, setPortfolio] = useState<UploadedFile[]>([]);
 
-  const canSubmit = f.firstName && f.lastName && f.email && f.phone && f.consent;
+  const hasAllRequiredScreeningAnswers = screeningQuestions.every((question) => {
+    if (!question.required) return true;
+    const answer = screeningAnswers.find((candidate) => candidate.questionId === question.id);
+    if (!answer) return false;
+    if (question.questionType === "NUMBER") return answer.answerNumber !== null && answer.answerNumber !== undefined && Number.isFinite(answer.answerNumber);
+    return typeof answer.answerText === "string" && answer.answerText.trim().length > 0;
+  });
+  const canSubmit = f.firstName && f.lastName && f.email && f.phone && f.consent && !screeningQuery.isLoading && !screeningQuery.isError && hasAllRequiredScreeningAnswers;
 
   return (
     <div className="mt-6 bg-white rounded-xl border p-6">
       <h2 className="text-lg font-semibold mb-4">Apply for this role</h2>
+      {screeningQuery.isError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">We could not load this role’s minimum screening questions. Please refresh the page before submitting.</p>}
+      {screeningQuestions.length > 0 && <section aria-label="Minimum requirement screening questions" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-blue-900">Minimum requirements</h3>
+        <p className="mb-3 text-xs text-blue-800">Please answer each required question honestly. Some answers may mean this role is not the right match.</p>
+        <div className="space-y-3">{screeningQuestions.map((question) => {
+          const answer = screeningAnswers.find((candidate) => candidate.questionId === question.id);
+          const putAnswer = (patch: { answerText?: string | null; answerNumber?: number | null }) => setScreeningAnswers((current) => {
+            const existing = current.findIndex((candidate) => candidate.questionId === question.id);
+            const nextAnswer = { questionId: question.id, ...(existing >= 0 ? current[existing] : {}), ...patch };
+            return existing >= 0 ? current.map((candidate, index) => index === existing ? nextAnswer : candidate) : [...current, nextAnswer];
+          });
+          return <div key={question.id} className="rounded bg-white p-3">
+            <label className="mb-2 block text-sm font-medium text-gray-900">{question.questionText}{question.required && <span className="ml-1 text-red-500">*</span>}</label>
+            {question.questionType === "YES_NO" && <div className="flex gap-4">{["YES", "NO"].map((value) => <label key={value} className="flex items-center gap-2 text-sm"><input type="radio" name={`screening-${question.id}`} value={value} checked={answer?.answerText === value} onChange={() => putAnswer({ answerText: value, answerNumber: null })} />{value === "YES" ? "Yes" : "No"}</label>)}</div>}
+            {question.questionType === "NUMBER" && <input type="number" min="0" className="w-full rounded border px-3 py-2 text-sm" value={answer?.answerNumber ?? ""} onChange={(event) => putAnswer({ answerNumber: event.target.value === "" ? null : Number(event.target.value), answerText: null })} />}
+            {question.questionType === "SELECT" && <select className="w-full rounded border px-3 py-2 text-sm" value={answer?.answerText ?? ""} onChange={(event) => putAnswer({ answerText: event.target.value, answerNumber: null })}><option value="">Select an option…</option>{question.options.map((option) => <option key={option} value={option}>{option}</option>)}</select>}
+          </div>;
+        })}</div>
+      </section>}
       <div className="grid grid-cols-2 gap-3">
         <Input label="First name*" value={f.firstName} on={(v: string) => setF({ ...f, firstName: v })} />
         <Input label="Last name*" value={f.lastName} on={(v: string) => setF({ ...f, lastName: v })} />
@@ -169,11 +260,38 @@ function ApplyForm({ jobSlug, utm, referrerEmail, onSubmit, pending }: any) {
         <Input label="Expected salary (R/month)" value={f.expectedSalary} on={(v: string) => setF({ ...f, expectedSalary: v })} />
         <Input label="Availability (e.g. Immediate)" value={f.availability} on={(v: string) => setF({ ...f, availability: v })} />
         <Input label="LinkedIn URL" value={f.linkedInUrl} on={(v: string) => setF({ ...f, linkedInUrl: v })} />
-        <Input label="CV / Resume URL" value={f.resumeUrl} on={(v: string) => setF({ ...f, resumeUrl: v })} />
       </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4">
+        <PublicUploadDropzone
+          jobSlug={jobSlug}
+          multiple={false}
+          title="CV / Resume"
+          hint="PDF, Word or image. Max 10 MB."
+          files={cv ? [cv] : []}
+          onChange={(files) => setCv(files[0] ?? null)}
+        />
+        <PublicUploadDropzone
+          jobSlug={jobSlug}
+          multiple={true}
+          title="Qualifications / certificates"
+          hint="Trade certificates, ID copy, references, etc. Multiple files allowed."
+          files={certs}
+          onChange={setCerts}
+        />
+        <PublicUploadDropzone
+          jobSlug={jobSlug}
+          multiple={true}
+          title="Portfolio of your best work"
+          hint="Photos or PDFs of completed projects — showcase your best work. Multiple files allowed."
+          files={portfolio}
+          onChange={setPortfolio}
+        />
+      </div>
+
       <div className="mt-3">
-        <label className="text-xs text-gray-500">Qualifications / certifications</label>
-        <textarea value={f.qualifications} onChange={(e) => setF({ ...f, qualifications: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+        <label className="text-xs text-gray-500">Qualifications / certifications (summary)</label>
+        <textarea value={f.qualifications} onChange={(e) => setF({ ...f, qualifications: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} placeholder="Optional: list trades, certificates, licenses" />
       </div>
       <div className="mt-3">
         <label className="text-xs text-gray-500">Motivation letter</label>
@@ -217,7 +335,7 @@ function ApplyForm({ jobSlug, utm, referrerEmail, onSubmit, pending }: any) {
           qualifications: f.qualifications || undefined,
           motivationLetter: f.motivationLetter || undefined,
           linkedInUrl: f.linkedInUrl || undefined,
-          resumeUrl: f.resumeUrl || undefined,
+          resumeUrl: cv?.fileUrl || undefined,
           expectedSalary: f.expectedSalary || undefined,
           availability: f.availability || undefined,
           city: f.city || undefined, province: f.province || undefined,
@@ -237,6 +355,13 @@ function ApplyForm({ jobSlug, utm, referrerEmail, onSubmit, pending }: any) {
           demographic: (f.race || f.gender || f.disability) ? {
             race: f.race || undefined, gender: f.gender || undefined, disability: f.disability || undefined,
           } : undefined,
+          attachments: [
+            ...(cv ? [{ label: "CV / Resume", fileName: cv.fileName, fileUrl: cv.fileUrl, fileType: cv.fileType }] : []),
+            ...certs.map((c) => ({ label: "Qualification", fileName: c.fileName, fileUrl: c.fileUrl, fileType: c.fileType })),
+            ...portfolio.map((p) => ({ label: "Portfolio", fileName: p.fileName, fileUrl: p.fileUrl, fileType: p.fileType })),
+          ],
+          portfolioUrls: portfolio.map((p) => p.fileUrl),
+          screeningAnswers,
         })}
         className="mt-5 w-full py-3 bg-teal-600 text-white rounded-lg font-semibold disabled:opacity-50"
       >
@@ -265,3 +390,230 @@ function Select({ label, value, on, options }: any) {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Public (anonymous) upload dropzone used by the "Apply for this role"
+// form. Uploads go straight to MinIO via a short-lived presigned URL
+// tied to the specific job slug.
+// ─────────────────────────────────────────────────────────────────
+
+type UploadedFile = { fileName: string; fileUrl: string; fileType?: string };
+
+const ACCEPTED_MIME = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function PublicUploadDropzone({
+  jobSlug, multiple, title, hint, files, onChange,
+}: {
+  jobSlug: string;
+  multiple: boolean;
+  title: string;
+  hint: string;
+  files: UploadedFile[];
+  onChange: (files: UploadedFile[]) => void;
+}) {
+  const trpc = useTRPC();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const presignMut = useMutation(trpc.getPresignedUploadUrlForApplication.mutationOptions());
+
+  const handlePick = () => inputRef.current?.click();
+
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+    // Reset the native input so re-picking the same file works.
+    if (inputRef.current) inputRef.current.value = "";
+
+    // Validate up-front.
+    for (const file of picked) {
+      if (!ACCEPTED_MIME.includes(file.type)) {
+        toast.error(`${file.name}: unsupported file type`);
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        toast.error(`${file.name}: file exceeds 10 MB`);
+        return;
+      }
+    }
+
+    setUploading(true);
+    try {
+      const uploaded: UploadedFile[] = [];
+      for (const file of picked) {
+        const { presignedUrl, fileUrl } = await presignMut.mutateAsync({
+          jobSlug,
+          fileName: file.name,
+          fileType: file.type,
+        });
+        await uploadToPresignedUrl(presignedUrl, file, {
+          onRetry: (attempt, max) => {
+            toast.loading(`Retrying ${file.name} (${attempt}/${max - 1})…`, {
+              id: `retry-${file.name}`,
+              duration: 2000,
+            });
+          },
+        });
+        toast.dismiss(`retry-${file.name}`);
+        uploaded.push({ fileName: file.name, fileUrl, fileType: file.type });
+      }
+      onChange(multiple ? [...files, ...uploaded] : uploaded.slice(-1));
+      toast.success(`${uploaded.length} file(s) uploaded`);
+    } catch (err: any) {
+      toast.error(err?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeAt = (idx: number) => {
+    onChange(files.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div>
+      <label className="text-xs text-gray-500">{title}</label>
+      <div
+        onClick={handlePick}
+        className={`mt-1 flex flex-col items-center justify-center border-2 border-dashed rounded-lg py-6 px-4 cursor-pointer transition-colors ${
+          uploading ? "border-gray-300 bg-gray-50 cursor-wait" : "border-gray-300 hover:border-teal-400 bg-gray-50 hover:bg-teal-50"
+        }`}
+      >
+        {uploading ? (
+          <Loader2 className="w-6 h-6 text-gray-400 animate-spin mb-2" />
+        ) : (
+          <Upload className="w-6 h-6 text-gray-400 mb-2" />
+        )}
+        <p className="text-sm text-gray-600">
+          <span className="font-medium text-teal-700">Click to upload</span>{multiple ? " (multiple)" : ""}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">{hint}</p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPTED_MIME.join(",")}
+          multiple={multiple}
+          className="hidden"
+          onChange={handleFiles}
+          disabled={uploading}
+        />
+      </div>
+
+      {files.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {files.map((file, idx) => (
+            <li
+              key={`${file.fileUrl}-${idx}`}
+              className="flex items-center justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span className="truncate text-gray-800">{file.fileName}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => removeAt(idx)}
+                className="text-gray-400 hover:text-red-600 ml-2"
+                aria-label={`Remove ${file.fileName}`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ScreeningStep({
+  jobSlug,
+  answers,
+  setAnswers,
+}: {
+  jobSlug: string;
+  answers: { questionId: number; answerText?: string | null; answerNumber?: number | null }[];
+  setAnswers: (a: { questionId: number; answerText?: string | null; answerNumber?: number | null }[]) => void;
+}) {
+  const trpc = useTRPC();
+  const q = useQuery(trpc.getPublicScreeningQuestions.queryOptions({ jobSlug }));
+  const items = (q.data ?? []) as any[];
+  if (items.length === 0) return null;
+
+  const setAnswer = (questionId: number, patch: { answerText?: string | null; answerNumber?: number | null }) => {
+    const idx = answers.findIndex((a) => a.questionId === questionId);
+    const merged = { questionId, ...(idx >= 0 ? answers[idx] : {}), ...patch };
+    const next = idx >= 0 ? answers.map((a, i) => (i === idx ? merged : a)) : [...answers, merged];
+    setAnswers(next);
+  };
+
+  const valueFor = (questionId: number) => answers.find((a) => a.questionId === questionId);
+
+  return (
+    <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+      <div className="text-sm font-semibold text-blue-900 mb-2">Minimum requirements</div>
+      <div className="text-xs text-blue-800 mb-3">
+        Please answer honestly — candidates that do not meet these requirements will not be able to proceed.
+      </div>
+      <div className="space-y-3">
+        {items.map((qq: any) => {
+          const v = valueFor(qq.id);
+          return (
+            <div key={qq.id} className="bg-white rounded p-3">
+              <div className="text-sm font-medium text-gray-900 mb-2">
+                {qq.questionText}
+                {qq.required && <span className="text-red-500 ml-1">*</span>}
+              </div>
+              {qq.questionType === "YES_NO" && (
+                <div className="flex gap-4">
+                  {["YES", "NO"].map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name={`q-${qq.id}`}
+                        checked={v?.answerText === opt}
+                        onChange={() => setAnswer(qq.id, { answerText: opt, answerNumber: null })}
+                      />
+                      {opt === "YES" ? "Yes" : "No"}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {qq.questionType === "NUMBER" && (
+                <input
+                  type="number"
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  value={v?.answerNumber ?? ""}
+                  onChange={(e) => setAnswer(qq.id, { answerNumber: e.target.value === "" ? null : Number(e.target.value), answerText: null })}
+                  placeholder="Enter a number"
+                />
+              )}
+              {qq.questionType === "SELECT" && (
+                <select
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  value={v?.answerText ?? ""}
+                  onChange={(e) => setAnswer(qq.id, { answerText: e.target.value, answerNumber: null })}
+                >
+                  <option value="">Select an option…</option>
+                  {qq.options.map((o: string) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

@@ -1,9 +1,9 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const scoreLeadWithAI = baseProcedure
@@ -84,10 +84,12 @@ export const scoreLeadWithAI = baseProcedure
       );
 
       // Set up AI model
-      const model = google("gemini-1.5-pro");
+      const model = google("gemini-2.5-pro");
 
       // Generate lead score and recommendations
       const { object } = await generateObject({
+        aiFeature: "lead.scoring",
+        aiUserId: user.id,
         model,
         schema: z.object({
           score: z.number().min(0).max(100).describe("Lead quality score from 0-100"),

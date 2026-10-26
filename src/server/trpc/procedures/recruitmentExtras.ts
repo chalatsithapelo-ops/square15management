@@ -9,6 +9,7 @@ import { db } from "~/server/db";
 import { authenticateUser } from "~/server/utils/auth";
 import { sendEmail } from "~/server/utils/email";
 import { sendCandidateEmail } from "~/server/services/recruitment/messaging";
+import { requireAssessmentCamera } from "~/server/services/recruitment/portalAssessment";
 import {
   assertRecruiter,
   assertAdmin,
@@ -46,6 +47,125 @@ import {
   notifyReferrerOnHired,
   logAiDecision,
 } from "~/server/services/recruitment/atsAutomation";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shared: "maybe complete candidate stage"
+//
+// Called from candidateSubmitAssessment AND candidateSubmitWorkSample. It fires
+// the ASSESSMENT_COMPLETE email + auto-advances the pipeline stage — but ONLY
+// when all required psychometric assessments AND all active work sample tasks
+// have been submitted. Idempotent via ApplicationMessage.templateKey.
+// ═══════════════════════════════════════════════════════════════════════════
+export async function maybeCompleteCandidateStage(opts: {
+  applicationId: number;
+  accessToken: string;
+}) {
+  try {
+    const app = await db.application.findUnique({
+      where: { id: opts.applicationId },
+      include: {
+        job: true,
+        assessments: { where: { completedAt: { not: null } }, select: { type: true } },
+      },
+    });
+    if (!app) return;
+
+    const requiredPsych = [
+      app.job?.requireIQ && "IQ",
+      app.job?.requireEQ && "EQ",
+      app.job?.requireBigFive && "BIG_FIVE",
+      app.job?.requireMBTI && "MBTI",
+    ].filter(Boolean) as string[];
+    const doneTypes = new Set(app.assessments.map((a) => a.type));
+    const psychDone = requiredPsych.every((t) => doneTypes.has(t as any));
+    const interviewResponses = app.job?.requireInterview ? await db.applicationInterviewResponse.findMany({ where: { applicationId: app.id }, select: { questionIndex: true, aiScore: true } }) : [];
+    const interviewDone = !app.job?.requireInterview || INTERVIEW_QUESTIONS_TEMPLATE.every((_, i) => interviewResponses.some(r => r.questionIndex === i));
+
+    let workSamplesDone = true;
+    if (app.jobId) {
+      const activeTasks = await db.workSampleTask.findMany({
+        where: { jobId: app.jobId, active: true },
+        select: { id: true },
+      });
+      if (activeTasks.length > 0) {
+        const submittedCount = await db.workSampleSubmission.count({
+          where: {
+            applicationId: app.id,
+            taskId: { in: activeTasks.map((t) => t.id) },
+            submittedAt: { not: null },
+          },
+        });
+        workSamplesDone = submittedCount >= activeTasks.length;
+      }
+    }
+
+    if (!(psychDone && workSamplesDone && interviewDone)) return;
+
+    const alreadySent = await db.applicationMessage.count({
+      where: { applicationId: app.id, templateKey: "ASSESSMENT_COMPLETE" },
+    });
+    if (alreadySent > 0) return;
+
+    const brandAccent = process.env.BRAND_ACCENT_COLOR || "#0d9488";
+    const brandName = process.env.BRAND_NAME || "Square 15";
+    const baseOrigin = (process.env.BASE_URL || process.env.APP_URL || "").replace(/\/+$/, "");
+    const portalLink = `${baseOrigin}/candidate/${opts.accessToken}`;
+
+    await sendCandidateEmail({
+      applicationId: app.id,
+      to: app.email,
+      subject: "We received your assessments and work samples — thank you",
+      templateKey: "ASSESSMENT_COMPLETE",
+      html: `<!DOCTYPE html>
+<html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f9fafb;padding:24px;color:#111827;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="display:inline-block;width:48px;height:48px;border-radius:24px;background:${brandAccent}22;color:${brandAccent};font-size:28px;line-height:48px;">&#10003;</div>
+    </div>
+    <h1 style="margin:0 0 12px 0;font-size:20px;text-align:center;">Thanks ${app.firstName} — all responses received</h1>
+    <p style="margin:0 0 12px 0;line-height:1.55;">We have received your responses to all the required assessments <strong>and work samples</strong>. Our team is now reviewing them along with the rest of your application.</p>
+    <p style="margin:0 0 12px 0;line-height:1.55;">You do not need to do anything else for now. We will be in touch with next steps — usually within a few business days.</p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${portalLink}" style="display:inline-block;padding:11px 24px;background:${brandAccent};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Open my candidate portal</a>
+    </div>
+    <p style="margin:16px 0 0 0;line-height:1.55;">Warm regards,<br/><strong>The ${brandName} Recruitment Team</strong></p>
+  </div>
+</body></html>`,
+    });
+
+    try {
+      // A provider outage is pending review, never grounds for an automated hiring decision.
+      if (interviewResponses.some(r => r.aiScore == null)) return;
+      await recomputeApplicationScore(app.id);
+      const scored = await db.application.findUnique({
+        where: { id: app.id },
+        select: { overallScore: true, stageBucket: true },
+      });
+      const overall = scored?.overallScore ?? 0;
+      logAiDecision({
+        applicationId: app.id,
+        action: "ASSESSMENTS_COMPLETE",
+        score: overall,
+        reason: `All required assessments + work samples done; overall ${Math.round(overall)}`,
+      });
+      const jobType = (app.job as any)?.jobType ?? "COMMERCIAL";
+      const threshold = jobType === "MAINTENANCE_APP" ? 75 : 70;
+      if (scored && ["APPLIED", "SCREENING", "ASSESSMENT"].includes(scored.stageBucket)) {
+        const nextBucket = overall >= threshold ? "INTERVIEW" : "ASSESSMENT";
+        await transitionApplication({
+          applicationId: app.id,
+          toBucket: nextBucket as any,
+          reason: `Auto-advance after assessments + work samples (jobType ${jobType}, overall ${Math.round(overall)})`,
+        });
+      }
+    } catch (e) {
+      console.warn("[maybeCompleteCandidateStage] recompute/advance failed", e);
+    }
+  } catch (e) {
+    console.warn("[maybeCompleteCandidateStage] failed", e);
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // CANDIDATE PORTAL (public — token)
@@ -483,6 +603,7 @@ export const candidateSubmitInterviewAnswer = baseProcedure
         .string()
         .min(20, "Please provide a more detailed answer (at least 20 characters)")
         .max(4000),
+      integritySignals: z.any().optional(),
     }),
   )
   .mutation(async ({ input }) => {
@@ -507,15 +628,19 @@ export const candidateSubmitInterviewAnswer = baseProcedure
 
     const template = INTERVIEW_QUESTIONS_TEMPLATE[input.questionIndex];
     if (!template) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid question index" });
+    await requireAssessmentCamera(app.id);
 
     const ai = await scoreInterviewAnswer(
       template.question,
       input.answer,
       template.dimension,
       app.primaryTrade ?? "general",
-    );
+    ).catch(error => {
+      console.warn("[interview] scoring unavailable; preserving answer for human review", error instanceof Error ? error.message : error);
+      return { score: null, analysis: "AI scoring unavailable. Answer saved; hiring-team review required.", dimensions: {} };
+    });
 
-    await db.applicationInterviewResponse.create({
+    const _createdIR = await db.applicationInterviewResponse.create({
       data: {
         applicationId: app.id,
         questionIndex: input.questionIndex,
@@ -524,45 +649,34 @@ export const candidateSubmitInterviewAnswer = baseProcedure
         aiScore: ai.score,
         aiAnalysis: ai.analysis,
         dimensions: ai.dimensions,
+        integritySignals: input.integritySignals ?? undefined,
       },
     });
+
+    // AI-writing detection (Tier 1 #3). Fire-and-forget.
+    void (async () => {
+      try {
+        const det = await scoreInterviewAiWriting(input.answer);
+        if (det) {
+          await db.applicationInterviewResponse.update({
+            where: { id: _createdIR.id },
+            data: {
+              aiWritingScore: det.aiLikelihood,
+              aiWritingSignals: det.signals ? { signals: det.signals } : undefined,
+            },
+          });
+        }
+      } catch (e) {
+        console.warn("[interview] AI-writing detection failed:", e);
+      }
+    })();
 
     const answeredCount = app.interviewResponses.length + 1;
     const isComplete = answeredCount >= INTERVIEW_QUESTIONS_TEMPLATE.length;
 
-    // When last answer submitted, recompute the overall score and advance
-    // the pipeline stage. Fire-and-forget so the candidate isn't blocked.
+    // Behaviour completion alone must not advance an unfinished assessment journey.
     if (isComplete) {
-      (async () => {
-        try {
-          await recomputeApplicationScore(app.id);
-          const scored = await db.application.findUnique({
-            where: { id: app.id },
-            select: { overallScore: true, aiMatchScore: true, stageBucket: true },
-          });
-          const overall = scored?.overallScore ?? 0;
-          logAiDecision({
-            applicationId: app.id,
-            action: "INTERVIEW_COMPLETE_RECOMPUTED",
-            score: overall,
-            reason: `Interview complete, overall score ${Math.round(overall)}`,
-          });
-          // Only advance if candidate hasn't been rejected/withdrawn/hired
-          if (
-            scored &&
-            ["APPLIED", "SCREENING", "ASSESSMENT"].includes(scored.stageBucket)
-          ) {
-            const nextBucket = overall >= 70 ? "INTERVIEW" : overall >= 40 ? "SCREENING" : "SCREENING";
-            await transitionApplication({
-              applicationId: app.id,
-              toBucket: nextBucket as any,
-              reason: `Auto-advance after interview (overall ${Math.round(overall)})`,
-            });
-          }
-        } catch (e) {
-          console.warn("[interview-complete] recompute failed", e);
-        }
-      })();
+      void maybeCompleteCandidateStage({ applicationId: app.id, accessToken: input.accessToken });
     }
 
     return {
@@ -764,6 +878,7 @@ export const candidateSubmitAssessment = baseProcedure
     if (app.assessments.some((a) => a.type === input.type && a.completedAt))
       throw new TRPCError({ code: "BAD_REQUEST", message: `${input.type} already completed` });
 
+    await requireAssessmentCamera(app.id);
     const numericResponses: Record<number, any> = {};
     for (const [key, val] of Object.entries(input.responses)) {
       numericResponses[parseInt(key)] = val;
@@ -805,10 +920,8 @@ export const candidateSubmitAssessment = baseProcedure
       },
     });
 
-    // Once all required assessments are done, recompute overall score
-    // and advance the pipeline stage. Only count assessments the candidate
-    // can actually take through the portal (SJT / Work Sample are not
-    // wired yet — including them would prevent auto-advance).
+    // Delegate to the shared "everything done?" helper. It re-checks
+    // psychometric + work samples + idempotency (ApplicationMessage).
     const required = [
       app.job?.requireIQ && "IQ",
       app.job?.requireEQ && "EQ",
@@ -817,9 +930,15 @@ export const candidateSubmitAssessment = baseProcedure
     ].filter(Boolean) as string[];
     const doneCount =
       app.assessments.filter((a) => a.completedAt).length + 1;
-    const allDone = doneCount >= required.length;
+    const psychDone = doneCount >= required.length;
 
-    if (allDone) {
+    if (psychDone) {
+      void maybeCompleteCandidateStage({
+        applicationId: app.id,
+        accessToken: input.accessToken,
+      });
+      // Legacy dead code below (was `if (allDone)`) — never runs.
+      if (false) {
       // Fire-and-forget confirmation email to the candidate. Uses
       // sendCandidateEmail so the ApplicationMessage timeline records the
       // send (or the delivery failure), keeping the audit trail complete.
@@ -884,7 +1003,8 @@ export const candidateSubmitAssessment = baseProcedure
           console.warn("[assessments-complete] recompute failed", e);
         }
       })();
-    }
+      } // end legacy if (false)
+    } // end if (psychDone)
 
     return {
       success: true,
@@ -892,7 +1012,7 @@ export const candidateSubmitAssessment = baseProcedure
       score: scored!.score,
       results: scored!.results,
       remaining: Math.max(0, required.length - doneCount),
-      complete: allDone,
+      complete: psychDone,
     };
   });
 
@@ -1076,3 +1196,30 @@ export const adminTriggerReferralReward = baseProcedure
     await notifyReferrerOnHired(input.applicationId);
     return { success: true };
   });
+
+
+// AI-writing detection helper (Tier 1 #3). Returns null on any failure so the
+// candidate flow is never blocked.
+async function scoreInterviewAiWriting(answer: string): Promise<{ aiLikelihood: number; signals: string[] } | null> {
+  try {
+    const { generateText } = await import("~/server/services/ai/controlledGeneration");
+    const { google } = await import("@ai-sdk/google");
+    const model = google("gemini-2.0-flash");
+    const { text } = await generateText({
+        aiFeature: "recruitment.interviewIntegrity",
+      model,
+      system: "You are a strict AI-generated text detector. Be conservative — only rate high if strongly confident.",
+      prompt: `Rate 0-100 the likelihood the following text was written by an AI language model (like ChatGPT). Look for: formal textbook register with no colloquialisms; no typos; uniform paragraph structure; generic examples without specific details; absence of South African trade jargon or slang; no hedging words like "I think" / "usually"; overly smooth transitions.\n\nText:\n${answer.slice(0, 4000)}\n\nReturn ONLY compact JSON: {\"aiLikelihood\": <0-100>, \"signals\": [\"<short list of specific signals>\"]}`,
+      maxTokens: 400,
+    });
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]) as { aiLikelihood?: number; signals?: string[] };
+    return {
+      aiLikelihood: typeof parsed.aiLikelihood === "number" ? Math.max(0, Math.min(100, parsed.aiLikelihood)) : 0,
+      signals: Array.isArray(parsed.signals) ? parsed.signals.slice(0, 8) : [],
+    };
+  } catch {
+    return null;
+  }
+}

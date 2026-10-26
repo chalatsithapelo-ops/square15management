@@ -3,10 +3,11 @@
  * from incoming customer/property-manager emails.
  */
 
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { db } from "~/server/db";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { getNextOrderNumber } from "~/server/utils/documentNumbers";
 import crypto from "crypto";
 
 export interface ParsedOrderEmail {
@@ -83,7 +84,8 @@ Set confidence based on how much data was clearly available:
 
   try {
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      aiFeature: "orderEmailParser",
+      model: google("gemini-3.6-flash"),
       prompt,
       maxTokens: 500,
     });
@@ -147,30 +149,9 @@ export async function processOrderEmail(
   // 2. AI extraction
   const extracted = await extractOrderFromEmail(fromEmail, fromName, subject, body);
 
-  // 3. Generate order number
+  // 3. Generate order number (shared helper skips poisoned suffixes)
   const companyDetails = await getCompanyDetails();
-  const prefix = companyDetails.orderPrefix;
-  const allOrders = await db.order.findMany({ select: { orderNumber: true } });
-  let maxNum = 0;
-  const prefixPattern = new RegExp(
-    `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`
-  );
-  for (const o of allOrders) {
-    const match = o.orderNumber.match(prefixPattern);
-    if (match) {
-      const num = parseInt(match[1] ?? "0", 10);
-      if (num > maxNum) maxNum = num;
-    }
-  }
-  let orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-
-  // Retry loop for race conditions
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const exists = await db.order.findUnique({ where: { orderNumber } });
-    if (!exists) break;
-    maxNum++;
-    orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-  }
+  const orderNumber = await getNextOrderNumber(db, companyDetails.orderPrefix);
 
   // 4. Create order in PENDING_REVIEW + email source in a single transaction
   const result = await db.$transaction(async (tx) => {

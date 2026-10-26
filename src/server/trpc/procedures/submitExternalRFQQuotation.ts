@@ -4,6 +4,7 @@ import { baseProcedure } from "~/server/trpc/main";
 import { db } from "~/server/db";
 import { createNotification } from "~/server/utils/notifications";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { getNextQuoteNumber } from "~/server/utils/documentNumbers";
 import { getValidExternalTokenRecord } from "~/server/utils/external-submissions";
 
 export const submitExternalRFQQuotation = baseProcedure
@@ -41,10 +42,10 @@ export const submitExternalRFQQuotation = baseProcedure
 
     const rfq = record.rfq;
 
-    // Generate quotation number
+    // Generate quotation number via the shared, race-safe helper (advisory-
+    // locked, skips poisoned suffixes, cross-checks @unique).
     const companyDetails = await getCompanyDetails();
-    const count = await db.quotation.count();
-    const quoteNumber = `${companyDetails.quotationPrefix}-${String(count + 1).padStart(5, "0")}`;
+    const quoteNumber = await getNextQuoteNumber(db, companyDetails.quotationPrefix);
 
     const subtotal = input.total;
     const tax = 0;

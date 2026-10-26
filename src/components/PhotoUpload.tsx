@@ -5,6 +5,7 @@ import { useAuthStore } from "~/stores/auth";
 import { Camera, X, Loader2, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
+import { compressImage } from "~/utils/compressImage";
 
 interface PhotoUploadProps {
   onPhotosUploaded: (urls: string[]) => void;
@@ -46,12 +47,12 @@ export function PhotoUpload({
         return;
       }
 
-      // Validate file sizes (max 10MB per file)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      // Validate file sizes (max 50MB per file)
+      const maxSize = 50 * 1024 * 1024; // 50MB
       const oversizedFiles = files.filter((file) => file.size > maxSize);
       
       if (oversizedFiles.length > 0) {
-        toast.error("File size must be less than 10MB");
+        toast.error("File size must be less than 50MB");
         return;
       }
 
@@ -93,45 +94,63 @@ export function PhotoUpload({
       setUploading(true);
       const urls: string[] = [...uploadedUrls]; // Keep existing uploads
       let successCount = 0;
+      const total = pendingPhotos.length;
+      let index = 0;
 
       for (const photo of pendingPhotos) {
+        index += 1;
+        const progressToastId = `upload-progress-${index}`;
+        toast.loading(`Uploading photo ${index} of ${total}…`, { id: progressToastId });
         try {
+          // Compress before upload so mobile users on SA LTE don't lose the
+          // connection halfway through a 5 MB photo.
+          const uploadFile = await compressImage(photo.file);
+
           // Get presigned URL
           const { presignedUrl, fileUrl } = await getPresignedUrlMutation.mutateAsync({
             token,
-            fileName: photo.file.name,
-            fileType: photo.file.type,
+            fileName: uploadFile.name,
+            fileType: uploadFile.type,
             isPublic,
           });
 
           // Upload file to MinIO with retry for transient mobile network failures.
-          await uploadToPresignedUrl(presignedUrl, photo.file, {
+          await uploadToPresignedUrl(presignedUrl, uploadFile, {
+            onProgress: (pct) => {
+              toast.loading(
+                `Uploading photo ${index} of ${total} — ${pct}%`,
+                { id: progressToastId },
+              );
+            },
             onRetry: (attempt, max) => {
-              toast.loading(`Retrying ${photo.file.name} (${attempt}/${max - 1})...`, {
-                id: `retry-${photo.file.name}`,
-                duration: 2000,
-              });
+              toast.loading(
+                `Bad signal — retrying photo ${index} of ${total} (attempt ${attempt + 1}/${max})…`,
+                { id: progressToastId },
+              );
             },
           });
 
-          toast.dismiss(`retry-${photo.file.name}`);
+          toast.dismiss(progressToastId);
           urls.push(fileUrl);
           successCount++;
         } catch (error) {
-          toast.dismiss(`retry-${photo.file.name}`);
+          toast.dismiss(progressToastId);
           console.error(`Error uploading ${photo.file.name}:`, error);
           
           // Provide more detailed error message
           if (error instanceof Error) {
             if (error.message.includes("Failed to fetch") || error.message.includes("Network")) {
-              toast.error(`Network error uploading ${photo.file.name}. Check your connection and try again.`);
+              toast.error(
+                `Couldn't upload photo ${index} — your connection dropped. Please try again (WiFi is more reliable).`,
+                { duration: 6000 },
+              );
             } else if (error.message.includes("401") || error.message.includes("403")) {
-              toast.error("Authentication error. Please log in again.");
+              toast.error("Session expired. Please log in again.");
             } else {
-              toast.error(`Failed to upload ${photo.file.name}: ${error.message}`);
+              toast.error(`Failed to upload photo ${index}: ${error.message}`, { duration: 6000 });
             }
           } else {
-            toast.error(`Failed to upload ${photo.file.name}`);
+            toast.error(`Failed to upload photo ${index}`);
           }
           
           setUploading(false);

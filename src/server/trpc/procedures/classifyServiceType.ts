@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const classifyServiceType = baseProcedure
@@ -18,10 +18,10 @@ export const classifyServiceType = baseProcedure
     try {
       // Verify authentication
       const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const { userId } = z.object({ userId: z.number() }).parse(verified);
 
       // Set up AI model
-      const model = google("gemini-2.0-flash-exp");
+      const model = google("gemini-3.6-flash");
 
       // Service types available in the system
       const serviceTypes = [
@@ -49,6 +49,8 @@ export const classifyServiceType = baseProcedure
 
       // Classify the service type
       const { object } = await generateObject({
+        aiFeature: "classifyServiceType",
+        aiUserId: userId,
         model,
         output: "enum",
         enum: serviceTypes,

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuthStore } from "~/stores/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,11 @@ import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import RFQReportModal from "~/components/RFQReportModal";
 import { ClientSelector } from "~/components/ClientSelector";
 import { LineItemTemplatePicker } from "~/components/LineItemTemplatePicker";
+import {
+  PortfolioScopeToggle,
+  useInitialPortfolioScope,
+  type PortfolioScope,
+} from "~/components/PortfolioScopeToggle";
 import { PricingCatalogAutocomplete, DeviationBadge } from "~/components/PricingCatalogAutocomplete";
 import { QuoteScopeBuilder } from "~/components/QuoteScopeBuilder";
 import {
@@ -37,16 +42,26 @@ import {
   Receipt,
   Briefcase,
   CheckCircle,
+  CheckCircle2,
   XCircle,
+  AlertTriangle,
+  History,
+  X,
+  Wallet,
+  PenLine,
+  Link2,
 } from "lucide-react";
 import { ReportModal } from "~/components/ReportModal";
+import { JobCardSignatureModal } from "~/components/JobCardSignatureModal";
+import { SendSignatureRequestModal } from "~/components/SendSignatureRequestModal";
+import { PhotoUpload } from "~/components/PhotoUpload";
 
 export const Route = createFileRoute("/admin/quotations/")({
   component: QuotationsPage,
 });
 
 const quotationSchema = z.object({
-  customerName: z.string().min(1, "Customer name is required"),
+  customerName: z.string().min(1, "Building name is required"),
   quoteNumber: z.string().min(1).optional(),
   clientReferenceQuoteNumber: z.string().optional(),
   customerEmail: z.string().email("Invalid email address"),
@@ -141,6 +156,9 @@ function QuotationsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  // Amount-range filter (quote total). Empty string = no bound.
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
   const [showReportModal, setShowReportModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -148,6 +166,10 @@ function QuotationsPage() {
   ]);
   const [companyMaterialCost, setCompanyMaterialCost] = useState<string>("");
   const [companyLabourCost, setCompanyLabourCost] = useState<string>("");
+  const [discountPercent, setDiscountPercent] = useState<string>("");
+  // Deposit REQUESTED from the client on the quotation document itself.
+  const [depositRequestedPercent, setDepositRequestedPercent] = useState<string>("");
+  const [depositDueDate, setDepositDueDate] = useState<string>("");
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionQuotationId, setRejectionQuotationId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -159,6 +181,8 @@ function QuotationsPage() {
   const [downloadingRFQReportPdfId, setDownloadingRFQReportPdfId] = useState<number | null>(null);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
   const [expandedQuotations, setExpandedQuotations] = useState<Set<number>>(new Set());
+  const initialScope = useInitialPortfolioScope();
+  const [scope, setScope] = useState<PortfolioScope>(initialScope);
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<Set<number>>(new Set());
   const bulkUpdateMutation = useMutation(
     trpc.bulkUpdateQuotationStatus.mutationOptions({
@@ -190,6 +214,65 @@ function QuotationsPage() {
   const [convertDueDate, setConvertDueDate] = useState<string>("");
   const [convertNotes, setConvertNotes] = useState<string>("");
 
+  // Retroactive job card generation (for jobs done off-system)
+  type JobCardWorkSession = { startAt: string; endAt: string };
+  const [showJobCardModal, setShowJobCardModal] = useState(false);
+  const [jobCardQuotation, setJobCardQuotation] = useState<any>(null);
+  const [jobCardCompletionDate, setJobCardCompletionDate] = useState<string>("");
+  const [jobCardStartDate, setJobCardStartDate] = useState<string>("");
+  const [jobCardSessions, setJobCardSessions] = useState<JobCardWorkSession[]>([
+    { startAt: "", endAt: "" },
+  ]);
+  const [jobCardClientRep, setJobCardClientRep] = useState<string>("");
+  const [jobCardNotes, setJobCardNotes] = useState<string>("");
+  const [jobCardClientPO, setJobCardClientPO] = useState<string>("");
+  // Edit mode: when set, the modal updates an existing manually-generated
+  // order instead of creating a new one. Populated by clicking "Edit Job
+  // Card" on a row where generatedOrder already exists.
+  const [editingJobCardOrderId, setEditingJobCardOrderId] = useState<number | null>(null);
+  // Retroactive traceability — before/after site photos and materials-used
+  // ledger, both persisted on the created Order so the job card PDF renders
+  // the full evidence trail (same shape as jobs completed via the normal flow).
+  type JobCardMaterialRow = {
+    name: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    supplier: string;
+  };
+  const [jobCardBeforePictures, setJobCardBeforePictures] = useState<string[]>([]);
+  const [jobCardAfterPictures, setJobCardAfterPictures] = useState<string[]>([]);
+  const [jobCardMaterials, setJobCardMaterials] = useState<JobCardMaterialRow[]>([]);
+  const [generatingJobCardId, setGeneratingJobCardId] = useState<number | null>(null);
+  const [pendingJobCardOrderNumber, setPendingJobCardOrderNumber] = useState<string>("");
+
+  // Post-generation job card actions (mirror admin/operations row buttons so a
+  // quotation with a generatedOrder gets the same Sign / Send / Download flow).
+  const [signJobCardOrderId, setSignJobCardOrderId] = useState<number | null>(null);
+  const [sendSigOrder, setSendSigOrder] = useState<{
+    id: number;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+  } | null>(null);
+  const [downloadingJobCardOrderId, setDownloadingJobCardOrderId] = useState<number | null>(null);
+  const [mergingQuoteJobCardId, setMergingQuoteJobCardId] = useState<number | null>(null);
+
+  // Change history (audit trail)
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyQuotation, setHistoryQuotation] = useState<any>(null);
+  const historyQuery = useQuery(
+    trpc.getEntityAuditLog.queryOptions(
+      {
+        token: token!,
+        entityType: "Quotation",
+        entityId: historyQuotation?.id ?? 0,
+        limit: 200,
+      },
+      { enabled: !!token && !!historyQuotation?.id && showHistoryModal }
+    )
+  );
+
   const toggleQuotationExpansion = (quotationId: number) => {
     const newExpanded = new Set(expandedQuotations);
     if (newExpanded.has(quotationId)) {
@@ -214,6 +297,7 @@ function QuotationsPage() {
     trpc.getQuotations.queryOptions({
       token: token!,
       status: statusFilter as any,
+      scope,
     })
   );
 
@@ -248,6 +332,9 @@ function QuotationsPage() {
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
+        setDiscountPercent("");
+        setDepositRequestedPercent("");
+        setDepositDueDate("");
         setShowAddForm(false);
       },
       onError: (error) => {
@@ -265,6 +352,9 @@ function QuotationsPage() {
         setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
         setCompanyMaterialCost("");
         setCompanyLabourCost("");
+        setDiscountPercent("");
+        setDepositRequestedPercent("");
+        setDepositDueDate("");
         setShowAddForm(false);
         setEditingQuotation(null);
       },
@@ -374,10 +464,18 @@ function QuotationsPage() {
     })
   );
 
+  // Keep the last-attempted convert payload so we can retry with
+  // updateExisting=true after the user confirms the sync prompt. Some
+  // TanStack/tRPC mutation option shapes don't pass `variables` to onError,
+  // so a ref is the reliable way to recover the input.
+  const lastConvertPayloadRef = useRef<any>(null);
   const convertToInvoiceMutation = useMutation(
     trpc.convertQuotationToInvoice.mutationOptions({
-      onSuccess: (data) => {
-        toast.success(`Invoice ${data.invoice.invoiceNumber} created successfully!${data.order ? ` Order ${data.order.orderNumber} also created.` : ""}`);
+      onSuccess: (data: any) => {
+        const verb = data?.updated ? "refreshed" : "created";
+        toast.success(
+          `Invoice ${data.invoice.invoiceNumber} ${verb} successfully!${data.order ? ` Order ${data.order.orderNumber} also created.` : ""}`,
+        );
         queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
         setShowConvertModal(false);
         setConvertingQuotation(null);
@@ -385,8 +483,26 @@ function QuotationsPage() {
         setConvertAssignedTo("");
         setConvertDueDate("");
         setConvertNotes("");
+        lastConvertPayloadRef.current = null;
       },
-      onError: (error) => {
+      onError: (error: any) => {
+        // If the quotation was already invoiced, offer to REFRESH the existing
+        // invoice with the latest quotation contents instead of hard-failing.
+        const isAlreadyConverted =
+          error?.data?.code === "CONFLICT" ||
+          /already converted to invoice/i.test(error?.message ?? "");
+        const payload = lastConvertPayloadRef.current;
+        if (isAlreadyConverted && payload && !payload.updateExisting) {
+          const proceed = window.confirm(
+            `${error?.message ?? "This quotation is already linked to an invoice."}\n\nUpdate the existing invoice with the latest quotation details?`,
+          );
+          if (proceed) {
+            const retryPayload = { ...payload, updateExisting: true };
+            lastConvertPayloadRef.current = retryPayload;
+            convertToInvoiceMutation.mutate(retryPayload);
+            return;
+          }
+        }
         toast.error(error.message || "Failed to convert quotation to invoice");
       },
     })
@@ -403,6 +519,247 @@ function QuotationsPage() {
       },
     })
   );
+
+  const jobCardPdfMutation = useMutation(
+    trpc.generateJobCardPdf.mutationOptions({
+      onSuccess: (data: any) => {
+        try {
+          const byteCharacters = atob(data.pdf);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: "application/pdf" });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `job-card-${pendingJobCardOrderNumber || "download"}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast.success("Job card PDF downloaded");
+        } catch (e) {
+          toast.error("Failed to download job card PDF");
+        }
+        setGeneratingJobCardId(null);
+        setPendingJobCardOrderNumber("");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate job card PDF");
+        setGeneratingJobCardId(null);
+        setPendingJobCardOrderNumber("");
+      },
+    })
+  );
+
+  const generateJobCardMutation = useMutation(
+    trpc.generateJobCardForQuotation.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(data.message || `Job card ${data.order.orderNumber} created`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+        setShowJobCardModal(false);
+        setJobCardQuotation(null);
+        setJobCardCompletionDate("");
+        setJobCardStartDate("");
+        setJobCardSessions([{ startAt: "", endAt: "" }]);
+        setJobCardClientRep("");
+        setJobCardNotes("");
+        setJobCardClientPO("");
+        setJobCardBeforePictures([]);
+        setJobCardAfterPictures([]);
+        setJobCardMaterials([]);
+        setEditingJobCardOrderId(null);
+        // Immediately download the job card PDF for the new order
+        setGeneratingJobCardId(data.order.id);
+        setPendingJobCardOrderNumber(data.order.orderNumber);
+        jobCardPdfMutation.mutate({ token: token!, orderId: data.order.id });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate job card");
+      },
+    })
+  );
+
+  // Update path — used when the admin clicks "Edit Job Card" on a row that
+  // already has a manually-generated order. Same modal, different mutation.
+  const updateManualJobCardMutation = useMutation(
+    trpc.updateManualJobCard.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(data.message || `Job card ${data.orderNumber} updated`);
+        queryClient.invalidateQueries({ queryKey: trpc.getQuotations.queryKey() });
+        setShowJobCardModal(false);
+        setJobCardQuotation(null);
+        setJobCardCompletionDate("");
+        setJobCardStartDate("");
+        setJobCardSessions([{ startAt: "", endAt: "" }]);
+        setJobCardClientRep("");
+        setJobCardNotes("");
+        setJobCardClientPO("");
+        setJobCardBeforePictures([]);
+        setJobCardAfterPictures([]);
+        setJobCardMaterials([]);
+        setEditingJobCardOrderId(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update job card");
+      },
+    })
+  );
+
+  // Populate the modal from an existing generated order and open in edit
+  // mode. Keeps the same visual shell as the "Generate" flow so admins only
+  // have one form to learn.
+  const openEditJobCardModal = (quotation: any, ord: any) => {
+    // Strip the machine-managed retroTag + sessionsBlock + "Job card
+    // generated from quotation ..." trailer from notes so the textarea shows
+    // only the free-text portion the admin originally typed.
+    const rawNotes: string = ord?.notes || "";
+    const strippedNotes = rawNotes
+      .split("\n")
+      .filter((line: string) => !/^\[Manually generated retroactively/.test(line))
+      .filter((line: string) => !/^Job card generated from quotation/.test(line))
+      .join("\n")
+      // Also strip the "Work sessions:" block (label line + indented rows).
+      .replace(/(^|\n)Work sessions:(\n\s{2}\d+\..*)+/g, "")
+      .trim();
+
+    // Parse the persisted "Work sessions:" block back into the editor rows
+    // so the admin can tweak individual days.
+    const sessions: JobCardWorkSession[] = [];
+    const sessionRegex = /^\s{2}\d+\.\s+(.+?)\s→\s(.+)$/gm;
+    const sessionBlockMatch = rawNotes.match(/Work sessions:\n((?:\s{2}\d+\..*(?:\n|$))+)/);
+    if (sessionBlockMatch?.[1]) {
+      let m: RegExpExecArray | null;
+      while ((m = sessionRegex.exec(sessionBlockMatch[1])) !== null) {
+        const startStr = m[1]!.trim();
+        const endStr = m[2]!.trim();
+        // toLocalString'd back to datetime-local — best effort; if it fails
+        // we leave the row blank so the admin can re-enter.
+        const parseZa = (s: string) => {
+          const d = new Date(s);
+          if (Number.isNaN(d.getTime())) return "";
+          const pad = (n: number) => n.toString().padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        sessions.push({ startAt: parseZa(startStr), endAt: parseZa(endStr) });
+      }
+    }
+
+    const toDatetimeLocal = (v: any) => {
+      if (!v) return "";
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return "";
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    setJobCardQuotation(quotation);
+    setEditingJobCardOrderId(ord.id);
+    setJobCardCompletionDate(toDatetimeLocal(ord.endTime));
+    setJobCardStartDate(toDatetimeLocal(ord.startTime));
+    setJobCardSessions(sessions.length > 0 ? sessions : [{ startAt: "", endAt: "" }]);
+    setJobCardClientRep(ord.clientRepName || "");
+    setJobCardClientPO(ord.clientOrderNumber || "");
+    setJobCardNotes(strippedNotes);
+    setJobCardBeforePictures(Array.isArray(ord.beforePictures) ? ord.beforePictures : []);
+    setJobCardAfterPictures(Array.isArray(ord.afterPictures) ? ord.afterPictures : []);
+    setJobCardMaterials(
+      Array.isArray(ord.materials)
+        ? ord.materials.map((m: any) => ({
+            name: m.name || "",
+            description: m.description || "",
+            quantity: m.quantity != null ? String(m.quantity) : "",
+            unitPrice: m.unitPrice != null ? String(m.unitPrice) : "",
+            supplier: m.supplier || "",
+          }))
+        : []
+    );
+    setShowJobCardModal(true);
+  };
+
+
+  // ─── Post-generation job card helpers (used by the row action bar when
+  //     quotation.generatedOrder exists) ────────────────────────────────────
+  // Silent mutation hooks — the shared `jobCardPdfMutation` and
+  // `generateQuotationPdfMutation` above both trigger auto-downloads via
+  // their onSuccess hooks. For the Download / Merge buttons on generated
+  // rows we need to await the base64 bytes without those side effects.
+  const jobCardPdfSilentMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+  const quotationPdfSilentMutation = useMutation(trpc.generateQuotationPdf.mutationOptions());
+
+  const base64ToUint8Array = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Uint8Array(byteNumbers);
+  };
+
+  const downloadPdfBytes = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJobCardForRow = async (orderId: number, orderNumber: string) => {
+    setDownloadingJobCardOrderId(orderId);
+    try {
+      const data: any = await jobCardPdfSilentMutation.mutateAsync({ token: token!, orderId });
+      downloadPdfBytes(base64ToUint8Array(data.pdf), `job-card-${orderNumber || orderId}.pdf`);
+      toast.success("Job card downloaded");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to download job card");
+    } finally {
+      setDownloadingJobCardOrderId(null);
+    }
+  };
+
+  // Merge Quotation PDF + Job Card PDF into a single file — mirrors the
+  // "Invoice + Order + Job Card" pattern from admin/operations so the client
+  // can be sent both documents as one attachment.
+  const handleMergeQuoteJobCard = async (quotation: any) => {
+    const ord = quotation.generatedOrder;
+    if (!ord) {
+      toast.error("No job card has been generated for this quotation yet");
+      return;
+    }
+    setMergingQuoteJobCardId(quotation.id);
+    const toastId = toast.loading("Preparing combined Quote + Job Card PDF...");
+    try {
+      const [{ PDFDocument }] = await Promise.all([import("pdf-lib")]);
+      const [quotePdf, jobCardPdf] = await Promise.all([
+        quotationPdfSilentMutation.mutateAsync({ token: token!, quotationId: quotation.id }),
+        jobCardPdfSilentMutation.mutateAsync({ token: token!, orderId: ord.id }),
+      ]);
+      const merged = await PDFDocument.create();
+      const appendBase64 = async (b64: string) => {
+        const src = await PDFDocument.load(base64ToUint8Array(b64));
+        const copied = await merged.copyPages(src, src.getPageIndices());
+        copied.forEach((p) => merged.addPage(p));
+      };
+      await appendBase64((quotePdf as any).pdf);
+      await appendBase64((jobCardPdf as any).pdf);
+      const bytes = await merged.save();
+      downloadPdfBytes(
+        bytes,
+        `quote-and-jobcard-${quotation.quoteNumber || quotation.id}.pdf`
+      );
+      toast.success("Quote + Job Card downloaded!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to generate combined PDF", { id: toastId });
+    } finally {
+      setMergingQuoteJobCardId(null);
+    }
+  };
 
   const handleEditQuotation = (quotation: any) => {
     setEditingQuotation(quotation.id);
@@ -432,6 +789,21 @@ function QuotationsPage() {
     // Populate cost fields
     setCompanyMaterialCost(quotation.companyMaterialCost?.toString() || "");
     setCompanyLabourCost(quotation.companyLabourCost?.toString() || "");
+    setDiscountPercent(
+      quotation.discountPercent && quotation.discountPercent > 0
+        ? String(quotation.discountPercent)
+        : "",
+    );
+    setDepositRequestedPercent(
+      (quotation as any).depositRequestedPercent && (quotation as any).depositRequestedPercent > 0
+        ? String((quotation as any).depositRequestedPercent)
+        : "",
+    );
+    setDepositDueDate(
+      (quotation as any).depositDueDate
+        ? new Date((quotation as any).depositDueDate).toISOString().slice(0, 10)
+        : "",
+    );
   };
 
   const handleStatusChange = (quotationId: number, newStatus: string) => {
@@ -496,7 +868,7 @@ function QuotationsPage() {
     
     // Validate required fields for AI generation
     if (!customerName || !customerName.trim()) {
-      toast.error("Please enter the customer name before generating line items");
+      toast.error("Please enter the building name before generating line items");
       return;
     }
     
@@ -554,28 +926,59 @@ function QuotationsPage() {
     return lineItems.reduce((sum, item) => sum + item.total, 0);
   };
 
+  const clampedDiscountPct = () => {
+    const raw = parseFloat(discountPercent);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return Math.min(100, raw);
+  };
+
+  const calculateDiscountAmount = () => {
+    return calculateSubtotal() * (clampedDiscountPct() / 100);
+  };
+
+  const calculateNetSubtotal = () => {
+    return Math.max(0, calculateSubtotal() - calculateDiscountAmount());
+  };
+
   const calculateTax = () => {
-    return calculateSubtotal() * 0.15; // 15% VAT
+    return calculateNetSubtotal() * 0.15; // 15% VAT (on discounted subtotal)
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
+    return calculateNetSubtotal() + calculateTax();
   };
 
   const calculateEstimatedProfit = () => {
-    const subtotal = calculateSubtotal();
+    const subtotal = calculateNetSubtotal();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
     return subtotal - materialCost - labourCost;
   };
 
+  // Deposit REQUESTED from the client (percent-based). Amount is derived
+  // from the canonical total so the form and PDF always match.
+  const clampedDepositPct = () => {
+    const raw = parseFloat(depositRequestedPercent);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return Math.min(100, raw);
+  };
+  const calculateDepositRequestedAmount = () => {
+    const pct = clampedDepositPct();
+    if (pct <= 0) return 0;
+    const total = calculateTotal();
+    return Math.round(((total * pct) / 100 + Number.EPSILON) * 100) / 100;
+  };
+  const calculateBalanceOnCompletion = () =>
+    Math.max(0, calculateTotal() - calculateDepositRequestedAmount());
+
   const onSubmit = (data: QuotationForm) => {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
     const total = calculateTotal();
+    const discountPct = clampedDiscountPct();
     const materialCost = parseFloat(companyMaterialCost) || 0;
     const labourCost = parseFloat(companyLabourCost) || 0;
-    const estimatedProfit = subtotal - materialCost - labourCost;
+    const estimatedProfit = calculateNetSubtotal() - materialCost - labourCost;
 
     if (editingQuotation) {
       updateQuotationDetailsMutation.mutate({
@@ -587,6 +990,9 @@ function QuotationsPage() {
         subtotal,
         tax,
         total,
+        discountPercent: discountPct,
+        depositRequestedPercent: clampedDepositPct(),
+        depositDueDate: depositDueDate || undefined,
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
@@ -599,6 +1005,9 @@ function QuotationsPage() {
         subtotal,
         tax,
         total,
+        discountPercent: discountPct,
+        depositRequestedPercent: clampedDepositPct(),
+        depositDueDate: depositDueDate || undefined,
         companyMaterialCost: materialCost,
         companyLabourCost: labourCost,
         estimatedProfit,
@@ -609,11 +1018,34 @@ function QuotationsPage() {
   };
 
   const quotations: any[] = quotationsQuery.data || [];
-  const filteredQuotations = quotations.filter((quotation) =>
-    quotation.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    quotation.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    quotation.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  // Strip currency symbols/commas/spaces, returning null when not a number.
+  const parseAmountInput = (v: string): number | null => {
+    const n = parseFloat(v.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+  const minAmountNum = parseAmountInput(minAmount);
+  const maxAmountNum = parseAmountInput(maxAmount);
+
+  const filteredQuotations = quotations.filter((quotation) => {
+    const total = Number(quotation.total) || 0;
+
+    // Amount-range filter
+    if (minAmountNum !== null && total < minAmountNum) return false;
+    if (maxAmountNum !== null && total > maxAmountNum) return false;
+
+    // Free-text search — matches name, email, phone, quote number AND amount
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      (quotation.customerName || "").toLowerCase().includes(term) ||
+      (quotation.customerEmail || "").toLowerCase().includes(term) ||
+      (quotation.customerPhone || "").toLowerCase().includes(term) ||
+      (quotation.quoteNumber || "").toLowerCase().includes(term) ||
+      total.toFixed(2).includes(term) ||
+      String(Math.round(total)).includes(term)
+    );
+  });
 
   const statusMetrics = quotationStatuses.map((status) => ({
     ...status,
@@ -656,6 +1088,10 @@ function QuotationsPage() {
               <FileSpreadsheet className="h-5 w-5 mr-2" />
               Generate Report
             </button>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Scope:</span>
+            <PortfolioScopeToggle scope={scope} onChange={setScope} />
           </div>
         </div>
       </header>
@@ -706,16 +1142,18 @@ function QuotationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Name *
+                    Building Name *
                   </label>
                   <input
                     type="text"
                     {...register("customerName")}
+                    placeholder="e.g. Calton Centre"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
                   />
                   {errors.customerName && (
                     <p className="mt-1 text-sm text-red-600">{errors.customerName.message}</p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">Shown as the site/building on the PDF.</p>
                 </div>
 
                 <div>
@@ -1028,10 +1466,86 @@ function QuotationsPage() {
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-3 mb-1">
+                  <label htmlFor="discount-percent" className="text-sm font-medium text-gray-700">
+                    Discount (%)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="discount-percent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(e.target.value)}
+                      placeholder="0"
+                      className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-right text-sm focus:ring-2 focus:ring-brand-secondary-500 focus:border-transparent"
+                    />
+                    <span className="text-sm text-gray-600">%</span>
+                  </div>
+                </div>
+                {/* Deposit Required (requested from client, shown on the quotation PDF) */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-3 mb-1 bg-indigo-50/60 -mx-4 px-4 pt-3">
+                  <div>
+                    <label htmlFor="quote-deposit-percent" className="text-sm font-semibold text-indigo-900 flex items-center gap-1">
+                      <Wallet className="h-4 w-4" />
+                      Deposit Required (%)
+                    </label>
+                    <p className="text-[11px] text-indigo-700/80 mt-0.5">
+                      Displayed on the quotation PDF as up-front payment before work begins.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <div className="flex gap-1">
+                      {[25, 50, 75, 100].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setDepositRequestedPercent(String(v))}
+                          className="px-2 py-1 text-xs font-medium bg-white border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100"
+                        >
+                          {v}%
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      id="quote-deposit-percent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={depositRequestedPercent}
+                      onChange={(e) => setDepositRequestedPercent(e.target.value)}
+                      placeholder="0"
+                      className="w-20 px-3 py-1.5 border border-indigo-300 rounded-lg text-right text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <span className="text-sm text-indigo-700">%</span>
+                    <input
+                      type="date"
+                      value={depositDueDate}
+                      onChange={(e) => setDepositDueDate(e.target.value)}
+                      title="Deposit due date (optional)"
+                      className="px-2 py-1.5 border border-indigo-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">R{calculateSubtotal().toFixed(2)}</span>
                 </div>
+                {clampedDiscountPct() > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-red-700">
+                      <span>Discount ({clampedDiscountPct().toFixed(2)}%):</span>
+                      <span className="font-medium">-R{calculateDiscountAmount().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal after discount:</span>
+                      <span className="font-medium">R{calculateNetSubtotal().toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">VAT (15%):</span>
                   <span className="font-medium">R{calculateTax().toFixed(2)}</span>
@@ -1040,6 +1554,25 @@ function QuotationsPage() {
                   <span>Total (Client Price):</span>
                   <span>R{calculateTotal().toFixed(2)}</span>
                 </div>
+                {clampedDepositPct() > 0 && (
+                  <div className="mt-2 rounded-lg bg-indigo-50 border border-indigo-200 p-3 space-y-1">
+                    <div className="flex justify-between text-sm text-indigo-900">
+                      <span className="font-semibold">
+                        Deposit Required ({clampedDepositPct().toFixed(2)}%):
+                      </span>
+                      <span className="font-bold">R{calculateDepositRequestedAmount().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-indigo-800">
+                      <span>Balance on Completion:</span>
+                      <span className="font-medium">R{calculateBalanceOnCompletion().toFixed(2)}</span>
+                    </div>
+                    {depositDueDate && (
+                      <div className="text-[11px] text-indigo-700/80 pt-1 border-t border-indigo-200">
+                        Deposit due by {new Date(depositDueDate).toLocaleDateString("en-ZA")}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <div className="border-t pt-2 mt-2">
                   <div className="flex justify-between text-sm text-gray-600">
@@ -1071,6 +1604,9 @@ function QuotationsPage() {
                     setLineItems([{ description: "", quantity: 1, unitPrice: 0, total: 0, unitOfMeasure: "Sum" }]);
                     setCompanyMaterialCost("");
                     setCompanyLabourCost("");
+                    setDiscountPercent("");
+                    setDepositRequestedPercent("");
+                    setDepositDueDate("");
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -1092,23 +1628,52 @@ function QuotationsPage() {
         )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[220px] relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search quotations..."
+                placeholder="Search by number, customer, email or amount..."
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="decimal"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                  placeholder="Min"
+                  title="Minimum quote amount"
+                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                />
+              </div>
+              <span className="text-gray-400">–</span>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="decimal"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                  placeholder="Max"
+                  title="Maximum quote amount"
+                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
+                />
+              </div>
+            </div>
             <button
-              onClick={() => setStatusFilter(null)}
+              onClick={() => { setStatusFilter(null); setSearchTerm(""); setMinAmount(""); setMaxAmount(""); }}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               <Filter className="h-5 w-5 mr-2" />
-              {statusFilter ? "Clear Filter" : "All Quotations"}
+              {(statusFilter || searchTerm || minAmount || maxAmount) ? "Clear Filters" : "All Quotations"}
             </button>
           </div>
         </div>
@@ -1224,7 +1789,7 @@ function QuotationsPage() {
                 {/* Compact Header */}
                 <div className="px-4 sm:px-6 py-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                       <input
                         type="checkbox"
                         className="h-4 w-4 rounded border-gray-300 flex-shrink-0"
@@ -1255,7 +1820,16 @@ function QuotationsPage() {
                       >
                         {quotationStatuses.find((s) => s.value === quotation.status)?.label || quotation.status}
                       </span>
-                      <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline">{quotation.customerName}</span>
+                      {(quotation.status === "APPROVED" || quotation.status === "APPROVED_BY_CUSTOMER") && !quotation.generatedInvoice && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1 flex-shrink-0"
+                          title="This quotation has been approved but no invoice has been raised yet."
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          <span className="hidden xl:inline">Not Invoiced</span>
+                        </span>
+                      )}
+                      <span className="text-sm text-gray-700 font-medium truncate hidden sm:inline min-w-0 flex-1">{quotation.customerName}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-sm font-bold text-gray-900">R{(quotation.total || 0).toLocaleString()}</span>
@@ -1287,38 +1861,185 @@ function QuotationsPage() {
                             )}
                           </button>
                         )}
-                        {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && (
-                          <>
-                            <button
-                              onClick={() => {
-                                convertToOrderMutation.mutate({
-                                  token: token!,
-                                  quotationId: quotation.id,
-                                });
-                              }}
-                              disabled={convertToOrderMutation.isPending}
-                              className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
-                              title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
-                            >
-                              <Briefcase className="h-3.5 w-3.5 mr-1" />Assign Job
-                            </button>
-                            <button
-                              onClick={() => {
-                                setConvertingQuotation(quotation);
-                                setShowConvertModal(true);
-                              }}
-                              className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors inline-flex items-center"
-                            >
-                              <Receipt className="h-3.5 w-3.5 mr-1" />Invoice Quote
-                            </button>
-                          </>
+                        {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && !quotation.generatedOrder && (
+                          <button
+                            onClick={() => {
+                              convertToOrderMutation.mutate({
+                                token: token!,
+                                quotationId: quotation.id,
+                              });
+                            }}
+                            disabled={convertToOrderMutation.isPending}
+                            className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
+                          >
+                            <Briefcase className="h-3.5 w-3.5 mr-1" />Assign Job
+                          </button>
                         )}
+                        {/* Invoice Quote stays available even after a job order
+                            has been created — the invoice is a separate artifact
+                            and admins often raise it after site work starts. It
+                            only disappears once an invoice has actually been
+                            generated for this quotation. */}
+                        {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && !quotation.generatedInvoice && (
+                          <button
+                            onClick={() => {
+                              setConvertingQuotation(quotation);
+                              setShowConvertModal(true);
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors inline-flex items-center"
+                          >
+                            <Receipt className="h-3.5 w-3.5 mr-1" />Invoice Quote
+                          </button>
+                        )}
+                        {quotation.generatedInvoice && (
+                          <a
+                            href={`/admin/invoices?invoiceId=${quotation.generatedInvoice.id}`}
+                            className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 rounded-lg transition-colors inline-flex items-center"
+                            title={`Already invoiced as ${quotation.generatedInvoice.invoiceNumber} (${quotation.generatedInvoice.status}). Click to open.`}
+                          >
+                            <Receipt className="h-3.5 w-3.5 mr-1" />
+                            {quotation.generatedInvoice.invoiceNumber}
+                            <span className="ml-1 text-[10px] text-emerald-800 uppercase">{String(quotation.generatedInvoice.status).toLowerCase()}</span>
+                          </a>
+                        )}
+                        {isAdmin && !quotation.generatedOrder && quotation.status !== "DRAFT" && quotation.status !== "REJECTED" && quotation.status !== "REJECTED_BY_CUSTOMER" && (
+                          <button
+                            onClick={() => {
+                              setJobCardQuotation(quotation);
+                              setJobCardCompletionDate(new Date().toISOString().slice(0, 16));
+                              setJobCardStartDate(quotation.createdAt ? new Date(quotation.createdAt).toISOString().slice(0, 16) : "");
+                              setJobCardSessions([{ startAt: "", endAt: "" }]);
+                              setJobCardClientRep("");
+                              setJobCardNotes("");
+                              setShowJobCardModal(true);
+                            }}
+                            disabled={generateJobCardMutation.isPending || jobCardPdfMutation.isPending}
+                            className="px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                            title="Manually generate a job card for work already completed off-system"
+                          >
+                            {(generateJobCardMutation.isPending || (jobCardPdfMutation.isPending && generatingJobCardId != null)) ? (
+                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Job Card</>
+                            ) : (
+                              <><FileText className="h-3.5 w-3.5 mr-1" />Manual Job Card</>
+                            )}
+                          </button>
+                        )}
+                        {/* Post-generation job card actions — mirror admin/operations so a
+                            quotation with a generatedOrder gets Signed badge + Download /
+                            Sign / Send / Edit job card in the same visual language. */}
+                        {isAdmin && quotation.generatedOrder && (() => {
+                          const ord: any = quotation.generatedOrder;
+                          const isSigned = !!(ord.signedJobCardUrl && ord.clientRepSignDate);
+                          const awaiting = !isSigned && !!ord.signatureRequestSentAt;
+                          const clientUnavailable = !isSigned && !awaiting && !!ord.clientUnavailableToSign;
+                          return (
+                            <>
+                              {isSigned ? (
+                                <span
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-lg"
+                                  title={`Signed by ${ord.clientRepName ?? "client"} on ${new Date(ord.clientRepSignDate).toLocaleString("en-ZA")}`}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Signed
+                                </span>
+                              ) : awaiting ? (
+                                <span
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-amber-800 bg-amber-50 rounded-lg animate-pulse"
+                                  title={`Link sent ${new Date(ord.signatureRequestSentAt).toLocaleString("en-ZA")} — awaiting client signature`}
+                                >
+                                  <Link2 className="h-3.5 w-3.5 mr-1" />Awaiting Signature
+                                </span>
+                              ) : clientUnavailable ? (
+                                <span
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg"
+                                  title="Client marked as unavailable to sign"
+                                >
+                                  Client Unavailable
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg"
+                                  title="Client has not signed this job card"
+                                >
+                                  Not Signed
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleDownloadJobCardForRow(ord.id, ord.orderNumber)}
+                                disabled={downloadingJobCardOrderId === ord.id}
+                                className="px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                              >
+                                {downloadingJobCardOrderId === ord.id ? (
+                                  <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Downloading...</>
+                                ) : (
+                                  <><Receipt className="h-3.5 w-3.5 mr-1" />Job Card</>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleMergeQuoteJobCard(quotation)}
+                                disabled={mergingQuoteJobCardId === quotation.id}
+                                className="px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                                title="Download a single PDF containing this quotation followed by the generated job card"
+                              >
+                                {mergingQuoteJobCardId === quotation.id ? (
+                                  <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Preparing...</>
+                                ) : (
+                                  <><FileText className="h-3.5 w-3.5 mr-1" />Quote + Job Card</>
+                                )}
+                              </button>
+                              {!isSigned && (
+                                <button
+                                  onClick={() => setSendSigOrder({
+                                    id: ord.id,
+                                    customerName: ord.customerName || quotation.customerName,
+                                    customerEmail: ord.customerEmail || quotation.customerEmail,
+                                    customerPhone: ord.customerPhone || quotation.customerPhone,
+                                  })}
+                                  className="px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors inline-flex items-center"
+                                  title="Send the client a link to sign the job card remotely"
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                                  {ord.signatureRequestSentAt ? "Resend Link" : "Send Sign Link"}
+                                </button>
+                              )}
+                              {(!ord.clientRepSignDate || !ord.artisanSignatureUrl) && !ord.isPMOrder && (
+                                <button
+                                  onClick={() => setSignJobCardOrderId(ord.id)}
+                                  className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors inline-flex items-center"
+                                  title={!ord.clientRepSignDate ? "Capture client signature in-person (client & artisan)" : "Capture artisan signature"}
+                                >
+                                  <PenLine className="h-3.5 w-3.5 mr-1" />Sign Job Card
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openEditJobCardModal(quotation, ord)}
+                                className="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors inline-flex items-center"
+                                title="Edit this manually-generated job card (dates, materials, photos, notes)"
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-1" />Edit Job Card
+                              </button>
+                            </>
+                          );
+                        })()}
                         <button
                           onClick={() => handleEditQuotation(quotation)}
                           className="px-2 py-1 text-xs font-medium text-brand-secondary-700 bg-brand-secondary-50 hover:bg-brand-secondary-100 rounded-lg transition-colors inline-flex items-center"
                         >
                           <Edit className="h-3.5 w-3.5 mr-1" />Edit
                         </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setHistoryQuotation(quotation);
+                              setShowHistoryModal(true);
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors inline-flex items-center"
+                            title="View change history for this quotation"
+                          >
+                            <History className="h-3.5 w-3.5 mr-1" />History
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteClick(quotation.id)}
                           className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-flex items-center"
@@ -1389,32 +2110,132 @@ function QuotationsPage() {
                         <Download className="h-3.5 w-3.5 mr-1 inline" />PDF
                       </button>
                     )}
-                    {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && (
-                      <>
-                        <button
-                          onClick={() => {
-                            convertToOrderMutation.mutate({
-                              token: token!,
-                              quotationId: quotation.id,
-                            });
-                          }}
-                          disabled={convertToOrderMutation.isPending}
-                          className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg disabled:opacity-50"
-                          title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
-                        >
-                          <Briefcase className="h-3.5 w-3.5 mr-1 inline" />Assign Job
-                        </button>
-                        <button
-                          onClick={() => {
-                            setConvertingQuotation(quotation);
-                            setShowConvertModal(true);
-                          }}
-                          className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"
-                        >
-                          <Receipt className="h-3.5 w-3.5 mr-1 inline" />Invoice Quote
-                        </button>
-                      </>
+                    {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && !quotation.generatedOrder && (
+                      <button
+                        onClick={() => {
+                          convertToOrderMutation.mutate({
+                            token: token!,
+                            quotationId: quotation.id,
+                          });
+                        }}
+                        disabled={convertToOrderMutation.isPending}
+                        className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg disabled:opacity-50"
+                        title={quotation.assignedToId ? "Create job order assigned to existing artisan" : "Create job order (no artisan assigned)"}
+                      >
+                        <Briefcase className="h-3.5 w-3.5 mr-1 inline" />Assign Job
+                      </button>
                     )}
+                    {(quotation.status === "APPROVED_BY_CUSTOMER" || quotation.status === "APPROVED") && isAdmin && !quotation.generatedInvoice && (
+                      <button
+                        onClick={() => {
+                          setConvertingQuotation(quotation);
+                          setShowConvertModal(true);
+                        }}
+                        className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"
+                      >
+                        <Receipt className="h-3.5 w-3.5 mr-1 inline" />Invoice Quote
+                      </button>
+                    )}
+                    {quotation.generatedInvoice && (
+                      <a
+                        href={`/admin/invoices?invoiceId=${quotation.generatedInvoice.id}`}
+                        className="px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 rounded-lg inline-flex items-center"
+                        title={`Already invoiced as ${quotation.generatedInvoice.invoiceNumber} (${quotation.generatedInvoice.status}). Click to open.`}
+                      >
+                        <Receipt className="h-3.5 w-3.5 mr-1" />
+                        {quotation.generatedInvoice.invoiceNumber}
+                        <span className="ml-1 text-[10px] text-emerald-800 uppercase">{String(quotation.generatedInvoice.status).toLowerCase()}</span>
+                      </a>
+                    )}
+                    {isAdmin && !quotation.generatedOrder && quotation.status !== "DRAFT" && quotation.status !== "REJECTED" && quotation.status !== "REJECTED_BY_CUSTOMER" && (
+                      <button
+                        onClick={() => {
+                          setJobCardQuotation(quotation);
+                          setJobCardCompletionDate(new Date().toISOString().slice(0, 16));
+                          setJobCardStartDate(quotation.createdAt ? new Date(quotation.createdAt).toISOString().slice(0, 16) : "");
+                          setJobCardSessions([{ startAt: "", endAt: "" }]);
+                          setJobCardClientRep("");
+                          setJobCardNotes("");
+                          setShowJobCardModal(true);
+                        }}
+                        disabled={generateJobCardMutation.isPending || jobCardPdfMutation.isPending}
+                        className="px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg disabled:opacity-50"
+                        title="Manually generate a job card for work already completed off-system"
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1 inline" />Manual Job Card
+                      </button>
+                    )}
+                    {/* Post-generation actions (mobile) — same buttons as desktop */}
+                    {isAdmin && quotation.generatedOrder && (() => {
+                      const ord: any = quotation.generatedOrder;
+                      const isSigned = !!(ord.signedJobCardUrl && ord.clientRepSignDate);
+                      const awaiting = !isSigned && !!ord.signatureRequestSentAt;
+                      const clientUnavailable = !isSigned && !awaiting && !!ord.clientUnavailableToSign;
+                      return (
+                        <>
+                          {isSigned ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-lg">
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Signed
+                            </span>
+                          ) : awaiting ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-amber-800 bg-amber-50 rounded-lg">
+                              <Link2 className="h-3.5 w-3.5 mr-1" />Awaiting
+                            </span>
+                          ) : clientUnavailable ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg">
+                              Client Unavailable
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg">
+                              Not Signed
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleDownloadJobCardForRow(ord.id, ord.orderNumber)}
+                            disabled={downloadingJobCardOrderId === ord.id}
+                            className="px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-lg disabled:opacity-50"
+                          >
+                            <Receipt className="h-3.5 w-3.5 mr-1 inline" />Job Card
+                          </button>
+                          <button
+                            onClick={() => handleMergeQuoteJobCard(quotation)}
+                            disabled={mergingQuoteJobCardId === quotation.id}
+                            className="px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 rounded-lg disabled:opacity-50"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1 inline" />Quote + Job Card
+                          </button>
+                          {!isSigned && (
+                            <button
+                              onClick={() => setSendSigOrder({
+                                id: ord.id,
+                                customerName: ord.customerName || quotation.customerName,
+                                customerEmail: ord.customerEmail || quotation.customerEmail,
+                                customerPhone: ord.customerPhone || quotation.customerPhone,
+                              })}
+                              className="px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 mr-1 inline" />
+                              {ord.signatureRequestSentAt ? "Resend Link" : "Send Sign Link"}
+                            </button>
+                          )}
+                          {(!ord.clientRepSignDate || !ord.artisanSignatureUrl) && !ord.isPMOrder && (
+                            <button
+                              onClick={() => setSignJobCardOrderId(ord.id)}
+                              className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg"
+                            >
+                              <PenLine className="h-3.5 w-3.5 mr-1 inline" />Sign
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openEditJobCardModal(quotation, ord)}
+                            className="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg"
+                          >
+                            <Edit className="h-3.5 w-3.5 mr-1 inline" />Edit
+                          </button>
+                        </>
+                      );
+                    })()}
                     <button onClick={() => handleEditQuotation(quotation)} className="px-2 py-1 text-xs font-medium text-brand-secondary-700 bg-brand-secondary-50 rounded-lg">
                       <Edit className="h-3.5 w-3.5 mr-1 inline" />Edit
                     </button>
@@ -1641,7 +2462,7 @@ function QuotationsPage() {
         columns={[
           { header: "Quote #", key: "quoteNumber" },
           { header: "Client Ref #", key: "clientReferenceQuoteNumber" },
-          { header: "Customer Name", key: "customerName" },
+          { header: "Building Name", key: "customerName" },
           { header: "Company", key: "client", format: (v: any) => v?.companyName || v?.name || "\u2014" },
           { header: "Building", key: "clientBuilding", format: (v: any) => v?.name || "\u2014" },
           { header: "Email", key: "customerEmail" },
@@ -1847,14 +2668,16 @@ function QuotationsPage() {
               </button>
               <button
                 onClick={() => {
-                  convertToInvoiceMutation.mutate({
+                  const payload = {
                     token: token!,
                     quotationId: convertingQuotation.id,
                     createOrder: convertCreateOrder,
                     ...(convertAssignedTo ? { assignedToId: parseInt(convertAssignedTo) } : {}),
                     ...(convertDueDate ? { dueDate: convertDueDate } : {}),
                     ...(convertNotes ? { notes: convertNotes } : {}),
-                  });
+                  };
+                  lastConvertPayloadRef.current = payload;
+                  convertToInvoiceMutation.mutate(payload);
                 }}
                 disabled={convertToInvoiceMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center"
@@ -1874,6 +2697,625 @@ function QuotationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Manual Job Card Modal - retroactive job card for work done off-system */}
+      {showJobCardModal && jobCardQuotation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              {editingJobCardOrderId != null ? "Edit Manual Job Card" : "Generate Manual Job Card"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              For quotation <span className="font-semibold">{jobCardQuotation.quoteNumber}</span> —{" "}
+              {editingJobCardOrderId != null
+                ? "update the on-site record captured for this job card. Changes save immediately; no new order is created."
+                : "creates a completed job order snapshot and downloads the job card PDF. Use this when the job was completed off-system and no order was created at the time."}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date &amp; Time (optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={jobCardStartDate}
+                  onChange={(e) => setJobCardStartDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  When the crew started on site. Defaults to the quotation date if left blank. Ignored if you
+                  add Work Sessions below.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Completion Date &amp; Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={jobCardCompletionDate}
+                  onChange={(e) => setJobCardCompletionDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">When the client signed the completed work off.</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Work Sessions (optional)</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJobCardSessions((prev) => [...prev, { startAt: "", endAt: "" }])
+                    }
+                    className="text-xs font-medium text-amber-700 hover:text-amber-800 inline-flex items-center"
+                  >
+                    + Add another session
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Add one row per day the crew was on site. Leave blank if unknown — start defaults to the
+                  quotation date.
+                </p>
+                <div className="space-y-2">
+                  {jobCardSessions.map((session, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end p-2 border border-gray-200 rounded-lg bg-gray-50"
+                    >
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Start (day {idx + 1})
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={session.startAt}
+                          onChange={(e) =>
+                            setJobCardSessions((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, startAt: e.target.value } : s))
+                            )
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">End (day {idx + 1})</label>
+                        <input
+                          type="datetime-local"
+                          value={session.endAt}
+                          onChange={(e) =>
+                            setJobCardSessions((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, endAt: e.target.value } : s))
+                            )
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setJobCardSessions((prev) =>
+                            prev.length === 1 ? [{ startAt: "", endAt: "" }] : prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                        disabled={jobCardSessions.length === 1 && !session.startAt && !session.endAt}
+                        className="px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40"
+                        aria-label="Remove session"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client Representative Name (optional)
+                </label>
+                <input
+                  type="text"
+                  value={jobCardClientRep}
+                  onChange={(e) => setJobCardClientRep(e.target.value)}
+                  placeholder="Person who accepted the completed work on site"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave blank if the client was unavailable to sign.
+                </p>
+              </div>
+
+              {/* Client traceability — appears as "Client PO No" on the job
+                  card PDF header alongside our own Job No / Our Quote No.
+                  Free-text so admins can capture the client's PO, work order
+                  reference, or any other cross-reference identifier. */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client PO No (optional)
+                </label>
+                <input
+                  type="text"
+                  value={jobCardClientPO}
+                  onChange={(e) => setJobCardClientPO(e.target.value)}
+                  placeholder="Client purchase-order / work-order reference"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Rendered on the job card PDF header as the client's cross-reference to our job number.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes (optional)</label>
+                <textarea
+                  value={jobCardNotes}
+                  onChange={(e) => setJobCardNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Any context for the job card record..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Before Pictures (optional) — rendered on the job card PDF */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Before Pictures (optional)</label>
+                  <p className="text-xs text-gray-500">
+                    Photos of the work area before the crew started. Rendered on the job card PDF.
+                  </p>
+                </div>
+                <PhotoUpload
+                  onPhotosUploaded={setJobCardBeforePictures}
+                  minimumPhotos={0}
+                  title="Before Pictures"
+                  description="Upload site photos captured before the work started (optional)."
+                  isPublic={false}
+                  initialUrls={jobCardBeforePictures}
+                />
+              </div>
+
+              {/* After Pictures (optional) — rendered on the job card PDF */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-gray-700">After Pictures (optional)</label>
+                  <p className="text-xs text-gray-500">
+                    Photos of the completed work. Rendered on the job card PDF next to the before shots.
+                  </p>
+                </div>
+                <PhotoUpload
+                  onPhotosUploaded={setJobCardAfterPictures}
+                  minimumPhotos={0}
+                  title="After Pictures"
+                  description="Upload site photos captured after the work was completed (optional)."
+                  isPublic={false}
+                  initialUrls={jobCardAfterPictures}
+                />
+              </div>
+
+              {/* Materials Used — traceability ledger persisted as Material rows */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Materials Used (optional)</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJobCardMaterials((prev) => [
+                        ...prev,
+                        { name: "", description: "", quantity: "", unitPrice: "", supplier: "" },
+                      ])
+                    }
+                    className="text-xs font-medium text-amber-700 hover:text-amber-800 inline-flex items-center"
+                  >
+                    + Add material
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Traceability record of parts and materials consumed on site. Appears in the "Materials Used"
+                  table on the job card PDF and updates the order's material cost.
+                </p>
+                {jobCardMaterials.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic border border-dashed border-gray-300 rounded-lg p-3 text-center">
+                    No materials added. Click "Add material" to record parts consumed on site.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {jobCardMaterials.map((mat, idx) => {
+                      const qty = parseFloat(mat.quantity);
+                      const price = parseFloat(mat.unitPrice);
+                      const lineTotal =
+                        Number.isFinite(qty) && Number.isFinite(price) ? qty * price : 0;
+                      return (
+                        <div
+                          key={idx}
+                          className="p-2 border border-gray-200 rounded-lg bg-gray-50 space-y-2"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_auto] gap-2">
+                            <input
+                              type="text"
+                              value={mat.name}
+                              onChange={(e) =>
+                                setJobCardMaterials((prev) =>
+                                  prev.map((m, i) => (i === idx ? { ...m, name: e.target.value } : m))
+                                )
+                              }
+                              placeholder="Material name (e.g. Copper elbow 22mm)"
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                            <input
+                              type="text"
+                              value={mat.supplier}
+                              onChange={(e) =>
+                                setJobCardMaterials((prev) =>
+                                  prev.map((m, i) => (i === idx ? { ...m, supplier: e.target.value } : m))
+                                )
+                              }
+                              placeholder="Supplier (optional)"
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setJobCardMaterials((prev) => prev.filter((_, i) => i !== idx))
+                              }
+                              className="px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg"
+                              aria-label="Remove material"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-600 mb-0.5">Qty</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={mat.quantity}
+                                onChange={(e) =>
+                                  setJobCardMaterials((prev) =>
+                                    prev.map((m, i) => (i === idx ? { ...m, quantity: e.target.value } : m))
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                                Unit price (R)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={mat.unitPrice}
+                                onChange={(e) =>
+                                  setJobCardMaterials((prev) =>
+                                    prev.map((m, i) =>
+                                      i === idx ? { ...m, unitPrice: e.target.value } : m
+                                    )
+                                  )
+                                }
+                                placeholder="0.00"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                                Line total
+                              </label>
+                              <div className="w-full px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-700">
+                                R {lineTotal.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            value={mat.description}
+                            onChange={(e) =>
+                              setJobCardMaterials((prev) =>
+                                prev.map((m, i) =>
+                                  i === idx ? { ...m, description: e.target.value } : m
+                                )
+                              )
+                            }
+                            placeholder="Description / notes (optional)"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                {editingJobCardOrderId != null
+                  ? "Saving replaces the on-site record for this manual job card (dates, materials, photos, notes). The order number and quotation link stay unchanged."
+                  : "A completed order will be created with a snapshot of this quotation's customer, address, line items, and totals. The order will be flagged in its notes as manually generated retroactively."}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowJobCardModal(false);
+                  setJobCardQuotation(null);
+                  setJobCardBeforePictures([]);
+                  setJobCardAfterPictures([]);
+                  setJobCardMaterials([]);
+                  setEditingJobCardOrderId(null);
+                }}
+                disabled={
+                  generateJobCardMutation.isPending || updateManualJobCardMutation.isPending
+                }
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!jobCardCompletionDate) {
+                    toast.error("Completion date is required");
+                    return;
+                  }
+                  const validSessions = jobCardSessions
+                    .filter((s) => s.startAt && s.endAt)
+                    .map((s) => ({ startAt: s.startAt, endAt: s.endAt }));
+                  const invalidSession = validSessions.find(
+                    (s) => new Date(s.endAt).getTime() < new Date(s.startAt).getTime()
+                  );
+                  if (invalidSession) {
+                    toast.error("Each session's end must be after its start");
+                    return;
+                  }
+                  const parsedMaterials = jobCardMaterials
+                    .map((m) => {
+                      const qty = parseFloat(m.quantity);
+                      const price = parseFloat(m.unitPrice);
+                      return {
+                        name: m.name.trim(),
+                        description: m.description.trim(),
+                        quantity: Number.isFinite(qty) ? qty : 0,
+                        unitPrice: Number.isFinite(price) ? price : 0,
+                        supplier: m.supplier.trim(),
+                      };
+                    })
+                    .filter((m) => m.name && m.quantity > 0);
+                  const commonPayload = {
+                    token: token!,
+                    completionDate: jobCardCompletionDate,
+                    ...(jobCardStartDate ? { startDate: jobCardStartDate } : {}),
+                    ...(validSessions.length > 0 ? { workSessions: validSessions } : {}),
+                    ...(jobCardClientRep ? { clientRepName: jobCardClientRep } : {}),
+                    ...(jobCardNotes ? { notes: jobCardNotes } : {}),
+                    ...(jobCardClientPO.trim() ? { clientOrderNumber: jobCardClientPO.trim() } : {}),
+                    ...(jobCardBeforePictures.length > 0 ? { beforePictures: jobCardBeforePictures } : {}),
+                    ...(jobCardAfterPictures.length > 0 ? { afterPictures: jobCardAfterPictures } : {}),
+                    ...(parsedMaterials.length > 0
+                      ? {
+                          materials: parsedMaterials.map((m) => ({
+                            name: m.name,
+                            ...(m.description ? { description: m.description } : {}),
+                            quantity: m.quantity,
+                            unitPrice: m.unitPrice,
+                            ...(m.supplier ? { supplier: m.supplier } : {}),
+                          })),
+                        }
+                      : {}),
+                  };
+                  if (editingJobCardOrderId != null) {
+                    updateManualJobCardMutation.mutate({
+                      ...commonPayload,
+                      orderId: editingJobCardOrderId,
+                    });
+                  } else {
+                    generateJobCardMutation.mutate({
+                      ...commonPayload,
+                      quotationId: jobCardQuotation.id,
+                    });
+                  }
+                }}
+                disabled={
+                  generateJobCardMutation.isPending ||
+                  updateManualJobCardMutation.isPending ||
+                  !jobCardCompletionDate
+                }
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center"
+              >
+                {editingJobCardOrderId != null ? (
+                  updateManualJobCardMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )
+                ) : generateJobCardMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate & Download
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change History Modal */}
+      {showHistoryModal && historyQuotation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <History className="h-5 w-5 mr-2 text-slate-600" />
+                  Change History
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Quotation <span className="font-semibold">{historyQuotation.quoteNumber}</span>
+                  {historyQuotation.customerName ? <> — {historyQuotation.customerName}</> : null}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setHistoryQuotation(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {historyQuery.isLoading && (
+              <div className="flex items-center justify-center py-8 text-gray-500">
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Loading history...
+              </div>
+            )}
+            {historyQuery.error && (
+              <div className="p-3 rounded-lg bg-red-50 text-sm text-red-700">
+                {(historyQuery.error as any)?.message || "Failed to load history"}
+              </div>
+            )}
+            {historyQuery.data && historyQuery.data.length === 0 && (
+              <div className="p-6 text-center text-sm text-gray-500">
+                No change history recorded yet. New edits from now on will be tracked automatically.
+              </div>
+            )}
+            {historyQuery.data && historyQuery.data.length > 0 && (
+              <ol className="space-y-3">
+                {historyQuery.data.map((entry: any) => {
+                  const actionColor =
+                    entry.action === "CREATE" ? "bg-emerald-100 text-emerald-800"
+                    : entry.action === "UPDATE" ? "bg-blue-100 text-blue-800"
+                    : entry.action === "DELETE" ? "bg-red-100 text-red-800"
+                    : entry.action === "STATUS_CHANGE" ? "bg-amber-100 text-amber-800"
+                    : entry.action === "CONVERT" ? "bg-purple-100 text-purple-800"
+                    : "bg-slate-100 text-slate-800";
+                  const changes = entry.changes || {};
+                  const changeKeys = Object.keys(changes);
+                  return (
+                    <li key={entry.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50">
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded ${actionColor}`}>
+                            {entry.action.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {entry.userName || "Unknown user"}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      {entry.description && (
+                        <p className="text-sm text-gray-700 mb-1">{entry.description}</p>
+                      )}
+                      {changeKeys.length > 0 && (
+                        <div className="mt-2 rounded border border-slate-200 bg-white overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-700">
+                                <th className="text-left px-2 py-1 font-medium">Field</th>
+                                <th className="text-left px-2 py-1 font-medium">Before</th>
+                                <th className="text-left px-2 py-1 font-medium">After</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {changeKeys.map((k) => {
+                                const c = changes[k];
+                                const fmt = (v: any) =>
+                                  v === null || v === undefined ? <span className="text-slate-400">—</span>
+                                  : typeof v === "boolean" ? String(v)
+                                  : typeof v === "number" ? v.toLocaleString()
+                                  : String(v);
+                                return (
+                                  <tr key={k} className="border-t border-slate-100">
+                                    <td className="px-2 py-1 font-medium text-slate-700 align-top">{k}</td>
+                                    <td className="px-2 py-1 text-slate-600 align-top">{fmt(c?.before)}</td>
+                                    <td className="px-2 py-1 text-slate-900 align-top">{fmt(c?.after)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
+            <div className="flex justify-end mt-5">
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setHistoryQuotation(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Post-completion in-person Sign Job Card modal (shared with admin/operations) */}
+      {signJobCardOrderId !== null && token && (() => {
+        const q = quotations.find((qq: any) => qq.generatedOrder?.id === signJobCardOrderId);
+        const ord: any = q?.generatedOrder;
+        if (!ord) return null;
+        return (
+          <JobCardSignatureModal
+            token={token}
+            currentUserName={user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : undefined}
+            order={{
+              id: ord.id,
+              orderNumber: ord.orderNumber,
+              serviceType: ord.serviceType,
+              description: ord.description,
+              signedJobCardUrl: ord.signedJobCardUrl,
+              clientRepName: ord.clientRepName,
+              clientRepSignDate: ord.clientRepSignDate,
+              artisanSignatureUrl: ord.artisanSignatureUrl,
+              artisanSignedByName: ord.artisanSignedByName,
+              artisanSignDate: ord.artisanSignDate,
+              isPMOrder: !!ord.isPMOrder,
+            }}
+            onClose={() => {
+              setSignJobCardOrderId(null);
+              queryClient.invalidateQueries({ queryKey: [["getQuotations"]] as any });
+            }}
+          />
+        );
+      })()}
+
+      {/* Send Signature Request modal (shared component) */}
+      {sendSigOrder && token && (
+        <SendSignatureRequestModal
+          token={token}
+          order={sendSigOrder}
+          onClose={() => setSendSigOrder(null)}
+        />
       )}
     </div>
   );

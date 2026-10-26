@@ -7,6 +7,7 @@ import { env } from "~/server/env";
 import { sendQuotationNotificationEmail } from "~/server/utils/email";
 import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 import { absorbLineItemsIntoCatalog, type CatalogQuotationLineItem } from "~/server/utils/pricingCatalog";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const updateQuotationStatus = baseProcedure
   .input(
@@ -30,7 +31,8 @@ export const updateQuotationStatus = baseProcedure
       materialCost: z.number().optional(),
       expenseSlips: z.array(
         z.object({
-          url: z.string(),
+          // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+          url: z.string().optional(),
           category: z.enum(["MATERIALS", "TOOLS", "TRANSPORTATION", "OTHER"]),
           description: z.string().optional(),
           amount: z.number().optional(),
@@ -261,7 +263,7 @@ export const updateQuotationStatus = baseProcedure
         await db.quotationExpenseSlip.createMany({
           data: input.expenseSlips.map((slip) => ({
             quotationId: input.quotationId,
-            url: slip.url,
+            url: slip.url ?? null,
             category: slip.category,
             description: slip.description,
             amount: slip.amount,
@@ -410,6 +412,16 @@ export const updateQuotationStatus = baseProcedure
           console.error('Failed to send quotation status notifications:', notifyError);
         }
       }
+
+      await writeAuditLog(db, {
+        actor: user,
+        action: "STATUS_CHANGE",
+        entityType: "Quotation",
+        entityId: quotation.id,
+        before: { status: existingQuotation.status },
+        after: { status: quotation.status },
+        description: `Changed quotation ${quotation.quoteNumber} status from ${existingQuotation.status} to ${quotation.status}${input.rejectionReason ? ` (reason: ${input.rejectionReason})` : ""}`,
+      });
 
       return quotation;
     } catch (error) {

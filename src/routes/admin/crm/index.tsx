@@ -31,6 +31,7 @@ import {
   BarChart3,
   Users,
   Edit,
+  Building2,
 } from "lucide-react";
 import { SalesFunnelChart } from "~/components/crm/SalesFunnelChart";
 import { SalesDashboardOverview } from "~/components/crm/SalesDashboardOverview";
@@ -40,6 +41,7 @@ import { LeadConversionTrendChart } from "~/components/charts/LeadConversionTren
 import { SalesPipelineTrendChart } from "~/components/charts/SalesPipelineTrendChart";
 import { WinRateTrendChart } from "~/components/charts/WinRateTrendChart";
 import { EmployeeSalesDashboard } from "~/components/admin/EmployeeSalesDashboard";
+import { CustomersTab } from "~/components/crm/CustomersTab";
 import {
   OTHER_SERVICE_TYPE_VALUE,
   resolveServiceType,
@@ -531,6 +533,22 @@ function CRMPage() {
                   <div className="flex items-center justify-center space-x-2">
                     <BarChart3 className="h-4 w-4" />
                     <span>Analytics</span>
+                  </div>
+                </button>
+              )}
+            </Tab>
+            <Tab as={Fragment}>
+              {({ selected }) => (
+                <button
+                  className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all
+                    ${selected 
+                      ? 'bg-white text-blue-700 shadow' 
+                      : 'text-blue-600 hover:bg-white/[0.12] hover:text-blue-700'
+                    }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <Building2 className="h-4 w-4" />
+                    <span>Customers</span>
                   </div>
                 </button>
               )}
@@ -1231,6 +1249,11 @@ function CRMPage() {
                   <p className="text-gray-600">No analytics data available</p>
                 </div>
               )}
+            </Tab.Panel>
+
+            {/* Customers Tab */}
+            <Tab.Panel>
+              <CustomersTab />
             </Tab.Panel>
           </Tab.Panels>
         </Tab.Group>

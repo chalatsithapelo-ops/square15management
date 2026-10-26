@@ -1,10 +1,10 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import PDFDocument from "pdfkit";
 import { getCompanyLogo } from "~/server/utils/logo";
@@ -343,7 +343,7 @@ async function generateReportInBackground(
       .filter((pr) => pr.status === "PAID")
       .reduce((sum, pr) => sum + pr.calculatedAmount, 0);
 
-    // Material and labor costs — only from actual completed/in-progress orders
+    // Material and labor costs â€” only from actual completed/in-progress orders
     const orderMaterialCosts = orders.reduce((sum, o) => sum + o.materialCost, 0);
     const orderLabourCosts = orders.reduce((sum, o) => sum + o.labourCost, 0);
     
@@ -661,7 +661,7 @@ async function generateReportInBackground(
       const googleAI = createGoogleGenerativeAI({
         apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY || env.GEMINI_API_KEY,
       });
-      const model = googleAI("gemini-1.5-pro");
+      const model = googleAI("gemini-2.5-pro");
 
       const filterDescription = [];
       if (projectType) filterDescription.push(`Project Type: ${projectType}`);
@@ -756,6 +756,7 @@ Provide:
 Format as clear, professional paragraphs suitable for a formal financial report.`;
 
       const { text } = await generateText({
+        aiFeature: "financial.report",
         model,
         prompt,
       });

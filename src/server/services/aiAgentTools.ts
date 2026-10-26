@@ -5,6 +5,11 @@ import { db } from '~/server/db';
 import { authenticateUser } from '~/server/utils/auth';
 import { sendEmail, sendLeadNurtureEmail, sendReviewRequestEmail } from '~/server/utils/email';
 import { getCompanyDetails } from '~/server/utils/company-details';
+import {
+  getNextInvoiceNumber,
+  getNextOrderNumber,
+  getNextQuoteNumber,
+} from '~/server/utils/documentNumbers';
 
 /**
  * AI Agent Tools Factory - Enable the AI to perform business operations with proper user context
@@ -140,15 +145,8 @@ export function createAIAgentTools(userId: number) {
     }),
     execute: async (params: any) => {
       try {
-        // Generate proper sequential invoice number using company prefix
         const companyDetails = await getCompanyDetails();
-        const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
-        let maxNum = 0;
-        for (const inv of allInvoices) {
-          const match = inv.invoiceNumber.match(/(\d+)$/);
-          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
-        }
-        const invoiceNumber = `${companyDetails.invoicePrefix}-${String(maxNum + 1).padStart(5, '0')}`;
+        const invoiceNumber = await getNextInvoiceNumber(db, companyDetails.invoicePrefix);
         
         const invoice = await db.invoice.create({
           data: {
@@ -187,7 +185,8 @@ export function createAIAgentTools(userId: number) {
     }),
     execute: async (params: any) => {
       try {
-        const orderNumber = `ORD-${Date.now()}`;
+        const companyDetails = await getCompanyDetails();
+        const orderNumber = await getNextOrderNumber(db, companyDetails.orderPrefix || 'ORD');
         const order = await db.order.create({
           data: {
             orderNumber,
@@ -242,15 +241,8 @@ export function createAIAgentTools(userId: number) {
           }
         }
 
-        // Generate proper sequential quotation number using company prefix
         const companyDetails = await getCompanyDetails();
-        const allQuotations = await db.quotation.findMany({ select: { quoteNumber: true } });
-        let maxNum = 0;
-        for (const q of allQuotations) {
-          const match = q.quoteNumber.match(/(\d+)$/);
-          if (match?.[1]) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
-        }
-        const quoteNumber = `${companyDetails.quotationPrefix}-${String(maxNum + 1).padStart(5, '0')}`;
+        const quoteNumber = await getNextQuoteNumber(db, companyDetails.quotationPrefix);
         
         const quotation = await db.quotation.create({
           data: {
@@ -1747,17 +1739,17 @@ ${currentLeads.length > 0 && wonInPeriod.length > 0 ? `• Keep momentum! ${curr
     }),
     execute: async ({ prompt, serviceType, discountPercent, targetAudience, tone }) => {
       try {
-        const { generateText: genText } = await import('ai');
+        const { generateText: genText } = await import('~/server/services/ai/controlledGeneration');
         const { google: goog } = await import('@ai-sdk/google');
-        const aiModel = goog('gemini-2.0-flash');
+        const aiModel = goog('gemini-3.6-flash');
 
-        const systemPrompt = `You are a professional marketing content creator for Square 15 Property Maintenance (www.square15.co.za), a South African property maintenance company.
+        const systemPrompt = `You are a professional marketing content creator for Square 15 Facility Solutions (www.square15.co.za), a South African property management, facility solutions and maintenance company.
 
 Generate a complete, professional email campaign based on the description. The HTML must be visually stunning, responsive, and ready to send.
 
 Rules:
 1. Use inline CSS, max-width 600px
-2. Include company name "Square 15 Property Maintenance"
+2. Include company name "Square 15 Facility Solutions"
 3. Use personalization tokens: {{customerName}}, {{serviceType}}, {{address}}, {{estimatedValue}}
 4. Include a CTA button linking to https://www.square15.co.za
 5. Use modern design with gradients, cards, emoji icons
@@ -1771,6 +1763,8 @@ Respond ONLY with JSON (no markdown):
 {"name":"Campaign Name","subject":"Subject Line","htmlBody":"<div>...HTML...</div>","description":"Brief description"}`;
 
         const result = await genText({
+          aiFeature: "agent.campaign.content",
+          aiUserId: userId,
           model: aiModel,
           system: systemPrompt,
           prompt,
@@ -1837,11 +1831,11 @@ The campaign has been created with professional HTML design including graphics, 
           return `Campaign with ID ${campaignId} not found.`;
         }
 
-        const { generateText: genText } = await import('ai');
+        const { generateText: genText } = await import('~/server/services/ai/controlledGeneration');
         const { google: goog } = await import('@ai-sdk/google');
-        const aiModel = goog('gemini-2.0-flash');
+        const aiModel = goog('gemini-3.6-flash');
 
-        const systemPrompt = `You are editing an existing marketing email campaign for Square 15 Property Maintenance.
+        const systemPrompt = `You are editing an existing marketing email campaign for Square 15 Facility Solutions.
 
 Apply the requested changes while keeping the overall professional design. Maintain personalization tokens and CTA buttons.
 
@@ -1854,6 +1848,8 @@ Respond ONLY with JSON (no markdown):
 {"name":"Updated Name","subject":"Updated Subject","htmlBody":"<div>...updated HTML...</div>","changesSummary":"What was changed"}`;
 
         const result = await genText({
+          aiFeature: "agent.campaign.amend",
+          aiUserId: userId,
           model: aiModel,
           system: systemPrompt,
           prompt: instruction,

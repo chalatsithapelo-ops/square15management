@@ -150,20 +150,61 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
 
   const clients = clientsQuery.data || [];
 
+  /**
+   * Search matches on: client name, email, company, phone, address,
+   * VAT number AND any linked building name/address. When the query
+   * hits a building we surface that building name inline so the user
+   * knows why the client showed up (e.g. searching "Calton Centre"
+   * finds "Lucky Ramapepe (Eris Property Group) — Calton Centre").
+   */
   const filtered = useMemo(() => {
-    if (!search.trim()) return clients;
+    if (!search.trim()) return clients.map((c) => ({ client: c, matchedBuilding: null as ClientBuildingLite | null }));
     const q = search.toLowerCase();
-    return clients.filter(
-      (c) =>
+    const out: { client: (typeof clients)[0]; matchedBuilding: ClientBuildingLite | null }[] = [];
+    for (const c of clients) {
+      const buildings = ((c as any).buildings ?? []) as ClientBuildingLite[];
+      const matchedBuilding = buildings.find(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          (b.address && b.address.toLowerCase().includes(q))
+      ) || null;
+      const clientHit =
         c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
         (c.companyName && c.companyName.toLowerCase().includes(q)) ||
-        c.phone.includes(q)
-    );
+        (c.address && c.address.toLowerCase().includes(q)) ||
+        (c.vatNumber && c.vatNumber.toLowerCase().includes(q)) ||
+        c.phone.includes(q);
+      if (clientHit || matchedBuilding) {
+        out.push({ client: c, matchedBuilding });
+      }
+    }
+    return out;
   }, [clients, search]);
 
-  const handleSelectClient = (client: (typeof clients)[0]) => {
+  const handleSelectClient = (
+    client: (typeof clients)[0],
+    preselectBuilding?: ClientBuildingLite | null,
+  ) => {
     const buildings: ClientBuildingLite[] = ((client as any).buildings ?? []) as ClientBuildingLite[];
+    // If a specific building matched the search, jump directly to it —
+    // this is the most common intent when a user types "Calton Centre".
+    if (preselectBuilding) {
+      onSelect({
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: preselectBuilding.address,
+        companyName: client.companyName || undefined,
+        vatNumber: client.vatNumber || undefined,
+        clientId: client.id,
+        clientBuildingId: preselectBuilding.id,
+      });
+      setSelectedClientName(`${client.name} — ${preselectBuilding.name}`);
+      setSearch("");
+      setOpen(false);
+      return;
+    }
     if (buildings.length > 0) {
       // Defer onSelect until building is chosen
       setPendingClient({
@@ -409,11 +450,11 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
                 {clientsQuery.isLoading ? "Loading..." : "No clients found"}
               </div>
             ) : (
-              filtered.map((client) => (
+              filtered.map(({ client, matchedBuilding }) => (
                 <button
-                  key={client.id}
+                  key={`${client.id}-${matchedBuilding?.id ?? "root"}`}
                   type="button"
-                  onClick={() => handleSelectClient(client)}
+                  onClick={() => handleSelectClient(client, matchedBuilding)}
                   className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-b-0"
                 >
                   <div className="flex items-center gap-2">
@@ -424,9 +465,17 @@ export function ClientSelector({ token, onSelect, resetKey }: ClientSelectorProp
                         {client.companyName && (
                           <span className="ml-1 text-xs text-gray-500">({client.companyName})</span>
                         )}
+                        {matchedBuilding && (
+                          <span className="ml-1 inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 align-middle">
+                            <Building2 className="h-3 w-3" />
+                            {matchedBuilding.name}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 truncate">
-                        {client.email} · {client.phone}
+                        {matchedBuilding
+                          ? matchedBuilding.address
+                          : `${client.email} · ${client.phone}`}
                       </div>
                     </div>
                   </div>

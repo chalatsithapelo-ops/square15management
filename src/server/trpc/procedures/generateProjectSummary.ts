@@ -1,9 +1,9 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const generateProjectSummary = baseProcedure
@@ -79,10 +79,12 @@ export const generateProjectSummary = baseProcedure
         .slice(0, 3);
 
       // Set up AI model
-      const model = google("gemini-1.5-pro");
+      const model = google("gemini-2.5-pro");
 
       // Generate project summary
       const { object } = await generateObject({
+        aiFeature: "project.summary",
+        aiUserId: user.id,
         model,
         schema: z.object({
           executiveSummary: z.string().describe("2-3 sentence high-level overview of project status"),

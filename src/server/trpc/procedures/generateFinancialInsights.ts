@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 
 /**
  * Generate AI-powered financial insights and recommendations
@@ -162,6 +162,8 @@ Please provide:
 Keep recommendations practical, specific, and focused on property management best practices. Use South African Rand (R) currency formatting.`;
 
       const { text } = await generateText({
+        aiFeature: "financial.insights",
+        aiUserId: user.id,
         model: anthropic("claude-sonnet-4-20250514"),
         prompt,
         maxTokens: 2000,

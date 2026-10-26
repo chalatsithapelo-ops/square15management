@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
+import { userIsOnOrderCrew } from "~/server/utils/orderAccess";
 
 export const pauseJob = baseProcedure
   .input(
@@ -42,11 +43,12 @@ export const pauseJob = baseProcedure
       });
     }
 
-    // Verify the order is assigned to this artisan
-    if (order.assignedToId !== user.id) {
+    // PR-6: any active crew member (or legacy assignedTo) can pause
+    const onCrew = await userIsOnOrderCrew(order.id, user.id);
+    if (order.assignedToId !== user.id && !onCrew) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "You can only pause jobs assigned to you",
+        message: "You can only pause jobs you are on the crew for",
       });
     }
 

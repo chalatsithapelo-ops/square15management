@@ -5,13 +5,28 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { applyDemoIsolation } from "~/server/utils/demoAccounts";
+import {
+  portfolioMineWhereForDoc,
+  unassignedDocWhere,
+} from "~/server/services/portfolioOwnership";
 
 export const getOrders = baseProcedure
   .input(
     z.object({
       token: z.string(),
-      status: z.enum(["PENDING_REVIEW", "PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+      status: z.enum([
+        "SELF_INITIATED",
+        "AWAITING_ORDER_NUMBER",
+        "PENDING_REVIEW",
+        "PENDING",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+      ]).optional(),
       assignedToId: z.number().optional(),
+      scope: z.enum(["MINE", "ALL", "UNASSIGNED"]).optional(),
+      ownerId: z.number().optional(),
     })
   )
   .query(async ({ input }) => {
@@ -52,12 +67,23 @@ export const getOrders = baseProcedure
 
       if (input.assignedToId) {
         where.assignedToId = input.assignedToId;
+      } else if (user.role === "CONTRACTOR") {
+        // Individual contractors: their own assignments PLUS crew memberships
+        // (they can join other jobs via the 6-digit join code just like ARTISANs).
+        where.OR = [
+          { assignedToId: user.id },
+          { crew: { some: { userId: user.id, leftAt: null } } },
+        ];
       } else if (isContractorRole) {
-        // User model does not have `companyId`; fall back to strictly own assignments.
+        // CONTRACTOR_SENIOR_MANAGER / CONTRACTOR_JUNIOR_MANAGER — company managers,
+        // don't join crews personally, keep strict own-assignments.
         where.assignedToId = user.id;
       } else if (user.role === "ARTISAN") {
-        // Artisans can only see their own orders
-        where.assignedToId = user.id;
+        // PR-6: artisan sees jobs assigned to them OR jobs they're an active crew member on
+        where.OR = [
+          { assignedToId: user.id },
+          { crew: { some: { userId: user.id, leftAt: null } } },
+        ];
       } else if (user.role === "CUSTOMER") {
         // Customers can only see orders with their email
         where.customerEmail = user.email;
@@ -96,6 +122,23 @@ export const getOrders = baseProcedure
       // Demo data isolation
       await applyDemoIsolation(where, user, db, 'assignedToId');
 
+      // ─── PR-9 portfolio scope for admin-tier users ────────────────────
+      if (isAdminTier) {
+        const scope =
+          input.scope ??
+          ((user as any).defaultPortfolioView === "MINE" ? "MINE" : "ALL");
+        if (scope === "MINE") {
+          const targetUserId = input.ownerId ?? user.id;
+          const mine = await portfolioMineWhereForDoc(targetUserId);
+          where.AND = [...(where.AND ?? []), mine];
+        } else if (scope === "UNASSIGNED") {
+          where.AND = [...(where.AND ?? []), unassignedDocWhere()];
+        } else if (input.ownerId) {
+          const mine = await portfolioMineWhereForDoc(input.ownerId);
+          where.AND = [...(where.AND ?? []), mine];
+        }
+      }
+
       const orders = await db.order.findMany({
         where,
         select: {
@@ -115,7 +158,7 @@ export const getOrders = baseProcedure
           slaHours: true,
           slaStartedAt: true,
           slaDueAt: true,
-          notes: isAdminTier || (user.role === "ARTISAN" && where.assignedToId === user.id),
+          notes: isAdminTier || user.role === "ARTISAN",
           assignedToId: true,
           leadId: true,
           startTime: true,
@@ -135,7 +178,27 @@ export const getOrders = baseProcedure
           clientRepName: true,
           clientRepSignDate: true,
           clientUnavailableToSign: true,
+          artisanSignatureUrl: true,
+          artisanSignedByName: true,
+          artisanSignDate: true,
+          // Surfaced so UI can show "Link sent" status / disable duplicate sends.
+          signatureRequestToken: true,
+          signatureRequestSentAt: true,
           documents: true,
+          // Self-initiated (artisan-started) flow markers — surfaced on the
+          // admin Operations view so these jobs follow the normal route with
+          // clear badges (self-initiated, missing PO#, awaiting review).
+          selfInitiated: true,
+          clientOrderNumber: true,
+          orderNumberStatus: true,
+          noOrderReason: true,
+          adminReviewedAt: isAdminTier,
+          selfInitiatedRejected: isAdminTier,
+          selfInitiatedRejectReason: isAdminTier,
+          invoicingBlockers: isAdminTier,
+          initiatedBy: isAdminTier ? {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          } : false,
           draftPaymentType: user.role === "ARTISAN",
           draftHoursWorked: user.role === "ARTISAN",
           draftDaysWorked: user.role === "ARTISAN",
@@ -170,6 +233,14 @@ export const getOrders = baseProcedure
               quoteNumber: true,
               status: true,
               total: true,
+              // PR-QF — include line items + deposit so the admin invoice
+              // form can pre-populate directly from the accepted quote when
+              // the client's PO comes in. Also allows the "Ready for
+              // Invoicing" card to show the quoted amount.
+              items: true,
+              depositRequestedPercent: true,
+              depositRequestedAmount: true,
+              validUntil: true,
             },
           },
           client: {

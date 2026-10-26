@@ -7,6 +7,20 @@ import { getCompanyDetails } from "~/server/utils/company-details";
 import { notifyAdmins, notifyArtisanOrderAssigned } from "~/server/utils/notifications";
 import { sendOrderNotificationEmail } from "~/server/utils/email";
 import { resolveClientId, resolveClientBuildingId } from "~/server/trpc/procedures/clients";
+import { getNextOrderNumber } from "~/server/utils/documentNumbers";
+import { writeAuditLog } from "~/server/utils/auditLog";
+import { logTmAssignment, type TmAssignmentSource } from "~/server/utils/tmAssignmentLog";
+import {
+  resolveSalesAgentFromDefaults,
+  logSalesAgentAssignment,
+  type SalesAgentAssignmentSource,
+} from "~/server/utils/salesAgentAssignmentLog";
+import {
+  resolveSiteLeadFromDefaults,
+  logSiteLeadAssignment,
+  resolveOpsManagerFromDefaults,
+  logOpsManagerAssignment,
+} from "~/server/utils/crewRoleAssignmentLog";
 
 export const createOrder = baseProcedure
   .input(
@@ -23,6 +37,7 @@ export const createOrder = baseProcedure
       serviceType: z.string().min(1),
       description: z.string().min(1),
       assignedToId: z.number().optional(),
+      technicalManagerId: z.number().optional(),
       leadId: z.number().optional(),
       callOutFee: z.number().default(0),
       labourRate: z.number().optional(),
@@ -80,29 +95,8 @@ export const createOrder = baseProcedure
       }
       orderNumber = input.orderNumber;
     } else {
-      // Auto-generate: scan order numbers matching the current prefix to find max suffix
-      const prefix = companyDetails.orderPrefix;
-      const allOrders = await db.order.findMany({
-        select: { orderNumber: true },
-      });
-      let maxNum = 0;
-      const prefixPattern = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
-      for (const o of allOrders) {
-        const match = o.orderNumber.match(prefixPattern);
-        if (match) {
-          const num = parseInt(match[1] ?? "0", 10);
-          if (num > maxNum) maxNum = num;
-        }
-      }
-      orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-
-      // Retry loop: if this number somehow exists (race condition), keep incrementing
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const exists = await db.order.findUnique({ where: { orderNumber } });
-        if (!exists) break;
-        maxNum++;
-        orderNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-      }
+      // Auto-generate using shared helper (skips poisoned suffixes)
+      orderNumber = await getNextOrderNumber(db, companyDetails.orderPrefix);
     }
 
     // Determine assignment and status based on role and input
@@ -126,6 +120,33 @@ export const createOrder = baseProcedure
       }
     }
 
+    // TM responsibility — required for admin-created orders so commission is attributed correctly.
+    // Fallback: use the assignee's default TM when no explicit selection is provided.
+    const isAdminCreator =
+      user.role === "JUNIOR_ADMIN" ||
+      user.role === "SENIOR_ADMIN" ||
+      user.role === "MANAGER" ||
+      user.role === "TECHNICAL_MANAGER";
+
+    let resolvedTechnicalManagerId: number | null = input.technicalManagerId ?? null;
+    let tmSource: TmAssignmentSource | null = input.technicalManagerId ? "EXPLICIT_INPUT" : null;
+    if (!resolvedTechnicalManagerId && assignedToId) {
+      const assignee = await db.user.findUnique({
+        where: { id: assignedToId },
+        select: { defaultTechnicalManagerId: true },
+      });
+      if (assignee?.defaultTechnicalManagerId) {
+        resolvedTechnicalManagerId = assignee.defaultTechnicalManagerId;
+        tmSource = "ASSIGNEE_DEFAULT_TM";
+      }
+    }
+    if (isAdminCreator && !resolvedTechnicalManagerId) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Responsible Technical Manager is required. Please select the TM responsible for this job.",
+      });
+    }
+
     // Resolve / auto-upsert client + building so the customer info is
     // saved on first input and reused on later orders/invoices.
     const resolvedClientId = await resolveClientId(db, user.id, {
@@ -141,6 +162,10 @@ export const createOrder = baseProcedure
       existingClientBuildingId: input.clientBuildingId ?? null,
       clientId: resolvedClientId,
       address: input.address,
+      // PR-8J — pass the site/building name so distinct sites sharing a
+      // head-office accounting address get their own ClientBuilding row
+      // (and therefore appear in the artisan dropdown).
+      buildingName: input.customerName,
     });
 
     const order = await db.order.create({
@@ -153,6 +178,7 @@ export const createOrder = baseProcedure
         serviceType: input.serviceType,
         description: input.description,
         assignedToId,
+        technicalManagerId: resolvedTechnicalManagerId,
         status,
         leadId: input.leadId || null,
         clientId: resolvedClientId,
@@ -174,6 +200,94 @@ export const createOrder = baseProcedure
         },
       },
     });
+
+    // PR-8 — Log the initial TM assignment (fromTm=null, toTm=resolved).
+    if (resolvedTechnicalManagerId && tmSource) {
+      await logTmAssignment(db, {
+        orderId: order.id,
+        fromTmId: null,
+        toTmId: resolvedTechnicalManagerId,
+        source: tmSource,
+        actorId: user.id,
+        reason: `New order ${order.orderNumber}`,
+      });
+    }
+
+    // PR-8 E — Auto-attach a sales agent from stored client/building defaults
+    // when the order has no explicit sales-agent yet. The admin picker
+    // (adminSetOrderSalesAgent) can still override this later.
+    try {
+      const resolvedSa = await resolveSalesAgentFromDefaults({
+        clientBuildingId: resolvedBuildingId,
+        clientId: resolvedClientId,
+      });
+      if (resolvedSa.salesAgentId && resolvedSa.source) {
+        await db.order.update({
+          where: { id: order.id },
+          data: { salesAgentId: resolvedSa.salesAgentId },
+        });
+        await logSalesAgentAssignment(db, {
+          orderId: order.id,
+          fromSalesAgentId: null,
+          toSalesAgentId: resolvedSa.salesAgentId,
+          source: resolvedSa.source as SalesAgentAssignmentSource,
+          actorId: user.id,
+          reason: `New order ${order.orderNumber}`,
+        });
+      }
+    } catch (saErr) {
+      console.error("Failed to auto-resolve sales agent for new order:", saErr);
+    }
+
+    // PR-8 F — Auto-attach Site Lead + Ops Manager from stored defaults.
+    try {
+      const resolvedSl = await resolveSiteLeadFromDefaults({
+        initiatorId: user.id,
+        assigneeId: assignedToId,
+        clientBuildingId: resolvedBuildingId,
+        clientId: resolvedClientId,
+      });
+      if (resolvedSl.siteLeadId && resolvedSl.source) {
+        await db.order.update({
+          where: { id: order.id },
+          data: { siteLeadId: resolvedSl.siteLeadId },
+        });
+        await logSiteLeadAssignment(db, {
+          orderId: order.id,
+          fromSiteLeadId: null,
+          toSiteLeadId: resolvedSl.siteLeadId,
+          source: resolvedSl.source,
+          actorId: user.id,
+          reason: `New order ${order.orderNumber}`,
+        });
+      }
+    } catch (slErr) {
+      console.error("Failed to auto-resolve site lead for new order:", slErr);
+    }
+    try {
+      const resolvedOm = await resolveOpsManagerFromDefaults({
+        initiatorId: user.id,
+        assigneeId: assignedToId,
+        clientBuildingId: resolvedBuildingId,
+        clientId: resolvedClientId,
+      });
+      if (resolvedOm.opsManagerId && resolvedOm.source) {
+        await db.order.update({
+          where: { id: order.id },
+          data: { opsManagerId: resolvedOm.opsManagerId },
+        });
+        await logOpsManagerAssignment(db, {
+          orderId: order.id,
+          fromOpsManagerId: null,
+          toOpsManagerId: resolvedOm.opsManagerId,
+          source: resolvedOm.source,
+          actorId: user.id,
+          reason: `New order ${order.orderNumber}`,
+        });
+      }
+    } catch (omErr) {
+      console.error("Failed to auto-resolve ops manager for new order:", omErr);
+    }
 
     // Send email notification to customer (best effort, non-blocking)
     void sendOrderNotificationEmail({
@@ -231,6 +345,20 @@ export const createOrder = baseProcedure
         console.error("Failed to notify admins about new order:", notifyError);
       });
     }
+
+    await writeAuditLog(db, {
+      actor: user,
+      action: "CREATE",
+      entityType: "Order",
+      entityId: order.id,
+      after: {
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        serviceType: order.serviceType,
+        status: order.status,
+      },
+      description: `Created order ${order.orderNumber} for ${order.customerName}`,
+    });
 
     return order;
   });

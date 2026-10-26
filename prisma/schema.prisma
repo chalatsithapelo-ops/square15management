@@ -753,6 +753,16 @@ model User {
   inspectionTemplatesOwned InspectionTemplate[] @relation("InspectionTemplateOwner")
 
   @@index([employerId])
+  fastTrackApprovedApplications Application[] @relation("ApplicationFastTrackApprover")
+  wageRecipientsCreated WageReportRecipient[] @relation("WageRecipCreatedBy")
+  deletedAt          DateTime?
+  terminationReason  String?  // RESIGNED | DISMISSED | RETIRED | OTHER
+  terminatedAt       DateTime?
+  terminatedById     Int?
+
+  bgCheckDocDecisions        BackgroundCheckDocument[] @relation("BgCheckDocDecider")
+  bgCheckAssignments   BackgroundCheck[] @relation("BgCheckAssignedAssessor")
+  clientWorkOrdersAssigned ClientWorkOrder[] @relation("ClientWorkOrderAssignee")
 }
 
 model Client {
@@ -800,6 +810,8 @@ model Client {
 
   @@index([createdById])
   @@index([email])
+  clientWorkOrders  ClientWorkOrder[] @relation("ClientWorkOrderClient")
+  siteMappings        ClientWorkOrderSiteMapping[] @relation("SiteMappingClient")
 }
 
 model ClientBuilding {
@@ -848,6 +860,8 @@ model ClientBuilding {
 
   @@index([clientId])
   @@index([portfolioOwnerId])
+  clientWorkOrders   ClientWorkOrder[] @relation("ClientWorkOrderBuilding")
+  siteMappings        ClientWorkOrderSiteMapping[] @relation("SiteMappingBuilding")
 }
 
 /// PR-9 — Audit trail for portfolio ownership changes. Every reassignment of a
@@ -1375,6 +1389,13 @@ model Order {
   // PR-8 F — Full audit trail of Site Lead + Ops Manager assignment changes
   siteLeadAssignmentLogs   OrderSiteLeadAssignmentLog[]   @relation("OrderSiteLeadLog")
   opsManagerAssignmentLogs OrderOpsManagerAssignmentLog[] @relation("OrderOpsManagerLog")
+  clientWorkOrderId Int?
+  clientWorkOrder   ClientWorkOrder? @relation("ClientWorkOrderOrders", fields: [clientWorkOrderId], references: [id], onDelete: SetNull)
+
+  jobCardPdfUrl     String?
+
+  pushedJobCardPdfAt DateTime?
+  myBuildingsJobCardTokens MyBuildingsJobCardPublicToken[] @relation("OrderJobCardPublicToken")
 }
 
 // PR-8 — Append-only log of every write to Order.technicalManagerId.
@@ -1916,6 +1937,9 @@ model Invoice {
   // Relations
   lineItems   InvoiceLineItem[]
   creditNotes CreditNote[]
+  clientWorkOrders  ClientWorkOrder[] @relation("ClientWorkOrderInvoice")
+  publicTokens      MyBuildingsInvoicePublicToken[] @relation("InvoicePublicToken")
+  debtorReminders DebtorReminderLog[]
 }
 
 model CreditNote {
@@ -2063,6 +2087,7 @@ model PaymentRequest {
   notes String?
 
   payslip Payslip?
+  artisanStatement ArtisanPaymentStatement?
 }
 
 model Payslip {
@@ -4676,6 +4701,15 @@ model BankAccount {
   externalLastError     String?
   externalConsentExpiry DateTime?
 
+  // Live balance snapshot (refreshed by Nedbank nightly + 15-min poller)
+  currentBalance    Float?
+  availableBalance  Float?
+  balanceCurrency   String?
+  balanceType       String? // CurrentBalance / InterimAvailable / ClosingBooked
+  balanceIndicator  String? // Credit / Debit
+  balanceAsOf       DateTime?
+  balanceCapturedAt DateTime?
+
   // Owner
   createdById Int
   createdBy   User @relation("BankAccountCreator", fields: [createdById], references: [id])
@@ -4683,11 +4717,60 @@ model BankAccount {
   // Relations
   transactions  BankTransaction[]
   importBatches BankImportBatch[]
+  statements    BankAccountStatement[]
 
   @@unique([bankName, accountNumber])
   @@index([createdById])
   @@index([isActive])
   @@index([externalProvider, externalAccountId])
+}
+
+model BankAccountStatement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bankAccountId Int
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  externalStatementId     String
+  statementReference      String?
+  statementType           String?
+  startDateTime           DateTime
+  endDateTime             DateTime?
+  creationDateTime        DateTime?
+
+  broughtForwardAmount    Float?
+  broughtForwardIndicator String?
+  carriedForwardAmount    Float?
+  carriedForwardIndicator String?
+
+  currency                String  @default("ZAR")
+
+  @@unique([bankAccountId, externalStatementId])
+  @@index([bankAccountId, startDateTime])
+}
+
+model MaintenanceArtisanLink {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  applicationId Int         @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  employeeUserId            Int?
+  firestoreProjectId        String   @default("promaintapp-b618a")
+  firestorePendingDocId     String?  // doc id in pendingArtisans/{id}
+  firestoreServiceProviderId String? // doc id in serviceProvider/{id} once approved
+
+  status                    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  pushedAt                  DateTime?
+  approvedAt                DateTime?
+  rejectedAt                DateTime?
+  rejectionReason           String?
+
+  @@index([status])
 }
 
 model BankFeedWebhookLog {
@@ -5056,6 +5139,11 @@ enum JobVisibility {
   PRIVATE
 }
 
+enum JobType {
+  COMMERCIAL
+  MAINTENANCE_APP
+}
+
 enum StageBucket {
   APPLIED
   SCREENING
@@ -5126,6 +5214,9 @@ model Job {
 
   category String? // e.g. Plumbing, Electrical, Admin, Driver
 
+  // Commercial (default) vs MaintenanceApp candidates take different pipelines
+  jobType  JobType @default(COMMERCIAL)
+
   hiringManagerId Int?
   hiringManager   User? @relation("JobHiringManager", fields: [hiringManagerId], references: [id])
   recruiterId     Int?
@@ -5168,6 +5259,7 @@ model Job {
   @@index([category])
   @@index([hiringManagerId])
   @@index([visibility])
+  screeningQuestions ScreeningQuestion[] @relation("JobScreeningQuestions")
 }
 
 model JobApproval {
@@ -5317,6 +5409,13 @@ model Application {
   redFlagSignals  Json? // Array of { code, label, weight, evidence }
   workSampleScore Float? // Cached aggregate of WorkSampleSubmission scores
 
+  // Fast-track hire (Maintenance App). Auto-flagged when candidate passes threshold.
+  fastTrackReady        Boolean   @default(false)
+  fastTrackApprovedById Int?
+  fastTrackApprovedBy   User?     @relation("ApplicationFastTrackApprover", fields: [fastTrackApprovedById], references: [id])
+  fastTrackApprovedAt   DateTime?
+  maintenanceArtisanLink MaintenanceArtisanLink?
+
   // Relations
   assessments           ApplicationAssessment[]
   interviewResponses    ApplicationInterviewResponse[]
@@ -5350,6 +5449,7 @@ model Application {
   @@index([sourceChannel])
   @@index([retainUntil])
   @@index([deletedAt])
+  screeningAnswers   ScreeningAnswer[] @relation("ApplicationScreeningAnswers")
 }
 
 model ApplicationAssessment {
@@ -5379,6 +5479,11 @@ model ApplicationInterviewResponse {
   aiScore       Float?
   aiAnalysis    String?     @db.Text
   dimensions    Json?
+
+  // Cheating-defense signals (Tier 1)
+  integritySignals Json?
+  aiWritingScore   Float?
+  aiWritingSignals Json?
 
   @@index([applicationId])
 }
@@ -5553,6 +5658,10 @@ model Offer {
   benefits     String?  @db.Text
   otherTerms   String?  @db.Text
 
+  hourlyRate    Float?
+  dailyRate     Float?
+  monthlySalary Float?
+
   status        OfferStatus @default(DRAFT)
   version       Int         @default(1)
   expiresAt     DateTime?
@@ -5614,7 +5723,34 @@ model BackgroundCheck {
   requestedBy   User        @relation("BackgroundRequester", fields: [requestedById], references: [id])
   completedAt   DateTime?
 
+  candidateUploadToken String? @unique
+  candidateNotifiedAt  DateTime?
+  assignedAssessorId   Int?
+  assignedAssessor     User?     @relation("BgCheckAssignedAssessor", fields: [assignedAssessorId], references: [id], onDelete: SetNull)
+  assessorNotifiedAt   DateTime?
+  documents            BackgroundCheckDocument[]
+
   @@index([applicationId])
+}
+
+model BackgroundCheckDocument {
+  id                Int             @id @default(autoincrement())
+  createdAt         DateTime        @default(now())
+  backgroundCheckId Int
+  backgroundCheck   BackgroundCheck @relation(fields: [backgroundCheckId], references: [id], onDelete: Cascade)
+  checkType         String          // CRIMINAL | CREDIT | QUALIFICATION | REFERENCE | OTHER
+  fileName          String
+  mimeType          String
+  fileData          Bytes           // base64/binary of file (MVP; move to S3 later)
+  uploadedByEmail   String?
+  decision          String?         // APPROVED | REJECTED
+  decidedAt         DateTime?
+  decidedById       Int?
+  decidedBy         User?           @relation("BgCheckDocDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decisionNotes     String?         @db.Text
+
+  @@index([backgroundCheckId])
+  @@index([checkType])
 }
 
 model ReferenceCheck {
@@ -5772,6 +5908,11 @@ model WorkSampleSubmission {
   humanFeedback String?         @db.Text
   scoredById    Int?
   scoredBy      User?           @relation("WorkSampleScorer", fields: [scoredById], references: [id])
+
+  // Cheating-defense signals (Tier 1)
+  integritySignals Json?
+  aiWritingScore   Float?
+  aiWritingSignals Json?
 
   @@unique([taskId, applicationId])
   @@index([applicationId])
@@ -6610,4 +6751,238 @@ model TenantInspectionItem {
 
   @@index([roomId])
   @@index([ingoingItemId])
+}
+
+
+model WageReportRecipient {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  createdById Int?
+  createdBy   User?    @relation("WageRecipCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+}
+
+model WageReportRun {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  periodStart   DateTime
+  periodEnd     DateTime
+  sentCount     Int      @default(0)
+  skippedCount  Int      @default(0)
+
+  @@unique([periodStart, periodEnd])
+}
+
+model ScreeningQuestion {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  jobId             Int
+  job               Job      @relation("JobScreeningQuestions", fields: [jobId], references: [id], onDelete: Cascade)
+  questionText      String   @db.Text
+  questionType      String   // YES_NO | NUMBER | SELECT
+  required          Boolean  @default(true)
+  displayOrder      Int      @default(0)
+
+  knockoutEnabled   Boolean  @default(true)
+  expectedYesNo     String?  // "YES" or "NO"
+  minNumber         Float?
+  maxNumber         Float?
+  acceptableOptions String[] @default([])
+  options           String[] @default([])
+
+  answers           ScreeningAnswer[]
+
+  @@index([jobId])
+}
+
+model ScreeningAnswer {
+  id            Int              @id @default(autoincrement())
+  createdAt     DateTime         @default(now())
+  applicationId Int
+  application   Application      @relation("ApplicationScreeningAnswers", fields: [applicationId], references: [id], onDelete: Cascade)
+  questionId    Int
+  question      ScreeningQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText    String?
+  answerNumber  Float?
+  passed        Boolean          @default(true)
+
+  @@index([applicationId])
+  @@index([questionId])
+}
+
+// External work-order sync from myBuildings (Eris / Core Vision platform) and manual entry
+model ClientWorkOrder {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  source             String   @default("MYBUILDINGS")  // MYBUILDINGS | MANUAL
+  externalJobCode    String?
+  externalId         Int?
+  externalStatusId   Int?
+  externalStatusName String?
+  externalSite       String?
+
+  title              String?
+  description        String?  @db.Text
+  priority           String?
+  requestedAt        DateTime?
+  requiredBy         DateTime?
+  approvedAmount     Float?
+
+  ourStatus          String   @default("NEW")
+  assignedToUserId   Int?
+  assignedToUser     User?    @relation("ClientWorkOrderAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  internalNotes      String?  @db.Text
+
+  linkedInvoiceId    Int?
+  linkedInvoice      Invoice? @relation("ClientWorkOrderInvoice", fields: [linkedInvoiceId], references: [id], onDelete: SetNull)
+  linkedClientId     Int?
+  linkedClient       Client?  @relation("ClientWorkOrderClient", fields: [linkedClientId], references: [id], onDelete: SetNull)
+
+  lastPushAt         DateTime?
+  lastPushError      String?
+  pushedStatusId     Int?
+  pushedInvoiceAt    DateTime?
+  pushedAttachmentAt DateTime?
+
+  rawPayload         Json?
+
+  syncLogs           MyBuildingsSyncLog[]
+
+  linkedOrders       Order[] @relation("ClientWorkOrderOrders")
+  linkedBuildingId   Int?
+  linkedBuilding     ClientBuilding? @relation("ClientWorkOrderBuilding", fields: [linkedBuildingId], references: [id], onDelete: SetNull)
+
+  @@unique([source, externalJobCode], name: "source_jobCode")
+  @@index([source, externalId])
+  @@index([ourStatus])
+  @@index([assignedToUserId])
+  @@index([linkedInvoiceId])
+}
+
+model MyBuildingsSyncLog {
+  id                Int              @id @default(autoincrement())
+  createdAt         DateTime         @default(now())
+  clientWorkOrderId Int?
+  clientWorkOrder   ClientWorkOrder? @relation(fields: [clientWorkOrderId], references: [id], onDelete: SetNull)
+  direction         String
+  operation         String
+  externalRef       String?
+  statusCode        Int?
+  success           Boolean          @default(false)
+  errorMessage      String?          @db.Text
+  requestBody       Json?
+  responseBody      Json?
+
+  @@index([direction, operation])
+  @@index([createdAt])
+  @@index([clientWorkOrderId])
+}
+
+model MyBuildingsInvoicePublicToken {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  invoiceId Int
+  invoice   Invoice  @relation("InvoicePublicToken", fields: [invoiceId], references: [id], onDelete: Cascade)
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  usedCount Int      @default(0)
+
+  @@index([invoiceId])
+}
+
+model ClientWorkOrderSiteMapping {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  source            String   @default("MYBUILDINGS")  // MYBUILDINGS | OTHER
+  externalSite      String   // Free-text site name coming from Eris, e.g. "102 Rivonia Rd - B"
+  externalCode      String?  // Building code if provided (e.g. "RV01")
+
+  linkedBuildingId  Int?
+  linkedBuilding    ClientBuilding? @relation("SiteMappingBuilding", fields: [linkedBuildingId], references: [id], onDelete: SetNull)
+  linkedClientId    Int?
+  linkedClient      Client?         @relation("SiteMappingClient", fields: [linkedClientId], references: [id], onDelete: SetNull)
+
+  notes             String?  @db.Text
+  autoLinkedCount   Int      @default(0)
+
+  @@unique([source, externalSite], name: "source_externalSite")
+  @@index([externalCode])
+}model FinanceAuditFix {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  category  String
+  entity    String
+  entityId  Int?
+  action    String
+  before    Json?
+  after     Json?
+  fixedBy   String   @default("auto-audit")
+  @@index([category])
+  @@index([entity, entityId])
+}model DebtorReminderLog {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  invoiceId     Int
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  thresholdDays Int
+  recipient     String
+  status        String   @default("SENT")
+  sentAt        DateTime?
+  errorMessage  String?  @db.Text
+  @@unique([invoiceId, thresholdDays])
+  @@index([sentAt])
+}model VatReconciliationRun {
+  id                   Int      @id @default(autoincrement())
+  createdAt            DateTime @default(now())
+  periodStart          DateTime
+  periodEnd            DateTime
+  outputVat            Float    @default(0)
+  inputVat             Float    @default(0)
+  estimatedPayable     Float    @default(0)
+  invoiceVatMismatch   Int      @default(0)
+  invoiceVatVariance   Float    @default(0)
+  invoiceLineMismatch  Int      @default(0)
+  invoiceLineVariance  Float    @default(0)
+  expensesMissingVat   Int      @default(0)
+  expensesPotentialVat Float    @default(0)
+  details              Json?
+  runBy                String   @default("scheduler")
+  @@index([periodStart, periodEnd])
+  @@index([createdAt])
+}model ArtisanPaymentStatement {
+  id                Int            @id @default(autoincrement())
+  createdAt         DateTime       @default(now())
+  statementNumber   String         @unique
+  paymentRequestId  Int            @unique
+  paymentRequest    PaymentRequest @relation(fields: [paymentRequestId], references: [id], onDelete: Cascade)
+  artisanId         Int
+  paymentDate       DateTime
+  grossAmount       Float
+  withholdingAmount Float          @default(0)
+  netAmount         Float
+  classification    String         @default("INDEPENDENT_CONTRACTOR")
+  emailedAt         DateTime?
+  notes             String?
+  @@index([artisanId, paymentDate])
+}
+
+model MyBuildingsJobCardPublicToken {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  orderId   Int
+  order     Order    @relation("OrderJobCardPublicToken", fields: [orderId], references: [id], onDelete: Cascade)
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  usedCount Int      @default(0)
+
+  @@index([orderId])
 }

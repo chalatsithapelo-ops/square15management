@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { assertNotRestrictedDemoAccount } from "~/server/utils/demoAccounts";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 export const deleteOrder = baseProcedure
   .input(
@@ -16,7 +17,11 @@ export const deleteOrder = baseProcedure
     const user = await authenticateUser(input.token);
     assertNotRestrictedDemoAccount(user, "delete orders");
 
-    const isAdmin = user.role === "SENIOR_ADMIN" || user.role === "JUNIOR_ADMIN";
+    const isAdmin =
+      user.role === "SENIOR_ADMIN" ||
+      user.role === "JUNIOR_ADMIN" ||
+      user.role === "MANAGER" ||
+      user.role === "TECHNICAL_MANAGER";
     const isContractor = user.role === "CONTRACTOR" || user.role === "CONTRACTOR_SENIOR_MANAGER" || user.role === "CONTRACTOR_JUNIOR_MANAGER";
 
     if (!isAdmin && !isContractor) {
@@ -64,6 +69,20 @@ export const deleteOrder = baseProcedure
     // Reviews will have orderId set to null via SetNull
     await db.order.delete({
       where: { id: input.orderId },
+    });
+
+    await writeAuditLog(db, {
+      actor: user,
+      action: "DELETE",
+      entityType: "Order",
+      entityId: order.id,
+      before: {
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        serviceType: order.serviceType,
+        status: order.status,
+      },
+      description: `Deleted order ${order.orderNumber} (${order.customerName})`,
     });
 
     return { success: true };

@@ -1,10 +1,10 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const suggestArtisanForJob = baseProcedure
@@ -21,7 +21,7 @@ export const suggestArtisanForJob = baseProcedure
     try {
       // Verify authentication
       const verified = jwt.verify(input.token, env.JWT_SECRET);
-      z.object({ userId: z.number() }).parse(verified);
+      const { userId } = z.object({ userId: z.number() }).parse(verified);
 
       // Fetch all artisans with their performance data
       const artisans = await db.user.findMany({
@@ -102,10 +102,12 @@ export const suggestArtisanForJob = baseProcedure
       );
 
       // Set up AI model
-      const model = google("gemini-1.5-pro");
+      const model = google("gemini-2.5-pro");
 
       // Get AI recommendation
       const { object } = await generateObject({
+        aiFeature: "artisan.jobMatching",
+        aiUserId: userId,
         model,
         schema: z.object({
           rankedArtisans: z.array(

@@ -4,6 +4,8 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { getNextInvoiceNumber } from "~/server/utils/documentNumbers";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 /**
  * Convert a completed Order into an Invoice in one click.
@@ -62,31 +64,7 @@ export const convertOrderToInvoice = baseProcedure
     // Generate invoice number
     const companyDetails = await getCompanyDetails();
     const prefix = companyDetails?.invoicePrefix || "INV";
-    const allInvoices = await db.invoice.findMany({ select: { invoiceNumber: true } });
-    const allPMInvoices = await db.propertyManagerInvoice.findMany({
-      select: { invoiceNumber: true },
-    });
-    let maxNum = 0;
-    const pattern = new RegExp(
-      `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`
-    );
-    for (const inv of [...allInvoices, ...allPMInvoices]) {
-      const m = inv.invoiceNumber.match(pattern);
-      if (m?.[1]) {
-        const n = parseInt(m[1], 10);
-        if (n > maxNum) maxNum = n;
-      }
-    }
-    let invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-    for (let i = 0; i < 10; i++) {
-      const a = await db.invoice.findUnique({ where: { invoiceNumber } });
-      const b = await db.propertyManagerInvoice.findUnique({
-        where: { invoiceNumber },
-      });
-      if (!a && !b) break;
-      maxNum++;
-      invoiceNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-    }
+    const invoiceNumber = await getNextInvoiceNumber(db, prefix);
 
     // Source line items + totals: prefer the linked quotation's items
     // (richer breakdown). Fall back to a single line summarising the order.
@@ -133,6 +111,23 @@ export const convertOrderToInvoice = baseProcedure
       estimatedProfit = lineTotal - order.materialCost - order.labourCost;
     }
 
+    // Guardrail: block invoice creation when Cost to Company is zero.
+    // Cost to Company = materials + labour + call-out fee on the order.
+    // This catches jobs where the artisan/TM forgot to record expense slips
+    // or labour hours before invoicing — invoices with COST=R0 are almost
+    // always a data-entry mistake (real profit becomes indistinguishable
+    // from unrecorded costs) and were repeatedly getting rejected.
+    const costToCompany = (companyMaterialCost ?? 0) + (companyLabourCost ?? 0) + (order.callOutFee ?? 0);
+    if (costToCompany <= 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          `Cannot invoice ${order.orderNumber}: Cost to Company is R 0.00 ` +
+          `(materials R${(companyMaterialCost ?? 0).toFixed(2)}, labour R${(companyLabourCost ?? 0).toFixed(2)}, call-out R${(order.callOutFee ?? 0).toFixed(2)}). ` +
+          `Please record the actual materials, labour, and/or call-out costs on the order before invoicing.`,
+      });
+    }
+
     const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
@@ -159,6 +154,27 @@ export const convertOrderToInvoice = baseProcedure
         clientBuildingId: order.clientBuildingId,
         createdById: user.id,
       },
+    });
+
+    await writeAuditLog(db, {
+      actor: user,
+      action: "CONVERT",
+      entityType: "Order",
+      entityId: order.id,
+      description: `Converted order ${order.orderNumber} to invoice ${invoice.invoiceNumber}`,
+    });
+    await writeAuditLog(db, {
+      actor: user,
+      action: "CREATE",
+      entityType: "Invoice",
+      entityId: invoice.id,
+      after: {
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customerName,
+        total: invoice.total,
+        status: invoice.status,
+      },
+      description: `Created invoice ${invoice.invoiceNumber} from order ${order.orderNumber}`,
     });
 
     return {

@@ -9,7 +9,7 @@ export const getBankAccounts = baseProcedure
     const user = await authenticateUser(input.token);
 
     const accounts = await db.bankAccount.findMany({
-      where: { createdById: user.id },
+      where: user.role === "SENIOR_ADMIN" ? {} : { createdById: user.id },
       include: {
         _count: {
           select: { transactions: true },

@@ -9,7 +9,7 @@ export { parseCSVStatement } from "./csvParsers";
 export type { CSVParseResult } from "./csvParsers";
 
 export { createTransactionHash, storeTransaction, storeBatchTransactions } from "./transactionStore";
-export { categorizeTransaction, recategorizeTransaction, confirmCategorization } from "./categorizationEngine";
+export { categorizeTransaction, recategorizeTransaction, confirmCategorization, applySavedRulesToExistingTransactions, synchronizePendingBankExpenseCategories } from "./categorizationEngine";
 export { reconcileBankAccount, reconcileTransaction } from "./reconciliationEngine";
 export { startEmailPoller, stopEmailPoller, pollEmails, startEmailIdle, stopEmailIdle } from "./emailPoller";
 export { bankFeedEvents } from "./eventBus";

@@ -27,10 +27,30 @@ export const getOrderForSigning = publicProcedure
         startTime: true,
         endTime: true,
         createdAt: true,
+        beforePictures: true,
+        afterPictures: true,
         assignedTo: {
           select: {
             firstName: true,
             lastName: true,
+          },
+        },
+        materials: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unitPrice: true,
+            totalCost: true,
+          },
+        },
+        expenseSlips: {
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            amount: true,
+            url: true,
           },
         },
       },
@@ -65,6 +85,10 @@ export const getOrderForSigning = publicProcedure
           startTime: order.startTime,
           endTime: order.endTime,
           createdAt: order.createdAt,
+          beforePictures: order.beforePictures ?? [],
+          afterPictures: order.afterPictures ?? [],
+          materials: order.materials,
+          expenseSlips: order.expenseSlips,
         },
       };
     }
@@ -86,10 +110,30 @@ export const getOrderForSigning = publicProcedure
         startTime: true,
         endTime: true,
         createdAt: true,
+        beforePictures: true,
+        afterPictures: true,
         assignedTo: {
           select: {
             firstName: true,
             lastName: true,
+          },
+        },
+        materials: {
+          select: {
+            id: true,
+            name: true,
+            quantity: true,
+            unitPrice: true,
+            totalCost: true,
+          },
+        },
+        expenseSlips: {
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            amount: true,
+            url: true,
           },
         },
       },
@@ -124,6 +168,10 @@ export const getOrderForSigning = publicProcedure
           startTime: pmOrder.startTime,
           endTime: pmOrder.endTime,
           createdAt: pmOrder.createdAt,
+          beforePictures: pmOrder.beforePictures ?? [],
+          afterPictures: pmOrder.afterPictures ?? [],
+          materials: pmOrder.materials,
+          expenseSlips: pmOrder.expenseSlips,
         },
       };
     }

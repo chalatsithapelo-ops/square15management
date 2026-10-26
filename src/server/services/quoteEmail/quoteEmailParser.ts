@@ -3,10 +3,11 @@
  * from incoming customer/property-manager emails.
  */
 
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 import { db } from "~/server/db";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { getNextQuoteNumber } from "~/server/utils/documentNumbers";
 import crypto from "crypto";
 
 export interface ParsedQuoteEmail {
@@ -86,7 +87,8 @@ Set confidence based on how much data was clearly available:
 
   try {
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      aiFeature: "quoteEmailParser",
+      model: google("gemini-3.6-flash"),
       prompt,
       maxTokens: 800,
     });
@@ -158,30 +160,10 @@ export async function processQuoteEmail(
   // 2. AI extraction
   const extracted = await extractQuoteFromEmail(fromEmail, fromName, subject, body);
 
-  // 3. Generate quote number
+  // 3. Generate quote number (shared helper skips poisoned suffixes)
   const companyDetails = await getCompanyDetails();
-  const prefix = (companyDetails as any).quotePrefix || "QUO";
-  const allQuotes = await db.quotation.findMany({ select: { quoteNumber: true } });
-  let maxNum = 0;
-  const prefixPattern = new RegExp(
-    `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`
-  );
-  for (const q of allQuotes) {
-    const match = q.quoteNumber.match(prefixPattern);
-    if (match) {
-      const num = parseInt(match[1] ?? "0", 10);
-      if (num > maxNum) maxNum = num;
-    }
-  }
-  let quoteNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-
-  // Retry loop for race conditions
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const exists = await db.quotation.findUnique({ where: { quoteNumber } });
-    if (!exists) break;
-    maxNum++;
-    quoteNumber = `${prefix}-${String(maxNum + 1).padStart(5, "0")}`;
-  }
+  const prefix = (companyDetails as any).quotationPrefix || (companyDetails as any).quotePrefix || "QUO";
+  const quoteNumber = await getNextQuoteNumber(db, prefix);
 
   // 4. Calculate totals
   const subtotal = extracted.items.reduce((sum, item) => sum + item.total, 0);

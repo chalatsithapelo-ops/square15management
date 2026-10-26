@@ -1,5 +1,5 @@
 import { db } from "~/server/db";
-import { generateText } from 'ai';
+import { generateText } from '~/server/services/ai/controlledGeneration';
 import { google } from '@ai-sdk/google';
 
 /**
@@ -14,7 +14,7 @@ import { google } from '@ai-sdk/google';
  * creates campaign ideas based on real business data.
  */
 
-const model = google('gemini-2.0-flash');
+const model = google('gemini-3.6-flash');
 
 async function suggestCampaigns() {
   console.log("[campaign-suggest] Starting monthly campaign suggestion generation...");
@@ -105,7 +105,7 @@ async function suggestCampaigns() {
     if (month >= 3 && month <= 5) season = 'autumn'; // Apr-Jun
     if (month >= 6 && month <= 8) season = 'winter'; // Jul-Sep
 
-    const prompt = `You are the AI marketing assistant for Square 15 Property Maintenance (www.square15.co.za), a South African property maintenance company.
+    const prompt = `You are the AI marketing assistant for Square 15 Facility Solutions (www.square15.co.za), a South African property management, facility solutions and maintenance company.
 
 Based on the following business data, generate exactly 3 campaign suggestions for ${currentMonth} ${currentYear}.
 
@@ -127,7 +127,7 @@ REQUIREMENTS:
 5. Use personalization tokens: {{customerName}}, {{serviceType}}
 6. Include calls-to-action linking to https://www.square15.co.za
 7. Maximum 600px width, inline CSS only
-8. Use company name "Square 15 Property Maintenance"
+8. Use company name "Square 15 Facility Solutions"
 9. Include a professional footer
 10. Use emoji icons for visual appeal
 
@@ -146,6 +146,7 @@ Respond ONLY with a JSON array of exactly 3 campaigns (no markdown, no code bloc
     console.log("[campaign-suggest] Sending data to AI for campaign generation...");
 
     const result = await generateText({
+      aiFeature: "campaign.scheduledSuggestions",
       model,
       prompt,
       maxTokens: 8000,

@@ -22,18 +22,41 @@ export function formatCurrency2dp(n: number): string {
  * Compute invoice totals from line items using per-step rounding so the
  * web form, stored DB values, and generated PDF always agree to the cent.
  *
- *   subtotal = round( Σ line.total )
- *   vat      = round( subtotal * vatRate )
- *   total    = round( subtotal + vat )
+ *   subtotal        = round( Σ line.total )                (gross, pre-discount)
+ *   discountAmount  = round( subtotal * discountPercent/100 )
+ *   netSubtotal     = round( subtotal - discountAmount )   (what VAT is charged on)
+ *   vat             = round( netSubtotal * vatRate )
+ *   total           = round( netSubtotal + vat )
+ *
+ * `discountPercent` is clamped to [0, 100]. Passing 0 (default) preserves the
+ * historical no-discount behaviour so all existing callers keep working.
  */
 export function computeInvoiceTotals(
   lineItems: Array<{ total?: number | null }>,
+  discountPercent: number = 0,
   vatRate = 0.15,
-): { subtotal: number; tax: number; total: number } {
+): {
+  subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
+  netSubtotal: number;
+  tax: number;
+  total: number;
+} {
   const subtotal = roundCurrency(
     lineItems.reduce((sum, item) => sum + (Number(item?.total) || 0), 0),
   );
-  const tax = roundCurrency(subtotal * vatRate);
-  const total = roundCurrency(subtotal + tax);
-  return { subtotal, tax, total };
+  const clampedPct = Math.max(0, Math.min(100, Number(discountPercent) || 0));
+  const discountAmount = roundCurrency((subtotal * clampedPct) / 100);
+  const netSubtotal = roundCurrency(subtotal - discountAmount);
+  const tax = roundCurrency(netSubtotal * vatRate);
+  const total = roundCurrency(netSubtotal + tax);
+  return {
+    subtotal,
+    discountPercent: clampedPct,
+    discountAmount,
+    netSubtotal,
+    tax,
+    total,
+  };
 }

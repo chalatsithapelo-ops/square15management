@@ -21,7 +21,8 @@ export const updateMilestoneStatus = baseProcedure
       expenseSlips: z
         .array(
           z.object({
-            url: z.string(),
+            // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
+            url: z.string().optional(),
             category: z.enum(["MATERIALS", "TOOLS", "TRANSPORTATION", "OTHER"]),
             description: z.string().optional(),
             amount: z.number().optional(),
@@ -146,7 +147,7 @@ export const updateMilestoneStatus = baseProcedure
         await db.milestoneExpenseSlip.createMany({
           data: input.expenseSlips.map((slip) => ({
             milestoneId: input.milestoneId,
-            url: slip.url,
+            url: slip.url ?? null,
             category: slip.category,
             description: slip.description || null,
             amount: slip.amount || null,

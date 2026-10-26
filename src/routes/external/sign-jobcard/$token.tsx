@@ -35,6 +35,30 @@ function ExternalSignJobCardPage() {
     })
   );
 
+  // Public PDF fetcher — reuses the same generateJobCardPdf procedure by
+  // passing signatureToken instead of a user JWT.
+  const generatePdfMutation = useMutation(
+    trpc.generateJobCardPdf.mutationOptions({
+      onSuccess: (data) => {
+        try {
+          const byteChars = atob(data.pdf);
+          const byteNums = new Array(byteChars.length);
+          for (let i = 0; i < byteChars.length; i++) {
+            byteNums[i] = byteChars.charCodeAt(i);
+          }
+          const blob = new Blob([new Uint8Array(byteNums)], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          window.open(url, "_blank", "noopener,noreferrer");
+          // Revoke shortly after; new tab keeps its own reference.
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch {
+          toast.error("Could not open the job card PDF");
+        }
+      },
+      onError: (err) => toast.error(err.message || "Failed to load job card"),
+    })
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -266,7 +290,148 @@ function ExternalSignJobCardPage() {
               </div>
             )}
           </div>
+
+          {/* View Full Job Card PDF button */}
+          {"id" in order && order.id && (
+            <div className="mt-5">
+              <button
+                onClick={() =>
+                  generatePdfMutation.mutate({
+                    signatureToken: token,
+                    orderId: (order as { id: number }).id,
+                    isPMOrder: data.isPMOrder,
+                  })
+                }
+                disabled={generatePdfMutation.isPending}
+                className="w-full flex items-center justify-center gap-2 bg-white border-2 border-green-700 text-green-800 py-2.5 px-4 rounded-lg font-medium text-sm hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {generatePdfMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-700"></div>
+                    Preparing PDF...
+                  </>
+                ) : (
+                  <>📄 View Full Job Card (PDF)</>
+                )}
+              </button>
+              <p className="text-xs text-gray-500 mt-1.5 text-center">
+                Opens the full job card with all details, before/after pictures, materials and expenses.
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Before & After Pictures */}
+        {"beforePictures" in order &&
+          (((order.beforePictures ?? []) as string[]).length > 0 ||
+            ((order.afterPictures ?? []) as string[]).length > 0) && (
+            <div className="bg-white border border-gray-200 border-t-0 p-6">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                Before &amp; After Pictures
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {(((order.beforePictures ?? []) as string[]) ?? []).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 mb-1">Before</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(((order.beforePictures ?? []) as string[]) ?? []).slice(0, 4).map((url, i) => (
+                        <a
+                          key={`b-${i}`}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block aspect-square overflow-hidden rounded border border-gray-200 bg-gray-50"
+                        >
+                          <img
+                            src={url}
+                            alt={`Before ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                    {(((order.beforePictures ?? []) as string[]) ?? []).length > 4 && (
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        +{(((order.beforePictures ?? []) as string[]) ?? []).length - 4} more in PDF
+                      </p>
+                    )}
+                  </div>
+                )}
+                {(((order.afterPictures ?? []) as string[]) ?? []).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 mb-1">After</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(((order.afterPictures ?? []) as string[]) ?? []).slice(0, 4).map((url, i) => (
+                        <a
+                          key={`a-${i}`}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block aspect-square overflow-hidden rounded border border-gray-200 bg-gray-50"
+                        >
+                          <img
+                            src={url}
+                            alt={`After ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                    {(((order.afterPictures ?? []) as string[]) ?? []).length > 4 && (
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        +{(((order.afterPictures ?? []) as string[]) ?? []).length - 4} more in PDF
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Materials & Expenses summary */}
+        {(("materials" in order && ((order.materials as unknown[]) ?? []).length > 0) ||
+          ("expenseSlips" in order && ((order.expenseSlips as unknown[]) ?? []).length > 0)) && (
+          <div className="bg-white border border-gray-200 border-t-0 p-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Materials &amp; Expenses
+            </h2>
+            {"materials" in order && ((order.materials as { id: number; name: string; quantity: number; totalCost: number }[]) ?? []).length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs font-medium text-gray-600 mb-1">Materials</p>
+                <ul className="text-sm text-gray-800 space-y-0.5">
+                  {((order.materials as { id: number; name: string; quantity: number; totalCost: number }[]) ?? []).slice(0, 8).map((m) => (
+                    <li key={m.id} className="flex justify-between gap-3">
+                      <span>
+                        {m.name}
+                        <span className="text-gray-500"> × {m.quantity}</span>
+                      </span>
+                      <span className="text-gray-700">R {(m.totalCost ?? 0).toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {"expenseSlips" in order && ((order.expenseSlips as { id: number; category: string; description: string | null; amount: number | null; url: string | null }[]) ?? []).length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">Expenses</p>
+                <ul className="text-sm text-gray-800 space-y-0.5">
+                  {((order.expenseSlips as { id: number; category: string; description: string | null; amount: number | null; url: string | null }[]) ?? []).slice(0, 8).map((s) => (
+                    <li key={s.id} className="flex justify-between gap-3">
+                      <span>
+                        <span className="capitalize">{s.category.toLowerCase()}</span>
+                        {s.description ? <span className="text-gray-500"> — {s.description}</span> : null}
+                        {!s.url && <span className="ml-1 text-[10px] text-amber-700 bg-amber-100 px-1 rounded">NO SLIP</span>}
+                      </span>
+                      <span className="text-gray-700">R {(s.amount ?? 0).toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Signature Section */}
         <div className="bg-white border border-gray-200 border-t-0 p-6">

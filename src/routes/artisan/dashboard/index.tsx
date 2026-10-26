@@ -33,6 +33,9 @@ import {
   Trash2,
   Wrench,
   Shield,
+  ClipboardList,
+  KeyRound,
+  Link2,
 } from "lucide-react";
 import { PhotoUpload } from "~/components/PhotoUpload";
 import { FileAttachment } from "~/components/FileAttachment";
@@ -45,6 +48,9 @@ import { ReviewsSection } from "~/components/artisan/ReviewsSection";
 import { Tab } from "@headlessui/react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { SignatureCapture } from "~/components/SignatureCapture";
+import { JobCardSignatureModal } from "~/components/JobCardSignatureModal";
+import { JobCardEditModal } from "~/components/JobCardEditModal";
+import { TmPicker } from "~/components/TmPicker";
 import { MetricCard } from "~/components/MetricCard";
 import { NotificationDropdown } from "~/components/NotificationDropdown";
 import ItemizedExpenseTracker from "~/components/projects/ItemizedExpenseTracker";
@@ -80,16 +86,34 @@ function ArtisanDashboard() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(0);
+  const [jobView, setJobView] = useState<"ALL" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED">("ALL");
+  const [jobSearch, setJobSearch] = useState("");
+  const [completedPage, setCompletedPage] = useState(0);
+  const [editJobCardOrderId, setEditJobCardOrderId] = useState<number | null>(null);
   const [startJobOrderId, setStartJobOrderId] = useState<number | null>(null);
   const [completeJobOrderId, setCompleteJobOrderId] = useState<number | null>(null);
+  // Post-completion "Sign Job Card" flow — reused across all 3 portals.
+  const [signJobCardOrderId, setSignJobCardOrderId] = useState<number | null>(null);
   const [beforePictures, setBeforePictures] = useState<string[]>([]);
   const [afterPictures, setAfterPictures] = useState<string[]>([]);
   const [signedJobCardUrl, setSignedJobCardUrl] = useState<string | null>(null);
   const [clientRepName, setClientRepName] = useState<string>("");
   const [clientRepSignDate, setClientRepSignDate] = useState<string>("");
   const [clientUnavailableToSign, setClientUnavailableToSign] = useState(false);
+  // Artisan (technician) signature — SA legal best practice for a job card
+  // is that BOTH parties sign. Captured alongside the customer signature.
+  const [artisanSignatureUrl, setArtisanSignatureUrl] = useState<string | null>(null);
+  const [artisanSignedByName, setArtisanSignedByName] = useState<string>("");
+  const [artisanSignDate, setArtisanSignDate] = useState<string>("");
   const [materialCost, setMaterialCost] = useState<string>("");
   const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
+
+  // PR-8 — TmPicker retry state. When updateOrderStatus throws TM_REQUIRED
+  // (server-side guard for artisans starting a job that has no TM), we stash
+  // the exact variables that failed here and open the picker modal. On confirm
+  // we re-issue the same mutation with `technicalManagerId` merged in.
+  const [pendingTmRetry, setPendingTmRetry] = useState<any | null>(null);
+  const [tmRetryPickerValue, setTmRetryPickerValue] = useState<number | null>(null);
 
   // Payment request state
   const [paymentType, setPaymentType] = useState<"hourly" | "daily">("hourly");
@@ -136,6 +160,9 @@ function ArtisanDashboard() {
   const [reviewDailyRateInput, setReviewDailyRateInput] = useState<string>("");
   const [reviewPaymentNotes, setReviewPaymentNotes] = useState<string>("");
   const [reviewClientUnavailableToSign, setReviewClientUnavailableToSign] = useState(false);
+  const [reviewArtisanSignatureUrl, setReviewArtisanSignatureUrl] = useState<string | null>(null);
+  const [reviewArtisanSignedByName, setReviewArtisanSignedByName] = useState<string>("");
+  const [reviewArtisanSignDate, setReviewArtisanSignDate] = useState<string>("");
 
   // Milestone state
   const [startMilestoneId, setStartMilestoneId] = useState<number | null>(null);
@@ -284,8 +311,19 @@ function ArtisanDashboard() {
         toast.success("Job status updated!");
         queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
       },
-      onError: (error) => {
+      onError: (error, variables) => {
         console.error("Update order status error:", error);
+        // PR-8 — If the server refused because we're starting a job on an
+        // order with no Technical Manager, open the picker modal instead of
+        // just showing a red toast. Preserve the full payload so we can
+        // retry the same call verbatim once the artisan picks a TM.
+        const requiresTm =
+          (error as any)?.data?.cause?.code === "TM_REQUIRED" ||
+          /Pick your Technical Manager/i.test(error.message ?? "");
+        if (requiresTm && variables) {
+          setPendingTmRetry(variables as any);
+          return;
+        }
         // Make error toast persistent with longer duration
         toast.error(error.message || "Failed to update job status", {
           duration: 10000, // Show for 10 seconds
@@ -349,6 +387,28 @@ function ArtisanDashboard() {
         toast.error(error.message || "Failed to generate job card", {
           duration: 10000,
         });
+      },
+    })
+  );
+
+  // Remote client signing — artisan copies a shareable link to hand to the
+  // client (WhatsApp, SMS, in-person QR). Client opens link, signs, and this
+  // dashboard auto-refreshes to show the completed signature.
+  const sendSignatureRequestMutation = useMutation(
+    trpc.sendSignatureRequest.mutationOptions({
+      onSuccess: async (data) => {
+        if (data.signingUrl) {
+          try {
+            await navigator.clipboard.writeText(data.signingUrl);
+            toast.success("Signing link copied. Paste it in WhatsApp / SMS to share with the client.");
+          } catch {
+            toast.success(`Link: ${data.signingUrl}`);
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: trpc.getOrders.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to generate signing link");
       },
     })
   );
@@ -546,7 +606,13 @@ function ArtisanDashboard() {
   const orders = ordersQuery.data || [];
   
   const assignedOrders = useMemo(() => 
-    orders.filter((o) => o.status === "ASSIGNED"),
+    // Include self-initiated jobs (before admin review) so the artisan can
+    // reopen them from their dashboard right after creating.
+    orders.filter((o) =>
+      o.status === "ASSIGNED" ||
+      o.status === "SELF_INITIATED" ||
+      o.status === "AWAITING_ORDER_NUMBER"
+    ),
     [orders]
   );
   
@@ -559,6 +625,34 @@ function ArtisanDashboard() {
     orders.filter((o) => o.status === "COMPLETED"),
     [orders]
   );
+
+  const jobQuery = jobSearch.trim().toLowerCase();
+  const matchesJobSearch = (o: any) =>
+    !jobQuery ||
+    [o.orderNumber, o.customerName, o.clientBuilding?.name, o.serviceType, o.address, o.description]
+      .some((v) => typeof v === "string" && v.toLowerCase().includes(jobQuery));
+  const jobTime = (o: any) => new Date(o.endTime ?? o.updatedAt ?? o.createdAt ?? 0).getTime();
+  const visibleAssignedOrders = assignedOrders.filter(matchesJobSearch);
+  const visibleInProgressOrders = inProgressOrders.filter(matchesJobSearch);
+  const visibleCompletedOrders = completedOrders.filter(matchesJobSearch).sort((a, b) => jobTime(b) - jobTime(a));
+  const COMPLETED_PAGE_SIZE = 10;
+  const showAllCompleted = jobView === "COMPLETED" || !!jobQuery;
+  const completedPageCount = Math.max(1, Math.ceil(visibleCompletedOrders.length / COMPLETED_PAGE_SIZE));
+  const safeCompletedPage = Math.min(completedPage, completedPageCount - 1);
+  const shownCompletedOrders = showAllCompleted
+    ? visibleCompletedOrders.slice(safeCompletedPage * COMPLETED_PAGE_SIZE, (safeCompletedPage + 1) * COMPLETED_PAGE_SIZE)
+    : visibleCompletedOrders.slice(0, 5);
+  const showJobGroup = (group: "ASSIGNED" | "IN_PROGRESS" | "COMPLETED") => jobView === "ALL" || jobView === group;
+  const openJobView = (view: "ALL" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED") => {
+    setJobView(view);
+    setCompletedPage(0);
+    setActiveTab(0);
+    setTimeout(() => document.getElementById("artisan-jobs")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+  const noVisibleJobs =
+    (!showJobGroup("ASSIGNED") || visibleAssignedOrders.length === 0) &&
+    (!showJobGroup("IN_PROGRESS") || visibleInProgressOrders.length === 0) &&
+    (!showJobGroup("COMPLETED") || visibleCompletedOrders.length === 0);
 
   const quotations = quotationsQuery.data || [];
   
@@ -658,7 +752,10 @@ function ArtisanDashboard() {
 
   const handleStartJob = (orderId: number) => {
     setStartJobOrderId(orderId);
-    setBeforePictures([]);
+    // Pre-populate with any before-photos already captured (e.g. via the
+    // self-initiated "Start a Job" wizard) so the artisan doesn't re-upload.
+    const order = orders.find((o) => o.id === orderId);
+    setBeforePictures(order?.beforePictures?.length ? order.beforePictures : []);
   };
 
   const handleBeforePicturesUploaded = (urls: string[]) => {
@@ -727,6 +824,20 @@ function ArtisanDashboard() {
         })
       );
       setExpenseSlips(savedSlips.length > 0 ? savedSlips : []);
+
+      // Artisan signature: reuse any prior draft, but always default the
+      // signer name to the logged-in artisan and the date to now so the
+      // artisan only has to draw their signature.
+      setArtisanSignatureUrl((order as any).artisanSignatureUrl || null);
+      const artisanName = currentUser
+        ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim()
+        : "";
+      setArtisanSignedByName((order as any).artisanSignedByName || artisanName);
+      setArtisanSignDate(
+        (order as any).artisanSignDate
+          ? new Date((order as any).artisanSignDate).toISOString().slice(0, 16)
+          : new Date().toISOString().slice(0, 16)
+      );
     } else {
       setAfterPictures([]);
       setSignedJobCardUrl(null);
@@ -735,6 +846,12 @@ function ArtisanDashboard() {
       setClientRepSignDate("");
       setMaterialCost("");
       setExpenseSlips([]);
+      setArtisanSignatureUrl(null);
+      const artisanName = currentUser
+        ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim()
+        : "";
+      setArtisanSignedByName(artisanName);
+      setArtisanSignDate(new Date().toISOString().slice(0, 16));
     }
 
     setPaymentType(order?.draftPaymentType === "daily" ? "daily" : "hourly");
@@ -792,6 +909,11 @@ function ArtisanDashboard() {
         clientRepName: clientRepName || undefined,
         clientRepSignDate: clientRepSignDate || undefined,
         clientUnavailableToSign: clientUnavailableToSign || undefined,
+        artisanSignatureUrl: artisanSignatureUrl || undefined,
+        artisanSignedByName: artisanSignedByName || undefined,
+        artisanSignDate: artisanSignDate
+          ? new Date(artisanSignDate).toISOString()
+          : undefined,
       });
 
       // Close the modal after saving
@@ -813,9 +935,27 @@ function ArtisanDashboard() {
     setSignedJobCardUrl(url);
   };
 
+  const handleArtisanSignatureCaptured = (url: string) => {
+    setArtisanSignatureUrl(url);
+    if (!artisanSignDate) {
+      setArtisanSignDate(new Date().toISOString().slice(0, 16));
+    }
+  };
+
   const handleConfirmCompleteJob = async () => {
     if (afterPictures.length < 3) {
       toast.error("Please upload at least 3 after pictures");
+      return;
+    }
+
+    // Artisan signature is always required — both parties must sign the
+    // job card even if the client is unavailable.
+    if (!artisanSignatureUrl) {
+      toast.error("Please capture your (the artisan\u2019s) signature");
+      return;
+    }
+    if (!artisanSignedByName.trim()) {
+      toast.error("Please enter your name for the artisan signature");
       return;
     }
 
@@ -908,6 +1048,9 @@ function ArtisanDashboard() {
         clientRepName: clientRepName.trim() || undefined,
         clientRepSignDate: clientRepSignDate ? new Date(clientRepSignDate).toISOString() : undefined,
         clientUnavailableToSign: clientUnavailableToSign || undefined,
+        artisanSignatureUrl: artisanSignatureUrl || undefined,
+        artisanSignedByName: artisanSignedByName.trim() || undefined,
+        artisanSignDate: artisanSignDate ? new Date(artisanSignDate).toISOString() : new Date().toISOString(),
         expenseSlips: expenseSlips,
         materialCost: finalMaterialCost,
         hoursWorked: paymentType === "hourly" ? parseFloat(hoursWorked) : undefined,
@@ -1151,6 +1294,19 @@ function ArtisanDashboard() {
         : ""
     );
     setReviewMaterialCost(order.materialCost?.toString() || "");
+
+    // Artisan signature — pre-populate from the existing order so an
+    // edit doesn't force the artisan to re-sign unless they choose to.
+    setReviewArtisanSignatureUrl((order as any).artisanSignatureUrl || null);
+    const artisanName = currentUser
+      ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim()
+      : "";
+    setReviewArtisanSignedByName((order as any).artisanSignedByName || artisanName);
+    setReviewArtisanSignDate(
+      (order as any).artisanSignDate
+        ? new Date((order as any).artisanSignDate).toISOString().slice(0, 16)
+        : new Date().toISOString().slice(0, 16)
+    );
     
     // Load expense slips
     const slips: ExpenseSlip[] = (order.expenseSlips || []).map((slip: any) => ({
@@ -1203,6 +1359,13 @@ function ArtisanDashboard() {
     setReviewSignedJobCardUrl(url);
   };
 
+  const handleReviewArtisanSignatureCaptured = (url: string) => {
+    setReviewArtisanSignatureUrl(url);
+    if (!reviewArtisanSignDate) {
+      setReviewArtisanSignDate(new Date().toISOString().slice(0, 16));
+    }
+  };
+
   const calculateReviewPaymentAmount = () => {
     if (!currentUser) return 0;
     
@@ -1220,6 +1383,16 @@ function ArtisanDashboard() {
   const handleConfirmReviewJob = async () => {
     if (reviewAfterPictures.length < 3) {
       toast.error("Please upload at least 3 after pictures");
+      return;
+    }
+
+    // Artisan signature is always required on a completed job card.
+    if (!reviewArtisanSignatureUrl) {
+      toast.error("Please capture your (the artisan\u2019s) signature");
+      return;
+    }
+    if (!reviewArtisanSignedByName.trim()) {
+      toast.error("Please enter your name for the artisan signature");
       return;
     }
 
@@ -1269,6 +1442,11 @@ function ArtisanDashboard() {
         clientRepName: reviewClientRepName.trim() || undefined,
         clientRepSignDate: reviewClientRepSignDate ? new Date(reviewClientRepSignDate).toISOString() : undefined,
         clientUnavailableToSign: reviewClientUnavailableToSign || undefined,
+        artisanSignatureUrl: reviewArtisanSignatureUrl || undefined,
+        artisanSignedByName: reviewArtisanSignedByName.trim() || undefined,
+        artisanSignDate: reviewArtisanSignDate
+          ? new Date(reviewArtisanSignDate).toISOString()
+          : new Date().toISOString(),
         expenseSlips: reviewExpenseSlips,
         materialCost: finalMaterialCost,
         paymentRequestId: reviewPaymentRequestId || undefined,
@@ -1337,6 +1515,46 @@ function ArtisanDashboard() {
       toast.dismiss();
       toast.error(
         error instanceof Error ? error.message : "Failed to download order summary",
+        { duration: 10000 }
+      );
+    }
+  };
+
+  const handleDownloadJobCard = async (orderId: number, orderNumber: string) => {
+    try {
+      toast.loading("Generating job card...");
+
+      const order = orders.find((o) => o.id === orderId);
+
+      const pdfData = await generateJobCardMutation.mutateAsync({
+        token: token!,
+        orderId: orderId,
+        isPMOrder: order?.isPMOrder || false,
+      });
+
+      const byteCharacters = atob(pdfData.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `job-card-${orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.dismiss();
+      toast.success("Job card downloaded!");
+    } catch (error) {
+      console.error("Error downloading job card:", error);
+      toast.dismiss();
+      toast.error(
+        error instanceof Error ? error.message : "Failed to download job card",
         { duration: 10000 }
       );
     }
@@ -1689,6 +1907,22 @@ function ArtisanDashboard() {
                   <Shield className="h-4 w-4 mr-2" />
                   Health & Safety
                 </Link>
+                <Link
+                  to="/artisan/jobs/start"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center"
+                  title="Start a self-initiated job (no order yet)"
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Start a job
+                </Link>
+                <Link
+                  to="/artisan/jobs/join"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center"
+                  title="Join a job already started by another artisan using a 6-digit code"
+                >
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Join a job
+                </Link>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <NotificationDropdown />
@@ -1708,6 +1942,7 @@ function ArtisanDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10" style={{ isolation: 'isolate' }}>
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 mb-8">
+          <button type="button" onClick={() => openJobView("ASSIGNED")} title="Show all assigned jobs" className="text-left rounded-2xl transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <MetricCard
             name="Assigned"
             value={assignedOrders.length}
@@ -1715,6 +1950,8 @@ function ArtisanDashboard() {
             color="yellow"
             gradient={true}
           />
+          </button>
+          <button type="button" onClick={() => openJobView("IN_PROGRESS")} title="Show all jobs in progress" className="text-left rounded-2xl transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <MetricCard
             name="In Progress"
             value={inProgressOrders.length}
@@ -1722,6 +1959,8 @@ function ArtisanDashboard() {
             color="blue"
             gradient={true}
           />
+          </button>
+          <button type="button" onClick={() => openJobView("COMPLETED")} title="Show all completed jobs" className="text-left rounded-2xl transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <MetricCard
             name="Completed"
             value={completedOrders.length}
@@ -1729,18 +1968,23 @@ function ArtisanDashboard() {
             color="green"
             gradient={true}
           />
+          </button>
+          <button type="button" onClick={() => setActiveTab(1)} title="Open quotations" className="text-left rounded-2xl transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <MetricCard
             name="Quotations"
             value={pendingReviewQuotations.length + inProgressQuotations.length}
             icon={FileText}
             color="purple"
           />
+          </button>
+          <button type="button" onClick={() => setActiveTab(2)} title="Open projects and milestones" className="text-left rounded-2xl transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <MetricCard
             name="Milestones"
             value={planningMilestones.length + notStartedMilestones.length + inProgressMilestones.length}
             icon={Target}
             color="orange"
           />
+          </button>
           <MetricCard
             name="Unread Messages"
             value={unreadConversations.length}
@@ -1855,20 +2099,56 @@ function ArtisanDashboard() {
           <Tab.Panels>
             {/* Jobs Tab */}
             <Tab.Panel>
+              {editJobCardOrderId !== null && (
+                <JobCardEditModal orderId={editJobCardOrderId} onClose={() => setEditJobCardOrderId(null)} />
+              )}
+              <div id="artisan-jobs" className="scroll-mt-4 mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => { setJobView("ALL"); setCompletedPage(0); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${jobView === "ALL" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>All jobs</button>
+                  <button type="button" onClick={() => { setJobView("ASSIGNED"); setCompletedPage(0); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${jobView === "ASSIGNED" ? "bg-yellow-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Assigned ({visibleAssignedOrders.length})</button>
+                  <button type="button" onClick={() => { setJobView("IN_PROGRESS"); setCompletedPage(0); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${jobView === "IN_PROGRESS" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>In progress ({visibleInProgressOrders.length})</button>
+                  <button type="button" onClick={() => { setJobView("COMPLETED"); setCompletedPage(0); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${jobView === "COMPLETED" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Completed ({visibleCompletedOrders.length})</button>
+                </div>
+                <div className="relative lg:ml-auto lg:w-80">
+                  <input
+                    type="search"
+                    value={jobSearch}
+                    onChange={(e) => { setJobSearch(e.target.value); setCompletedPage(0); }}
+                    placeholder="Search order no., client, building, service…"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              {noVisibleJobs && (
+                <div className="mb-8 bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500">
+                  {jobQuery ? `No jobs match "${jobSearch}".` : "No jobs in this list yet."}
+                </div>
+              )}
               {/* Assigned Jobs */}
-              {assignedOrders.length > 0 && (
+              {showJobGroup("ASSIGNED") && visibleAssignedOrders.length > 0 && (
                 <div className="mb-8">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Assigned Jobs</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Assigned Jobs ({visibleAssignedOrders.length})</h2>
                   <div className="space-y-4">
-                    {assignedOrders.map((order) => (
+                    {visibleAssignedOrders.map((order) => (
                       <div
                         key={order.id}
                         className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
                       >
                         <div className="flex flex-col sm:flex-row items-start justify-between mb-4">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{order.customerName}</p>
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
+                              {!(order as any).isPMOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditJobCardOrderId(order.id)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />Edit Job Card
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{(order as any).clientBuilding?.name || order.customerName}</p>
                           </div>
                           <span className="mt-2 sm:mt-0 px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                             Assigned
@@ -1970,11 +2250,11 @@ function ArtisanDashboard() {
               )}
 
               {/* In Progress Jobs */}
-              {inProgressOrders.length > 0 && (
+              {showJobGroup("IN_PROGRESS") && visibleInProgressOrders.length > 0 && (
                 <div className="mb-8">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Jobs In Progress</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Jobs In Progress ({visibleInProgressOrders.length})</h2>
                   <div className="space-y-4">
-                    {inProgressOrders.map((order) => (
+                    {visibleInProgressOrders.map((order) => (
                       <div
                         key={order.id}
                         className={`bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
@@ -1983,8 +2263,19 @@ function ArtisanDashboard() {
                       >
                         <div className="flex flex-col sm:flex-row items-start justify-between mb-4">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{order.customerName}</p>
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
+                              {!(order as any).isPMOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditJobCardOrderId(order.id)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />Edit Job Card
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{(order as any).clientBuilding?.name || order.customerName}</p>
                           </div>
                           <div className="flex items-center gap-2 mt-2 sm:mt-0">
                             {order.isPaused && (
@@ -2136,19 +2427,49 @@ function ArtisanDashboard() {
               )}
 
               {/* Completed Jobs */}
-              {completedOrders.length > 0 && (
+              {showJobGroup("COMPLETED") && visibleCompletedOrders.length > 0 && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Recently Completed</h2>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {showAllCompleted ? `Completed Jobs (${visibleCompletedOrders.length})` : "Recently Completed"}
+                    </h2>
+                    {showAllCompleted ? (
+                      completedPageCount > 1 && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <button type="button" disabled={safeCompletedPage === 0} onClick={() => setCompletedPage(safeCompletedPage - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Prev</button>
+                          <span className="text-gray-500">Page {safeCompletedPage + 1} of {completedPageCount}</span>
+                          <button type="button" disabled={safeCompletedPage >= completedPageCount - 1} onClick={() => setCompletedPage(safeCompletedPage + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Next</button>
+                        </div>
+                      )
+                    ) : (
+                      visibleCompletedOrders.length > 5 && (
+                        <button type="button" onClick={() => openJobView("COMPLETED")} className="text-sm font-medium text-blue-600 hover:underline">
+                          View all {visibleCompletedOrders.length} completed jobs
+                        </button>
+                      )
+                    )}
+                  </div>
                   <div className="space-y-4">
-                    {completedOrders.slice(0, 5).map((order) => (
+                    {shownCompletedOrders.map((order) => (
                       <div
                         key={order.id}
                         className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                       >
                         <div className="flex flex-col sm:flex-row items-start justify-between mb-3">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{order.customerName}</p>
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
+                              {!(order as any).isPMOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditJobCardOrderId(order.id)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />Edit Job Card
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{(order as any).clientBuilding?.name || order.customerName}</p>
                           </div>
                           <span className="mt-2 sm:mt-0 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Completed
@@ -2180,12 +2501,85 @@ function ArtisanDashboard() {
 
                         {/* Action buttons */}
                         <div className="flex flex-col sm:flex-row gap-2">
+                          {/* Client-signature status badge — visible at a
+                              glance whether the client has signed the job card. */}
+                          {order.signedJobCardUrl && order.clientRepSignDate ? (
+                            <span
+                              className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-green-800 bg-green-50 border border-green-200 rounded-lg"
+                              title={`Signed by ${order.clientRepName ?? "client"} on ${new Date(order.clientRepSignDate).toLocaleString("en-ZA")}`}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1.5" />Client Signed
+                            </span>
+                          ) : (order as any).signatureRequestSentAt ? (
+                            <span
+                              className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg animate-pulse"
+                              title={`Link sent ${new Date((order as any).signatureRequestSentAt).toLocaleString("en-ZA")} — awaiting the client to sign`}
+                            >
+                              <Link2 className="h-4 w-4 mr-1.5" />Awaiting Client
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg"
+                            >
+                              Not Signed Yet
+                            </span>
+                          )}
+                          {!order.signedJobCardUrl && (
+                            <button
+                              onClick={() => {
+                                sendSignatureRequestMutation.mutate({
+                                  token: token!,
+                                  orderId: order.id,
+                                  isPMOrder: !!(order as any).isPMOrder,
+                                  recipientName: order.customerName || "Client",
+                                  method: "link",
+                                });
+                              }}
+                              disabled={sendSignatureRequestMutation.isPending}
+                              className="flex items-center justify-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-800 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                              title="Copy a signing link the client can open to sign remotely. Once they sign, this page updates automatically."
+                            >
+                              {sendSignatureRequestMutation.isPending ? (
+                                <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating...</>
+                              ) : (
+                                <><Link2 className="h-5 w-5 mr-2" />{(order as any).signatureRequestSentAt ? "Copy Link Again" : "Send Sign Link"}</>
+                              )}
+                            </button>
+                          )}
+                          {(!order.clientRepSignDate || !order.artisanSignatureUrl) && !order.isPMOrder && (
+                            <button
+                              onClick={() => setSignJobCardOrderId(order.id)}
+                              className="flex-1 flex items-center justify-center px-4 py-2 border border-amber-300 text-sm font-medium rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
+                              title={!order.clientRepSignDate ? "Client has not signed yet" : "Artisan has not signed yet"}
+                            >
+                              <FileCheck className="h-5 w-5 mr-2" />
+                              Sign Job Card
+                            </button>
+                          )}
                           <button
                             onClick={() => handleReviewJob(order)}
                             className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                           >
                             <FileCheck className="h-5 w-5 mr-2" />
                             Review/Edit Job
+                          </button>
+                          <button
+                            onClick={() => handleDownloadJobCard(order.id, order.orderNumber)}
+                            disabled={generateJobCardMutation.isPending}
+                            className="flex-1 flex items-center justify-center px-4 py-2 border border-amber-300 text-sm font-medium rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 transition-colors"
+                            title="Download the printable job card PDF (scope of work, safety checks, signatures)"
+                          >
+                            {generateJobCardMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-5 w-5 mr-2" />
+                                Download Job Card
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={() => handleDownloadOrderSummary(order.id, order.orderNumber)}
@@ -3130,6 +3524,9 @@ function ArtisanDashboard() {
                     setHourlyRateInput("");
                     setDailyRateInput("");
                     setPaymentNotes("");
+                    setArtisanSignatureUrl(null);
+                    setArtisanSignedByName("");
+                    setArtisanSignDate("");
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -3222,25 +3619,76 @@ function ArtisanDashboard() {
               </div>
               )}
 
-              {/* Step 3: Capture Customer Signature */}
-              {!clientUnavailableToSign && (
+              {/* Step 3: Signatures — both parties acknowledge completion.
+                  The artisan signature is always required; the customer
+                  signature block is skipped when the client is unavailable. */}
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
                     3
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Capture Customer Signature</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Signatures</h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Have the customer sign digitally to confirm job completion.
+                <p className="text-sm text-gray-600 mb-4">
+                  Both the artisan and the client (where available) must sign to confirm the job was completed.
                 </p>
-                <SignatureCapture
-                  onSignatureCaptured={handleSignatureCaptured}
-                  label="Customer Signature"
-                  description="Please have the customer draw their signature below to confirm the work has been completed to their satisfaction"
-                />
+
+                {/* Step 3a: Artisan Signature (always required) */}
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-1">A. Artisan Signature (you) *</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Artisan Name</label>
+                      <input
+                        type="text"
+                        value={artisanSignedByName}
+                        onChange={(e) => setArtisanSignedByName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="Your full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        type="datetime-local"
+                        value={artisanSignDate}
+                        onChange={(e) => setArtisanSignDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                  {artisanSignatureUrl && (
+                    <div className="mb-2 p-2 bg-white border border-gray-200 rounded flex items-center gap-3">
+                      <img
+                        src={artisanSignatureUrl}
+                        alt="Artisan signature"
+                        className="h-16 w-auto border border-gray-100 rounded"
+                      />
+                      <span className="text-xs text-green-700 font-medium">Signature captured. Re-draw below to replace.</span>
+                    </div>
+                  )}
+                  <SignatureCapture
+                    onSignatureCaptured={handleArtisanSignatureCaptured}
+                    label="Artisan Signature"
+                    description="Sign below to confirm the work reported is a true reflection of what was completed on site"
+                  />
+                </div>
+
+                {/* Step 3b: Customer Signature */}
+                {!clientUnavailableToSign && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+                    <h4 className="text-sm font-semibold text-emerald-900 mb-1">B. Customer Signature *</h4>
+                    <p className="text-xs text-gray-600 mb-2">
+                      Have the customer sign digitally to confirm the job was completed to their satisfaction.
+                    </p>
+                    <SignatureCapture
+                      onSignatureCaptured={handleSignatureCaptured}
+                      label="Customer Signature"
+                      description="Please have the customer draw their signature below to confirm the work has been completed to their satisfaction"
+                    />
+                  </div>
+                )}
               </div>
-              )}
 
               {/* Step: Upload Expense Slips and Enter Material Cost */}
               <div className="mb-6">
@@ -3251,7 +3699,7 @@ function ArtisanDashboard() {
                   <h3 className="text-lg font-semibold text-gray-900">Expense Documentation</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-3">
-                  Upload expense slips and categorize them (materials, tools, transportation, etc.)
+                  Upload expense slips OR add slip-less expenses (travelling, tolls, mileage, etc.). At least one expense entry is required.
                 </p>
                 
                 {/* Expense Slip Upload */}
@@ -3259,8 +3707,8 @@ function ArtisanDashboard() {
                   <ExpenseSlipUpload
                     onSlipsUploaded={handleExpenseSlipsUploaded}
                     minimumSlips={1}
-                    title="Expense Slips"
-                    description="Upload and categorize each expense slip"
+                    title="Expenses"
+                    description="Upload receipts, or add expenses without a slip (travel, tolls, etc.)"
                     isPublic={false}
                     initialSlips={expenseSlips}
                   />
@@ -3472,6 +3920,9 @@ function ArtisanDashboard() {
                     setHourlyRateInput("");
                     setDailyRateInput("");
                     setPaymentNotes("");
+                    setArtisanSignatureUrl(null);
+                    setArtisanSignedByName("");
+                    setArtisanSignDate("");
                   }}
                   className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -3925,6 +4376,32 @@ function ArtisanDashboard() {
         </div>
       )}
 
+      {/* Post-completion "Sign Job Card" modal */}
+      {signJobCardOrderId !== null && (() => {
+        const target = orders.find((o) => o.id === signJobCardOrderId);
+        if (!target || !token) return null;
+        return (
+          <JobCardSignatureModal
+            token={token}
+            currentUserName={currentUser ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() : undefined}
+            order={{
+              id: target.id,
+              orderNumber: target.orderNumber,
+              serviceType: target.serviceType,
+              description: target.description,
+              signedJobCardUrl: target.signedJobCardUrl,
+              clientRepName: target.clientRepName,
+              clientRepSignDate: target.clientRepSignDate as any,
+              artisanSignatureUrl: (target as any).artisanSignatureUrl ?? null,
+              artisanSignedByName: (target as any).artisanSignedByName ?? null,
+              artisanSignDate: (target as any).artisanSignDate ?? null,
+              isPMOrder: !!target.isPMOrder,
+            }}
+            onClose={() => setSignJobCardOrderId(null)}
+          />
+        );
+      })()}
+
       {/* Review/Edit Job Modal */}
       {reviewJobOrderId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-6">
@@ -3949,6 +4426,9 @@ function ArtisanDashboard() {
                     setReviewHourlyRateInput("");
                     setReviewDailyRateInput("");
                     setReviewPaymentNotes("");
+                    setReviewArtisanSignatureUrl(null);
+                    setReviewArtisanSignedByName("");
+                    setReviewArtisanSignDate("");
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -4041,22 +4521,71 @@ function ArtisanDashboard() {
               </div>
               )}
 
-              {/* Step 3: Customer Signature */}
-              {!reviewClientUnavailableToSign && (
+              {/* Step 3: Signatures — both parties. Artisan always required. */}
               <div className="mb-6">
                 <div className="flex items-center mb-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm mr-3">
                     {reviewClientUnavailableToSign ? 2 : 3}
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Customer Signature</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Signatures</h3>
                 </div>
-                <SignatureCapture
-                  onSignatureCaptured={handleReviewSignatureCaptured}
-                  label="Customer Signature"
-                  description="Update the customer's signature if needed"
-                />
+                <p className="text-sm text-gray-600 mb-4">
+                  Both the artisan and the client (where available) must sign to confirm the job was completed.
+                </p>
+
+                {/* Step 3a: Artisan Signature (always required) */}
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-1">A. Artisan Signature (you) *</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Artisan Name</label>
+                      <input
+                        type="text"
+                        value={reviewArtisanSignedByName}
+                        onChange={(e) => setReviewArtisanSignedByName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        placeholder="Your full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        type="datetime-local"
+                        value={reviewArtisanSignDate}
+                        onChange={(e) => setReviewArtisanSignDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                  {reviewArtisanSignatureUrl && (
+                    <div className="mb-2 p-2 bg-white border border-gray-200 rounded flex items-center gap-3">
+                      <img
+                        src={reviewArtisanSignatureUrl}
+                        alt="Artisan signature"
+                        className="h-16 w-auto border border-gray-100 rounded"
+                      />
+                      <span className="text-xs text-green-700 font-medium">Signature on file. Re-draw below to replace.</span>
+                    </div>
+                  )}
+                  <SignatureCapture
+                    onSignatureCaptured={handleReviewArtisanSignatureCaptured}
+                    label="Artisan Signature"
+                    description="Update your signature if needed"
+                  />
+                </div>
+
+                {/* Step 3b: Customer Signature */}
+                {!reviewClientUnavailableToSign && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+                    <h4 className="text-sm font-semibold text-emerald-900 mb-1">B. Customer Signature *</h4>
+                    <SignatureCapture
+                      onSignatureCaptured={handleReviewSignatureCaptured}
+                      label="Customer Signature"
+                      description="Update the customer's signature if needed"
+                    />
+                  </div>
+                )}
               </div>
-              )}
 
               {/* Step 4: Expense Documentation */}
               <div className="mb-6">
@@ -4244,6 +4773,9 @@ function ArtisanDashboard() {
                     setReviewHourlyRateInput("");
                     setReviewDailyRateInput("");
                     setReviewPaymentNotes("");
+                    setReviewArtisanSignatureUrl(null);
+                    setReviewArtisanSignedByName("");
+                    setReviewArtisanSignDate("");
                   }}
                   className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -4957,6 +5489,58 @@ function ArtisanDashboard() {
       
       {/* Support Chat Widget */}
       <SupportChatWidget />
+
+      {/* PR-8 — TM picker modal that opens when a start-job call was refused
+          because the order has no Technical Manager set. */}
+      {pendingTmRetry && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Who’s your TM for this job?</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Required so this job counts on the correct monthly statement.
+                </p>
+              </div>
+              <button
+                onClick={() => { setPendingTmRetry(null); setTmRetryPickerValue(null); }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Cancel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <TmPicker
+              token={token!}
+              value={tmRetryPickerValue}
+              onChange={setTmRetryPickerValue}
+            />
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button
+                onClick={() => { setPendingTmRetry(null); setTmRetryPickerValue(null); }}
+                className="px-4 py-2 border rounded text-sm"
+                disabled={updateOrderStatusMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={tmRetryPickerValue == null || updateOrderStatusMutation.isPending}
+                onClick={() => {
+                  if (tmRetryPickerValue == null) return;
+                  const retry = { ...pendingTmRetry, technicalManagerId: tmRetryPickerValue };
+                  setPendingTmRetry(null);
+                  setTmRetryPickerValue(null);
+                  updateOrderStatusMutation.mutate(retry);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded text-sm disabled:opacity-50 inline-flex items-center gap-1"
+              >
+                {updateOrderStatusMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                Start job
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

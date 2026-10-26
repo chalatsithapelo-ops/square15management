@@ -1,9 +1,9 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, requireAdmin } from "~/server/utils/auth";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 export const generateCoachingRecommendation = baseProcedure
@@ -112,10 +112,12 @@ export const generateCoachingRecommendation = baseProcedure
         : 0;
 
       // Set up AI model
-      const model = google("gemini-1.5-pro");
+      const model = google("gemini-2.5-pro");
 
       // Generate coaching recommendations
       const { object } = await generateObject({
+        aiFeature: "employee.coaching",
+        aiUserId: user.id,
         model,
         schema: z.object({
           overallAssessment: z.string().describe("A comprehensive 2-3 sentence assessment of the employee's current performance"),

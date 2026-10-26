@@ -14,6 +14,7 @@ import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMont
 import toast from "react-hot-toast";
 
 import PLStatement from "~/components/accounts/PLStatement";
+import CashBasisPLStatement from "~/components/accounts/CashBasisPLStatement";
 import BalanceSheet from "~/components/accounts/BalanceSheet";
 import CashFlowStatement from "~/components/accounts/CashFlowStatement";
 import ExpenseAnalytics from "~/components/accounts/ExpenseAnalytics";
@@ -25,6 +26,7 @@ import { FinancialReportsSection } from "~/components/FinancialReportsSection";
 import { ComprehensiveFinancialDashboard } from "~/components/admin/ComprehensiveFinancialDashboard";
 import { AccessDenied } from "~/components/AccessDenied";
 import SARSComplianceDashboard from "~/components/accounts/SARSComplianceDashboard";
+import { FinanceHealthPage } from "~/routes/admin/finance-health";
 
 export const Route = createFileRoute("/admin/accounts/")({
   component: AccountsPage,
@@ -41,6 +43,7 @@ function AccountsPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [activeTab, setActiveTab] = useState("overview");
+  const [plView, setPLView] = useState<"cash" | "accrual">("cash");
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
@@ -158,6 +161,7 @@ function AccountsPage() {
       isApproved: true, // Only include approved revenues
     })
   );
+  const bankReceiptsQuery = useQuery(trpc.getBankReceipts.queryOptions({ token: token! }));
 
   const orders = ordersQuery.data || [];
   const invoices = invoicesQuery.data || [];
@@ -277,7 +281,15 @@ function AccountsPage() {
     .filter(inv => inv.status === 'PAID')
     .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
-  const totalRevenue = invoiceRevenue + alternativeRevenueTotal;
+  // Bank credits not yet allocated to an invoice or approved revenue record (cash received).
+  const bankReceiptsTotal = (bankReceiptsQuery.data?.receipts ?? [])
+    .filter((r) => {
+      const d = new Date(r.transactionDate);
+      return d >= rangeStart && d <= rangeEnd;
+    })
+    .reduce((sum, r) => sum + r.amount, 0);
+
+  const totalRevenue = invoiceRevenue + alternativeRevenueTotal + bankReceiptsTotal;
 
   // Receivables: unpaid invoices (Approved, Sent, Overdue)
   const receivableInvoices = filteredInvoices.filter(inv => ['APPROVED', 'SENT', 'OVERDUE'].includes(inv.status));
@@ -716,6 +728,10 @@ function AccountsPage() {
                   <span className="text-sm font-medium text-gray-700">Alternative Revenue</span>
                   <span className="text-sm font-bold text-green-700">R {alternativeRevenueTotal.toLocaleString()}</span>
                 </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Bank Receipts (not yet matched to invoices)</span>
+                  <span className="text-sm font-bold text-green-700">R {bankReceiptsTotal.toLocaleString()}</span>
+                </div>
               </div>
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Alternative Revenue by Category</p>
@@ -1024,6 +1040,7 @@ function AccountsPage() {
                   { id: 'budget', label: 'Budget Tracker', icon: DollarSign },
                   { id: 'expenses', label: 'Expense Upload', icon: TrendingDown },
                   { id: 'sars', label: 'SARS Compliance', icon: Shield },
+                  { id: 'finance-health', label: 'Finance Health', icon: Shield },
                   ...(cashbookEnabled ? [{ id: 'cashbook', label: 'Cashbook (Live)', icon: DollarSign }] : []),
                 ].map((tab) => (
                   <button
@@ -1242,18 +1259,38 @@ function AccountsPage() {
               )}
 
               {activeTab === 'pl' && (
-                <PLStatement 
-                  revenue={totalRevenue}
-                  invoiceRevenue={invoiceRevenue}
-                  alternativeRevenueTotal={alternativeRevenueTotal}
-                  revenueBreakdown={alternativeRevenuesByCategory}
-                  materialCosts={materialCosts}
-                  labourCosts={labourCosts}
-                  artisanPayments={artisanPayments}
-                  expensesByCategory={expensesByCategory}
-                  netProfit={netProfit}
-                  dateRange={dateRange}
-                />
+                <>
+                  <div className="mb-4 flex gap-2">
+                    <button
+                      onClick={() => setPLView("cash")}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold border ${plView === "cash" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+                    >
+                      Cash basis (Bank feed) â€” recommended
+                    </button>
+                    <button
+                      onClick={() => setPLView("accrual")}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold border ${plView === "accrual" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+                    >
+                      Accrual (Invoice / Order tables)
+                    </button>
+                  </div>
+                  {plView === "cash" ? (
+                    <CashBasisPLStatement dateRange={dateRange} />
+                  ) : (
+                    <PLStatement
+                      revenue={totalRevenue}
+                      invoiceRevenue={invoiceRevenue}
+                      alternativeRevenueTotal={alternativeRevenueTotal}
+                      revenueBreakdown={alternativeRevenuesByCategory}
+                      materialCosts={materialCosts}
+                      labourCosts={0}
+                      artisanPayments={artisanPayments}
+                      expensesByCategory={{ ...expensesByCategory, labour: 0 }}
+                      netProfit={totalRevenue - artisanPayments - materialCosts - ((expensesByCategory.operational_expenses ?? 0))}
+                      dateRange={dateRange}
+                    />
+                  )}
+                </>
               )}
 
               {activeTab === 'balance' && (
@@ -1296,6 +1333,10 @@ function AccountsPage() {
                   startDate={dateRange.start}
                   endDate={dateRange.end}
                 />
+              )}
+
+              {activeTab === 'finance-health' && (
+                <FinanceHealthPage embedded />
               )}
 
               {activeTab === 'sars' && (

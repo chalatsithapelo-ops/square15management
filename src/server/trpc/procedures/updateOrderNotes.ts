@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { userIsOnOrderCrew } from "~/server/utils/orderAccess";
 
 export const updateOrderNotes = baseProcedure
   .input(
@@ -43,9 +44,10 @@ export const updateOrderNotes = baseProcedure
 
       // Check if user has permission to update notes
       const isAdmin = user.role === "JUNIOR_ADMIN" || user.role === "SENIOR_ADMIN";
-      const isAssignedArtisan = user.role === "ARTISAN" && order.assignedToId === user.id;
+      const isLegacyAssigned = user.role === "ARTISAN" && order.assignedToId === user.id;
+      const isCrew = user.role === "ARTISAN" && !isLegacyAssigned && (await userIsOnOrderCrew(order.id, user.id));
 
-      if (!isAdmin && !isAssignedArtisan) {
+      if (!isAdmin && !isLegacyAssigned && !isCrew) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You don't have permission to update notes for this order",

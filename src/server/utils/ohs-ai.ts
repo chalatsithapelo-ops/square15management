@@ -2,7 +2,7 @@
 // for an activity, plus an executive summary. Built on Vercel AI SDK + Gemini
 // to match the existing codebase pattern (see suggestArtisanForJob.ts).
 import { z } from "zod";
-import { generateObject } from "ai";
+import { generateObject } from "~/server/services/ai/controlledGeneration";
 import { google } from "@ai-sdk/google";
 
 const RiskItemSchema = z.object({
@@ -38,7 +38,7 @@ export async function analyzeActivityRisks(input: {
   industryContext?: string;
   knownHazards?: string[];
 }): Promise<AiRiskAnalysis> {
-  const model = google("gemini-2.0-flash");
+  const model = google("gemini-3.6-flash");
 
   const prompt = `You are a senior Occupational Health & Safety practitioner certified under SACPCMP and registered with the South African Department of Employment and Labour. You write risk assessments that comply with the OHS Act 85 of 1993, the Construction Regulations 2014, the General Safety Regulations, the Environmental Regulations for Workplaces, the Driven Machinery Regulations and the Hazardous Chemical Substances Regulations.
 
@@ -54,6 +54,7 @@ Use a 5x5 likelihood × severity matrix (1-5 each). For each item provide BOTH i
 Return strictly the requested JSON shape.`;
 
   const { object } = await generateObject({
+    aiFeature: "ohs.activityRisks",
     model,
     schema: RiskAnalysisSchema,
     prompt,
@@ -87,7 +88,7 @@ export async function analyzeIncident(input: {
   injuredPersonRole?: string;
   immediateActions?: string;
 }): Promise<AiIncidentInsights> {
-  const model = google("gemini-2.0-flash");
+  const model = google("gemini-3.6-flash");
 
   const prompt = `You are a senior OHS investigator in South Africa. Analyse the following incident report and produce structured insights compliant with the OHS Act 85 of 1993 (especially Sec 24 reportability) and good investigation practice (TapRoot / 5-Why / Bowtie style).
 
@@ -101,6 +102,7 @@ ${input.immediateActions ? `Immediate actions already taken: ${input.immediateAc
 Be precise about Sec 24 reportability. Default to reportable=true when in doubt for: any fatality, anyone unable to work for 14+ days, loss of consciousness due to lack of oxygen / fumes / poisoning, injury requiring removal to hospital, dangerous occurrences (collapse, fire, explosion), uncontrolled release of hazardous substances.`;
 
   const { object } = await generateObject({
+    aiFeature: "ohs.incidentAnalysis",
     model,
     schema: IncidentClassificationSchema,
     prompt,
@@ -127,7 +129,7 @@ export async function generateToolboxTalk(input: {
   topic: string;
   context?: string;
 }): Promise<AiToolboxTalk> {
-  const model = google("gemini-2.0-flash");
+  const model = google("gemini-3.6-flash");
 
   const prompt = `You are a South African OHS practitioner producing a toolbox talk. Tone: practical, plain English, suitable for reading aloud to a multilingual workforce. Length: 3-5 minutes when read aloud.
 
@@ -137,6 +139,7 @@ ${input.context ? `Context: ${input.context}` : ""}
 Cite OHS Act 85 of 1993 / Construction Regs 2014 references where relevant. Avoid jargon. End the script with a 3-question informal check.`;
 
   const { object } = await generateObject({
+    aiFeature: "ohs.toolboxTalk",
     model,
     schema: ToolboxTalkSchema,
     prompt,
@@ -151,4 +154,74 @@ export function levelFromScore(likelihood: number, severity: number): "LOW" | "M
   if (score >= 12) return "HIGH";
   if (score >= 6) return "MEDIUM";
   return "LOW";
+}
+
+// ---------------------------------------------------------------------------
+// AI-powered Site-Specific Risk Assessment (SSRA) question generator.
+// Used by the artisan "Start a Job" wizard so the yes/no checklist is
+// tailored to the exact job (service type + task description + address)
+// rather than a generic static template. Each question carries a
+// `safeAnswer`, a `criticality` and — critically — an `onUnsafe` risk-item
+// payload so we can (a) BLOCK job start when an essential PPE / competency
+// question is answered unsafely, and (b) auto-populate an OHS risk item
+// when a WARN question is answered unsafely.
+// ---------------------------------------------------------------------------
+
+const SsraQuestionSchema = z.object({
+  id: z.string().describe("Stable snake_case identifier unique within this SSRA set"),
+  prompt: z.string().describe("The yes/no question presented to the artisan, in plain English"),
+  category: z.enum(["PPE", "COMPETENCY", "PERMIT", "HAZARD", "CONTROL", "ENVIRONMENT"]),
+  safeAnswer: z.enum(["yes", "no"]).describe("The answer the artisan must give for it to be safe to proceed"),
+  criticality: z.enum(["BLOCK", "WARN"]).describe("BLOCK means work MUST NOT start until the safe answer is achieved (e.g. essential PPE, isolation permit). WARN means proceed but log a risk item."),
+  rationale: z.string().describe("Short reason why this question matters for this specific job"),
+  onUnsafe: RiskItemSchema.describe("The risk item to add to the SSRA if this question is answered unsafely"),
+});
+
+export type AiSsraQuestion = z.infer<typeof SsraQuestionSchema>;
+
+const SsraQuestionSetSchema = z.object({
+  jobSummary: z.string().describe("One-sentence summary of the specific job being risk-assessed"),
+  overallRiskProfile: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  questions: z
+    .array(SsraQuestionSchema)
+    .min(5)
+    .max(12)
+    .describe("Job-specific yes/no safety questions. MUST include at least one BLOCK question covering essential PPE for the service type."),
+});
+
+export type AiSsraQuestionSet = z.infer<typeof SsraQuestionSetSchema>;
+
+export async function generateSsraQuestionsForJob(input: {
+  serviceType: string;
+  description: string;
+  location?: string;
+  customerName?: string;
+}): Promise<AiSsraQuestionSet> {
+  const model = google("gemini-3.6-flash");
+
+  const prompt = `You are a senior South African OHS practitioner. An artisan is about to start a specific job. Generate a Site-Specific Risk Assessment (SSRA) checklist as 5-12 yes/no questions that are PARTICULAR to this job — not generic. Questions must reference the exact service type, task and hazards a competent artisan would face on THIS job.
+
+Rules:
+1. For each question set 'safeAnswer' to the answer required for it to be safe to proceed ("yes" or "no").
+2. Mark 'criticality' = "BLOCK" for essential PPE, essential permits (e.g. hot-work, LOTO isolation, confined-space entry, working-at-heights fall arrest), essential competencies (e.g. wireman's licence for electrical, gas-safe registration for gas). BLOCK questions must ALWAYS include a PPE question covering the mandatory PPE for the service type.
+3. Mark 'criticality' = "WARN" for good-practice items that should be flagged but not stop work.
+4. Populate 'onUnsafe' as a full HIRA risk item that would apply if the question is answered unsafely — include hazard, potentialHarm, hierarchy-of-control 'controls', inherent + residual 5x5 ratings, PPE, training and SA legal references (OHS Act 85 of 1993 / Construction Regs 2014 / GSR / EMR / HCSR etc.).
+5. Give each question a stable snake_case 'id'.
+
+Job details:
+- Service type: ${input.serviceType}
+- Task description: ${input.description}
+${input.location ? `- Location: ${input.location}` : ""}
+${input.customerName ? `- Customer: ${input.customerName}` : ""}
+
+Return strictly the requested JSON shape.`;
+
+  const { object } = await generateObject({
+    aiFeature: "ohs.ssraQuestions",
+    model,
+    schema: SsraQuestionSetSchema,
+    prompt,
+  });
+
+  return object;
 }

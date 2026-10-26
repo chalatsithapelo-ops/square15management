@@ -4,6 +4,9 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
+import { authenticateUser } from "~/server/utils/auth";
+import { writeAuditLog } from "~/server/utils/auditLog";
+import { ensureTmAssignmentAllowed, logTmAssignment } from "~/server/utils/tmAssignmentLog";
 
 export const updateOrderDetails = baseProcedure
   .input(
@@ -18,6 +21,7 @@ export const updateOrderDetails = baseProcedure
       serviceType: z.string().min(1).optional(),
       description: z.string().min(1).optional(),
       assignedToId: z.number().nullable().optional(),
+      technicalManagerId: z.number().nullable().optional(),
       callOutFee: z.number().optional(),
       labourRate: z.number().nullable().optional(),
       materialCost: z.number().optional(),
@@ -85,6 +89,13 @@ export const updateOrderDetails = baseProcedure
           updateData.status = 'ASSIGNED';
         }
       }
+      if (input.technicalManagerId !== undefined) {
+        // PR-8 D — only guard when the value actually changes.
+        if (input.technicalManagerId !== currentOrder.technicalManagerId) {
+          await ensureTmAssignmentAllowed(db, input.orderId, input.technicalManagerId);
+        }
+        updateData.technicalManagerId = input.technicalManagerId;
+      }
       if (input.callOutFee !== undefined) updateData.callOutFee = input.callOutFee;
       if (input.labourRate !== undefined) updateData.labourRate = input.labourRate;
       if (input.materialCost !== undefined) updateData.materialCost = input.materialCost;
@@ -143,6 +154,67 @@ export const updateOrderDetails = baseProcedure
           jobActivities: true,
         },
       });
+
+      // PR-8 D \u2014 log the TM change (this admin edit path did not previously log).
+      if (
+        input.technicalManagerId !== undefined &&
+        input.technicalManagerId !== currentOrder.technicalManagerId
+      ) {
+        try {
+          const actor = await authenticateUser(input.token);
+          await logTmAssignment(db, {
+            orderId: order.id,
+            fromTmId: currentOrder.technicalManagerId,
+            toTmId: input.technicalManagerId,
+            source: "ADMIN_OVERRIDE",
+            actorId: actor.id,
+            reason: `Order details edit on ${order.orderNumber}`,
+          });
+        } catch (logErr) {
+          console.error("Failed to log TM assignment change:", logErr);
+        }
+      }
+
+      try {
+        const actor = await authenticateUser(input.token);
+        await writeAuditLog(db, {
+          actor,
+          action: "UPDATE",
+          entityType: "Order",
+          entityId: order.id,
+          before: {
+            orderNumber: currentOrder.orderNumber,
+            customerName: currentOrder.customerName,
+            customerEmail: currentOrder.customerEmail,
+            customerPhone: currentOrder.customerPhone,
+            address: currentOrder.address,
+            serviceType: currentOrder.serviceType,
+            description: currentOrder.description,
+            assignedToId: currentOrder.assignedToId,
+            materialCost: currentOrder.materialCost,
+            labourCost: currentOrder.labourCost,
+            callOutFee: currentOrder.callOutFee,
+            notes: currentOrder.notes,
+          },
+          after: {
+            orderNumber: order.orderNumber,
+            customerName: order.customerName,
+            customerEmail: order.customerEmail,
+            customerPhone: order.customerPhone,
+            address: order.address,
+            serviceType: order.serviceType,
+            description: order.description,
+            assignedToId: order.assignedToId,
+            materialCost: order.materialCost,
+            labourCost: order.labourCost,
+            callOutFee: order.callOutFee,
+            notes: order.notes,
+          },
+          description: `Updated order ${order.orderNumber}`,
+        });
+      } catch (auditErr) {
+        console.error('Failed to write order update audit log:', auditErr);
+      }
 
       return order;
     } catch (error) {

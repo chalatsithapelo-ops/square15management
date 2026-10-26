@@ -25,7 +25,7 @@ function wrapInEmailLayout(content: string, accentColor: string = '#1e40af', hea
   </div>
   ${content}
   <div style="background:#f8fafc;padding:24px;text-align:center;border-top:1px solid #e2e8f0;">
-    <p style="color:#64748b;font-size:13px;margin:0;">Square 15 Property Maintenance</p>
+    <p style="color:#64748b;font-size:13px;margin:0;">Square 15 Facility Solutions</p>
     <p style="color:#64748b;font-size:12px;margin:8px 0 0;">📞 Contact us | 🌐 www.square15.co.za</p>
     <p style="color:#94a3b8;font-size:11px;margin:12px 0 0;">You received this email because you're a valued customer of Square 15.</p>
   </div>
@@ -422,7 +422,7 @@ export const campaignTemplates: CampaignTemplate[] = [
     category: 'holiday',
     thumbnail: 'linear-gradient(135deg, #dc2626 0%, #16a34a 100%)',
     previewText: 'Season\'s greetings from Square 15!',
-    defaultSubject: '🎄 Happy Holidays from Square 15 Property Maintenance!',
+    defaultSubject: '🎄 Happy Holidays from Square 15 Facility Solutions!',
     tags: ['holiday', 'christmas', 'festive', 'greetings'],
     htmlBody: wrapInEmailLayout(`
   <div style="padding:32px 24px;text-align:center;">
@@ -431,7 +431,7 @@ export const campaignTemplates: CampaignTemplate[] = [
     <h3 style="color:#475569;font-size:18px;font-weight:400;margin:0 0 20px;">Happy Holidays, {{customerName}}</h3>
     <div style="background:linear-gradient(135deg, #fef2f2 0%, #f0fdf4 100%);border-radius:12px;padding:24px;margin-bottom:24px;">
       <p style="color:#475569;font-size:15px;line-height:1.8;margin:0;">
-        As the year comes to a close, we'd like to thank you for choosing Square 15 Property Maintenance.
+        As the year comes to a close, we'd like to thank you for choosing Square 15 Facility Solutions.
         Your trust means the world to us, and we look forward to serving you in the new year!
       </p>
     </div>

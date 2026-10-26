@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { generateText } from 'ai';
+import { generateText } from '~/server/services/ai/controlledGeneration';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { baseProcedure } from "~/server/trpc/main";
@@ -47,7 +47,7 @@ export const sendAgentMessage = baseProcedure
       let model: any;
 
       if (provider === 'anthropic' && env.ANTHROPIC_API_KEY) {
-        modelName = env.DEFAULT_ANTHROPIC_MODEL || 'claude-4-5-haiku';
+        modelName = env.DEFAULT_ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
         try {
           model = anthropic(modelName);
           console.log('[AI Agent] anthropic() initialization successful');
@@ -57,12 +57,10 @@ export const sendAgentMessage = baseProcedure
         }
         console.log('[AI Agent] Using Anthropic model:', modelName);
         console.log('[AI Agent] Anthropic API key length:', env.ANTHROPIC_API_KEY?.length || 0, 'chars');
-        console.log('[AI Agent] Anthropic API key first 12 chars:', env.ANTHROPIC_API_KEY?.substring(0, 12) || 'MISSING');
       } else {
-        modelName = env.DEFAULT_GOOGLE_MODEL || 'gemini-2.0-flash-exp';
+        modelName = env.DEFAULT_GOOGLE_MODEL || 'gemini-3.6-flash';
         model = google(modelName);
         console.log('[AI Agent] Using Google model:', modelName);
-        console.log('[AI Agent] Google API key configured:', env.GOOGLE_GENERATIVE_AI_API_KEY ? `Yes (${env.GOOGLE_GENERATIVE_AI_API_KEY.substring(0, 8)}...)` : 'No');
       }
 
       // Build the user message content
@@ -209,6 +207,7 @@ REMINDERS:
       try {
         console.log('[AI Agent] About to call generateText');
         result = await generateText({
+          aiFeature: "agent.message",
           model,
           system: systemPrompt,
           messages,

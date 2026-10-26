@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser, isAdmin } from "~/server/utils/auth";
 import { computeInvoiceTotals } from "~/utils/money";
+import { writeAuditLog } from "~/server/utils/auditLog";
 
 const contractorRoles = ["CONTRACTOR", "CONTRACTOR_SENIOR_MANAGER", "CONTRACTOR_JUNIOR_MANAGER"] as const;
 
@@ -135,6 +136,30 @@ export const createCreditNote = baseProcedure
       await db.invoice.update({
         where: { id: invoice.id },
         data: { isDisputed: true },
+      });
+    }
+
+    await writeAuditLog(db, {
+      actor: user,
+      action: "CREATE",
+      entityType: "CreditNote",
+      entityId: creditNote.id,
+      after: {
+        creditNoteNumber: (creditNote as any).creditNoteNumber ?? (creditNote as any).number ?? creditNote.id,
+        invoiceId: invoice.id,
+        total: (creditNote as any).total,
+      },
+      description: `Created credit note for invoice ${invoice.invoiceNumber}`,
+    });
+    if (input.markInvoiceDisputed) {
+      await writeAuditLog(db, {
+        actor: user,
+        action: "UPDATE",
+        entityType: "Invoice",
+        entityId: invoice.id,
+        before: { isDisputed: invoice.isDisputed ?? false },
+        after: { isDisputed: true },
+        description: `Invoice ${invoice.invoiceNumber} marked disputed via credit note`,
       });
     }
 

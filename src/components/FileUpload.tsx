@@ -6,6 +6,7 @@ import { FileText, X, Loader2, Upload, Image } from "lucide-react";
 import toast from "react-hot-toast";
 import { SignedMinioImage, SignedMinioLink } from "~/components/SignedMinioUrl";
 import { uploadToPresignedUrl } from "~/utils/uploadWithRetry";
+import { compressImage } from "~/utils/compressImage";
 
 interface FileUploadProps {
   onFilesUploaded: (urls: string[]) => void;
@@ -55,12 +56,12 @@ export function FileUpload({
         return;
       }
 
-      // Validate file sizes (max 10MB per file)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      // Validate file sizes (max 50MB per file)
+      const maxSize = 50 * 1024 * 1024; // 50MB
       const oversizedFiles = files.filter((file) => file.size > maxSize);
       
       if (oversizedFiles.length > 0) {
-        toast.error("Some files exceed 10MB. Please select smaller files.");
+        toast.error("Some files exceed 50MB. Please select smaller files.");
         return;
       }
 
@@ -101,7 +102,9 @@ export function FileUpload({
 
     try {
       for (const fileObj of filesToUpload) {
-        const { file } = fileObj;
+        const { file: originalFile } = fileObj;
+        // Compress images before upload; non-image files pass through.
+        const file = await compressImage(originalFile);
 
         console.log("Requesting presigned URL for:", file.name);
         

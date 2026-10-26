@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { getCompanyDetails } from "~/server/utils/company-details";
+import { getNextQuoteNumber } from "~/server/utils/documentNumbers";
 import { sendEmail } from "~/server/utils/email";
 import { getBaseUrl } from "~/server/utils/base-url";
 
@@ -92,10 +93,10 @@ export const createQuotationFromPMRFQ = baseProcedure
         });
       }
 
-      // Generate quotation number
+      // Generate quotation number via the shared, race-safe helper (advisory-
+      // locked, skips poisoned suffixes, cross-checks @unique).
       const companyDetails = await getCompanyDetails();
-      const count = await db.quotation.count();
-      const quoteNumber = `${companyDetails.quotationPrefix}-${String(count + 1).padStart(5, "0")}`;
+      const quoteNumber = await getNextQuoteNumber(db, companyDetails.quotationPrefix);
 
       // Create the quotation
       const quotation = await db.quotation.create({

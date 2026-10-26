@@ -5,12 +5,18 @@ import { baseProcedure } from "~/server/trpc/main";
 import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { applyDemoIsolation } from "~/server/utils/demoAccounts";
+import {
+  portfolioMineWhereForDoc,
+  unassignedDocWhere,
+} from "~/server/services/portfolioOwnership";
 
 export const getInvoices = baseProcedure
   .input(
     z.object({
       token: z.string(),
       status: z.enum(["DRAFT", "PENDING_REVIEW", "PENDING_APPROVAL", "SENT", "PAID", "OVERDUE", "CANCELLED", "REJECTED"]).nullable().optional(),
+      scope: z.enum(["MINE", "ALL", "UNASSIGNED"]).optional(),
+      ownerId: z.number().optional(),
     })
   )
   .query(async ({ input }) => {
@@ -145,6 +151,27 @@ export const getInvoices = baseProcedure
       // Demo data isolation
       await applyDemoIsolation(where, user, db);
 
+      // ─── PR-9 portfolio scope for admin-tier users ────────────────────
+      const isAdminTier = [
+        "ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN",
+        "MANAGER", "TECHNICAL_MANAGER", "ACCOUNTANT",
+      ].includes(user.role);
+      if (isAdminTier) {
+        const scope =
+          input.scope ??
+          ((user as any).defaultPortfolioView === "MINE" ? "MINE" : "ALL");
+        if (scope === "MINE") {
+          const targetUserId = input.ownerId ?? user.id;
+          const mine = await portfolioMineWhereForDoc(targetUserId);
+          where.AND = [...(where.AND ?? []), mine];
+        } else if (scope === "UNASSIGNED") {
+          where.AND = [...(where.AND ?? []), unassignedDocWhere()];
+        } else if (input.ownerId) {
+          const mine = await portfolioMineWhereForDoc(input.ownerId);
+          where.AND = [...(where.AND ?? []), mine];
+        }
+      }
+
       const invoices = await db.invoice.findMany({
         where,
         include: {
@@ -156,6 +183,25 @@ export const getInvoices = baseProcedure
               status: true,
               endTime: true,
               documents: true,
+              // Self-initiated (artisan-started) flow markers so the invoice
+              // needs-review view can show badges and be filtered.
+              selfInitiated: true,
+              clientOrderNumber: true,
+              orderNumberStatus: true,
+              adminReviewedAt: true,
+              initiatedBy: {
+                select: { id: true, firstName: true, lastName: true, email: true },
+              },
+              // Signature state for the "Sign Job Card" post-completion button
+              // on invoice cards.
+              signedJobCardUrl: true,
+              clientRepName: true,
+              clientRepSignDate: true,
+              clientUnavailableToSign: true,
+              artisanSignatureUrl: true,
+              artisanSignedByName: true,
+              artisanSignDate: true,
+              description: true,
             },
           },
           quotation: {

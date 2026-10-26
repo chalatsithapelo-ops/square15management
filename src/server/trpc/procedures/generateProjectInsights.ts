@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
+import { generateText } from "~/server/services/ai/controlledGeneration";
 
 /**
  * Generate AI-powered insights for project management
@@ -131,6 +131,8 @@ Please provide:
 Focus on practical project management advice, cost control, timeline management, and resource optimization. Use South African Rand (R) currency.`;
 
       const { text } = await generateText({
+        aiFeature: "project.insights",
+        aiUserId: user.id,
         model: anthropic("claude-sonnet-4-20250514"),
         prompt,
         maxTokens: 2500,

@@ -175,7 +175,28 @@ export const generateInvoicePdf = baseProcedure
 
       const displaySubtotal = roundCurrency(Number(invoice.subtotal) || 0);
       const displayTotal = roundCurrency(Number(invoice.total) || 0);
-      const displayVat = roundCurrency(displayTotal - displaySubtotal);
+      const displayDiscount = roundCurrency(Number((invoice as any).discountAmount) || 0);
+      // Pass the discounted (net) exclusive as `subtotal` so template `VAT = total - subtotal`
+      // reflects the actual VAT charged, and render the discount line separately.
+      const displayNetSubtotal = roundCurrency(Math.max(0, displaySubtotal - displayDiscount));
+      const displayVat = roundCurrency(displayTotal - displayNetSubtotal);
+
+      // Deposit tracking — pass through to the PDF template so a Deposit
+      // Received line + Balance Due block are rendered under the totals.
+      const depositPaid = roundCurrency(Number((invoice as any).depositAmount) || 0);
+      const balanceDue = roundCurrency(Math.max(0, displayTotal - depositPaid));
+      const depositPaidDate = (invoice as any).depositPaidDate ?? null;
+      const depositReference = (invoice as any).depositReference ?? null;
+
+      // Deposit REQUESTED — up-front payment terms shown on the invoice PDF.
+      const depositRequested = roundCurrency(
+        Number((invoice as any).depositRequestedAmount) || 0,
+      );
+      const depositRequestedPercent = Number((invoice as any).depositRequestedPercent) || 0;
+      const balanceOnCompletion = roundCurrency(
+        Math.max(0, displayTotal - depositRequested),
+      );
+      const depositDueDate = (invoice as any).depositDueDate ?? null;
 
       const data: FullPDFData = {
         template: pdfSettings.template as PDFTemplateLayout,
@@ -218,9 +239,26 @@ export const generateInvoicePdf = baseProcedure
         },
         items: lineItems,
         totals: {
-          subtotal: displaySubtotal,
+          subtotal: displayNetSubtotal,
           vat: displayVat,
           total: displayTotal,
+          ...(displayDiscount > 0 ? { totalDiscount: displayDiscount } : {}),
+          ...(depositPaid > 0
+            ? {
+                depositPaid,
+                balanceDue,
+                depositPaidDate,
+                depositReference,
+              }
+            : {}),
+          ...(depositRequested > 0
+            ? {
+                depositRequested,
+                depositRequestedPercent,
+                balanceOnCompletion,
+                depositDueDate,
+              }
+            : {}),
         },
         banking: companyDetails.companyBankName ? {
           bankName: companyDetails.companyBankName,
