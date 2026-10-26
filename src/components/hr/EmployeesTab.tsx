@@ -76,7 +76,9 @@ export function EmployeesTab() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     employee: any | null;
-  }>({ isOpen: false, employee: null });
+    reason?: "RESIGNED" | "DISMISSED" | "RETIRED" | "OTHER";
+    reassignToUserId?: number;
+  }>({ isOpen: false, employee: null, reason: "OTHER" });
 
   // Detect which portal we're in
   const isContractorPortal = location.pathname.startsWith('/contractor');
@@ -112,6 +114,10 @@ export function EmployeesTab() {
       token: token!,
       role: roleFilter as any,
     })
+  );
+
+  const roleCountsQuery = useQuery(
+    trpc.getEmployeeRoleCounts.queryOptions({ token: token! }),
   );
 
   const {
@@ -162,7 +168,7 @@ export function EmployeesTab() {
   );
 
   const deleteEmployeeMutation = useMutation(
-    trpc.deleteEmployee.mutationOptions({
+    trpc.softDeleteEmployee.mutationOptions({
       onSuccess: (data) => {
         toast.success(data.message || "Employee deleted successfully!");
         queryClient.invalidateQueries({ queryKey: trpc.getEmployees.queryKey() });
@@ -226,6 +232,8 @@ export function EmployeesTab() {
     deleteEmployeeMutation.mutate({
       token: token!,
       employeeId: deleteConfirmation.employee.id,
+      reason: (deleteConfirmation as any).reason ?? "OTHER",
+      reassignToUserId: (deleteConfirmation as any).reassignToUserId,
     });
   };
 
@@ -277,9 +285,11 @@ export function EmployeesTab() {
     ? contractorRelevantRoles 
     : (distinctRoles.length > 0 ? distinctRoles : contractorRelevantRoles);
 
+  const roleCountMap = new Map<string, number>();
+  ((roleCountsQuery.data ?? []) as { role: string; count: number }[]).forEach((r) => roleCountMap.set(r.role, r.count));
   const roleStats = rolesToDisplay.map(role => ({
     role,
-    count: employees.filter(e => e.role === role).length,
+    count: roleCountMap.get(role) ?? 0,
   }));
 
   return (
@@ -886,6 +896,35 @@ export function EmployeesTab() {
                 </span>
                 ? This action cannot be undone.
               </p>
+                <div className="mt-4 space-y-3 text-left">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700">Reason for removal</label>
+                    <select
+                      value={deleteConfirmation.reason ?? "OTHER"}
+                      onChange={(e) => setDeleteConfirmation((c) => ({ ...c, reason: e.target.value as any }))}
+                      className="w-full border rounded px-3 py-2 text-sm mt-1"
+                    >
+                      <option value="RESIGNED">Resigned</option>
+                      <option value="DISMISSED">Dismissed</option>
+                      <option value="RETIRED">Retired</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700">Reassign their buildings & clients to</label>
+                    <select
+                      value={deleteConfirmation.reassignToUserId ?? ""}
+                      onChange={(e) => setDeleteConfirmation((c) => ({ ...c, reassignToUserId: e.target.value ? Number(e.target.value) : undefined }))}
+                      className="w-full border rounded px-3 py-2 text-sm mt-1"
+                    >
+                      <option value="">— No reassignment (records keep old owner) —</option>
+                      {(employees as any[]).filter((u: any) => u.id !== deleteConfirmation.employee?.id).map((u: any) => (
+                        <option key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.role}</option>
+                      ))}
+                    </select>
+                    <div className="text-[11px] text-gray-500 mt-1">Historical records (invoices, notes, quotes) stay attributed to the removed employee.</div>
+                  </div>
+                </div>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
                 <p className="text-xs text-yellow-800">

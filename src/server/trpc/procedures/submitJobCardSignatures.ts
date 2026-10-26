@@ -10,6 +10,7 @@ import { db } from "~/server/db";
 import { baseProcedure } from "~/server/trpc/main";
 import { authenticateUser } from "~/server/utils/auth";
 import { minioClient, minioBaseUrl } from "~/server/minio";
+import { pushJobCardIfLinked } from "~/server/services/myBuildings/hooks";
 
 async function uploadSignature(dataUrl: string, orderNumber: string, who: "client" | "artisan"): Promise<string> {
   const base64Match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
@@ -144,7 +145,10 @@ export const submitJobCardSignatures = baseProcedure
       await db.order.update({ where: { id: existing.id }, data: updates });
     }
 
-    return {
+          if (!isPM) {
+        void pushJobCardIfLinked(input.orderId).catch((e) => console.error("[myBuildings] auto job-card push failed:", e?.message ?? e));
+      }
+      return {
       success: true,
       orderNumber: existing.orderNumber,
       applied: Object.keys(updates),

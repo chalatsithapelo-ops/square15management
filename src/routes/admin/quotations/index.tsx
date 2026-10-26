@@ -156,9 +156,6 @@ function QuotationsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  // Amount-range filter (quote total). Empty string = no bound.
-  const [minAmount, setMinAmount] = useState<string>("");
-  const [maxAmount, setMaxAmount] = useState<string>("");
   const [showReportModal, setShowReportModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -1018,34 +1015,11 @@ function QuotationsPage() {
   };
 
   const quotations: any[] = quotationsQuery.data || [];
-
-  // Strip currency symbols/commas/spaces, returning null when not a number.
-  const parseAmountInput = (v: string): number | null => {
-    const n = parseFloat(v.replace(/[^0-9.]/g, ""));
-    return Number.isFinite(n) ? n : null;
-  };
-  const minAmountNum = parseAmountInput(minAmount);
-  const maxAmountNum = parseAmountInput(maxAmount);
-
-  const filteredQuotations = quotations.filter((quotation) => {
-    const total = Number(quotation.total) || 0;
-
-    // Amount-range filter
-    if (minAmountNum !== null && total < minAmountNum) return false;
-    if (maxAmountNum !== null && total > maxAmountNum) return false;
-
-    // Free-text search — matches name, email, phone, quote number AND amount
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return true;
-    return (
-      (quotation.customerName || "").toLowerCase().includes(term) ||
-      (quotation.customerEmail || "").toLowerCase().includes(term) ||
-      (quotation.customerPhone || "").toLowerCase().includes(term) ||
-      (quotation.quoteNumber || "").toLowerCase().includes(term) ||
-      total.toFixed(2).includes(term) ||
-      String(Math.round(total)).includes(term)
-    );
-  });
+  const filteredQuotations = quotations.filter((quotation) =>
+    quotation.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    quotation.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    quotation.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const statusMetrics = quotationStatuses.map((status) => ({
     ...status,
@@ -1628,52 +1602,23 @@ function QuotationsPage() {
         )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[220px] relative">
+          <div className="flex items-center space-x-4">
+            <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by number, customer, email or amount..."
+                placeholder="Search quotations..."
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="decimal"
-                  value={minAmount}
-                  onChange={(e) => setMinAmount(e.target.value)}
-                  placeholder="Min"
-                  title="Minimum quote amount"
-                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
-                />
-              </div>
-              <span className="text-gray-400">–</span>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="decimal"
-                  value={maxAmount}
-                  onChange={(e) => setMaxAmount(e.target.value)}
-                  placeholder="Max"
-                  title="Maximum quote amount"
-                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-secondary-500"
-                />
-              </div>
-            </div>
             <button
-              onClick={() => { setStatusFilter(null); setSearchTerm(""); setMinAmount(""); setMaxAmount(""); }}
+              onClick={() => setStatusFilter(null)}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               <Filter className="h-5 w-5 mr-2" />
-              {(statusFilter || searchTerm || minAmount || maxAmount) ? "Clear Filters" : "All Quotations"}
+              {statusFilter ? "Clear Filter" : "All Quotations"}
             </button>
           </div>
         </div>

@@ -42,7 +42,6 @@ import {
   ShieldCheck,
   BookOpen,
   FileSpreadsheet,
-  Sparkles,
 } from "lucide-react";
 import { SupportChatWidget } from "~/components/SupportChatWidget";
 import { AIAgentChatWidget } from "~/components/AIAgentChatWidget";
@@ -484,10 +483,11 @@ function AdminDashboard() {
   const dashboardCards = [
     { title: "CRM", description: "Manage sales leads and customer relationships", icon: Users, href: "/admin/crm", color: "from-blue-500 to-blue-600", stats: `${newLeads} new leads` },
     { title: "Operations", description: "Track and manage work orders", icon: ClipboardList, href: "/admin/operations", color: "from-green-500 to-green-600", stats: `${activeOrders} active jobs` },
+    { title: "Integrations", description: "Eris / myBuildings connection, webhook setup and building mappings", icon: Settings, href: "/admin/integrations/mybuildings", color: "from-teal-500 to-cyan-600", stats: "Eris / myBuildings" },
+    { title: "Client Work Orders", description: "Link Eris jobs to Square 15 orders, signed job cards and invoices", icon: ClipboardList, href: "/admin/client-work-orders", color: "from-cyan-500 to-blue-600", stats: "External client jobs" },
     { title: "Messages", description: "Communicate with customers and artisans", icon: MessageSquare, href: "/messages", color: "from-teal-500 to-teal-600", stats: `${unreadConversations.length} unread` },
     { title: "Projects", description: "Oversee development projects", icon: FolderKanban, href: "/admin/projects", color: "from-purple-500 to-purple-600", stats: `${activeProjects} active projects` },
     { title: "Quotations", description: "Create and manage quotes", icon: FileText, href: "/admin/quotations", color: "from-orange-500 to-orange-600", stats: `${pendingQuotations} pending quotes` },
-    { title: "AI Quote Studio", description: "Type a brief — AI QS produces materials, labour, coverage & profit breakdown", icon: Sparkles, href: "/admin/quotes/studio", color: "from-fuchsia-500 to-purple-600", stats: "Quantity Surveyor in your pocket" },
     { title: "Pricing Library", description: "Self-learning catalog so juniors quote at TM standard", icon: BookOpen, href: "/admin/pricing-library", color: "from-purple-500 to-fuchsia-600", stats: "Verified prices & AI scope builder" },
     { title: "Invoices", description: "Track payments and billing", icon: Receipt, href: "/admin/invoices", color: "from-red-500 to-red-600", stats: `${unpaidInvoices} unpaid invoices` },
     { title: "Statements", description: "Customer billing statements with age analysis", icon: FileText, href: "/admin/statements", color: "from-purple-500 to-purple-600", stats: "Automated statement generation" },
@@ -519,6 +519,10 @@ function AdminDashboard() {
   const isDemoJuniorAdmin = user?.role === "JUNIOR_ADMIN" && user?.email === "junior@propmanagement.com";
 
   const filteredDashboardCards = dashboardCards.filter((card) => {
+    // Keep discovery aligned with the Eris procedures' existing role guard.
+    if (card.title === "Integrations" || card.title === "Client Work Orders") {
+      return !!user && ["SENIOR_ADMIN", "TECHNICAL_MANAGER", "JUNIOR_ADMIN", "STAFF"].includes(user.role);
+    }
     // TM Statements: TECHNICAL_MANAGER always sees the tile (their own view only)
     // even though they lack VIEW_ACCOUNTS.
     if (card.title === "TM Statements" && user?.role === "TECHNICAL_MANAGER") return true;

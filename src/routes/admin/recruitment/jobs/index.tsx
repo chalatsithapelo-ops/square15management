@@ -30,9 +30,10 @@ function JobsListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [jobTypeFilter, setJobTypeFilter] = useState<"" | "COMMERCIAL" | "MAINTENANCE_APP">("");
   const [showCreate, setShowCreate] = useState(false);
 
-  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "MANAGER", "JUNIOR_ADMIN", "HR", "RECRUITER"].includes(user.role)) {
+  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "MANAGER", "JUNIOR_ADMIN", "HR", "RECRUITER", "TECHNICAL_MANAGER"].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-8 text-center border max-w-md">
@@ -49,6 +50,7 @@ function JobsListPage() {
       token,
       status: statusFilter || undefined,
       search: search || undefined,
+      jobType: jobTypeFilter || undefined,
     }),
   );
 
@@ -123,6 +125,16 @@ function JobsListPage() {
             <option value="ON_HOLD">On hold</option>
             <option value="CLOSED">Closed</option>
           </select>
+          <select
+            value={jobTypeFilter}
+            onChange={(e) => setJobTypeFilter(e.target.value as any)}
+            className="px-3 py-2 rounded-lg border bg-white text-sm"
+            title="Filter by division"
+          >
+            <option value="">All divisions</option>
+            <option value="COMMERCIAL">Commercial</option>
+            <option value="MAINTENANCE_APP">Maintenance App</option>
+          </select>
         </div>
 
         {jobsQuery.isLoading ? (
@@ -149,6 +161,13 @@ function JobsListPage() {
                       <h3 className="font-semibold text-gray-900">{j.title}</h3>
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[j.status] ?? "bg-gray-100"}`}>
                         {j.status.replace(/_/g, " ")}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        j.jobType === "MAINTENANCE_APP"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-indigo-100 text-indigo-700"
+                      }`}>
+                        {j.jobType === "MAINTENANCE_APP" ? "Maintenance App" : "Commercial"}
                       </span>
                       {j.visibility === "INTERNAL" && (
                         <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">Internal only</span>
@@ -196,6 +215,7 @@ function CreateJobModal({ onClose, onCreate, submitting }: { onClose: () => void
     category: "",
     headcount: 1,
     visibility: "PUBLIC" as "PUBLIC" | "INTERNAL" | "PRIVATE",
+    jobType: "COMMERCIAL" as "COMMERCIAL" | "MAINTENANCE_APP",
     requireIQ: true,
     requireEQ: true,
     requireBigFive: true,
@@ -219,6 +239,20 @@ function CreateJobModal({ onClose, onCreate, submitting }: { onClose: () => void
           <div className="grid grid-cols-2 gap-3">
             <Input label="Department" value={form.department} onChange={(v) => setForm({ ...form, department: v })} />
             <Input label="Category (trade)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
+            <div>
+              <label className="block text-sm font-medium mb-1">Job type *</label>
+              <select
+                value={form.jobType}
+                onChange={(e) => setForm({ ...form, jobType: e.target.value as any })}
+                className="w-full rounded-lg border px-3 py-2"
+              >
+                <option value="COMMERCIAL">Commercial (full interview process)</option>
+                <option value="MAINTENANCE_APP">Maintenance App (no F2F interview, customer-service focus)</option>
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Maintenance App roles use a shorter pipeline with recruiter one-click fast-track confirmation.
+              </p>
+            </div>
             <Input label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
             <Input label="Province" value={form.province} onChange={(v) => setForm({ ...form, province: v })} />
             <Input

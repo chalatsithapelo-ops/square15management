@@ -8,6 +8,7 @@ import { sendInvoiceNotificationEmail } from "~/server/utils/email";
 import { notifyAdminsInvoicePaid, notifyCustomerInvoice } from "~/server/utils/notifications";
 import { ensureCustomerAccount } from "~/server/utils/ensure-customer-account";
 import { writeAuditLog } from "~/server/utils/auditLog";
+import { pushInvoiceIfLinked } from "~/server/services/myBuildings/hooks";
 
 export const updateInvoiceStatus = baseProcedure
   .input(
@@ -230,6 +231,9 @@ export const updateInvoiceStatus = baseProcedure
         description: `Invoice ${invoice.invoiceNumber} status changed from ${currentInvoice.status} to ${invoice.status}${input.rejectionReason ? ` (reason: ${input.rejectionReason})` : ''}`,
       });
 
+            if (input.status === "SENT" || input.status === "APPROVED") {
+        void pushInvoiceIfLinked(input.invoiceId).catch((e) => console.error("[myBuildings] auto invoice push failed:", e?.message ?? e));
+      }
       return invoice;
     } catch (error) {
       if (error instanceof TRPCError) throw error;

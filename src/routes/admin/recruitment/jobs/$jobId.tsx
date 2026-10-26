@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import {
   Briefcase, ArrowLeft, Users, Send, CheckCircle2, Loader2, Star,
   Clock, XCircle, Award, FileText, MapPin, Shield, Edit2, Copy,
-  Sparkles, GitCompare, Trash2,
+  Sparkles, GitCompare, Trash2, Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -190,6 +190,8 @@ function JobDetailPage() {
                 </div>
               ))}
             </div>
+
+            <ScreeningQuestionsManager token={token} jobId={jobId} />
 
             {/* Pipeline kanban */}
             <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -620,3 +622,243 @@ function StageAdvanceButton({ currentBucket, onMove }: { currentBucket: string; 
     </div>
   );
 }
+
+function ScreeningQuestionsManager({ token, jobId }: { token: string; jobId: number }) {
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const q = useQuery(trpc.listScreeningQuestionsForJob.queryOptions({ token, jobId }));
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<{
+    questionText: string;
+    questionType: "YES_NO" | "NUMBER" | "SELECT";
+    required: boolean;
+    knockoutEnabled: boolean;
+    expectedYesNo: "YES" | "NO";
+    minNumber: string;
+    maxNumber: string;
+    options: string;
+    acceptableOptions: string;
+    displayOrder: number;
+  }>({
+    questionText: "",
+    questionType: "YES_NO",
+    required: true,
+    knockoutEnabled: true,
+    expectedYesNo: "YES",
+    minNumber: "",
+    maxNumber: "",
+    options: "",
+    acceptableOptions: "",
+    displayOrder: 0,
+  });
+
+  const createMut = useMutation(
+    trpc.createScreeningQuestion.mutationOptions({
+      onSuccess: () => {
+        toast.success("Screening question added");
+        setShowForm(false);
+        setForm({ ...form, questionText: "" });
+        qc.invalidateQueries({ queryKey: trpc.listScreeningQuestionsForJob.queryKey({ token, jobId }) });
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+  const deleteMut = useMutation(
+    trpc.deleteScreeningQuestion.mutationOptions({
+      onSuccess: () => {
+        toast.success("Removed");
+        qc.invalidateQueries({ queryKey: trpc.listScreeningQuestionsForJob.queryKey({ token, jobId }) });
+      },
+    }),
+  );
+
+  const items = (q.data ?? []) as any[];
+
+  const submit = () => {
+    const payload: any = {
+      questionText: form.questionText,
+      questionType: form.questionType,
+      required: form.required,
+      knockoutEnabled: form.knockoutEnabled,
+      displayOrder: form.displayOrder || items.length,
+    };
+    if (form.questionType === "YES_NO") payload.expectedYesNo = form.expectedYesNo;
+    if (form.questionType === "NUMBER") {
+      if (form.minNumber !== "") payload.minNumber = Number(form.minNumber);
+      if (form.maxNumber !== "") payload.maxNumber = Number(form.maxNumber);
+    }
+    if (form.questionType === "SELECT") {
+      payload.options = form.options.split(",").map((x) => x.trim()).filter(Boolean);
+      payload.acceptableOptions = form.acceptableOptions.split(",").map((x) => x.trim()).filter(Boolean);
+    }
+    createMut.mutate({ token, jobId, question: payload });
+  };
+
+  return (
+    <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Minimum-requirement screening questions</h3>
+          <p className="text-xs text-gray-500">Candidates that fail these are automatically rejected — no human review needed.</p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="text-xs px-3 py-1.5 rounded bg-teal-600 text-white hover:bg-teal-700 inline-flex items-center gap-1.5"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add question
+        </button>
+      </div>
+
+      {items.length === 0 && !showForm && (
+        <div className="text-sm text-gray-400">No screening questions yet. Everyone who applies will be reviewed manually.</div>
+      )}
+
+      {items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((qq: any, i: number) => (
+            <div key={qq.id} className="flex items-start justify-between border rounded-lg p-3 text-sm bg-gray-50">
+              <div className="flex-1">
+                <div className="font-medium text-gray-900">{i + 1}. {qq.questionText}</div>
+                <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-1.5">
+                  <span className="px-1.5 py-0.5 bg-white border rounded">{qq.questionType}</span>
+                  {qq.knockoutEnabled && (
+                    <span className="px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded">Knockout</span>
+                  )}
+                  {qq.questionType === "YES_NO" && qq.expectedYesNo && (
+                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">Accept: {qq.expectedYesNo}</span>
+                  )}
+                  {qq.questionType === "NUMBER" && (
+                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                      {qq.minNumber !== null ? `min ${qq.minNumber}` : ""}{qq.maxNumber !== null ? ` max ${qq.maxNumber}` : ""}
+                    </span>
+                  )}
+                  {qq.questionType === "SELECT" && qq.acceptableOptions.length > 0 && (
+                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                      Accept: {qq.acceptableOptions.join(", ")}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => { if (confirm("Delete this question?")) deleteMut.mutate({ token, id: qq.id }); }}
+                className="text-red-500 hover:text-red-700 ml-2"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="mt-3 border-t pt-3 space-y-2">
+          <div>
+            <label className="text-xs font-semibold text-gray-700">Question</label>
+            <textarea
+              value={form.questionText}
+              onChange={(e) => setForm({ ...form, questionText: e.target.value })}
+              placeholder="e.g. Do you have a valid driver&#39;s licence?"
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+              rows={2}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs font-semibold text-gray-700">Answer type</label>
+              <select
+                value={form.questionType}
+                onChange={(e) => setForm({ ...form, questionType: e.target.value as any })}
+                className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+              >
+                <option value="YES_NO">Yes / No</option>
+                <option value="NUMBER">Number (e.g. years)</option>
+                <option value="SELECT">Multiple choice</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 mt-6 text-sm">
+              <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} />
+              <span>Required</span>
+            </label>
+            <label className="flex items-center gap-2 mt-6 text-sm">
+              <input type="checkbox" checked={form.knockoutEnabled} onChange={(e) => setForm({ ...form, knockoutEnabled: e.target.checked })} />
+              <span>Auto-reject if failed</span>
+            </label>
+          </div>
+
+          {form.questionType === "YES_NO" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-700">Accepted answer</label>
+              <select
+                value={form.expectedYesNo}
+                onChange={(e) => setForm({ ...form, expectedYesNo: e.target.value as any })}
+                className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+              >
+                <option value="YES">YES</option>
+                <option value="NO">NO</option>
+              </select>
+            </div>
+          )}
+
+          {form.questionType === "NUMBER" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-gray-700">Minimum accepted</label>
+                <input
+                  type="number"
+                  value={form.minNumber}
+                  onChange={(e) => setForm({ ...form, minNumber: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+                  placeholder="e.g. 5"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-700">Maximum accepted (optional)</label>
+                <input
+                  type="number"
+                  value={form.maxNumber}
+                  onChange={(e) => setForm({ ...form, maxNumber: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+                />
+              </div>
+            </div>
+          )}
+
+          {form.questionType === "SELECT" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-gray-700">Options (comma-separated)</label>
+                <input
+                  value={form.options}
+                  onChange={(e) => setForm({ ...form, options: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+                  placeholder="e.g. Junior, Mid, Senior"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-700">Acceptable options</label>
+                <input
+                  value={form.acceptableOptions}
+                  onChange={(e) => setForm({ ...form, acceptableOptions: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1"
+                  placeholder="e.g. Mid, Senior"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={submit}
+              disabled={!form.questionText || createMut.isPending}
+              className="px-4 py-2 bg-teal-600 text-white rounded text-sm font-semibold disabled:opacity-50"
+            >
+              {createMut.isPending ? "Saving…" : "Add question"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border rounded text-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

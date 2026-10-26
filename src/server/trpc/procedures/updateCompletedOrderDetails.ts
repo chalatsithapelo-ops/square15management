@@ -1,3 +1,4 @@
+import { pushJobCardIfLinked } from "~/server/services/myBuildings/hooks";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
@@ -17,6 +18,12 @@ export const updateCompletedOrderDetails = baseProcedure
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().datetime().optional(),
       clientUnavailableToSign: z.boolean().optional(),
+      // Artisan (technician) signature — both parties acknowledge job
+      // completion. Rendered alongside the client signature block on the
+      // job-card PDF.
+      artisanSignatureUrl: z.string().optional(),
+      artisanSignedByName: z.string().optional(),
+      artisanSignDate: z.string().datetime().optional(),
       materialCost: z.number().optional(),
       expenseSlips: z.array(z.object({
         // Optional — slip-less expenses (travel, tolls, etc.) are allowed.
@@ -98,6 +105,18 @@ export const updateCompletedOrderDetails = baseProcedure
 
       if (input.clientUnavailableToSign !== undefined) {
         updateData.clientUnavailableToSign = input.clientUnavailableToSign;
+      }
+
+      if (input.artisanSignatureUrl !== undefined) {
+        updateData.artisanSignatureUrl = input.artisanSignatureUrl;
+      }
+
+      if (input.artisanSignedByName !== undefined) {
+        updateData.artisanSignedByName = input.artisanSignedByName;
+      }
+
+      if (input.artisanSignDate !== undefined) {
+        updateData.artisanSignDate = new Date(input.artisanSignDate);
       }
 
       if (input.materialCost !== undefined) {
@@ -236,6 +255,7 @@ export const updateCompletedOrderDetails = baseProcedure
         }
       }
 
+      void pushJobCardIfLinked(input.orderId).catch((e) => console.error("[myBuildings] auto job-card push failed:", e?.message ?? e));
       return updatedOrder;
     } catch (error) {
       if (error instanceof TRPCError) throw error;

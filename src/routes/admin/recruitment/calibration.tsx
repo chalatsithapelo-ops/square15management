@@ -12,7 +12,7 @@ function CalibrationPage() {
   const { token, user } = useAuthStore();
   const trpc = useTRPC();
 
-  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "MANAGER", "HR"].includes(user.role)) {
+  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "MANAGER", "HR", "TECHNICAL_MANAGER", "JUNIOR_ADMIN", "RECRUITER"].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-8 text-center border max-w-md">

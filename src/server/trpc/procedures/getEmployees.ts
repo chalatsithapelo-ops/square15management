@@ -18,12 +18,11 @@ export const getEmployees = baseProcedure
       requirePermission(user, PERMISSIONS.VIEW_ALL_EMPLOYEES);
     }
 
-    const where: any = {};
+    const where: any = { deletedAt: null };
     if (input.role) where.role = input.role;
     if (user.role === "CONTRACTOR") where.employerId = user.id;
 
-    const employees = await db.user.findMany({
-      where,
+    const employees = await db.user.findMany({ where,
       select: {
         id: true,
         firstName: true,

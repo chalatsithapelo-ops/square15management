@@ -30,6 +30,7 @@ function CandidatesGlobal() {
   const [bucket, setBucket] = useState<string>("");
   const [search, setSearch] = useState("");
   const [jobFilter, setJobFilter] = useState<number | undefined>(undefined);
+  const [jobType, setJobType] = useState<"" | "COMMERCIAL" | "MAINTENANCE_APP">("");
 
   if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "MANAGER", "HR", "RECRUITER", "TECHNICAL_MANAGER"].includes(user.role)) {
     return (
@@ -49,6 +50,7 @@ function CandidatesGlobal() {
       token,
       bucket: bucket || undefined,
       jobId: jobFilter,
+      jobType: jobType || undefined,
       search: search || undefined,
       sortBy: "createdAt",
       sortOrder: "desc",
@@ -92,6 +94,26 @@ function CandidatesGlobal() {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${listQuery.isRefetching ? "animate-spin" : ""}`} /> Refresh
           </button>
+        </div>
+
+        {/* Division filter pills â€” Commercial vs Maintenance App */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 self-center mr-1">Division:</span>
+          {([
+            { key: "", label: "All divisions", bg: "bg-white", color: "text-gray-700", border: "border-gray-200" },
+            { key: "COMMERCIAL", label: "Commercial", bg: "bg-indigo-50", color: "text-indigo-700", border: "border-indigo-200" },
+            { key: "MAINTENANCE_APP", label: "Maintenance App", bg: "bg-emerald-50", color: "text-emerald-700", border: "border-emerald-200" },
+          ] as const).map((d) => (
+            <button
+              key={d.key || "ALL"}
+              onClick={() => setJobType(d.key as any)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
+                jobType === d.key ? "bg-teal-600 text-white border-teal-600" : `${d.bg} ${d.color} ${d.border} hover:opacity-80`
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
         </div>
 
         {/* Bucket filter pills */}

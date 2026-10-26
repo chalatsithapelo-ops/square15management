@@ -13,8 +13,7 @@ export const getDistinctRoles = baseProcedure
     const user = await authenticateUser(input.token);
     requireAdmin(user);
 
-    const users = await db.user.findMany({
-      select: {
+    const users = await db.user.findMany({ where: { deletedAt: null }, select: {
         role: true,
       },
       distinct: ['role'],

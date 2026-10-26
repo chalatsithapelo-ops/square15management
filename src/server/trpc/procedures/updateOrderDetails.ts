@@ -6,7 +6,6 @@ import jwt from "jsonwebtoken";
 import { env } from "~/server/env";
 import { authenticateUser } from "~/server/utils/auth";
 import { writeAuditLog } from "~/server/utils/auditLog";
-import { ensureTmAssignmentAllowed, logTmAssignment } from "~/server/utils/tmAssignmentLog";
 
 export const updateOrderDetails = baseProcedure
   .input(
@@ -89,13 +88,7 @@ export const updateOrderDetails = baseProcedure
           updateData.status = 'ASSIGNED';
         }
       }
-      if (input.technicalManagerId !== undefined) {
-        // PR-8 D — only guard when the value actually changes.
-        if (input.technicalManagerId !== currentOrder.technicalManagerId) {
-          await ensureTmAssignmentAllowed(db, input.orderId, input.technicalManagerId);
-        }
-        updateData.technicalManagerId = input.technicalManagerId;
-      }
+      if (input.technicalManagerId !== undefined) updateData.technicalManagerId = input.technicalManagerId;
       if (input.callOutFee !== undefined) updateData.callOutFee = input.callOutFee;
       if (input.labourRate !== undefined) updateData.labourRate = input.labourRate;
       if (input.materialCost !== undefined) updateData.materialCost = input.materialCost;
@@ -154,26 +147,6 @@ export const updateOrderDetails = baseProcedure
           jobActivities: true,
         },
       });
-
-      // PR-8 D \u2014 log the TM change (this admin edit path did not previously log).
-      if (
-        input.technicalManagerId !== undefined &&
-        input.technicalManagerId !== currentOrder.technicalManagerId
-      ) {
-        try {
-          const actor = await authenticateUser(input.token);
-          await logTmAssignment(db, {
-            orderId: order.id,
-            fromTmId: currentOrder.technicalManagerId,
-            toTmId: input.technicalManagerId,
-            source: "ADMIN_OVERRIDE",
-            actorId: actor.id,
-            reason: `Order details edit on ${order.orderNumber}`,
-          });
-        } catch (logErr) {
-          console.error("Failed to log TM assignment change:", logErr);
-        }
-      }
 
       try {
         const actor = await authenticateUser(input.token);

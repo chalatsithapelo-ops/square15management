@@ -146,9 +146,6 @@ function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   // Self-initiated (artisan-created) filter for the Pending Review view.
   const [selfInitiatedFilter, setSelfInitiatedFilter] = useState<boolean>(false);
-  // Amount-range filter (invoice total). Empty string = no bound.
-  const [minAmount, setMinAmount] = useState<string>("");
-  const [maxAmount, setMaxAmount] = useState<string>("");
   // PR-QF — "Send Quote First" confirmation modal + in-flight guard.
   // When an admin picks quote-first on a Ready-for-Invoicing card, we open
   // this confirmation panel so they can review the source order + optionally
@@ -1570,34 +1567,19 @@ function InvoicesPage() {
     if (selfInitiatedFilter) {
       filtered = filtered.filter((invoice: any) => !!invoice.order?.selfInitiated);
     }
-
-    // Amount-range filter on the invoice total.
-    const parseAmt = (v: string): number | null => {
-      const n = parseFloat(v.replace(/[^0-9.]/g, ""));
-      return Number.isFinite(n) ? n : null;
-    };
-    const minAmt = parseAmt(minAmount);
-    const maxAmt = parseAmt(maxAmount);
-    if (minAmt !== null) filtered = filtered.filter((inv: any) => (Number(inv.total) || 0) >= minAmt);
-    if (maxAmt !== null) filtered = filtered.filter((inv: any) => (Number(inv.total) || 0) <= maxAmt);
-
-    // Apply search filter (matches number, name, email AND amount)
+    
+    // Apply search filter
     if (searchTerm.trim()) {
       const query = searchTerm.toLowerCase();
-      filtered = filtered.filter(invoice => {
-        const total = Number(invoice.total) || 0;
-        return (
-          (invoice.customerName || "").toLowerCase().includes(query) ||
-          (invoice.customerEmail || "").toLowerCase().includes(query) ||
-          (invoice.invoiceNumber || "").toLowerCase().includes(query) ||
-          total.toFixed(2).includes(query) ||
-          String(Math.round(total)).includes(query)
-        );
-      });
+      filtered = filtered.filter(invoice =>
+        invoice.customerName.toLowerCase().includes(query) ||
+        invoice.customerEmail.toLowerCase().includes(query) ||
+        invoice.invoiceNumber.toLowerCase().includes(query)
+      );
     }
     
     return filtered;
-  }, [invoices, statusFilter, searchTerm, selfInitiatedFilter, minAmount, maxAmount]);
+  }, [invoices, statusFilter, searchTerm, selfInitiatedFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1646,55 +1628,15 @@ function InvoicesPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filter */}
         <div className="space-y-4 mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[220px] relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by invoice number, building, email or amount..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-danger-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="decimal"
-                  value={minAmount}
-                  onChange={(e) => setMinAmount(e.target.value)}
-                  placeholder="Min"
-                  title="Minimum invoice amount"
-                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-danger-500 focus:border-transparent"
-                />
-              </div>
-              <span className="text-gray-400">–</span>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="decimal"
-                  value={maxAmount}
-                  onChange={(e) => setMaxAmount(e.target.value)}
-                  placeholder="Max"
-                  title="Maximum invoice amount"
-                  className="w-28 pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-danger-500 focus:border-transparent"
-                />
-              </div>
-              {(minAmount || maxAmount) && (
-                <button
-                  onClick={() => { setMinAmount(""); setMaxAmount(""); }}
-                  className="px-2 py-2 text-sm text-gray-500 hover:text-gray-700"
-                  title="Clear amount filter"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by invoice number, building name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-danger-500 focus:border-transparent"
+            />
           </div>
           
           <div className="flex flex-wrap gap-2">

@@ -11,6 +11,23 @@ import { sendEmail } from "~/server/utils/email";
 import { sendCandidateEmail } from "~/server/services/recruitment/messaging";
 import { assertHiringManager, assertRecruiter, transitionApplication } from "~/server/services/recruitment/atsHelpers";
 
+
+function compensationHtml(o: {
+  currency: string; baseSalary: number; salaryPeriod: string;
+  hourlyRate: number | null; dailyRate: number | null; monthlySalary: number | null;
+}): string {
+  const lines: string[] = [];
+  if (o.monthlySalary != null && o.monthlySalary > 0)
+    lines.push(`Monthly salary: <b>${o.currency} ${o.monthlySalary.toLocaleString()}</b>`);
+  if (o.dailyRate != null && o.dailyRate > 0)
+    lines.push(`Daily rate: <b>${o.currency} ${o.dailyRate.toLocaleString()}/day</b>`);
+  if (o.hourlyRate != null && o.hourlyRate > 0)
+    lines.push(`Hourly rate: <b>${o.currency} ${o.hourlyRate.toLocaleString()}/hr</b>`);
+  if (lines.length === 0 && o.baseSalary > 0)
+    lines.push(`Base: <b>${o.currency} ${o.baseSalary.toLocaleString()} / ${o.salaryPeriod.toLowerCase()}</b>`);
+  return lines.map((l) => `<p>${l}</p>`).join("");
+}
+
 export const createOffer = baseProcedure
   .input(
     z.object({
@@ -18,9 +35,12 @@ export const createOffer = baseProcedure
       applicationId: z.number(),
       title: z.string(),
       startDate: z.date(),
-      baseSalary: z.number(),
+      baseSalary: z.number().default(0),
       currency: z.string().default("ZAR"),
-      salaryPeriod: z.enum(["MONTHLY", "ANNUAL", "HOURLY"]).default("MONTHLY"),
+      salaryPeriod: z.enum(["MONTHLY", "ANNUAL", "HOURLY", "DAILY", "HOURLY_PLUS_DAILY", "NONE"]).default("MONTHLY"),
+      hourlyRate: z.number().optional(),
+      dailyRate: z.number().optional(),
+      monthlySalary: z.number().optional(),
       bonus: z.number().optional(),
       benefits: z.string().optional(),
       otherTerms: z.string().optional(),
@@ -43,6 +63,9 @@ export const createOffer = baseProcedure
         baseSalary: input.baseSalary,
         currency: input.currency,
         salaryPeriod: input.salaryPeriod,
+        hourlyRate: input.hourlyRate ?? null,
+        dailyRate: input.dailyRate ?? null,
+        monthlySalary: input.monthlySalary ?? null,
         bonus: input.bonus,
         benefits: input.benefits,
         otherTerms: input.otherTerms,
@@ -129,7 +152,8 @@ export const sendOffer = baseProcedure
       include: { application: true },
     });
     if (!offer) throw new TRPCError({ code: "NOT_FOUND" });
-    if (offer.status !== "APPROVED" && offer.status !== "DRAFT") {
+    // Allow send from DRAFT (fast-track, no approval chain) or APPROVED
+    if (offer.status !== "APPROVED" && offer.status !== "DRAFT" && offer.status !== "PENDING_APPROVAL") {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message: `Cannot send an offer in ${offer.status} state`,
@@ -147,7 +171,7 @@ export const sendOffer = baseProcedure
       sentById: user.id,
       html: `<p>Hi ${offer.application.firstName},</p>
              <p>We are delighted to offer you the role of <b>${offer.title}</b>.</p>
-             <p>Base: ${offer.currency} ${offer.baseSalary} / ${offer.salaryPeriod.toLowerCase()}</p>
+             ${compensationHtml(offer)}
              <p>Start date: ${offer.startDate.toLocaleDateString()}</p>
              <p>Please review and respond before <b>${offer.expiresAt?.toLocaleString() ?? ""}</b>:</p>
              <p><a href="${process.env.APP_URL ?? ""}/offer/${offer.signToken}">Review &amp; sign offer</a></p>`,
@@ -194,8 +218,8 @@ export const acceptOffer = baseProcedure
   .input(
     z.object({
       signToken: z.string(),
-      signatureName: z.string().min(2),
-      initials: z.string().min(1),
+      signatureName: z.string().optional(), // captured but not required — full signing happens at contract stage
+      initials: z.string().optional(),
       ip: z.string().optional(),
       userAgent: z.string().optional(),
     }),
@@ -217,11 +241,11 @@ export const acceptOffer = baseProcedure
         status: "ACCEPTED",
         acceptedAt: new Date(),
         respondedAt: new Date(),
-        candidateSignature: input.signatureName,
-        candidateInitials: input.initials,
-        candidateSignedAt: new Date(),
-        candidateSignIp: input.ip,
-        candidateSignUserAgent: input.userAgent,
+        candidateSignature: input.signatureName ?? null,
+        candidateInitials: input.initials ?? null,
+        candidateSignedAt: input.signatureName ? new Date() : null,
+        candidateSignIp: input.ip ?? null,
+        candidateSignUserAgent: input.userAgent ?? null,
       },
     });
 
@@ -242,7 +266,7 @@ export const declineOffer = baseProcedure
   .input(
     z.object({
       signToken: z.string(),
-      reason: z.string().optional(),
+      reason: z.string().min(10, "Please give a reason of at least 10 characters"),
     }),
   )
   .mutation(async ({ input }) => {
@@ -275,4 +299,15 @@ export const listOffers = baseProcedure
       orderBy: { createdAt: "desc" },
       take: 200,
     });
+  });
+
+export const getAcceptedOfferForApplication = baseProcedure
+  .input(z.object({ token: z.string(), applicationId: z.number() }))
+  .query(async ({ input }) => {
+    await authenticateUser(input.token);
+    const offer = await db.offer.findFirst({
+      where: { applicationId: input.applicationId, status: "ACCEPTED" },
+      orderBy: { acceptedAt: "desc" },
+    });
+    return offer;
   });

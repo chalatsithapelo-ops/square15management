@@ -287,7 +287,7 @@ export async function runRecruiterSlaNudges(): Promise<{ nudged: number; skipped
   const apps = await db.application.findMany({
     where: {
       deletedAt: null,
-      stageBucket: { in: Object.keys(SLA_HOURS) as any },
+      stageBucket: { in: Object.keys(SLA_HOURS) },
       assignedRecruiterId: { not: null },
     },
     select: {

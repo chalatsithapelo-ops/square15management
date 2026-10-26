@@ -52,21 +52,38 @@ export const updateManualJobCard = baseProcedure
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
 
-    if (!["JUNIOR_ADMIN", "SENIOR_ADMIN", "TECHNICAL_MANAGER", "MANAGER", "ADMIN"].includes(user.role)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "You do not have permission to update job cards.",
-      });
-    }
+    const ADMIN_ROLES = ["JUNIOR_ADMIN", "SENIOR_ADMIN", "TECHNICAL_MANAGER", "MANAGER", "ADMIN"];
+    const isAdmin = ADMIN_ROLES.includes(user.role);
 
     const existingOrder = await db.order.findUnique({
       where: { id: input.orderId },
-      include: { quotation: { select: { quoteNumber: true, createdAt: true } } },
+      include: {
+        quotation: { select: { quoteNumber: true, createdAt: true } },
+        crew: { where: { userId: user.id, leftAt: null }, select: { id: true, role: true } },
+      },
     });
 
     if (!existingOrder) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
     }
+
+    const isAssignedArtisan = user.role === "ARTISAN" && existingOrder.assignedToId === user.id;
+    const isOnCrew = user.role === "ARTISAN" && existingOrder.crew.length > 0;
+    if (!isAdmin && !isAssignedArtisan && !isOnCrew) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have permission to update this job card. Only admins and artisans who worked on the job (as LEAD or CREW) may edit it.",
+      });
+    }
+
+    // Warn on note when a signed card is being edited so the audit trail is honest.
+    const wasSigned = !!(existingOrder as any).clientSignatureUrl || !!(existingOrder as any).artisanSignatureUrl;
+    const editorLabel = `${user.firstName ?? ""} ${user.lastName ?? ""} (${user.role})`.trim();
+    const auditPrefix = wasSigned
+      ? `[Edit ${new Date().toISOString().slice(0,16)} by ${editorLabel} â€” job card was already SIGNED at time of edit]
+`
+      : `[Edit ${new Date().toISOString().slice(0,16)} by ${editorLabel}]
+`;
 
     const completionDate = input.completionDate ? new Date(input.completionDate) : existingOrder.endTime ?? new Date();
 

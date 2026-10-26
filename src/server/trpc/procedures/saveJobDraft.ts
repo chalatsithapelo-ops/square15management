@@ -41,6 +41,9 @@ export const saveJobDraft = baseProcedure
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().optional(),
       clientUnavailableToSign: z.boolean().optional(),
+      artisanSignatureUrl: z.string().optional(),
+      artisanSignedByName: z.string().optional(),
+      artisanSignDate: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -66,6 +69,19 @@ export const saveJobDraft = baseProcedure
     }
     if (input.clientRepSignDate) {
       updateData.clientRepSignDate = new Date(input.clientRepSignDate);
+    }
+
+    // Persist artisan (technician) signature — both parties must sign the
+    // job card. Stored so a partial draft retains the artisan’s prior
+    // signature between saves.
+    if (input.artisanSignatureUrl !== undefined) {
+      updateData.artisanSignatureUrl = input.artisanSignatureUrl;
+    }
+    if (input.artisanSignedByName !== undefined) {
+      updateData.artisanSignedByName = input.artisanSignedByName;
+    }
+    if (input.artisanSignDate) {
+      updateData.artisanSignDate = new Date(input.artisanSignDate);
     }
 
     // Persist draft payment fields

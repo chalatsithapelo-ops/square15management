@@ -125,11 +125,11 @@ export default function PLStatement({
             <span className="font-semibold text-gray-900">R {materialCosts.toLocaleString()}</span>
           </div>
           <div className="flex justify-between items-center py-2">
-            <span className="text-gray-700">Labour Costs</span>
+            <span className="text-gray-700" title="Merged into Labour / Artisan Payments below to avoid double-counting">Labour cost tracker (informational only)</span>
             <span className="font-semibold text-gray-900">R {labourCosts.toLocaleString()}</span>
           </div>
           <div className="flex justify-between items-center py-2">
-            <span className="text-gray-700">Artisan Payments</span>
+            <span className="text-gray-700">Labour / Artisan Payments</span>
             <span className="font-semibold text-gray-900">R {artisanPayments.toLocaleString()}</span>
           </div>
 
@@ -226,7 +226,7 @@ export default function PLStatement({
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                  Artisan Payments
+                  Labour / Artisan Payments
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                   R {artisanPayments.toLocaleString()}

@@ -10,6 +10,9 @@ import {
   DollarSign,
   Award,
   BarChart3,
+  Wrench,
+  Wallet,
+  UserPlus,
 } from "lucide-react";
 import { EmployeesTab } from "~/components/hr/EmployeesTab";
 import { PerformanceTab } from "~/components/hr/PerformanceTab";
@@ -19,6 +22,7 @@ import { DocumentsTab } from "~/components/hr/DocumentsTab";
 import { RemunerationsTab } from "~/components/hr/RemunerationsTab";
 import { PayslipsTab } from "~/components/hr/PayslipsTab";
 import { HRMetricsDashboard } from "~/components/hr/HRMetricsDashboard";
+import { OnboardingTab } from "~/components/hr/OnboardingTab";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { AccessDenied } from "~/components/AccessDenied";
@@ -29,6 +33,7 @@ export const Route = createFileRoute("/admin/hr/")({
 
 const tabs = [
   { id: "employees", label: "Employees", icon: Users },
+  { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "performance", label: "Performance", icon: Award },
   { id: "kpis", label: "KPI Tracking", icon: Target },
   { id: "leave", label: "Leave Management", icon: Calendar },
@@ -88,10 +93,24 @@ function HRToolPage() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Human Resources</h1>
                 <p className="text-sm text-gray-600">
-                  Employee management, KPIs, and leave tracking
+                  Commercial employees, KPIs, leave tracking
                 </p>
               </div>
             </div>
+            <Link
+              to="/admin/hr/wage-report"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-700 bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 transition"
+            >
+              <Wallet className="h-4 w-4" />
+              Fortnight Wage Report
+            </Link>
+            <Link
+              to="/admin/hr/maintenance-artisans"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition"
+            >
+              <Wrench className="h-4 w-4" />
+              Maintenance App Artisans
+            </Link>
           </div>
         </div>
       </header>
@@ -128,6 +147,7 @@ function HRToolPage() {
       {/* Tab Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "employees" && <EmployeesTab />}
+        {activeTab === "onboarding" && <OnboardingTab />}
         {activeTab === "performance" && <PerformanceTab />}
         {activeTab === "kpis" && <KPITrackingTab />}
         {activeTab === "leave" && <LeaveManagementTab />}

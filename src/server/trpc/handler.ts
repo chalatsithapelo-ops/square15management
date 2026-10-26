@@ -15,6 +15,8 @@ import { bootstrapPortfolioDigest } from "../services/portfolioDigest";
 
 // ── Bank Feed (Finance) Email Poller Bootstrap ───────────────────────
 let emailPollerStarted = false;
+import { bootstrapWageReportCron } from "~/server/services/wageReportEmail";
+
 async function bootstrapEmailPoller() {
   if (emailPollerStarted) return;
   emailPollerStarted = true;
@@ -242,10 +244,12 @@ const handler = eventHandler(async (event) => {
   const isSchedulerLeader =
     !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === "0";
   if (isSchedulerLeader) {
+    void import("../services/financeAutomation/scheduler").then((m) => m.startFinanceAutomationScheduler()).catch((e) => console.error("[finance-automation] bootstrap failed:", e?.message ?? e));
     bootstrapUnbilledWorkDigest();
     bootstrapComplianceChecker();
     bootstrapRecruitmentAutomation();
     bootstrapPortfolioDigest();
+    bootstrapWageReportCron();
   }
   // Debug endpoint for testing Anthropic API.
   // IMPORTANT: Disabled by default and must never leak secrets in production.

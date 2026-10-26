@@ -58,6 +58,11 @@ const optionalTrimmedString = z.preprocess(
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]),
   BASE_URL: z.string(),
+  MYBUILDINGS_API_TOKEN: z.string().optional(),
+  MYBUILDINGS_BASE_URL: z.string().default("https://erisproperty.mybuildings.com"),
+  MYBUILDINGS_WEBHOOK_BEARER: z.string().optional(),
+  MYBUILDINGS_POLL_INTERVAL_MS: z.string().default("600000"),
+  MYBUILDINGS_ENABLED: z.string().default("1"),
   BASE_URL_OTHER_PORT: z.string().optional(),
   // Prisma reads DATABASE_URL directly; validate it early to avoid intermittent boot/login failures.
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),

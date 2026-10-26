@@ -18,6 +18,11 @@ export const sendSignatureRequest = baseProcedure
       recipientEmail: z.string().optional(),
       recipientName: z.string().min(1),
       method: z.enum(["email", "whatsapp", "link"]),
+      // Optional PDF attachment for method=email (base64 encoded).
+      // Used to attach a combined "Quote + Job Card" document alongside the
+      // signing link so the customer can review before signing.
+      attachmentBase64: z.string().optional(),
+      attachmentFileName: z.string().optional(),
     })
   )
   .mutation(async ({ input }) => {
@@ -127,6 +132,16 @@ export const sendSignatureRequest = baseProcedure
         to: input.recipientEmail!,
         subject: `Job Card Signature Required - Order ${orderNumber}`,
         html,
+        attachments:
+          input.attachmentBase64 && input.attachmentFileName
+            ? [
+                {
+                  filename: input.attachmentFileName,
+                  content: Buffer.from(input.attachmentBase64, "base64"),
+                  contentType: "application/pdf",
+                },
+              ]
+            : undefined,
       });
 
       return {

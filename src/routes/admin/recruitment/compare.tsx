@@ -18,16 +18,6 @@ function parseIds(raw: string): number[] {
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
-// aiStrengths / aiRedFlags are stored as a single string (semicolon / newline
-// separated). Split into bullet items for display.
-function splitLines(v: unknown): string[] {
-  if (!v || typeof v !== "string") return [];
-  return v
-    .split(/\r?\n|\u2022|•|;|\|/)
-    .map((s) => s.trim().replace(/^[-*]\s*/, ""))
-    .filter((s) => s.length > 0);
-}
-
 function CompareCandidatesPage() {
   const { ids: raw } = Route.useSearch();
   const { token, user } = useAuthStore();
@@ -199,13 +189,11 @@ function CompareCandidatesPage() {
                   {data.map((a) => <Cell key={a.id}>{a.aiSummary ?? "—"}</Cell>)}
                 </Row>
                 <Row label="Strengths">
-                  {data.map((a) => {
-                    const items = splitLines(a.aiStrengths);
-                    return (
+                  {data.map((a) => (
                     <Cell key={a.id}>
-                      {items.length > 0 ? (
+                      {a.aiStrengths && a.aiStrengths.length > 0 ? (
                         <ul className="list-disc list-inside space-y-0.5 text-xs">
-                          {items.map((s: string, i: number) => (
+                          {a.aiStrengths.map((s: string, i: number) => (
                             <li key={i} className="text-emerald-700">
                               <Sparkles className="w-3 h-3 inline mr-0.5" />
                               {s}
@@ -216,17 +204,14 @@ function CompareCandidatesPage() {
                         "—"
                       )}
                     </Cell>
-                    );
-                  })}
+                  ))}
                 </Row>
                 <Row label="Red flags">
-                  {data.map((a) => {
-                    const items = splitLines(a.aiRedFlags);
-                    return (
+                  {data.map((a) => (
                     <Cell key={a.id}>
-                      {items.length > 0 ? (
+                      {a.aiRedFlags && a.aiRedFlags.length > 0 ? (
                         <ul className="list-disc list-inside space-y-0.5 text-xs">
-                          {items.map((s: string, i: number) => (
+                          {a.aiRedFlags.map((s: string, i: number) => (
                             <li key={i} className="text-red-700">
                               <AlertTriangle className="w-3 h-3 inline mr-0.5" />
                               {s}
@@ -237,8 +222,7 @@ function CompareCandidatesPage() {
                         "—"
                       )}
                     </Cell>
-                    );
-                  })}
+                  ))}
                 </Row>
                 <Row label="Interviews / Attachments">
                   {data.map((a) => (

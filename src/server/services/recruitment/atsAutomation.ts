@@ -29,7 +29,7 @@ import { sendCandidateEmail, logSystemMessage } from "./messaging";
 // is retired for new users. Override via env.RECRUITMENT_GEMINI_MODEL.
 const model = google(process.env.RECRUITMENT_GEMINI_MODEL || "gemini-flash-latest");
 
-const APP_URL = process.env.APP_URL ?? "";
+const APP_URL = process.env.APP_URL || process.env.PUBLIC_URL || process.env.APP_BASE_URL || "https://square15management.co.za";
 
 // Tunable via env
 const AI_MATCH_AUTO_REJECT_BELOW = parseInt(
@@ -479,6 +479,7 @@ async function sendSlaNudges() {
           "TECHNICAL_MANAGER",
         ],
       },
+      isActive: true,
     },
     select: { id: true, email: true, firstName: true, role: true },
     take: 50,

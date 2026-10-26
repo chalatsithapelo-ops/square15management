@@ -21,6 +21,8 @@ export function detectCSVBank(headers: string): string | null {
   if (h.includes("absa")) return "ABSA";
   if (h.includes("standard bank")) return "STANDARD_BANK";
   if (h.includes("nedbank")) return "NEDBANK";
+  // Nedbank Business Online preamble uses "Statement Enquiry" + "Account Number/Description"
+  if (h.includes("statement enquiry") && h.includes("account")) return "NEDBANK";
   if (h.includes("capitec")) return "CAPITEC";
   if (h.includes("investec")) return "INVESTEC";
 
@@ -122,8 +124,76 @@ export function parseStandardBankCSV(text: string): CSVParseResult {
 }
 
 // ─── Nedbank CSV Parser ──────────────────────────────────────────────────────
+// Nedbank Business Online exports have NO column headers — just a metadata
+// preamble ("Statement Enquiry", "Account Number", "Account Description",
+// "Statement Number") followed by rows of:
+//   Col 0 = date (e.g. "2-Jan-26")
+//   Col 1 = description
+//   Col 2 = amount (signed — negative = debit)
+//   Col 3 = running balance (optional / signed)
+// We locate the first row where col 0 parses as a date AND col 2 parses as
+// a number, then treat everything from there as data.
 export function parseNedbankCSV(text: string): CSVParseResult {
-  return parseGenericCSV(text, "NEDBANK");
+  const rows = parseCSVRows(text);
+  const transactions: ParsedTransaction[] = [];
+  const errors: string[] = [];
+  let dataStarted = false;
+
+  for (const row of rows) {
+    if (!dataStarted) {
+      // Skip until we find a row that looks like: [date, description, amount, ...]
+      if (row.length < 3) continue;
+      const dateOK = tryParseDate(row[0]);
+      const amtRaw = (row[2] ?? "").replace(/[,\s]/g, "");
+      const amtOK = amtRaw.length > 0 && !isNaN(parseFloat(amtRaw));
+      if (!dateOK || !amtOK) continue;
+      dataStarted = true;
+      // fall through to parse this same row
+    }
+
+    // Stop on empty / short rows once data has started (end-of-data marker)
+    if (row.length < 3) continue;
+    const dateStr = row[0];
+    const dateVal = tryParseDate(dateStr);
+    if (!dateVal) continue;
+    const rawAmt = (row[2] ?? "").replace(/[,\s]/g, "");
+    if (rawAmt.length === 0) continue;
+    const amt = parseFloat(rawAmt);
+    if (isNaN(amt) || amt === 0) continue;
+    const balance = row.length > 3 ? parseFloat((row[3] ?? "").replace(/[,\s]/g, "")) : NaN;
+
+    transactions.push({
+      amount: Math.abs(amt),
+      transactionType: amt < 0 ? "DEBIT" : "CREDIT",
+      description: (row[1] ?? "").trim() || "(no description)",
+      reference: undefined,
+      balance: !isNaN(balance) ? balance : undefined,
+      date: dateVal,
+    });
+  }
+
+  const dates = transactions.map((t) => t.date.getTime()).filter((t) => !isNaN(t));
+
+  return {
+    transactions,
+    bank: "NEDBANK",
+    periodStart: dates.length > 0 ? new Date(Math.min(...dates)) : undefined,
+    periodEnd: dates.length > 0 ? new Date(Math.max(...dates)) : undefined,
+    errors,
+  };
+}
+
+// Non-throwing wrapper around parseFlexibleDate — used by parseNedbankCSV to
+// probe rows without exceptions on non-date cells.
+function tryParseDate(s: string | undefined): Date | null {
+  if (!s) return null;
+  try {
+    const d = parseFlexibleDate(s);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Capitec CSV Parser ──────────────────────────────────────────────────────
@@ -257,6 +327,22 @@ function parseFlexibleDate(str: string): Date {
     };
     const m = months[longDate[2]!.toLowerCase().substring(0, 3)];
     if (m !== undefined) return new Date(+longDate[3]!, m, +longDate[1]!);
+  }
+
+  // 2-Jan-26 / 02-Jan-2026 (Nedbank Business Online export)
+  const dmmmY = s.match(/^(\d{1,2})[\-\/](\w{3,})[\-\/](\d{2,4})$/);
+  if (dmmmY) {
+    const months: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    };
+    const mo = months[dmmmY[2]!.toLowerCase().substring(0, 3)];
+    if (mo !== undefined) {
+      const day = +dmmmY[1]!;
+      let year = +dmmmY[3]!;
+      if (year < 100) year += 2000; // "26" → 2026
+      return new Date(year, mo, day);
+    }
   }
 
   // Fallback

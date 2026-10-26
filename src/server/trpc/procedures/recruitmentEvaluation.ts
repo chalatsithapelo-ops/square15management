@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 ﻿/**
  * Recruitment 2.0 â€” Scorecards, Interviews, Background, Reference checks.
  */
@@ -365,20 +366,48 @@ export const requestBackgroundCheck = baseProcedure
       token: z.string(),
       applicationId: z.number(),
       checkTypes: z.array(z.string()).min(1),
+      notifyCandidate: z.boolean().default(true),
     }),
   )
   .mutation(async ({ input }) => {
     const user = await authenticateUser(input.token);
     assertRecruiter(user);
-    return db.backgroundCheck.create({
+    const uploadToken = crypto.randomUUID().replace(/-/g, "");
+    const bg = await db.backgroundCheck.create({
       data: {
         applicationId: input.applicationId,
         requestedById: user.id,
         checkTypes: input.checkTypes,
         status: "PENDING",
         provider: "INTERNAL",
+        candidateUploadToken: uploadToken,
       },
     });
+    if (input.notifyCandidate) {
+      const app = await db.application.findUnique({ where: { id: input.applicationId } });
+      if (app?.email) {
+        const uploadUrl = `${process.env.APP_URL ?? ""}/background/${uploadToken}`;
+        const list = input.checkTypes.map((t) => `• ${t}`).join("<br/>");
+        void sendCandidateEmail({
+          applicationId: input.applicationId,
+          to: app.email,
+          subject: "Please upload your background-check documents",
+          templateKey: "BACKGROUND_CHECK_REQUEST",
+          sentById: user.id,
+          html: `<p>Hi ${app.firstName},</p>
+                 <p>To finalise your application, please upload the following documents:</p>
+                 <p>${list}</p>
+                 <p><a href="${uploadUrl}">Upload here</a> — the link is private to you.</p>
+                 <p>Accepted: PDF, JPG, PNG (up to 5MB per file).</p>`,
+          companionMessage: `Please upload background-check documents (${input.checkTypes.join(", ")}): ${uploadUrl}`,
+        });
+        await db.backgroundCheck.update({
+          where: { id: bg.id },
+          data: { candidateNotifiedAt: new Date() },
+        });
+      }
+    }
+    return bg;
   });
 
 export const updateBackgroundCheck = baseProcedure
@@ -515,5 +544,205 @@ Output: {"summary": "...", "rating": <1-5>}`,
         aiSummary,
         rating,
       },
+    });
+  });
+
+
+// â”€â”€â”€ Candidate-side: fetch checks by upload token â”€â”€â”€
+export const getBackgroundCheckByToken = baseProcedure
+  .input(z.object({ uploadToken: z.string() }))
+  .query(async ({ input }) => {
+    const bg = await db.backgroundCheck.findUnique({
+      where: { candidateUploadToken: input.uploadToken },
+      include: {
+        application: { select: { firstName: true, lastName: true, email: true } },
+        documents: { orderBy: { createdAt: "desc" } },
+      },
+    });
+    if (!bg) throw new TRPCError({ code: "NOT_FOUND" });
+    return bg;
+  });
+
+// â”€â”€â”€ Candidate-side: upload a document â”€â”€â”€
+export const uploadBackgroundCheckDocument = baseProcedure
+  .input(
+    z.object({
+      uploadToken: z.string(),
+      checkType: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      fileBase64: z.string().min(20),
+    }),
+  )
+  .mutation(async ({ input }) => {
+    const bg = await db.backgroundCheck.findUnique({
+      where: { candidateUploadToken: input.uploadToken },
+      include: { application: { select: { email: true } } },
+    });
+    if (!bg) throw new TRPCError({ code: "NOT_FOUND" });
+    if (bg.status === "COMPLETED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "This check is already completed" });
+    }
+    const buf = Buffer.from(input.fileBase64, "base64");
+    if (buf.length > 5 * 1024 * 1024) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "File exceeds 5MB limit" });
+    }
+    const doc = await db.backgroundCheckDocument.create({
+      data: {
+        backgroundCheckId: bg.id,
+        checkType: input.checkType,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+        fileData: buf,
+        uploadedByEmail: bg.application?.email ?? null,
+      },
+    });
+    // Move status to IN_PROGRESS on first upload
+    if (bg.status === "PENDING") {
+      await db.backgroundCheck.update({
+        where: { id: bg.id },
+        data: { status: "IN_PROGRESS" },
+      });
+    }
+    return { id: doc.id, checkType: doc.checkType, fileName: doc.fileName };
+  });
+
+// â”€â”€â”€ Admin-side: fetch document binary for download â”€â”€â”€
+export const getBackgroundCheckDocument = baseProcedure
+  .input(z.object({ token: z.string(), documentId: z.number() }))
+  .query(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const doc = await db.backgroundCheckDocument.findUnique({
+      where: { id: input.documentId },
+    });
+    if (!doc) throw new TRPCError({ code: "NOT_FOUND" });
+    return {
+      id: doc.id,
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      fileBase64: Buffer.from(doc.fileData).toString("base64"),
+    };
+  });
+
+// â”€â”€â”€ Admin-side: approve/reject a document â”€â”€â”€
+export const decideBackgroundCheckDocument = baseProcedure
+  .input(
+    z.object({
+      token: z.string(),
+      documentId: z.number(),
+      decision: z.enum(["APPROVED", "REJECTED"]),
+      notes: z.string().optional(),
+    }),
+  )
+  .mutation(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const doc = await db.backgroundCheckDocument.update({
+      where: { id: input.documentId },
+      data: {
+        decision: input.decision,
+        decidedAt: new Date(),
+        decidedById: user.id,
+        decisionNotes: input.notes ?? null,
+      },
+    });
+    // If all requested check types have at least one APPROVED document, mark check COMPLETED
+    const bg = await db.backgroundCheck.findUnique({
+      where: { id: doc.backgroundCheckId },
+      include: { documents: { where: { decision: "APPROVED" } } },
+    });
+    if (bg) {
+      const approvedTypes = new Set(bg.documents.map((d) => d.checkType));
+      const allCovered = bg.checkTypes.every((t) => approvedTypes.has(t));
+      if (allCovered && bg.status !== "COMPLETED") {
+        await db.backgroundCheck.update({
+          where: { id: bg.id },
+          data: { status: "COMPLETED", result: "CLEAR", completedAt: new Date() },
+        });
+      }
+    }
+    return { success: true };
+  });
+
+export const assignBackgroundCheckAssessor = baseProcedure
+  .input(z.object({ token: z.string(), backgroundCheckId: z.number(), assessorUserId: z.number().nullable() }))
+  .mutation(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const bg = await db.backgroundCheck.update({
+      where: { id: input.backgroundCheckId },
+      data: { assignedAssessorId: input.assessorUserId },
+      include: { application: { select: { firstName: true, lastName: true, id: true } } },
+    });
+    if (input.assessorUserId) {
+      const assessor = await db.user.findUnique({ where: { id: input.assessorUserId } });
+      if (assessor?.email) {
+        const url = `${process.env.APP_URL ?? ""}/admin/recruitment/applications/${bg.applicationId}`;
+        sendEmail({
+          to: assessor.email,
+          subject: `Background check assigned: ${bg.application.firstName} ${bg.application.lastName}`,
+          html: `<p>Hi ${assessor.firstName},</p>
+                 <p>A background check has been assigned to you for review.</p>
+                 <p>Candidate: <b>${bg.application.firstName} ${bg.application.lastName}</b></p>
+                 <p>Check types: ${bg.checkTypes.join(", ")}</p>
+                 <p><a href="${url}">Open application →</a></p>`,
+        }).catch(() => {});
+        await db.backgroundCheck.update({
+          where: { id: bg.id },
+          data: { assessorNotifiedAt: new Date() },
+        });
+      }
+    }
+    return bg;
+  });
+
+export const adminUploadBackgroundCheckDocument = baseProcedure
+  .input(
+    z.object({
+      token: z.string(),
+      backgroundCheckId: z.number(),
+      checkType: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      fileBase64: z.string().min(20),
+    }),
+  )
+  .mutation(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    assertRecruiter(user);
+    const bg = await db.backgroundCheck.findUnique({ where: { id: input.backgroundCheckId } });
+    if (!bg) throw new TRPCError({ code: "NOT_FOUND" });
+    const buf = Buffer.from(input.fileBase64, "base64");
+    if (buf.length > 10 * 1024 * 1024) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "File exceeds 10MB limit" });
+    }
+    const doc = await db.backgroundCheckDocument.create({
+      data: {
+        backgroundCheckId: bg.id,
+        checkType: input.checkType,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+        fileData: buf,
+        uploadedByEmail: user.email,
+      },
+    });
+    if (bg.status === "PENDING") {
+      await db.backgroundCheck.update({ where: { id: bg.id }, data: { status: "IN_PROGRESS" } });
+    }
+    return { id: doc.id };
+  });
+
+export const listMyAssignedBackgroundChecks = baseProcedure
+  .input(z.object({ token: z.string() }))
+  .query(async ({ input }) => {
+    const user = await authenticateUser(input.token);
+    return db.backgroundCheck.findMany({
+      where: { assignedAssessorId: user.id, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      include: {
+        application: { select: { id: true, firstName: true, lastName: true, email: true, job: { select: { title: true } } } },
+        documents: { orderBy: { createdAt: "desc" } },
+      },
+      orderBy: { createdAt: "desc" },
     });
   });

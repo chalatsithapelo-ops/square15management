@@ -145,6 +145,7 @@ function QuotationsPage() {
   const [showRFQReportModal, setShowRFQReportModal] = useState(false);
   const [selectedRFQReportQuotation, setSelectedRFQReportQuotation] = useState<any | null>(null);
   const [downloadingRFQReportPdfId, setDownloadingRFQReportPdfId] = useState<number | null>(null);
+  const [downloadingMergedQuoteId, setDownloadingMergedQuoteId] = useState<number | null>(null);
   const [generatingLineItems, setGeneratingLineItems] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingQuotationId, setDeletingQuotationId] = useState<number | null>(null);
@@ -288,6 +289,104 @@ function QuotationsPage() {
       },
     })
   );
+
+  // Raw mutations used when merging Quote + Job Card into a single PDF (no download side-effects).
+  const generateQuotationPdfRawMutation = useMutation(trpc.generateQuotationPdf.mutationOptions());
+  const generateJobCardPdfRawMutation = useMutation(trpc.generateJobCardPdf.mutationOptions());
+
+  const base64ToUint8ArrayLocal = (base64: string) => {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  };
+
+  const downloadPdfBytesLocal = (bytes: Uint8Array, filename: string) => {
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadMergedPdfForQuotation = async (quotation: any) => {
+    if (!quotation?.generatedOrder?.id) {
+      toast.error("This quotation is not linked to a job card yet.");
+      return;
+    }
+
+    setDownloadingMergedQuoteId(quotation.id);
+    const toastId = toast.loading("Preparing combined PDF...");
+    try {
+      const [{ PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream }] = await Promise.all([import("pdf-lib")]);
+
+      const [quotePdf, jobCardPdf] = await Promise.all([
+        generateQuotationPdfRawMutation.mutateAsync({ token: token!, quotationId: quotation.id }),
+        generateJobCardPdfRawMutation.mutateAsync({ token: token!, orderId: quotation.generatedOrder.id, isPMOrder: false }),
+      ]);
+
+      const merged = await PDFDocument.create();
+
+      const isProbablyBlankPage = (page: any): boolean => {
+        try {
+          const contents = page.node?.Contents?.();
+          if (!contents) return true;
+          const ctx = page.node?.context;
+          const lengthOfStream = (stream: any): number => {
+            if (!stream) return 0;
+            try {
+              if (stream instanceof PDFRawStream) return (decodePDFRawStream(stream) as any).length;
+            } catch {
+              // ignore
+            }
+            const raw = (stream as any).contents;
+            return raw && typeof raw.length === "number" ? raw.length : 0;
+          };
+          if (contents instanceof PDFArray) {
+            let total = 0;
+            for (let i = 0; i < contents.size(); i++) {
+              const item = contents.get(i);
+              const stream = ctx?.lookup ? ctx.lookup(item) : item;
+              total += lengthOfStream(stream);
+            }
+            return total < 20;
+          }
+          const stream = ctx?.lookup ? ctx.lookup(contents) : contents;
+          return lengthOfStream(stream) < 20;
+        } catch {
+          return false;
+        }
+      };
+
+      const appendPdfBytes = async (pdfBytes: Uint8Array) => {
+        const src = await PDFDocument.load(pdfBytes);
+        const pages = src.getPages();
+        const keepIndices = pages
+          .map((p: any, idx: number) => ({ idx, keep: !isProbablyBlankPage(p) }))
+          .filter((p: any) => p.keep)
+          .map((p: any) => p.idx);
+        const indices = keepIndices.length > 0 ? keepIndices : src.getPageIndices();
+        const copied = await merged.copyPages(src, indices);
+        copied.forEach((p) => merged.addPage(p));
+      };
+
+      // Quote first, then Job Card (signed if signatures have been captured on the order)
+      await appendPdfBytes(base64ToUint8ArrayLocal((quotePdf as any).pdf));
+      await appendPdfBytes(base64ToUint8ArrayLocal((jobCardPdf as any).pdf));
+
+      const bytes = await merged.save();
+      downloadPdfBytesLocal(bytes, `quotation-jobcard-${quotation.quoteNumber || quotation.id}.pdf`);
+      toast.success("Combined PDF downloaded!", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate combined PDF", { id: toastId });
+    } finally {
+      setDownloadingMergedQuoteId(null);
+    }
+  };
 
   const generatePmRfqPdfMutation = useMutation(
     trpc.generatePropertyManagerRFQPdf.mutationOptions({
@@ -758,7 +857,7 @@ function QuotationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Name *
+                    Building Name *
                   </label>
                   <input
                     type="text"
@@ -1422,6 +1521,26 @@ function QuotationsPage() {
                           <>
                             <Download className="h-4 w-4 mr-1" />
                             Export PDF
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {quotation.generatedOrder && (
+                      <button
+                        onClick={() => handleDownloadMergedPdfForQuotation(quotation)}
+                        disabled={downloadingMergedQuoteId === quotation.id}
+                        className="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center"
+                        title="Download quotation and job card merged into a single PDF"
+                      >
+                        {downloadingMergedQuoteId === quotation.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Preparing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-1" />
+                            Quote + Job Card
                           </>
                         )}
                       </button>

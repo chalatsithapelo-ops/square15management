@@ -28,6 +28,36 @@ export const createPaymentRequest = baseProcedure
       const count = await db.paymentRequest.count();
       const requestNumber = `PAY-${String(count + 1).padStart(5, "0")}`;
 
+      // Cross-check: if this artisan is on the crew of the referenced orders,
+      // prefer the OrderCrew rate snapshot (captured at join time) as the
+      // authoritative rate. If the submitted rate differs, note it.
+      let hourlyRate = input.hourlyRate;
+      let dailyRate = input.dailyRate;
+      let rateMismatchNote = "";
+      if (input.orderIds && input.orderIds.length > 0) {
+        const crewSnapshots = await db.orderCrew.findMany({
+          where: {
+            userId: input.artisanId,
+            orderId: { in: input.orderIds },
+          },
+          select: { orderId: true, role: true, hourlyRate: true, dailyRate: true },
+        });
+        if (crewSnapshots.length > 0) {
+          // Use the first non-null snapshot for a rate slot the caller didn't supply
+          const snapHourly = crewSnapshots.find((c) => c.hourlyRate != null)?.hourlyRate ?? null;
+          const snapDaily = crewSnapshots.find((c) => c.dailyRate != null)?.dailyRate ?? null;
+          if (hourlyRate == null && snapHourly != null) hourlyRate = snapHourly;
+          if (dailyRate == null && snapDaily != null) dailyRate = snapDaily;
+          // Flag mismatches so admins can audit later
+          if (input.hourlyRate != null && snapHourly != null && Math.abs(input.hourlyRate - snapHourly) > 0.01) {
+            rateMismatchNote += ` [Hourly rate mismatch: submitted R${input.hourlyRate}/hr vs crew snapshot R${snapHourly}/hr]`;
+          }
+          if (input.dailyRate != null && snapDaily != null && Math.abs(input.dailyRate - snapDaily) > 0.01) {
+            rateMismatchNote += ` [Daily rate mismatch: submitted R${input.dailyRate}/day vs crew snapshot R${snapDaily}/day]`;
+          }
+        }
+      }
+
       const paymentRequest = await db.paymentRequest.create({
         data: {
           requestNumber,
@@ -35,10 +65,10 @@ export const createPaymentRequest = baseProcedure
           orderIds: input.orderIds,
           hoursWorked: input.hoursWorked || null,
           daysWorked: input.daysWorked || null,
-          hourlyRate: input.hourlyRate || null,
-          dailyRate: input.dailyRate || null,
+          hourlyRate: hourlyRate || null,
+          dailyRate: dailyRate || null,
           calculatedAmount: input.calculatedAmount,
-          notes: input.notes || null,
+          notes: (input.notes || "") + rateMismatchNote || null,
           status: "PENDING",
         },
         include: {

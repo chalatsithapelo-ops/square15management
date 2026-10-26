@@ -111,7 +111,7 @@ function RecruitmentDashboard() {
   const [showOnboard, setShowOnboard] = useState(false);
   const [onboardPassword, setOnboardPassword] = useState("");
 
-  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "MANAGER"].includes(user.role)) {
+  if (!token || !user || !["ADMIN", "SENIOR_ADMIN", "JUNIOR_ADMIN", "MANAGER", "TECHNICAL_MANAGER", "HR", "RECRUITER"].includes(user.role)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-8 text-center border border-gray-200 max-w-md">
@@ -436,6 +436,8 @@ function RecruitmentDashboard() {
             legacy ArtisanApplication table only. */}
         <EmailDeliveryHealthBanner token={token!} />
         <CheckinsDueTile token={token!} />
+        <UpcomingInterviewsPanel token={token!} />
+        <AssignedBackgroundChecksPanel token={token!} />
         {(newAtsQuery.data?.length ?? 0) > 0 && (
           <a
             href="/admin/recruitment/candidates"
@@ -632,6 +634,91 @@ function RecruitmentDashboard() {
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UpcomingInterviewsPanel({ token }: { token: string }) {
+  const trpc = useTRPC();
+  const q = useQuery(trpc.getMyUpcomingInterviews.queryOptions({ token }));
+  const bookings = (q.data ?? []) as any[];
+  if (!bookings.length) return null;
+  return (
+    <div className="mb-4 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Clock className="w-4 h-4 text-blue-700" />
+          </div>
+          <div>
+            <div className="font-semibold text-blue-900">Your upcoming interviews</div>
+            <div className="text-xs text-blue-700">{bookings.length} scheduled where you’re on the panel</div>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {bookings.slice(0, 5).map((b: any) => (
+          <a
+            key={b.id}
+            href={`/admin/recruitment/applications/${b.application.id}`}
+            className="flex items-center justify-between bg-white border border-blue-200 rounded-lg p-3 text-sm hover:shadow-sm transition-all"
+          >
+            <div>
+              <div className="font-medium text-gray-900">
+                {b.application.firstName} {b.application.lastName}
+              </div>
+              <div className="text-xs text-gray-500">
+                {b.application.job?.title ?? ""} · {new Date(b.scheduledStart).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                {b.location ? ` · ${b.location}` : ""}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                Panel: {(b.panel?.members ?? []).map((m: any) => `${m.user.firstName} ${m.user.lastName}`).join(", ")}
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">{b.status}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AssignedBackgroundChecksPanel({ token }: { token: string }) {
+  const trpc = useTRPC();
+  const q = useQuery(trpc.listMyAssignedBackgroundChecks.queryOptions({ token }));
+  const checks = (q.data ?? []) as any[];
+  if (!checks.length) return null;
+  return (
+    <div className="mb-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+          <Shield className="w-4 h-4 text-amber-700" />
+        </div>
+        <div>
+          <div className="font-semibold text-amber-900">Background checks assigned to you</div>
+          <div className="text-xs text-amber-700">{checks.length} awaiting your review</div>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {checks.slice(0, 5).map((c: any) => (
+          <a
+            key={c.id}
+            href={`/admin/recruitment/applications/${c.application.id}`}
+            className="flex items-center justify-between bg-white border border-amber-200 rounded-lg p-3 text-sm hover:shadow-sm transition-all"
+          >
+            <div>
+              <div className="font-medium text-gray-900">{c.application.firstName} {c.application.lastName}</div>
+              <div className="text-xs text-gray-500">
+                {c.application.job?.title ?? ""} · {c.checkTypes.join(", ")}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                {c.documents.length} document(s) uploaded
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">{c.status}</span>
+          </a>
+        ))}
       </div>
     </div>
   );

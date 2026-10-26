@@ -63,6 +63,10 @@ export async function authenticateUser(token: string): Promise<AuthenticatedUser
         disabledNotificationTypes: true,
       },
     });
+  if (user && (user as any).deletedAt) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "This account has been removed" });
+  }
+
 
     if (!user) {
       throw new TRPCError({

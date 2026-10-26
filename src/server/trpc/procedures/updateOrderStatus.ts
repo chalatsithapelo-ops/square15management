@@ -39,6 +39,12 @@ export const updateOrderStatus = baseProcedure
       clientRepName: z.string().optional(),
       clientRepSignDate: z.string().datetime().optional(),
       clientUnavailableToSign: z.boolean().optional(),
+      // Artisan (technician) signature — both parties acknowledge job
+      // completion. Rendered alongside the client signature block on the
+      // job-card PDF. Required when transitioning to COMPLETED.
+      artisanSignatureUrl: z.string().optional(),
+      artisanSignedByName: z.string().optional(),
+      artisanSignDate: z.string().datetime().optional(),
       // Labor/job activity data for automatic job activity creation
       hoursWorked: z.number().optional(),
       daysWorked: z.number().optional(),
@@ -180,6 +186,18 @@ export const updateOrderStatus = baseProcedure
 
       if (input.clientRepSignDate) {
         updateData.clientRepSignDate = new Date(input.clientRepSignDate);
+      }
+
+      if (input.artisanSignatureUrl) {
+        updateData.artisanSignatureUrl = input.artisanSignatureUrl;
+      }
+
+      if (input.artisanSignedByName) {
+        updateData.artisanSignedByName = input.artisanSignedByName;
+      }
+
+      if (input.artisanSignDate) {
+        updateData.artisanSignDate = new Date(input.artisanSignDate);
       }
 
       // Create expense slip records if provided
